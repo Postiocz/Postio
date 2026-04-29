@@ -1,0 +1,48 @@
+{
+  "Common": {
+    "appName": "Postio",
+    "tagline": "Plánujte a publikujte na sociálních sítích jednoduše",
+    "signIn": "Přihlásit se",
+    "signUp": "Registrovat se",
+    "signOut": "Odhlásit se",
+    "save": "Uložit",
+    "cancel": "Zrušit",
+    "delete": "Smazat",
+    "edit": "Upravit",
+    "create": "Vytvořit",
+    "loading": "Načítání...",
+    "error": "Chyba",
+    "somethingWentWrong": "Něco se pokazilo",
+    "tryAgain": "Zkuste to znovu"
+  },
+  "Auth": {
+    "welcome": "Vítejte v Postio",
+    "welcomeBack": "Vítejte zpět",
+    "emailPlaceholder": "vas@email.cz",
+    "passwordPlaceholder": "Heslo",
+    "loginTitle": "Přihlášení",
+    "registerTitle": "Registrace",
+    "noAccount": "Nemáte účet?",
+    "haveAccount": "Máte účet?",
+    "continueWithGoogle": "Pokračovat s Google",
+    "forgotPassword": "Zapomněli jste heslo?"
+  },
+  "Dashboard": {
+    "title": "Dashboard",
+    "newPost": "Nový příspěvek",
+    "scheduledPosts": "Naplánované příspěvky",
+    "publishedPosts": "Publikované příspěvky",
+    "drafts": "Koncepty",
+    "analytics": "Analýzy",
+    "settings": "Nastavení",
+    "accounts": "Účty",
+    "templates": "Šablony"
+  },
+  "Navigation": {
+    "overview": "Přehled",
+    "posts": "Příspěvky",
+    "schedule": "Plán",
+    "insights": "Statistiky",
+    "profile": "Profil"
+  }
+}

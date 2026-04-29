@@ -1,0 +1,48 @@
+{
+  "Common": {
+    "appName": "Postio",
+    "tagline": "Plan and publish on social media with ease",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "somethingWentWrong": "Something went wrong",
+    "tryAgain": "Try again"
+  },
+  "Auth": {
+    "welcome": "Welcome to Postio",
+    "welcomeBack": "Welcome back",
+    "emailPlaceholder": "you@email.com",
+    "passwordPlaceholder": "Password",
+    "loginTitle": "Sign in",
+    "registerTitle": "Create account",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "continueWithGoogle": "Continue with Google",
+    "forgotPassword": "Forgot your password?"
+  },
+  "Dashboard": {
+    "title": "Dashboard",
+    "newPost": "New Post",
+    "scheduledPosts": "Scheduled Posts",
+    "publishedPosts": "Published Posts",
+    "drafts": "Drafts",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "accounts": "Accounts",
+    "templates": "Templates"
+  },
+  "Navigation": {
+    "overview": "Overview",
+    "posts": "Posts",
+    "schedule": "Schedule",
+    "insights": "Insights",
+    "profile": "Profile"
+  }
+}

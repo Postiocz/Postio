@@ -1,0 +1,48 @@
+{
+  "Common": {
+    "appName": "Postio",
+    "tagline": "Плануйте та публікуйте в соцмережах просто",
+    "signIn": "Увійти",
+    "signUp": "Реєстрація",
+    "signOut": "Вийти",
+    "save": "Зберегти",
+    "cancel": "Скасувати",
+    "delete": "Видалити",
+    "edit": "Редагувати",
+    "create": "Створити",
+    "loading": "Завантаження...",
+    "error": "Помилка",
+    "somethingWentWrong": "Щось пішло не так",
+    "tryAgain": "Спробувати знову"
+  },
+  "Auth": {
+    "welcome": "Ласкаво просимо до Postio",
+    "welcomeBack": "Ласкаво просимо назад",
+    "emailPlaceholder": "you@email.com",
+    "passwordPlaceholder": "Пароль",
+    "loginTitle": "Увійти",
+    "registerTitle": "Створити акаунт",
+    "noAccount": "Не маєте акаунту?",
+    "haveAccount": "Вже маєте акаунт?",
+    "continueWithGoogle": "Продовжити з Google",
+    "forgotPassword": "Забули пароль?"
+  },
+  "Dashboard": {
+    "title": "Панель керування",
+    "newPost": "Новий пост",
+    "scheduledPosts": "Заплановані пости",
+    "publishedPosts": "Опубліковані пости",
+    "drafts": "Чернетки",
+    "analytics": "Аналітика",
+    "settings": "Налаштування",
+    "accounts": "Акаунти",
+    "templates": "Шаблони"
+  },
+  "Navigation": {
+    "overview": "Огляд",
+    "posts": "Пости",
+    "schedule": "Розклад",
+    "insights": "Статистика",
+    "profile": "Профіль"
+  }
+}

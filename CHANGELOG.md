@@ -85,3 +85,22 @@
 - Test: `npm run build && npm run start` → otevřít `http://localhost:3000`
 
 **Poznámka:** Všechny soubory už mají try/catch kolem Supabase volání z předchozí session.
+
+### Krok 7 – Supabase propojení + oprava auth callback (DOKONČENO)
+**Hotovo:**
+- `.env.local` – vyplněné SUPABASE_URL + ANON_KEY + SERVICE_ROLE_KEY
+- `src/app/auth/callback/route.ts` – opravený OAuth callback flow
+  - Dynamické čtení locale z referer header
+  - Správné předávání cookies pro session
+  - Redirect na dashboard po úspěšném loginu
+- `.env.example` – vyčištěno (GOOGLE_CLIENT_ID/SECRET/NEXTAUTH_SECRET se nepoužívají – Supabase řeší OAuth server-side)
+- Google OAuth přihlášení funkční: Login → Supabase OAuth → Callback → Dashboard
+- Middleware auth check funkční – redirect na login bez session, cookies správně předávány
+
+**Následující kroky:**
+- [ ] Seed data – výchozí šablony pro nové uživatele
+- [ ] Social account connect API – `/api/connect/[platform]` route handlers
+- [ ] Onboarding flow – první kroky po registraci
+- [ ] Cookie consent banner – GDPR komponenta (existuje component, ale není wired)
+- [ ] Mobile responsive test dashboard layout
+- [ ] Deploy na Vercel

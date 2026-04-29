@@ -1,23 +1,50 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 
+  let redirectPath = "/cs";
+
   if (code) {
     try {
-      const supabase = await createClient();
+      // Create the redirect response first, then pass it to Supabase client
+      // so cookies are set on the actual response object
+      const localeMatch = request.headers
+        .get("referer")
+        ?.match(/\/(cs|en|uk)\//);
+      const locale = localeMatch ? localeMatch[1] : "cs";
+      redirectPath = `/${locale}`;
+
+      const redirectResponse = NextResponse.redirect(
+        `${requestUrl.origin}${redirectPath}`
+      );
+
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                redirectResponse.cookies.set(name, value, options);
+              });
+            },
+          },
+        }
+      );
+
       await supabase.auth.exchangeCodeForSession(code);
+      return redirectResponse;
     } catch {
-      // Supabase unavailable – continue to login
+      // Fall through to redirect without session
     }
   }
 
-  // Detect locale from the referrer or default to "cs"
-  const referer = request.headers.get("referer") ?? "";
-  const localeMatch = referer.match(/\/(cs|en|uk)\//);
-  const locale = localeMatch ? localeMatch[1] : "cs";
-
-  return NextResponse.redirect(`${requestUrl.origin}/${locale}/dashboard`);
+  return NextResponse.redirect(`${requestUrl.origin}${redirectPath}`);
 }

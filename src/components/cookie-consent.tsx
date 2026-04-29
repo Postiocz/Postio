@@ -9,7 +9,6 @@ import { type Database } from "@/lib/supabase/types";
 type CookieConsentRow = Database["public"]["Tables"]["cookie_consents"]["Insert"];
 
 export function CookieConsent() {
-  const t = useTranslations("common");
   const cookie = useTranslations("cookie");
   const [show, setShow] = useState(false);
   const [analytics, setAnalytics] = useState(false);

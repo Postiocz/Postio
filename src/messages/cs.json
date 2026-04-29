@@ -107,7 +107,12 @@
     "connected": "Propojené",
     "disconnected": "Odpojené",
     "noAccounts": "Žádné propojené účty",
-    "noAccountsSubtitle": "Propojte svůj první účet na sociální síti"
+    "noAccountsSubtitle": "Propojte svůj první účet na sociální síti",
+    "accessToken": "Access Token",
+    "accessTokenPlaceholder": "Zadejte access token z platformy",
+    "connecting": "Propojuji...",
+    "errorConnecting": "Chyba při propojování účtu",
+    "cancel": "Zrušit"
   },
   "templates": {
     "title": "Šablony",

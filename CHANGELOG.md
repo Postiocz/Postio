@@ -97,10 +97,23 @@
 - Google OAuth přihlášení funkční: Login → Supabase OAuth → Callback → Dashboard
 - Middleware auth check funkční – redirect na login bez session, cookies správně předávány
 
+### Krok 8 – Social account connect API + Seed data + Cookie consent fix (DOKONČENO)
+**Hotovo:**
+- `src/app/api/accounts/route.ts` – POST endpoint pro uložení social account
+  - Auth check (session required), validace platformy, insert do DB
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – přepracováno na "use client"
+  - Klik na platformu otevře formulář (account name + access token)
+  - POST na `/api/accounts` → refresh seznam účtů
+  - Disconnect tlačítko (is_active = false)
+- `supabase/migrations/003_seed_templates.sql` – výchozí šablony pro nové uživatele
+  - Rozšířený trigger `handle_new_user()` – 6 šablon + cookie consent záznam
+  - UNIQUE index na `cookie_consents.user_id` pro upsert
+- `src/components/cookie-consent.tsx` – oprava (odstraněn nepoužitý import `useTranslations("common")`)
+- Překlady cs/en/uk – přidány klíče: `accessToken`, `accessTokenPlaceholder`, `connecting`, `errorConnecting`, `cancel`
+
+**Poznámka:** Migrace `003_seed_templates.sql` – nahraj ručně přes Supabase Dashboard → SQL Editor (Supabase CLI není nainstalovaná)
+
 **Následující kroky:**
-- [ ] Seed data – výchozí šablony pro nové uživatele
-- [ ] Social account connect API – `/api/connect/[platform]` route handlers
 - [ ] Onboarding flow – první kroky po registraci
-- [ ] Cookie consent banner – GDPR komponenta (existuje component, ale není wired)
 - [ ] Mobile responsive test dashboard layout
 - [ ] Deploy na Vercel

@@ -107,7 +107,12 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "noAccounts": "No connected accounts",
-    "noAccountsSubtitle": "Connect your first social media account"
+    "noAccountsSubtitle": "Connect your first social media account",
+    "accessToken": "Access Token",
+    "accessTokenPlaceholder": "Enter your access token from the platform",
+    "connecting": "Connecting...",
+    "errorConnecting": "Error connecting account",
+    "cancel": "Cancel"
   },
   "templates": {
     "title": "Templates",

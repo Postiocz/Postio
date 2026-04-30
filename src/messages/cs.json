@@ -17,7 +17,8 @@
     "search": "Hledat",
     "filter": "Filtrovat",
     "all": "Vše",
-    "none": "Žádné"
+    "none": "Žádné",
+    "free": "Zdarma"
   },
   "auth": {
     "login": "Přihlášení",
@@ -56,7 +57,24 @@
     "quickActions": "Rychlé akce",
     "newPost": "Nový příspěvek",
     "connectAccount": "Propojit účet",
-    "browseTemplates": "Prohlédnout šablony"
+    "browseTemplates": "Prohlédnout šablony",
+    "proCtaTitle": "Upgrade na Pro",
+    "proCtaSubtitle": "Odemkněte neomezené příspěvky, analytiku a prémiové šablony.",
+    "proCtaButton": "Získat Pro",
+    "upgradeTitle": "Vylepšete svůj plán",
+    "upgradeSubtitle": "Srovnejte plány a odemkněte další funkce",
+    "currentPlan": "Aktuální plán",
+    "socialAccounts": "Sociální účty",
+    "postsPerMonth": "Příspěvky/měsíc",
+    "templates": "Šablony",
+    "analytics": "Analytika",
+    "prioritySupport": "Prioritní podpora",
+    "unlimited": "Neomezeně",
+    "basic": "Základní",
+    "advanced": "Pokročilá",
+    "upgrade": "Upgrade",
+    "downgrade": "Downgrade",
+    "perMonth": "/měsíc"
   },
   "posts": {
     "title": "Příspěvky",
@@ -118,9 +136,13 @@
     "title": "Šablony",
     "newTemplate": "Nová šablona",
     "name": "Název",
+    "namePlaceholder": "Např. Product Launch",
+    "content": "Obsah",
+    "contentPlaceholder": "Zadejte text šablony…",
     "useTemplate": "Použít",
     "noTemplates": "Žádné šablony",
-    "noTemplatesSubtitle": "Vytvořte šablonu pro opakované použití"
+    "noTemplatesSubtitle": "Vytvořte šablonu pro opakované použití",
+    "errorSaving": "Chyba při ukládání"
   },
   "analytics": {
     "title": "Analytika",
@@ -142,7 +164,12 @@
     "dark": "Tmavý",
     "system": "Podle systému",
     "fullName": "Jméno a příjmení",
-    "upgrade": "Upgrade plánu"
+    "upgrade": "Upgrade plánu",
+    "saved": "Uloženo!",
+    "currentPlan": "Aktuální plán",
+    "dangerZone": "Nebezpečná zóna",
+    "dangerZoneDesc": "Odstranění účtu je nevratná akce. Všechna vaše data budou trvale smazána.",
+    "deleteAccount": "Smazat účet"
   },
   "cookie": {
     "usesCookies": "Používáme cookies pro zlepšení zkušenosti",
@@ -160,6 +187,22 @@
     "step2": "Nastavte profil",
     "step2Subtitle": "Řekněte nám něco o sobě",
     "step3": "Hotovo!",
-    "step3Subtitle": "Jste připraveni začít publikovat"
+    "step3Subtitle": "Jste připraveni začít publikovat",
+    "step3Message": "Váš profil je nastaven. Teď můžete plánovat příspěvky, propojovat účty a růst na sociálních sítích.",
+    "startPublishing": "Začít publikovat",
+    "connectAccount": "Propojit účet",
+    "connectAccountDone": "Účet propojen!",
+    "skipForNow": "Přeskočit zatím",
+    "fullName": "Jak se jmenujete?",
+    "fullNamePlaceholder": "Jan Novák",
+    "selectNiche": "Co vás zajímá?",
+    "nicheTech": "Technologie",
+    "nicheLifestyle": "Lifestyle",
+    "nicheBusiness": "Byznys",
+    "nicheEducation": "Vzdělávání",
+    "nicheOther": "Jiné",
+    "selectInterests": "Vyberte oblasti (volitelné)",
+    "settingUpProfile": "Ukládám profil…",
+    "connecting": "Propojuji…"
   }
 }

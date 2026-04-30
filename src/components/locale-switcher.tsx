@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,17 +18,16 @@ const locales = [
 
 export function LocaleSwitcher() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
 
   const currentLocale = pathname.split("/")[1];
 
   const handleChange = (newLocale: string) => {
-    const path = pathname.replace(
-      `/${currentLocale}`,
-      `/${newLocale}`
-    );
-    router.push(path + searchParams.toString());
+    // Hard navigation required: next-intl loads messages server-side via getMessages().
+    // Client-side router.push() won't trigger a re-render with new locale messages.
+    const path = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
+    const query = searchParams.toString();
+    window.location.href = query ? `${path}?${query}` : path;
   };
 
   const currentLabel = locales.find((l) => l.code === currentLocale)?.label || currentLocale;

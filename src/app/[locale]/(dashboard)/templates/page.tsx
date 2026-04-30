@@ -11,9 +11,8 @@ export default async function TemplatesPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const t = await getTranslations("templates");
-  const commonT = await getTranslations("common");
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "templates" });
   const supabase = await createClient();
 
   const { data: templates } = await supabase
@@ -21,23 +20,21 @@ export default async function TemplatesPage({
     .select("*")
     .order("created_at", { ascending: false });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
           <p className="mt-1 text-muted-foreground">
             {templates?.length ?? 0} {t("title").toLowerCase()}
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          {t("newTemplate")}
-        </Button>
+        <Link href={`/${locale}/templates/new`} className="sm:w-auto">
+          <Button className="w-full gap-2 sm:w-auto">
+            <Plus className="h-4 w-4" />
+            {t("newTemplate")}
+          </Button>
+        </Link>
       </div>
 
       {templates?.length === 0 ? (
@@ -88,4 +85,3 @@ export default async function TemplatesPage({
     </div>
   );
 }
-

@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from("social_accounts")
       .insert({
-        user_id: session.user.id,
+        user_id: user.id,
         platform,
         account_name: accountName,
         access_token: accessToken,

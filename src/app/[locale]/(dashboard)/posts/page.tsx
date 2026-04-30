@@ -21,8 +21,8 @@ export default async function PostsPage({
   params: Promise<{ locale: string }>;
   searchParams?: Promise<{ status?: string }>;
 }) {
-  const t = await getTranslations("posts");
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "posts" });
   const sp = await searchParams;
   const supabase = await createClient();
 
@@ -33,11 +33,9 @@ export default async function PostsPage({
   }
   const { data: posts, error: postsError } = await query;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (postsError || !session) {
+  if (postsError || authError || !user) {
     return <div>{t("errorDeleting")}</div>;
   }
 
@@ -52,13 +50,13 @@ export default async function PostsPage({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
           <p className="mt-1 text-muted-foreground">{posts?.length ?? 0} {t("title").toLowerCase()}</p>
         </div>
-        <Link href={`/${locale}/posts/new`}>
-          <Button className="gap-2">
+        <Link href={`/${locale}/posts/new`} className="sm:w-auto">
+          <Button className="w-full gap-2 sm:w-auto">
             <Plus className="h-4 w-4" />
             {t("newPost")}
           </Button>
@@ -66,7 +64,7 @@ export default async function PostsPage({
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {filters.map((filter) => (
           <Link key={filter.value} href={`/${locale}/posts${filter.value ? `?status=${filter.value}` : ""}`}>
             <Button

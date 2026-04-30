@@ -17,7 +17,8 @@
     "search": "Пошук",
     "filter": "Фільтр",
     "all": "Усе",
-    "none": "Немає"
+    "none": "Немає",
+    "free": "Безкоштовно"
   },
   "auth": {
     "login": "Увійти",
@@ -56,7 +57,24 @@
     "quickActions": "Швидкі дії",
     "newPost": "Нова публікація",
     "connectAccount": "Підключити акаунт",
-    "browseTemplates": "Переглянути шаблони"
+    "browseTemplates": "Переглянути шаблони",
+    "proCtaTitle": "Оновіть до Pro",
+    "proCtaSubtitle": "Відкрийте необмежені публікації, аналітику та преміум-шаблони.",
+    "proCtaButton": "Отримати Pro",
+    "upgradeTitle": "Оновіть свій план",
+    "upgradeSubtitle": "Порівняйте плани та розблокуйте більше функцій",
+    "currentPlan": "Поточний план",
+    "socialAccounts": "Соціальні акаунти",
+    "postsPerMonth": "Публікацій/місяць",
+    "templates": "Шаблони",
+    "analytics": "Аналітика",
+    "prioritySupport": "Пріоритетна підтримка",
+    "unlimited": "Необмежено",
+    "basic": "Базовий",
+    "advanced": "Розширений",
+    "upgrade": "Оновити",
+    "downgrade": "Знизити",
+    "perMonth": "/місяць"
   },
   "posts": {
     "title": "Публікації",
@@ -118,9 +136,13 @@
     "title": "Шаблони",
     "newTemplate": "Новий шаблон",
     "name": "Назва",
+    "namePlaceholder": "наприклад Product Launch",
+    "content": "Текст",
+    "contentPlaceholder": "Введіть текст шаблону…",
     "useTemplate": "Використати",
     "noTemplates": "Немає шаблонів",
-    "noTemplatesSubtitle": "Створіть шаблон для повторного використання"
+    "noTemplatesSubtitle": "Створіть шаблон для повторного використання",
+    "errorSaving": "Помилка збереження"
   },
   "analytics": {
     "title": "Аналітика",
@@ -142,7 +164,12 @@
     "dark": "Темна",
     "system": "Системна",
     "fullName": "Повне ім'я",
-    "upgrade": "Оновити план"
+    "upgrade": "Оновити план",
+    "saved": "Збережено!",
+    "currentPlan": "Поточний план",
+    "dangerZone": "Зона небезпеки",
+    "dangerZoneDesc": "Видалення акаунту є незворотнім. Усі ваші дані будуть остаточно видалені.",
+    "deleteAccount": "Видалити акаунт"
   },
   "cookie": {
     "usesCookies": "Ми використовуємо cookies для покращення досвіду",
@@ -160,6 +187,22 @@
     "step2": "Налаштуйте профіль",
     "step2Subtitle": "Розкажіть про себе",
     "step3": "Готово!",
-    "step3Subtitle": "Ви готові до публікацій"
+    "step3Subtitle": "Ви готові до публікацій",
+    "step3Message": "Ваш профіль налаштовано. Тепер ви можете планувати публікації, підключати акаунти та розвиватися в соцмережах.",
+    "startPublishing": "Почати публікації",
+    "connectAccount": "Підключити акаунт",
+    "connectAccountDone": "Акаунт підключено!",
+    "skipForNow": "Пропустити",
+    "fullName": "Як вас звати?",
+    "fullNamePlaceholder": "Іван Петренко",
+    "selectNiche": "Чим ви зацікавлені?",
+    "nicheTech": "Технології",
+    "nicheLifestyle": "Спосіб життя",
+    "nicheBusiness": "Бізнес",
+    "nicheEducation": "Освіта",
+    "nicheOther": "Інше",
+    "selectInterests": "Оберіть області (необов'язково)",
+    "settingUpProfile": "Збереження профілю…",
+    "connecting": "Підключення…"
   }
 }

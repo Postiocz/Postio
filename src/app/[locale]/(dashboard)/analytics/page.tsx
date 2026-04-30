@@ -9,7 +9,8 @@ export default async function AnalyticsPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const t = await getTranslations("analytics");
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "analytics" });
   const supabase = await createClient();
 
   // Fetch posts with analytics
@@ -46,7 +47,7 @@ export default async function AnalyticsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
+        <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
         <p className="mt-1 text-muted-foreground">{t("noData")}</p>
       </div>
 

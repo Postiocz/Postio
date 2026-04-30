@@ -1,12 +1,18 @@
 import { getRequestConfig } from "next-intl/server";
-import { getLocale } from "../../i18n";
+
+const validLocales = ["cs", "en", "uk"];
 
 export default getRequestConfig(async ({ requestLocale }) => {
-  const locale = await requestLocale || "cs";
-  const validated = getLocale(locale);
+  const resolved = typeof requestLocale !== "string"
+    ? await requestLocale
+    : requestLocale;
+
+  const locale = validLocales.includes(resolved || "cs" as any)
+    ? resolved || "cs"
+    : "cs";
 
   return {
     locale,
-    messages: (await import(`../messages/${validated}.json`)).default,
+    messages: (await import(`../messages/${locale}.json`)).default,
   };
 });

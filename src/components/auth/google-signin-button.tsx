@@ -43,7 +43,7 @@ export function GoogleSignInButton() {
         onClick={handleSignIn}
         disabled={loading || !isSupabaseConfigured}
         size="lg"
-        className="w-full gap-3 text-base"
+        className="w-full gap-3 text-base bg-white text-gray-800 border border-gray-200 hover:bg-gray-50 shadow-md transition-all"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24">
           <path

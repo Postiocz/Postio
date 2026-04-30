@@ -17,7 +17,8 @@
     "search": "Search",
     "filter": "Filter",
     "all": "All",
-    "none": "None"
+    "none": "None",
+    "free": "Free"
   },
   "auth": {
     "login": "Sign in",
@@ -56,7 +57,24 @@
     "quickActions": "Quick Actions",
     "newPost": "New Post",
     "connectAccount": "Connect Account",
-    "browseTemplates": "Browse Templates"
+    "browseTemplates": "Browse Templates",
+    "proCtaTitle": "Upgrade to Pro",
+    "proCtaSubtitle": "Unlock unlimited posts, analytics, and premium templates.",
+    "proCtaButton": "Get Pro",
+    "upgradeTitle": "Upgrade your plan",
+    "upgradeSubtitle": "Compare plans and unlock more features",
+    "currentPlan": "Current plan",
+    "socialAccounts": "Social Accounts",
+    "postsPerMonth": "Posts/month",
+    "templates": "Templates",
+    "analytics": "Analytics",
+    "prioritySupport": "Priority Support",
+    "unlimited": "Unlimited",
+    "basic": "Basic",
+    "advanced": "Advanced",
+    "upgrade": "Upgrade",
+    "downgrade": "Downgrade",
+    "perMonth": "/month"
   },
   "posts": {
     "title": "Posts",
@@ -118,9 +136,13 @@
     "title": "Templates",
     "newTemplate": "New Template",
     "name": "Name",
+    "namePlaceholder": "e.g. Product Launch",
+    "content": "Content",
+    "contentPlaceholder": "Enter template text…",
     "useTemplate": "Use",
     "noTemplates": "No templates",
-    "noTemplatesSubtitle": "Create a template for reuse"
+    "noTemplatesSubtitle": "Create a template for reuse",
+    "errorSaving": "Error saving"
   },
   "analytics": {
     "title": "Analytics",
@@ -142,7 +164,12 @@
     "dark": "Dark",
     "system": "System",
     "fullName": "Full Name",
-    "upgrade": "Upgrade Plan"
+    "upgrade": "Upgrade Plan",
+    "saved": "Saved!",
+    "currentPlan": "Current Plan",
+    "dangerZone": "Danger Zone",
+    "dangerZoneDesc": "Deleting your account is irreversible. All your data will be permanently removed.",
+    "deleteAccount": "Delete Account"
   },
   "cookie": {
     "usesCookies": "We use cookies to improve your experience",
@@ -160,6 +187,22 @@
     "step2": "Set Up Profile",
     "step2Subtitle": "Tell us about yourself",
     "step3": "All Done!",
-    "step3Subtitle": "You're ready to start publishing"
+    "step3Subtitle": "You're ready to start publishing",
+    "step3Message": "Your profile is set up. You can now plan posts, connect accounts, and grow on social media.",
+    "startPublishing": "Start Publishing",
+    "connectAccount": "Connect Account",
+    "connectAccountDone": "Account connected!",
+    "skipForNow": "Skip for now",
+    "fullName": "What's your name?",
+    "fullNamePlaceholder": "John Doe",
+    "selectNiche": "What are you interested in?",
+    "nicheTech": "Technology",
+    "nicheLifestyle": "Lifestyle",
+    "nicheBusiness": "Business",
+    "nicheEducation": "Education",
+    "nicheOther": "Other",
+    "selectInterests": "Select areas (optional)",
+    "settingUpProfile": "Saving profile…",
+    "connecting": "Connecting…"
   }
 }

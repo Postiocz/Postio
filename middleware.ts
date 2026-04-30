@@ -17,26 +17,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/cs/login", request.url));
   }
 
-  // Try to refresh the auth session via Supabase (graceful fallback)
+ // Try to refresh the auth session via Supabase (graceful fallback)
   let session = null;
+  let supabaseError = false;
   let authResponse = NextResponse.next({ request });
+
+  // Check if Supabase is configured
+  const isSupabaseConfigured =
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder");
 
   try {
     const { supabase, response } = createClient(request);
-    const { data } = await supabase.auth.getSession();
-    session = data.session;
+    const { data: { user } } = await supabase.auth.getUser();
+    session = user;
     authResponse = response;
   } catch {
     // Supabase unavailable – proceed without auth
+    supabaseError = true;
   }
 
   // If no session and not on a public route, redirect to login
+  // But skip redirect if Supabase is not configured or errored (dev mode)
   const publicPatterns = ["/login", "/api"];
   const isPublicRoute = publicPatterns.some((pattern) =>
     url.pathname.includes(pattern)
   );
 
-  if (!session && !isPublicRoute) {
+  if (!session && !isPublicRoute && !supabaseError && isSupabaseConfigured) {
     const localeMatch = url.pathname.match(/^\/(cs|en|uk)/);
     const locale = localeMatch ? localeMatch[1] : "cs";
     const loginUrl = new URL(`/${locale}/login`, request.url);

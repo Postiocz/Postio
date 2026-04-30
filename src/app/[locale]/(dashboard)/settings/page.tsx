@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { usePathname, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,21 +10,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const PLAN_LABELS: Record<string, string> = {
-  free: "Free",
-  creator: "Creator",
-  pro: "Pro",
-};
-
-const PLAN_PRICES: Record<string, string> = {
-  free: "Zdarma",
-  creator: "199 Kč/měs",
-  pro: "499 Kč/měs",
+const PLAN_PRICES: Record<string, number> = {
+  free: 0,
+  creator: 199,
+  pro: 499,
 };
 
 export default function SettingsPage() {
-  const t = useTranslations("settings");
+  const settingsT = useTranslations("settings");
   const commonT = useTranslations("common");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState("");
@@ -32,14 +29,23 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [devMode, setDevMode] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("users").select("*").single();
-      if (data) {
-        setFullName(data.full_name ?? "");
-        setLanguage(data.language ?? "cs");
-        setPlan(data.plan ?? "free");
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("No session");
+        const { data } = await supabase.from("users").select("*").single();
+        if (data) {
+          setFullName(data.full_name ?? user.email?.split("@")[0] ?? "");
+          setLanguage(data.language ?? "cs");
+          setPlan(data.plan ?? "free");
+        }
+      } catch {
+        // Supabase unavailable or no session – dev mode with defaults
+        setDevMode(true);
+        setFullName("Demo uživatel");
       }
       setLoading(false);
     })();
@@ -48,26 +54,58 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
+    const currentLocale = pathname.split("/")[1];
 
-    const { error } = await supabase
-      .from("users")
-      .update({ full_name: fullName, language })
-      .eq("id", (await supabase.auth.getUser()).data.user?.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No session");
+      const { error } = await supabase
+        .from("users")
+        .update({ full_name: fullName, language })
+        .eq("id", user.id);
 
-    if (error) {
-      setMessage(commonT("somethingWentWrong"));
-    } else {
-      setMessage("Uloženo!");
+      if (error) {
+        setMessage(commonT("somethingWentWrong"));
+        setSaving(false);
+        return;
+      } else {
+        setMessage(settingsT("saved"));
+        setTimeout(() => setMessage(null), 3000);
+      }
+    } catch {
+      setMessage(settingsT("saved"));
       setTimeout(() => setMessage(null), 3000);
     }
     setSaving(false);
+
+    if (language !== currentLocale) {
+      setTimeout(() => switchLocale(language), 150);
+    }
   };
 
   if (loading) return <div>{commonT("loading")}</div>;
 
+  const formatPrice = (p: string) => {
+    const price = PLAN_PRICES[p];
+    return price === 0 ? commonT("free") : `${price} Kč`;
+  };
+
+  const switchLocale = (newLocale: string) => {
+    const currentLocale = pathname.split("/")[1];
+    const nextPath = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
+    const query = searchParams.toString();
+    window.location.href = query ? `${nextPath}?${query}` : nextPath;
+  };
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-3xl font-bold">{t("title")}</h1>
+      <h1 className="text-2xl font-bold sm:text-3xl">{settingsT("title")}</h1>
+
+      {devMode && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          Dev mode – Supabase auth není dostupná. Data nejsou ukládána do databáze.
+        </div>
+      )}
 
       {message && (
         <div className="rounded-md border bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-300">
@@ -78,11 +116,11 @@ export default function SettingsPage() {
       {/* Profile */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("profile")}</CardTitle>
+          <CardTitle>{settingsT("profile")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">{t("fullName")}</Label>
+            <Label htmlFor="fullName">{settingsT("fullName")}</Label>
             <Input
               id="fullName"
               value={fullName}
@@ -91,7 +129,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="language">{t("language")}</Label>
+            <Label htmlFor="language">{settingsT("language")}</Label>
             <select
               id="language"
               value={language}
@@ -113,46 +151,41 @@ export default function SettingsPage() {
       {/* Plan */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("plan")}</CardTitle>
+          <CardTitle>{settingsT("plan")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Current plan */}
           <div className="mb-4 flex items-center justify-between rounded-lg border p-4">
             <div>
-              <p className="text-sm text-muted-foreground">{t("plan")}</p>
+              <p className="text-sm text-muted-foreground">{settingsT("currentPlan")}</p>
               <div className="flex items-center gap-2">
-                <p className="font-semibold">{PLAN_LABELS[plan]}</p>
+                <p className="font-semibold capitalize">{plan}</p>
                 <Badge variant={plan === "pro" ? "default" : plan === "creator" ? "secondary" : "outline"}>
-                  {PLAN_LABELS[plan]}
+                  {plan}
                 </Badge>
               </div>
             </div>
-            <p className="font-medium">{PLAN_PRICES[plan]}</p>
+            <p className="font-medium">{formatPrice(plan)}</p>
           </div>
 
           {/* Plan options */}
           <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              { id: "free" as const, label: "Free", price: "Zdarma" },
-              { id: "creator" as const, label: "Creator", price: "199 Kč/měs" },
-              { id: "pro" as const, label: "Pro", price: "499 Kč/měs" },
-            ].map((p) => (
+            {(["free", "creator", "pro"] as const).map((p) => (
               <div
-                key={p.id}
+                key={p}
                 className={`rounded-lg border p-4 text-center ${
-                  plan === p.id ? "border-primary bg-primary/5" : ""
+                  plan === p ? "border-primary bg-primary/5" : ""
                 }`}
               >
-                <p className="font-semibold">{p.label}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{p.price}</p>
-                {plan !== p.id && (
+                <p className="font-semibold capitalize">{p}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatPrice(p)}</p>
+                {plan !== p && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="mt-3 w-full"
-                    disabled={p.id === "free"}
                   >
-                    {t("upgrade")}
+                    {settingsT("upgrade")}
                   </Button>
                 )}
               </div>
@@ -164,14 +197,14 @@ export default function SettingsPage() {
       {/* Danger zone */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-destructive">Nebezpečná zóna</CardTitle>
+          <CardTitle className="text-destructive">{settingsT("dangerZone")}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-muted-foreground">
-            Odstranění účtu je nevratná akce. Všechna vaše data budou trvale smazána.
+            {settingsT("dangerZoneDesc")}
           </p>
           <Button variant="destructive" size="sm">
-            {commonT("delete")} účet
+            {settingsT("deleteAccount")}
           </Button>
         </CardContent>
       </Card>

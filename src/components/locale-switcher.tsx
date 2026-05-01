@@ -16,7 +16,7 @@ const locales = [
   { code: "uk", label: "Українська" },
 ];
 
-export function LocaleSwitcher() {
+export function LocaleSwitcher({ className }: { className?: string }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
@@ -33,7 +33,8 @@ export function LocaleSwitcher() {
   const currentLabel = locales.find((l) => l.code === currentLocale)?.label || currentLocale;
 
   return (
-    <DropdownMenu>
+    <div className={className}>
+      <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="gap-1.5">
           <Globe className="h-4 w-4" />
@@ -52,5 +53,6 @@ export function LocaleSwitcher() {
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   );
 }

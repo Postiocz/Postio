@@ -31,6 +31,12 @@ Překlady v: /messages/cs.json, en.json, uk.json
 - Light/dark mode (systém + manuální přepínač)
 - Mobile-first, responzivní
 
+### Standard Postio UI
+- **Login Page**: Rozdělení 40% (levý panel s formou) / 60% (pravý vizuální panel).
+- **Levý panel**: Obsah vycentrován (`max-w-[320px]`), `LocaleSwitcher` absolutně v pravém horním rohu.
+- **Pravý panel**: Tušený grid (`opacity-[0.04]`), velká fialová záře (`blur-[160px]`).
+- **Cookie Consent**: Plovoucí karta vpravo dole (max-w-[400px], backdrop-blur), detailní modal s přepínači kategorií (Necessary, Functional, Analytical, Advertising).
+
 ## Plány
 
 | | Free | Creator | Pro |

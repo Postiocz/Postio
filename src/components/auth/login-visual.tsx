@@ -47,7 +47,7 @@ export function LoginVisual({ labels }: LoginVisualProps) {
 
       {/* Subtle grid pattern */}
       <div
-        className="absolute inset-0 opacity-[0.08]"
+        className="absolute inset-0 opacity-[0.04]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 24 0 L 0 0 0 24' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3C/svg%3E")`,
         }}
@@ -61,7 +61,7 @@ export function LoginVisual({ labels }: LoginVisualProps) {
 
       {/* Strong soft glow behind dashboard */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-[5] -translate-x-1/2 -translate-y-1/2">
-        <div className="size-[480px] rounded-full bg-gradient-to-br from-purple-500/30 via-indigo-500/20 to-blue-500/10 blur-[100px]" />
+        <div className="size-[480px] rounded-full bg-gradient-to-br from-purple-500/30 via-indigo-500/20 to-blue-500/10 blur-[160px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-lg scale-125 sm:max-w-xl">

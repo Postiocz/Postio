@@ -1,4 +1,19 @@
-# CHANGELOG – Postio
+## 2026-05-01
+
+### Krok 32 – Branding, i18n a Premium Dark styl pro Privacy stránku (DOKONČENO)
+- `src/components/ui/logo.tsx` – nová sjednocená Logo komponenta:
+  - Styl: Bold, `tracking-tighter`, primární barva pro 'P', foreground pro 'ostio'
+- `src/messages/cs.json`, `en.json` – oprava i18n: přidán chybějící klíč `cookiesDesc` v namespace `privacy`
+- `src/app/[locale]/privacy/page.tsx` – kompletní redesign na "Premium Dark" styl:
+  - Pozadí: `bg-black`, font `font-sans` (Inter)
+  - Layout: Centrování `max-w-3xl`, whitespace `py-12 lg:py-24`
+  - Typografie: Nadpisy bílé, popisy `muted-foreground`, vylepšená čitelnost (leading-relaxed)
+  - Logo: Integrace nové `Logo` komponenty v headeru
+  - Tlačítko "Zpět": Redesign na `rounded-2xl` s jemným borderem a backdrop-blurem
+- Ověření: Proběhl lint check, funkčnost i18n ověřena
+
+### Krok 31 – Oprava mobilního zobrazení Login + Cookie Consent (DOKONČENO)
+
 
 ## 2026-04-28
 

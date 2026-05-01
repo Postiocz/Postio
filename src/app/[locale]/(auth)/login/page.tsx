@@ -14,10 +14,11 @@ export default async function LoginPage({
   return (
     <div className="relative flex w-full min-h-screen">
       {/* Left: form panel – full width mobile, 40% desktop */}
-      <div className="relative flex w-full min-h-screen flex-col items-center justify-center px-6 py-12 lg:w-[40%] lg:px-16 xl:px-24">
-        <LocaleSwitcher className="absolute top-8 right-8 z-50" />
+      <div className="relative flex w-full min-h-[100dvh] pt-12 pb-48 lg:py-12 flex-col justify-between px-6 lg:w-[40%] lg:px-16 xl:px-24 lg:justify-center">
+        <LocaleSwitcher className="absolute top-4 right-4 sm:top-8 sm:right-8 z-50" />
 
-        <div className="mx-auto w-full max-w-sm px-6 text-center">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="mx-auto w-full max-w-[320px] lg:max-w-sm px-4 text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
             <span className="text-primary">P</span>ostio
           </h1>
@@ -34,6 +35,7 @@ export default async function LoginPage({
             <GoogleSignInButton />
           </div>
         </div>
+      </div>
       </div>
 
       {/* Right: visual panel – hidden on <lg, 60% on lg+ */}

@@ -24,14 +24,18 @@ export function CookieConsent() {
   const locale = pathname.split("/")[1];
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const [functional, setFunctional] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [marketing, setMarketing] = useState(false);
+
   const supabase = createClient();
 
   useEffect(() => {
     const consent = localStorage.getItem("cookie-consent");
     if (consent) {
       const data = JSON.parse(consent);
+      setFunctional(data.functional ?? false);
       setAnalytics(data.analytics ?? false);
       setMarketing(data.marketing ?? false);
     } else {
@@ -41,11 +45,13 @@ export function CookieConsent() {
 
   const saveConsent = async (
     level: "necessary" | "analytics" | "all",
+    customFunctional?: boolean,
     customAnalytics?: boolean,
     customMarketing?: boolean,
   ) => {
     const consentData = {
       necessary: true,
+      functional: customFunctional ?? level !== "necessary",
       analytics: customAnalytics ?? level !== "necessary",
       marketing: customMarketing ?? level === "all",
     };
@@ -72,24 +78,29 @@ export function CookieConsent() {
 
   return (
     <>
-      {/* Floating cookie card – bottom-right corner */}
-      <div className="fixed bottom-4 right-4 z-50 max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="rounded-2xl border bg-card p-5 shadow-card-dark dark:shadow-card-dark">
-          <p className="mb-4 text-sm leading-snug text-muted-foreground">
+      {/* Floating cookie card – responsive positioning */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[400px] z-50 lg:left-auto lg:right-6 lg:bottom-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="rounded-2xl border border-white/10 bg-black/40 p-4 lg:p-5 backdrop-blur-md shadow-2xl">
+          <p className="mb-4 lg:mb-6 text-[11px] leading-tight lg:text-sm lg:leading-relaxed text-muted-foreground">
             {cookie("usesCookies")}{" "}
             <Link
               href={`/${locale}/privacy`}
-              className="text-primary underline underline-offset-2"
+              className="text-white font-medium underline underline-offset-4 hover:text-white/80 transition-colors"
             >
               {cookie("learnMore")}
             </Link>
           </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-2xl px-4 h-9 text-xs lg:h-10 lg:text-sm"
+              onClick={() => setOpen(true)}
+            >
               {cookie("preferences")}
             </Button>
             <Button
-              className="flex-1"
+              className="flex-1 rounded-2xl px-4 h-9 text-xs lg:h-10 lg:text-sm"
               size="sm"
               onClick={() => saveConsent("all")}
             >
@@ -102,49 +113,67 @@ export function CookieConsent() {
       {/* Preferences Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          {/* Hidden – triggered from floating card above */}
           <span className="hidden">{cookie("preferences")}</span>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg border-white/10 bg-black/60 backdrop-blur-xl text-foreground">
           <DialogHeader>
-            <DialogTitle>{cookie("preferencesTitle")}</DialogTitle>
+            <DialogTitle className="text-2xl font-bold tracking-tight">
+              {cookie("preferencesTitle")}
+            </DialogTitle>
           </DialogHeader>
 
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-6 text-sm text-muted-foreground">
             {cookie("preferencesIntro")}
           </p>
 
           {/* Cookie categories */}
           <div className="space-y-4">
             {/* Necessary */}
-            <div className="flex items-start justify-between gap-4 rounded-xl border p-4">
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-semibold text-foreground">
                   {cookie("necessary")}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   {cookie("necessaryDesc")}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {cookie("on")}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                  {cookie("on")}
+                </div>
+              </div>
+            </div>
+
+            {/* Functional */}
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  {cookie("functional")}
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {cookie("functionalDesc")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Switch
+                  checked={functional}
+                  onCheckedChange={setFunctional}
+                />
+              </div>
             </div>
 
             {/* Analytics */}
-            <div className="flex items-start justify-between gap-4 rounded-xl border p-4">
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-semibold text-foreground">
                   {cookie("analytics")}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   {cookie("analyticsDesc")}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground">
-                  {analytics ? cookie("on") : cookie("off")}
-                </span>
                 <Switch
                   checked={analytics}
                   onCheckedChange={setAnalytics}
@@ -152,34 +181,40 @@ export function CookieConsent() {
               </div>
             </div>
 
-            {/* Marketing */}
-            <div className="flex items-start justify-between gap-4 rounded-xl border p-4">
+            {/* Advertising */}
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  {cookie("marketing")}
+                <p className="text-sm font-semibold text-foreground">
+                  {cookie("advertising")}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {cookie("marketingDesc")}
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {cookie("advertisingDesc")}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground">
-                  {marketing ? cookie("on") : cookie("off")}
-                </span>
                 <Switch
                   checked={marketing}
-                  onCheckedChange={(v) => setMarketing(v)}
+                  onCheckedChange={setMarketing}
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="mt-8 flex justify-end gap-3">
             <Button
+              variant="outline"
               size="sm"
-              onClick={() => saveConsent("necessary", analytics, marketing)}
+              className="rounded-2xl px-6"
+              onClick={() => saveConsent("necessary", functional, analytics, marketing)}
             >
               {cookie("savePreferences")}
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-2xl px-6"
+              onClick={() => saveConsent("all")}
+            >
+              {cookie("acceptAll")}
             </Button>
           </div>
         </DialogContent>

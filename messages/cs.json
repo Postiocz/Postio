@@ -44,5 +44,24 @@
     "schedule": "Plán",
     "insights": "Statistiky",
     "profile": "Profil"
+  },
+  "cookie": {
+    "usesCookies": "Používáme soubory cookie k zajištění nejlepšího zážitku z Postio.",
+    "learnMore": "více informací",
+    "preferences": "Nastavení",
+    "acceptAll": "Přijmout vše",
+    "preferencesTitle": "Nastavení souborů cookie",
+    "preferencesIntro": "Zvolte si, které typy souborů cookie chcete povolit.",
+    "necessary": "Nezbytné",
+    "necessaryDesc": "Tyto soubory cookie jsou nezbytné pro základní fungování webu a nemůžeme je vypnout.",
+    "functional": "Funkční",
+    "functionalDesc": "Umožňují zapamatovat si vaše volby (např. jazyk) pro lepší uživatelský zážitek.",
+    "analytics": "Analytické",
+    "analyticsDesc": "Pomáhají nám pochopit, jak návštěvníci web používají, abychom jej mohli vylepšit.",
+    "advertising": "Reklamní",
+    "advertisingDesc": "Používají se k tomu, aby byla reklama relevantnější a méně opakující se.",
+    "on": "Zapnuto",
+    "off": "Vypnuto",
+    "savePreferences": "Uložit předvolby"
   }
 }

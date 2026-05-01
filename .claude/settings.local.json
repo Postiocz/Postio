@@ -4,7 +4,11 @@
       "Bash(npx next *)",
       "Bash(npm uninstall *)",
       "Bash(npm run *)",
-      "Bash(curl -sI http://localhost:3000/en/)"
+      "Bash(curl -sI http://localhost:3000/en/)",
+      "Bash(pkill -f 'next dev')",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/cs/dashboard)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/cs/login)",
+      "Bash(echo \"exit:$?\")"
     ]
   }
 }

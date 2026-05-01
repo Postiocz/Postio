@@ -1,5 +1,12 @@
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { cookies } from "next/headers";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 async function getThemeCookie(): Promise<string | undefined> {
   const c = await cookies();
@@ -16,7 +23,7 @@ export default async function RootLayout({
   const themeInitScript = `(function(){try{var m=document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/);var t=m?decodeURIComponent(m[1]):"system";var r=t==="dark"?"dark":t==="light"?"light":(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";var e=document.documentElement;e.classList.remove("light","dark");e.classList.add(r);e.style.colorScheme=r}catch(e){}})();`;
 
   return (
-    <html lang="cs" className={serverThemeClass} suppressHydrationWarning>
+    <html lang="cs" className={`${inter.variable} ${serverThemeClass}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

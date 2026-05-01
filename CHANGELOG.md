@@ -316,3 +316,105 @@
 - `src/components/ui/card.tsx` – karty s `rounded-xl` + `shadow-md` (light) / `shadow-sm` (dark)
 - `src/app/[locale]/(dashboard)/layout.tsx` – header + sidebar mají `shadow-sm dark:shadow-none`, main content `bg-background`
 - Světlý režim nyní odpovídá referenčnímu designu: šedé pozadí, bílé karty s jemnými stíny
+
+### Krok 25 – Deploy na Vercel (DOKONČENO)
+**Hotovo:**
+- Aplikace nasazena na Vercel (free tier)
+- Environment variables nakonfigurovány: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_APP_URL`
+- GitHub repozitář propojen s Vercel projektem pro automatické deploye
+- Production build úspěšný, aplikace dostupná na Vercel URL
+
+### Krok 26 – Oprava odkazu "Zjistit více" v cookie banneru (DOKONČENO)
+**Problém:** Tlačítko „Zjistit více" v cookie consent banneru bylo obyčejný `<button>` bez `onClick` handleru – kliknutí nic nedělalo.
+
+**Hotovo:**
+- `src/app/[locale]/privacy/page.tsx` – nová veřejná stránka Ochrany osobních údajů (mimo auth guard)
+  - Sekce: data která sbíráme, jak je používáme, cookies, sdílení dat, práva, kontakt
+  - Plně lokalizovaná (cs/en/uk) přes `getTranslations()`
+- `src/components/cookie-consent.tsx` – `<button>` → `<Link>` na `/{locale}/privacy`
+  - Dynamické locale z `usePathname()`
+- `src/messages/cs.json`, `en.json`, `uk.json` – nový namespace `privacy` (14 klíčů)
+
+**Následující kroky:**
+- [ ] Social accounts – skutečné OAuth integrace (Instagram, Facebook, Twitter, LinkedIn)
+- [ ] Posts – CRUD operace s databází (create, schedule, publish)
+- [ ] Analytics – reálná data z API sociálních sítí
+- [ ] Payment integrace (Stripe) pro Creator/Pro plány
+- [ ] Email notifikace (Resend)
+
+
+### Krok 30 – Majestátní pravý panel na login stránce (DOKONČENO)
+**Hotovo:**
+- `src/components/auth/login-visual.tsx` – dashboard mock zvětšen o 25 % (`scale-125` místo `scale-110`)
+  - Grid pattern v pozadí zesílen na opacitu 8 % (z 2,5 %) pro jemnější viditelnost
+  - Přidán silný měkký glow efekt za dashboard: `blur-[100px]`, gradient purple→indigo→blue (30/20/10 %)
+  – Glow je centrován (`left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`) s `z-[5]` a `pointer-events-none`
+
+### Krok 27 – Login page redesign (DOKONČENO)
+
+### Krok 28 – Responzivní auth layout + redesign vizuálního panelu (DOKONČENO)
+
+### Krok 29 – Oprava pozice LocaleSwitcheru na login stránce (DOKONČENO)
+**Hotovo:**
+- `src/app/[locale]/(auth)/login/page.tsx` – odstraněn obalový `<div>` kolem `<LocaleSwitcher />`
+  - Třídy pro pozicování (`absolute top-8 right-8 z-50`) přeneseny přímo na komponentu
+  - Levý panel už má třídu `relative`, takže absolutní pozicování funguje správně
+**Hotovo:**
+- `src/app/globals.css` – tmavý gradient na pozadí, `--radius: 20px`, touch targety 48px na mobilu
+- `src/app/[locale]/(auth)/layout.tsx` – wrapper bez `bg-background`
+- `src/app/[locale]/(auth)/login/page.tsx` – Layout 40/60 přesné šířky (`w-[40%]` / `w-[60%]`)
+  - LocaleSwitcher: absolutně v pravém horním rohu levého panelu (`absolute right-8 top-8`, padding 2rem)
+  - Nadpis „P‍ostio" zvětšen na `text-5xl` / `sm:text-6xl`
+  - „Začněte s Postio" zvětšen na `text-3xl` / `sm:text-4xl`
+  - LoginVisual skryt `hidden lg:flex` – na mobilu se nevykresluje vůbec
+- `src/components/auth/login-visual.tsx` – kompletní redesign:
+  - Dashboard mock zvětšen ~30 % (padding `p-8`, bar chart `h-32`, čísla `text-xl`/`text-2xl`)
+  - Pozadí: grid pattern (opacita 4 %) + fialová/modrá glow bloby (`blur-3xl`)
+  - Všechny texty lokalizované přes props: Dashboard, This week, Posts, Reach, Eng., Post scheduled, +24%
+- `src/components/auth/google-signin-button.tsx` – `rounded-2xl`, `h-12`, hover efekt `hover:-translate-y-0.5` + `hover:shadow-medium`
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové klíče: `visualDashboard`, `visualThisWeek`, `visualPosts`, `visualReach`, `visualEngagement`, `visualScheduled`, `visualEngagementUp`
+
+### Krok 27 – Login page redesign (DOKONČENO)
+**Hotovo:**
+- `src/app/layout.tsx` – přidán **Inter** font přes `next/font/google` (variable `--font-sans`, `display: swap`)
+- `src/app/globals.css` – vylepšený design systém:
+  - `--font-sans` s fallback na `system-ui, sans-serif`
+  - `--radius: 1rem` (16px, zvětšeno z 10px)
+  - `--shadow-soft`, `--shadow-medium`, `--shadow-card` – nové shadow utility
+  - `--gradient-hero`, `--gradient-subtle` – brand gradienty
+  - Primary barva jemně upravena `oklch(0.56 0.22 275)` pro lepší kontrast
+  - Light mode: `--background: oklch(0.985 0 0)` (čistější bílo-šedá)
+- `src/app/[locale]/(auth)/layout.tsx` – čistý gradient background (`from-primary/[0.03]`)
+- `src/app/[locale]/(auth)/login/page.tsx` – **split layout redesign**:
+  - Levý panel: logo "P"ostio (primary P), heading, subtext, Google sign-in, privacy link
+  - Pravý panel: `LoginVisual` komponenta s gradient hero + dashboard mock
+  - Responsive: pravý panel hidden na mobile (`hidden sm:flex w-1/2`)
+- `src/components/auth/login-visual.tsx` – nová komponenta:
+  - Gradient hero background (purple → violet → pink)
+  - Dashboard mock karta s animovanými stat bary (Framer Motion)
+  - Floating karty: "Post scheduled" + "+24% engagement"
+  - Jemný cross pattern overlay
+- `src/components/auth/google-signin-button.tsx` – vylepšený styl:
+  - `h-11 rounded-xl` vyšší tlačítko, větší border radius
+  - `shadow-card` stín, dark mode podpora (`dark:bg-gray-900`)
+  - `space-y-4` místo `space-y-3` pro lepší spacing
+
+### Krok 29 – Cookie Consent redesign + Framer Motion typy (DOKONČENO)
+**Hotovo:**
+- `src/components/cookie-consent.tsx` – kompletní přepsání:
+  - **Floating card** místo bottom baru: `fixed bottom-4 right-4`, `rounded-2xl`, `bg-card`, border + stín
+  - Tlačítka: "Předvolby" (outline) + "Přijmout vše" (primary, flex-1)
+  - **Dialog (Modal)** pro předvolby cookies se 3 kategoriemi:
+    - Nezbytné (vždy ON, bez switch, badge `bg-primary/10`)
+    - Analytika (Switch ON/OFF + label stavu)
+    - Marketing (Switch ON/OFF + label stavu)
+  - Každá kategorie v `rounded-xl border p-4` kartě s popisem
+  - Tlačítko "Uložit předvolby" v patě dialogu
+  - Install: `@radix-ui/react-dialog` + shadcn `dialog` + `switch` komponenty
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové cookie klíče:
+  `preferences`, `preferencesTitle`, `preferencesIntro`, `necessary`, `necessaryDesc`,
+  `analyticsDesc`, `marketingDesc`, `savePreferences`, `on`, `off`
+- `src/components/auth/login-visual.tsx` – oprava Framer Motion v12 typů:
+  - `ease: "easeInOut"` → `ease: "easeInOut" as const` (3 místa)
+  - Bez `as const` hlásí TypeScript chybu při buildu (infernovaný `string` není kompatibilní s `Easing`)
+- Build úspěšný

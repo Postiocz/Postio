@@ -1,5 +1,6 @@
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { LoginVisual } from "@/components/auth/login-visual";
 import { getTranslations } from "next-intl/server";
 
 export default async function LoginPage({
@@ -11,22 +12,44 @@ export default async function LoginPage({
   const t = await getTranslations({ locale, namespace: "auth" });
 
   return (
-    <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl">
-      <div className="mb-6 flex justify-end">
-        <LocaleSwitcher />
+    <div className="relative flex w-full min-h-screen">
+      {/* Left: form panel – full width mobile, 40% desktop */}
+      <div className="relative flex w-full min-h-screen flex-col items-center justify-center px-6 py-12 lg:w-[40%] lg:px-16 xl:px-24">
+        <LocaleSwitcher className="absolute top-8 right-8 z-50" />
+
+        <div className="mx-auto w-full max-w-sm px-6 text-center">
+          <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
+            <span className="text-primary">P</span>ostio
+          </h1>
+
+          <h2 className="mt-8 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            {t("getStarted")}
+          </h2>
+
+          <p className="mt-3 text-lg leading-relaxed text-muted-foreground">
+            {t("getStartedSubtitle")}
+          </p>
+
+          <div className="mt-12">
+            <GoogleSignInButton />
+          </div>
+        </div>
       </div>
 
-      <div className="mb-8 text-center">
-        <h1 className="bg-gradient-to-r from-foreground via-foreground to-primary bg-clip-text text-4xl font-extrabold text-transparent">
-          Postio
-        </h1>
-        <h2 className="mt-4 text-2xl font-semibold">{t("getStarted")}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t("getStartedSubtitle")}
-        </p>
+      {/* Right: visual panel – hidden on <lg, 60% on lg+ */}
+      <div className="hidden w-[60%] lg:flex">
+        <LoginVisual
+          labels={{
+            dashboard: t("visualDashboard"),
+            thisWeek: t("visualThisWeek"),
+            posts: t("visualPosts"),
+            reach: t("visualReach"),
+            engagement: t("visualEngagement"),
+            scheduled: t("visualScheduled"),
+            engagementUp: t("visualEngagementUp"),
+          }}
+        />
       </div>
-
-      <GoogleSignInButton />
     </div>
   );
 }

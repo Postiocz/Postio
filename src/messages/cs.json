@@ -35,7 +35,14 @@
     "welcomeBack": "Vítejte zpět",
     "welcomeBackSubtitle": "Přihlaste se pro správu svých příspěvků",
     "getStarted": "Začněte s Postio",
-    "getStartedSubtitle": "Plánujte, publikujte a rostněte na sociálních sítích"
+    "getStartedSubtitle": "Plánujte, publikujte a rostněte na sociálních sítích",
+    "visualDashboard": "Ovládací panel",
+    "visualThisWeek": "Tento týden",
+    "visualPosts": "Příspěvky",
+    "visualReach": "Dosah",
+    "visualEngagement": "Interakce",
+    "visualScheduled": "Příspěvek naplánován",
+    "visualEngagementUp": "+24 % interakce"
   },
   "nav": {
     "dashboard": "Přehled",
@@ -177,7 +184,34 @@
     "analytics": "Analytika",
     "marketing": "Marketing",
     "necessaryOnly": "Pouze nezbytné",
-    "acceptAll": "Přijmout vše"
+    "acceptAll": "Přijmout vše",
+    "preferences": "Předvolby",
+    "preferencesTitle": "Předvolby cookies",
+    "preferencesIntro": "Můžete vybrat, které cookies chcete povolit. Nezbytné cookies nelze vypnout.",
+    "necessary": "Nezbytné",
+    "necessaryDesc": "Tyto cookies jsou pro správnou funkci stránky nezbytné.",
+    "analyticsDesc": "Pomáhají nám pochopit, jak návštěvníci interagují se stránkou.",
+    "marketingDesc": "Používají se ke sledování a personalizaci reklamy.",
+    "savePreferences": "Uložit předvolby",
+    "on": "Zapnuto",
+    "off": "Vypnuto"
+  },
+  "privacy": {
+    "title": "Ochrana osobních údajů",
+    "intro": "Tato ochrana osobních údajů popisuje, jak sbíráme, používáme a chráníme vaše osobní údaje, když používáte Postio.",
+    "dataWeCollect": "Data, která sbíráme",
+    "dataWeCollectDesc": "Při registraci a používání naší služby sbíráme údaje jako je vaše jméno, e-mailová adresa a data o používání služby.",
+    "howWeUse": "Jak používáme vaše data",
+    "howWeUseDesc": "Vaše data používáme k poskytování, údržbě a zlepšování naší služby, včetně personalizace zkušenosti a komunikace s vámi.",
+    "cookies": "Cookies",
+    "cookiesDesc": "Používáme cookies a podobné technologie ke sledování aktivity na naší službě a ke sběru informací o této aktivitě.",
+    "dataSharing": "Sdílení dat",
+    "dataSharingDesc": "Neprodáváme ani nepronajímáme vaše osobní údaje třetím stranám. Sdílíme je pouze za účelem poskytování služeb nebo vyžadováno zákonem.",
+    "yourRights": "Vaše práva",
+    "yourRightsDesc": "Máte právo na přístup, opravu nebo smazání vašich osobních údajů. Můžete také kdykoliv odvolat souhlas s cookies.",
+    "contact": "Kontakt",
+    "contactDesc": "Pokud máte otázky ohledně této politiky, kontaktujte nás na",
+    "lastUpdated": "Poslední aktualizace"
   },
   "onboarding": {
     "welcome": "Vítejte v Postio!",

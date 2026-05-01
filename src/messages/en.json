@@ -35,7 +35,14 @@
     "welcomeBack": "Welcome back",
     "welcomeBackSubtitle": "Sign in to manage your posts",
     "getStarted": "Get started with Postio",
-    "getStartedSubtitle": "Plan, publish, and grow on social media"
+    "getStartedSubtitle": "Plan, publish, and grow on social media",
+    "visualDashboard": "Dashboard",
+    "visualThisWeek": "This week",
+    "visualPosts": "Posts",
+    "visualReach": "Reach",
+    "visualEngagement": "Eng.",
+    "visualScheduled": "Post scheduled",
+    "visualEngagementUp": "+24% engagement"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -177,7 +184,34 @@
     "analytics": "Analytics",
     "marketing": "Marketing",
     "necessaryOnly": "Necessary only",
-    "acceptAll": "Accept all"
+    "acceptAll": "Accept all",
+    "preferences": "Preferences",
+    "preferencesTitle": "Cookie Preferences",
+    "preferencesIntro": "You can choose which cookies to allow. Necessary cookies cannot be disabled.",
+    "necessary": "Necessary",
+    "necessaryDesc": "These cookies are essential for the website to function properly.",
+    "analyticsDesc": "Help us understand how visitors interact with the website.",
+    "marketingDesc": "Used to track and personalize advertising.",
+    "savePreferences": "Save Preferences",
+    "on": "On",
+    "off": "Off"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "intro": "This privacy policy describes how we collect, use, and protect your personal data when you use Postio.",
+    "dataWeCollect": "Data We Collect",
+    "dataWeCollectDesc": "When you register and use our service, we collect data such as your name, email address, and service usage data.",
+    "howWeUse": "How We Use Your Data",
+    "howWeUseDesc": "We use your data to provide, maintain, and improve our service, including personalizing your experience and communicating with you.",
+    "cookies": "Cookies",
+    "cookiesDesc": "We use cookies and similar technologies to track activity on our service and gather information about that activity.",
+    "dataSharing": "Data Sharing",
+    "dataSharingDesc": "We do not sell or rent your personal data to third parties. We share it only to provide the service or when required by law.",
+    "yourRights": "Your Rights",
+    "yourRightsDesc": "You have the right to access, correct, or delete your personal data. You may also withdraw your cookie consent at any time.",
+    "contact": "Contact",
+    "contactDesc": "If you have questions about this policy, contact us at",
+    "lastUpdated": "Last updated"
   },
   "onboarding": {
     "welcome": "Welcome to Postio!",

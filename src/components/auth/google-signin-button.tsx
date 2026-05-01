@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -13,9 +12,8 @@ const isSupabaseConfigured =
   !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes("placeholder");
 
 export function GoogleSignInButton() {
-  const router = useRouter();
-  const t = useTranslations("auth");
   const [loading, setLoading] = useState(false);
+  const t = useTranslations("auth");
 
   const handleSignIn = async () => {
     try {
@@ -38,14 +36,14 @@ export function GoogleSignInButton() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <Button
         onClick={handleSignIn}
         disabled={loading || !isSupabaseConfigured}
         size="lg"
-        className="w-full gap-3 text-base bg-white text-gray-800 border border-gray-200 hover:bg-gray-50 shadow-md transition-all"
+        className="w-full gap-3 h-12 rounded-2xl text-base font-medium bg-white text-gray-800 border border-border hover:bg-gray-50 hover:shadow-medium hover:-translate-y-0.5 shadow-card transition-all duration-200 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
       >
-        <svg className="h-5 w-5" viewBox="0 0 24 24">
+        <svg className="size-5" viewBox="0 0 24 24">
           <path
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
             fill="#4285F4"
@@ -65,6 +63,7 @@ export function GoogleSignInButton() {
         </svg>
         {loading ? t("creatingAccount") : t("continueWithGoogle")}
       </Button>
+
       {!isSupabaseConfigured && (
         <p className="text-xs text-center text-muted-foreground">
           Supabase není připojena – přihlášení je disabled pro testování.

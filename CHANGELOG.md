@@ -1,4 +1,51 @@
+## 2026-05-03
+
+### Krok 46 – Účty: Drag & Drop pořadí sítí + přidání YouTube a TikTok (DOKONČENO)
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – ikony platforem jsou přetahovatelné přes Framer Motion `Reorder` (lokální `useState`), včetně jemného zvětšení + výraznějšího glow při drag; zároveň doplněny platformy YouTube a TikTok a labely jsou napojené na i18n
+- `src/components/ui/social-icons.tsx` – přidány brand ikony `Youtube` a `TikTok` (inline SVG)
+- `src/app/api/accounts/route.ts` – rozšířen allowlist platforem o `youtube` a `tiktok`
+- `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json` – doplněny překlady `accounts.platforms.*` pro nové platformy (a sjednocení labelů v UI)
+
 ## 2026-05-02
+
+### Krok 45 – Final UI Polish: Odstranění redundantních log a oprava prázdného stavu Účtů (DOKONČENO)
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `src/app/[locale]/(dashboard)/templates/new/page.tsx` – odstraněno redundantní `<Logo />` z hlaviček stránek (logo zůstává pouze v sidebaru)
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – oprava logiky prázdného stavu: „Žádné propojené účty“ se nyní skrývá, pokud je aktivní formulář pro připojení platformy (`!selectedPlatform && accounts.length === 0`)
+- `src/app/[locale]/(dashboard)/templates/new/page.tsx` – ověřeno vycentrovaný nadpis „Nová šablona“ nad glass kartou
+- Sjednocení vzhledu vnitřních stránek dashboardu pro maximální čistotu rozhraní
+
+### Krok 44 – Oprava i18n chyby MISSING_MESSAGE na stránce Účty (DOKONČENO)
+- `src/messages/cs.json`, `en.json`, `uk.json` – doplněn chybějící klíč `accounts.connectAccount`, který používá `src/app/[locale]/(dashboard)/accounts/page.tsx`
+- Fixuje runtime chybu: `MISSING_MESSAGE: Could not resolve accounts.connectAccount for locale cs`
+- Pozn.: V Krok 42 bylo mylně uvedeno, že klíč už existuje v `cs.json`
+
+### Krok 42 – Tuning formulářů: Glass kontejnery, Inputy, Tlačítka, Branding (DOKONČENO)
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx` – kompletní redesign formuláře „Nový příspěvek":
+  - **Glass kontejner**: `bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-8 shadow-2xl`
+  - **Inputy/Textarea**: `bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30`
+  - **Tlačítka**: Primární (Naplánovat, Publikovat) – `bg-gradient-to-br from-indigo-600 to-purple-600` + indigo glow shadow, sekundární (Koncept) – glass outline
+  - **Platform pills**: Aktivní `bg-indigo-500/20 border-indigo-500/50 text-indigo-300`, neaktivní `bg-white/[0.03] border-white/5`
+  - **Branding**: Logo v horním rohu, grid pattern na pozadí, indigo + purple záře v rozích
+- `src/app/[locale]/(dashboard)/templates/new/page.tsx` – stejný redesign:
+  - Glass kontejner, styled inputy/textarea, gradient tlačítko „Vytvořit", branding (Logo + grid + záře)
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – redesign formuláře „Propojit účet":
+  - Nahrazen `<Card>` → glass kontejner (`bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-8 shadow-2xl`)
+  - Inputy: `bg-black/20 border-white/10 rounded-xl` s indigo focus ring
+  - Tlačítko „Propojit účet": gradient + glow shadow
+  - Branding: Logo v horním rohu, grid pattern, indigo + purple záře
+  - I18N: Klíč `accounts.connectAccount` již existuje v `cs.json` („Propojit účet") – žádný nový klíč nutný
+- `src/components/ui/logo.tsx` – importován do všech tří stránek pro brand konzistenci
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 41 – Redesign stránky Příspěvky (Posts) – Prémiový vzhled (DOKONČENO)
+- `src/app/[locale]/(dashboard)/posts/page.tsx` – kompletní redesign vizuálu:
+  - **Hlavička**: Subtitle "0 příspěvků" s jemnější barvou (`text-muted-foreground/60`) jako u Účtů
+  - **Tlačítko "Nový příspěvek"**: Gradient (`bg-gradient-to-br from-indigo-600 to-purple-600`) s indigo glow stínem (`shadow-[0_0_20px_rgba(99,102,241,0.3)]`), radius `rounded-[20px]`
+  - **Filtry (Pills)**: Neaktivní `bg-white/[0.03] border-white/5`, aktivní `bg-white/10 border-white/20 text-white`, radius `rounded-full px-4 py-1.5 text-sm`
+  - **Empty State**: Odstraněn šedý Card box, nahrazen vizuálním centrem – ikona `FileText` s fialovou září (`blur-3xl`), text `text-muted-foreground/60`, sekundární tlačítko v glass stylu (`bg-card/40 border-white/5 backdrop-blur-md`)
+  - **Pozadí**: Glow efekty v rozích (indigo + purple) pro hloubku, grid pattern z layoutu
+  - **PostCard**: Glassmorphism (`bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]`)
+  - **Responsivita**: Hlavička flex-col na mobilu, MobileNav `pb-24` v layoutu zajišťuje že obsah není překryt
 
 ### Krok 40 – Oprava ikon sociálních sítí a TypeScript chyb (DOKONČENO)
 - `src/components/ui/social-icons.tsx` – nová sdílená komponenta pro brand ikony (Instagram, Facebook, Twitter, LinkedIn):

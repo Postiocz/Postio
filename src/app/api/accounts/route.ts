@@ -20,7 +20,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validPlatforms = ["instagram", "facebook", "twitter", "linkedin"];
+    const validPlatforms = [
+      "instagram",
+      "facebook",
+      "twitter",
+      "linkedin",
+      "youtube",
+      "tiktok",
+    ];
     if (!validPlatforms.includes(platform)) {
       return NextResponse.json(
         { error: "Invalid platform" },

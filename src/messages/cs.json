@@ -126,8 +126,17 @@
   "accounts": {
     "title": "Sociální účty",
     "connect": "Propojit účet",
+    "connectAccount": "Propojit účet",
     "disconnect": "Odpojit",
     "platform": "Platforma",
+    "platforms": {
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "X",
+      "linkedin": "LinkedIn",
+      "youtube": "YouTube",
+      "tiktok": "TikTok"
+    },
     "accountName": "Název účtu",
     "status": "Stav",
     "connected": "Propojené",

@@ -126,8 +126,17 @@
   "accounts": {
     "title": "Social Accounts",
     "connect": "Connect Account",
+    "connectAccount": "Connect Account",
     "disconnect": "Disconnect",
     "platform": "Platform",
+    "platforms": {
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "X",
+      "linkedin": "LinkedIn",
+      "youtube": "YouTube",
+      "tiktok": "TikTok"
+    },
     "accountName": "Account Name",
     "status": "Status",
     "connected": "Connected",

@@ -1,10 +1,10 @@
 {
-  "Common": {
+  "common": {
     "appName": "Postio",
     "tagline": "Плануйте та публікуйте в соцмережах просто",
     "signIn": "Увійти",
     "signUp": "Реєстрація",
-    "signOut": "Вийти",
+    "logout": "Вийти",
     "save": "Зберегти",
     "cancel": "Скасувати",
     "delete": "Видалити",

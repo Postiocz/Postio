@@ -25,7 +25,12 @@ export default async function RootLayout({
   return (
     <html lang="cs" className={`${inter.variable} ${serverThemeClass}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script
+          id="theme-init"
+          dangerouslySetInnerHTML={{
+            __html: themeInitScript,
+          }}
+        />
       </head>
       <body className="min-h-screen" suppressHydrationWarning>{children}</body>
     </html>

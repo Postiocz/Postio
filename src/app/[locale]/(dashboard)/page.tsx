@@ -44,12 +44,12 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
-        <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
-      </div>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground/60">{t("subtitle")}</p>
+        </div>
 
-      {/* Stats grid */}
+        {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title={t("totalPosts")} value={totalPosts} icon={FileText} />
         <StatCard title={t("scheduled")} value={0} icon={FileText} />
@@ -109,15 +109,15 @@ function StatCard({
   icon: React.ElementType;
 }) {
   return (
-    <Card>
+    <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className="h-3 w-3 text-muted-foreground/40" />
       </CardHeader>
       <CardContent>
-        <div className="text-4xl font-bold tracking-tight">{value}</div>
+        <div className="text-2xl font-bold tracking-tight">{value}</div>
       </CardContent>
     </Card>
   );
@@ -143,16 +143,16 @@ function QuickActionCard({
       <Button
         variant={isPrimary ? "default" : "outline"}
         className={
-          "group flex h-auto w-full flex-col items-start gap-3 rounded-xl p-6 text-left transition-all " +
+          "group flex h-auto w-full flex-col items-start gap-3 rounded-[20px] p-6 text-left transition-all " +
           (isPrimary
-            ? "bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:shadow-xl"
-            : "hover:bg-accent hover:shadow-md hover:-translate-y-0.5")
+            ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-lg hover:opacity-90 hover:shadow-xl"
+            : "bg-card/40 backdrop-blur-md border-white/5 hover:bg-accent hover:shadow-md hover:-translate-y-0.5")
         }
       >
-        <Icon className={isPrimary ? "h-6 w-6 text-primary-foreground" : "h-6 w-6 text-primary"} />
+        <Icon className={isPrimary ? "h-6 w-6 text-white" : "h-6 w-6 text-primary"} />
         <div className="text-left">
           <div className="text-base font-semibold">{title}</div>
-          <div className={isPrimary ? "text-sm text-primary-foreground/80" : "text-sm text-muted-foreground"}>
+          <div className={isPrimary ? "text-sm text-white" : "text-sm text-muted-foreground"}>
             {description}
           </div>
         </div>
@@ -186,9 +186,9 @@ function UpgradeBanner({
 
   return (
     <Card className="relative overflow-hidden bg-card/60 backdrop-blur-sm border">
-      <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
-      <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
-      <CardContent className="relative p-6 sm:p-8">
+      <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl dark:bg-primary/30" />
+      <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl dark:bg-primary/30" />
+      <CardContent className="relative p-4 sm:p-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">

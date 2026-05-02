@@ -18,7 +18,8 @@
     "filter": "Filtrovat",
     "all": "Vše",
     "none": "Žádné",
-    "free": "Zdarma"
+    "free": "Zdarma",
+    "logout": "Odhlásit se"
   },
   "auth": {
     "login": "Přihlášení",

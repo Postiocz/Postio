@@ -1,10 +1,10 @@
 {
-  "Common": {
+  "common": {
     "appName": "Postio",
     "tagline": "Plánujte a publikujte na sociálních sítích jednoduše",
     "signIn": "Přihlásit se",
     "signUp": "Registrovat se",
-    "signOut": "Odhlásit se",
+    "logout": "Odhlásit se",
     "save": "Uložit",
     "cancel": "Zrušit",
     "delete": "Smazat",
@@ -38,12 +38,12 @@
     "accounts": "Účty",
     "templates": "Šablony"
   },
-  "Navigation": {
-    "overview": "Přehled",
+  "nav": {
+    "dashboard": "Přehled",
     "posts": "Příspěvky",
-    "schedule": "Plán",
-    "insights": "Statistiky",
-    "profile": "Profil"
+    "accounts": "Účty",
+    "analytics": "Analytika",
+    "settings": "Nastavení"
   },
   "cookie": {
     "usesCookies": "Používáme soubory cookie k zajištění nejlepšího zážitku z Postio.",

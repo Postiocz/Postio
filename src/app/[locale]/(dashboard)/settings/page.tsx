@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LogoutButton } from "@/components/auth/logout-button";
+import { ChevronRight } from "lucide-react";
 
 const PLAN_PRICES: Record<string, number> = {
   free: 0,
@@ -98,7 +100,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 pb-32">
       <h1 className="text-2xl font-bold sm:text-3xl">{settingsT("title")}</h1>
 
       {devMode && (
@@ -199,13 +201,18 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-destructive">{settingsT("dangerZone")}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <p className="mb-4 text-sm text-muted-foreground">
             {settingsT("dangerZoneDesc")}
           </p>
           <Button variant="destructive" size="sm">
             {settingsT("deleteAccount")}
           </Button>
+
+          <div className="w-full p-4 rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-between hover:bg-destructive/5 transition-all group">
+            <LogoutButton />
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-destructive transition-colors" />
+          </div>
         </CardContent>
       </Card>
     </div>

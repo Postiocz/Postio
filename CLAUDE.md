@@ -31,11 +31,20 @@ Překlady v: /messages/cs.json, en.json, uk.json
 - Light/dark mode (systém + manuální přepínač)
 - Mobile-first, responzivní
 
+### Design System Standard
+- Pozadí: Pure Black (#000).
+- Radius: 20px (rounded-[20px]).
+- Styl: Glassmorphism, grid pattern, barevné logo.
+
 ### Standard Postio UI
+- **Barevné schéma**: Pure Black (#000) pozadí, Card bg (#09090b s opacitou).
+- **Radius**: Všude 20px (`rounded-[20px]`).
+- **Efekty**: Glassmorphism, mřížka 24x24px, jemné glow gradienty.
+- **Fonty**: Geist/Inter pro texty, stylizované Logo pro branding.
 - **Login Page**: Rozdělení 40% (levý panel s formou) / 60% (pravý vizuální panel).
 - **Levý panel**: Obsah vycentrován (`max-w-[320px]`), `LocaleSwitcher` absolutně v pravém horním rohu.
 - **Pravý panel**: Tušený grid (`opacity-[0.04]`), velká fialová záře (`blur-[160px]`).
-- **Cookie Consent**: Plovoucí karta vpravo dole (max-w-[400px], backdrop-blur), detailní modal s přepínači kategorií (Necessary, Functional, Analytical, Advertising).
+- **Cookie Consent**: Plovoucí karta vpravo dole (max-w-[400px], backdrop-blur), detailní modal s přepínači kategoriemi (Necessary, Functional, Analytical, Advertising).
 
 ## Plány
 

@@ -1,10 +1,10 @@
 {
-  "Common": {
+  "common": {
     "appName": "Postio",
     "tagline": "Plan and publish on social media with ease",
     "signIn": "Sign In",
     "signUp": "Sign Up",
-    "signOut": "Sign Out",
+    "logout": "Sign Out",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",

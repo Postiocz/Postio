@@ -1,3 +1,67 @@
+## 2026-05-02
+
+### Krok 39 – Prémiový dynamický favicon a Apple ikona (DOKONČENO)
+- `src/app/icon.tsx` – implementován dynamický favicon (32x32) pomocí `next/og`:
+  - Design: Vycentrované bold písmeno 'P' s brandovým gradientem (`linear-gradient(to bottom right, #4f46e5, #9333ea)`).
+  - Pozadí: Průhledné pro moderní vzhled v prohlížeči.
+- `src/app/apple-icon.tsx` – implementována ikona pro iOS (180x180):
+  - Design: Písmeno 'P' s gradientem na čistě černém pozadí (#000) pro nativní vzhled aplikace na iPhone.
+- Úklid: Odstraněn statický soubor `src/app/favicon.ico` pro prioritizaci dynamického generování.
+- `src/app/layout.tsx` – ověření absence ručních `<link rel="icon">` tagů pro plnou kompatibilitu s Next.js App Router.
+
+### Krok 38 – Sjednocení UI: Přesun odhlašení do Nastavení (DOKONČENO)
+- `src/components/dashboard/sidebar.tsx` – odstraněn logout formulář a tlačítko z dolní části sidebaru pro čistší navigaci.
+- `src/components/auth/logout-button.tsx` – vytvořena nová samostatná komponenta pro odhlášení:
+  - Implementována logika `supabase.auth.signOut()` s následným redirectem na `/login`.
+  - Stylizována jako "nebezpečná" akce (`hover:text-destructive`).
+- `src/app/[locale]/(dashboard)/settings/page.tsx` – integrace `<LogoutButton />` do sekce "Nebezpečná zóna" (Danger Zone):
+  - Tlačítko umístěno do interaktivního řádku s ikonou `ChevronRight` a efektem `hover:bg-destructive/5`.
+  - Přidán padding `pb-32` k hlavnímu kontejneru stránky pro správné zobrazení na mobilu (nad spodním menu).
+- `src/messages/cs.json`, `en.json`, `uk.json` – sjednocení a oprava překladového klíče `common.logout` napříč všemi jazyky.
+- Oprava chyby `MISSING_MESSAGE` pomocí sjednocení namespace `common` (lowercase) v překladových souborech a komponentě.
+
+### Krok 37 – Kompletní lokalizace (CZ, EN, UK) (DOKONČENO)
+- `src/messages/uk.json` – doplnění chybějících překladů: klíč `logout` v sekci `common` a `title` v sekci `cookie`.
+- `src/messages/cs.json` & `src/messages/en.json` – sjednocení překladů: přidán klíč `logout` do sekce `common` pro zajištění konzistence.
+- `i18n.ts`, `middleware.ts` & `src/i18n/request.ts` – ověření správné konfigurace a podpory jazyka `uk` v celém i18n flow.
+- `src/components/locale-switcher.tsx` – ověření viditelnosti a funkčnosti přepínače pro ukrajinštinu.
+
+### Krok 36 – Finální vizuální polish dashboardu (DOKONČENO)
+- `src/components/dashboard/sidebar.tsx` – integrace sjednocené `<Logo />` komponenty a vylepšení aktivního stavu položek menu (`bg-white/[0.03]`, `text-foreground`).
+- `src/app/[locale]/(dashboard)/layout.tsx` – implementován background grid pattern a jemné, tušené barevné záře (glows) v rozích (`opacity-[0.03]`, `blur-[120px]`) pro větší hloubku pozadí.
+- `src/app/[locale]/(dashboard)/page.tsx` – update typografie: nadpis zvětšen na `text-3xl` s `tracking-tight`, subtext nastaven na `text-muted-foreground/60`.
+- `CLAUDE.md` & `AGENTS.md` – přidána sekce "Standard UI Postio" s definicí barevného schématu, radiusů (20px), efektů glassmorphismu a typografie.
+- `src/app/[locale]/(dashboard)/layout.tsx` – integrace `<Logo />` komponenty do mobilního headeru.
+
+### Krok 35 – Redesign Dashboardu: Karty a Úklid sidebaru (DOKONČENO)
+- `src/components/dashboard/sidebar.tsx` & `src/app/[locale]/(dashboard)/layout.tsx` – odstraněna duplicita položky "Nastavení" z hlavního menu; odkaz přesunut na ikonu ozubeného kolečka u profilu uživatele.
+- `src/app/[locale]/(dashboard)/page.tsx` – update vizuální identity dashboardu:
+  - Statistické karty: Implementován 'Premium Glass' styl (`bg-card/40 backdrop-blur-md`, `border-white/5`, `rounded-[20px]`), jemnější barva ikon.
+  - Akční karta "Nový příspěvek": Dominantní gradient (`bg-gradient-to-br from-indigo-600 to-purple-600`) s bílým textem.
+  - Ostatní akční karty: Sjednoceny do glass stylu s radiusy `rounded-[20px]`.
+  - Upgrade Banner: Kompaktnější padding a posílený fialový glow efekt v pozadí.
+
+### Krok 34 – Redesign karet na dashboardu (Vzhled) (DOKONČENO)
+- `src/app/[locale]/(dashboard)/page.tsx` – update stylů karet pro prémiový vzhled:
+  - Statistické karty: Implementován glassmorphism (`bg-card/40 backdrop-blur-md`, `border-white/5`), radius `rounded-[20px]`, zmenšeny ikony a hodnoty (`text-2xl`)
+  - Akční karta "Nový příspěvek": Primární gradient (`bg-gradient-to-br from-indigo-600 to-purple-600`) s bílým textem pro maximální kontrast
+  - Ostatní akční karty: Přepsány do stejného glass stylu jako statistické karty
+- Vizuální sjednocení s mockupem přihlašovací stránky
+
+### Krok 33 – Redesign Dashboardu (Sidebar a Layout) (DOKONČENO)
+- `src/components/dashboard/sidebar.tsx` – nová komponenta Sidebaru:
+  - Styl: Glassmorphism (`bg-card/50 backdrop-blur-md`), užší a elegantnější vzhled
+  - Navigace: Implementován aktivní stav s barevným akcentem a zářícím indikátorem
+  - Account Switcher: Přidána sekce v dolní části s údaji uživatele, tlačítkem Upgrade a nastavením
+  - Branding: Integrace sjednocené `<Logo />` komponenty
+- `src/app/[locale]/(dashboard)/layout.tsx` – aktualizace základní kostry:
+  - Redukce vertikálního paddingu v headeru (`h-16` → `h-14`) pro lepší využití prostoru
+  - Implementace `font-sans` (Inter/Geist) napříč layoutem
+  - Radiusy: Sjednocení zaoblení na 20px (`--radius`) pro všechny kontejnery
+- `src/lib/actions/auth.ts` – vytvoření Server Action pro odhlášení (`logoutAction`)
+  - Řešení chyby serializace funkcí z Server do Client Componentu
+- `src/app/layout.tsx` – oprava varování v konzoli u skriptu inicializace tématu (přidán `id="theme-init"`)
+
 ## 2026-05-01
 
 ### Krok 32 – Branding, i18n a Premium Dark styl pro Privacy stránku (DOKONČENO)

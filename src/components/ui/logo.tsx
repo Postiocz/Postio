@@ -8,7 +8,7 @@ interface LogoProps {
 export function Logo({ className }: LogoProps) {
   return (
     <div className={cn("font-bold tracking-tighter text-foreground", className)}>
-      <span className="text-primary">P</span>ostio
+      <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">P</span>ostio
     </div>
   );
 }

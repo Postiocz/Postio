@@ -18,7 +18,8 @@
     "filter": "Filter",
     "all": "All",
     "none": "None",
-    "free": "Free"
+    "free": "Free",
+    "logout": "Logout"
   },
   "auth": {
     "login": "Sign in",

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { Plus, Trash2, Edit, FileText } from "lucide-react";
 import Link from "next/link";
 import { deletePost } from "@/lib/actions/posts";
 
@@ -48,56 +48,84 @@ export default async function PostsPage({
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
-          <p className="mt-1 text-muted-foreground">{posts?.length ?? 0} {t("title").toLowerCase()}</p>
-        </div>
-        <Link href={`/${locale}/posts/new`} className="sm:w-auto">
-          <Button className="w-full gap-2 sm:w-auto">
-            <Plus className="h-4 w-4" />
-            {t("newPost")}
-          </Button>
-        </Link>
-      </div>
+    <div className="relative space-y-8">
+      {/* Background glow effects */}
+      <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-[100px]" />
+      <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-purple-500/10 blur-[100px]" />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {filters.map((filter) => (
-          <Link key={filter.value} href={`/${locale}/posts${filter.value ? `?status=${filter.value}` : ""}`}>
+      <div className="relative">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
+            <p className="mt-1 text-muted-foreground/60">
+              {posts?.length ?? 0} {t("title").toLowerCase()}
+            </p>
+          </div>
+          <Link href={`/${locale}/posts/new`} className="sm:w-auto">
             <Button
-              variant={statusFilter === filter.value ? "default" : "outline"}
-              size="sm"
+              className="w-full gap-2 bg-gradient-to-br from-indigo-600 to-purple-600 shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] rounded-[20px] sm:w-auto"
             >
-              {filter.label}
+              <Plus className="h-4 w-4" />
+              {t("newPost")}
             </Button>
           </Link>
-        ))}
-      </div>
+        </div>
 
-      {/* Post list */}
-      {posts.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-lg font-medium text-muted-foreground">{t("noPosts")}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{t("noPostsSubtitle")}</p>
-            <Link href={`/${locale}/posts/new`} className="mt-4">
-              <Button variant="outline" className="gap-2">
+        {/* Filters — Pills style */}
+        <div className="flex flex-wrap gap-2 pt-4">
+          {filters.map((filter) => {
+            const isActive = statusFilter === filter.value;
+            return (
+              <Link
+                key={filter.value}
+                href={`/${locale}/posts${filter.value ? `?status=${filter.value}` : ""}`}
+              >
+                <div
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all cursor-pointer border ${
+                    isActive
+                      ? "bg-white/10 border-white/20 text-white"
+                      : "bg-white/[0.03] border-white/5 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                  }`}
+                >
+                  {filter.label}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Empty State — Visual Center */}
+        {posts.length === 0 ? (
+          <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-3xl" />
+              <FileText className="relative h-16 w-16 text-indigo-500/80" />
+            </div>
+            <p className="text-xl font-medium text-muted-foreground/60">
+              {t("noPosts")}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground/40">
+              {t("noPostsSubtitle")}
+            </p>
+            <Link href={`/${locale}/posts/new`} className="mt-6">
+              <Button
+                variant="outline"
+                className="gap-2 rounded-[20px] bg-card/40 border-white/5 backdrop-blur-md hover:bg-card/60"
+              >
                 <Plus className="h-4 w-4" />
                 {t("newPost")}
               </Button>
             </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {posts.map((post: { id: string; content: string; status: string; platforms: string[]; scheduled_at: string | null; created_at: string; updated_at: string }) => (
-            <PostCard key={post.id} post={post} locale={locale} t={t} />
-          ))}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {posts.map((post: { id: string; content: string; status: string; platforms: string[]; scheduled_at: string | null; created_at: string; updated_at: string }) => (
+              <PostCard key={post.id} post={post} locale={locale} t={t} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -122,7 +150,7 @@ function PostCard({
   const contentPreview = post.content.length > 200 ? post.content.slice(0, 200) + "..." : post.content;
 
   return (
-    <Card>
+    <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">
       <CardContent className="flex items-start gap-4 p-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">

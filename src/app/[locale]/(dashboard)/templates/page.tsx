@@ -38,12 +38,25 @@ export default async function TemplatesPage({
       </div>
 
       {templates?.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-lg font-medium text-muted-foreground">{t("noTemplates")}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{t("noTemplatesSubtitle")}</p>
-          </CardContent>
-        </Card>
+        <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
+          <div className="relative mb-6">
+            <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-3xl" />
+            <Plus className="relative h-16 w-16 text-indigo-500/80" />
+          </div>
+          <p className="text-xl font-medium text-muted-foreground/60">{t("noTemplates")}</p>
+          <p className="mt-2 text-sm text-muted-foreground/40">
+            {t("noTemplatesSubtitle")}
+          </p>
+          <Link href={`/${locale}/templates/new`} className="mt-6">
+            <Button
+              variant="outline"
+              className="gap-2 rounded-[20px] bg-card/40 border-white/5 backdrop-blur-md hover:bg-card/60"
+            >
+              <Plus className="h-4 w-4" />
+              {t("newTemplate")}
+            </Button>
+          </Link>
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(templates || []).map((template: { id: string; name: string; content: string; is_premium: boolean }) => (

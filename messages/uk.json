@@ -45,6 +45,22 @@
     "insights": "Статистика",
     "profile": "Профіль"
   },
+  "accounts": { 
+    "title": "Соціальні акаунти", 
+    "subtitle": "Підключені акаунти", 
+    "connect": "Підключити", 
+    "connectAccount": "Підключити акаунт", 
+    "connecting": "Підключення...", 
+    "noAccounts": "Немає підключених акаунтів", 
+    "noAccountsDesc": "Підключіть свій перший акаунт соцмережі", 
+    "name": "Назва акаунту", 
+    "token": "Токен доступу", 
+    "cancel": "Скасувати",
+    "accessTokenPlaceholder": "Введіть токен доступу",
+    "connected": "Підключено",
+    "disconnected": "Відключено",
+    "errorConnecting": "Помилка підключення акаунту"
+  },
   "cookie": {
     "usesCookies": "Ми використовуємо файли cookie, щоб забезпечити найкращий досвід роботи з Postio.",
     "learnMore": "дізнатися більше",

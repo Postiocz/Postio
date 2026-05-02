@@ -45,6 +45,22 @@
     "analytics": "Analytika",
     "settings": "Nastavení"
   },
+  "accounts": { 
+    "title": "Sociální účty", 
+    "subtitle": "Propojené účty", 
+    "connect": "Propojit", 
+    "connectAccount": "Propojit účet", 
+    "connecting": "Propojování...", 
+    "noAccounts": "Žádné propojené účty", 
+    "noAccountsDesc": "Propojte svůj první účet na sociální síti", 
+    "name": "Název účtu", 
+    "token": "Access Token", 
+    "cancel": "Zrušit",
+    "accessTokenPlaceholder": "Zadejte přístupový token",
+    "connected": "Připojeno",
+    "disconnected": "Odpojeno",
+    "errorConnecting": "Chyba při připojování účtu"
+  },
   "cookie": {
     "usesCookies": "Používáme soubory cookie k zajištění nejlepšího zážitku z Postio.",
     "learnMore": "více informací",

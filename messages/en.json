@@ -45,6 +45,22 @@
     "insights": "Insights",
     "profile": "Profile"
   },
+  "accounts": { 
+    "title": "Social Accounts", 
+    "subtitle": "Connected Accounts", 
+    "connect": "Connect", 
+    "connectAccount": "Connect Account", 
+    "connecting": "Connecting...", 
+    "noAccounts": "No connected accounts", 
+    "noAccountsDesc": "Connect your first social media account", 
+    "name": "Account Name", 
+    "token": "Access Token", 
+    "cancel": "Cancel",
+    "accessTokenPlaceholder": "Enter your access token",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "errorConnecting": "Error connecting account"
+  },
   "cookie": {
     "usesCookies": "We use cookies to ensure you get the best experience on Postio.",
     "learnMore": "learn more",

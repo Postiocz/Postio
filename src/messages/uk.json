@@ -132,6 +132,7 @@
     "status": "Статус",
     "connected": "Підключено",
     "disconnected": "Від'єднано",
+    "connectedAccounts": "{count, plural, one {# підключений акаунт} few {# підключені акаунти} many {# підключених акаунтів} other {# підключених акаунтів}}",
     "noAccounts": "Немає підключених акаунтів",
     "noAccountsSubtitle": "Підключіть свій перший акаунт в соцмережі",
     "accessToken": "Access Token",

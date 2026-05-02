@@ -132,6 +132,7 @@
     "status": "Status",
     "connected": "Connected",
     "disconnected": "Disconnected",
+    "connectedAccounts": "{count, plural, =0 {0 connected accounts} one {# connected account} other {# connected accounts}}",
     "noAccounts": "No connected accounts",
     "noAccountsSubtitle": "Connect your first social media account",
     "accessToken": "Access Token",

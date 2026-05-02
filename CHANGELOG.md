@@ -1,5 +1,17 @@
 ## 2026-05-02
 
+### Krok 40 – Oprava ikon sociálních sítí a TypeScript chyb (DOKONČENO)
+- `src/components/ui/social-icons.tsx` – nová sdílená komponenta pro brand ikony (Instagram, Facebook, Twitter, LinkedIn):
+  - Implementace jako inline SVG, protože `lucide-react` tyto brand loga neexportuje
+  - Rozhraní `SocialIconProps` s podporou `className` pro konzistentní stylizaci
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – oprava importů a TypeScript chyb:
+  - Import ikon přesunut z `lucide-react` do `@/components/ui/social-icons`
+  - Oprava chyby `ReactNode` při vykreslování komponent ikon (místo `{icon}` → `<Icon className="..." />`)
+  - Oprava syntaxe IIFE v JSX pro kondicionální renderování modálu
+- `src/app/[locale]/(auth)/onboarding/client.tsx` – úklid:
+  - Odstraněny lokální inline SVG definice ikon
+  - Import sdílených ikon z `@/components/ui/social-icons`
+
 ### Krok 39 – Prémiový dynamický favicon a Apple ikona (DOKONČENO)
 - `src/app/icon.tsx` – implementován dynamický favicon (32x32) pomocí `next/og`:
   - Design: Vycentrované bold písmeno 'P' s brandovým gradientem (`linear-gradient(to bottom right, #4f46e5, #9333ea)`).

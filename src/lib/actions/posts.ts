@@ -11,23 +11,34 @@ function revalidateAllLocales(path: string) {
   }
 }
 
-export async function createPost(data: {
+export async function createPostAction(data: {
   content: string;
   platforms: string[];
   scheduledAt?: string | null;
   status: "draft" | "scheduled" | "published";
   mediaUrls?: string[];
+  location?: string;
+  tags?: string[];
 }) {
   const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "You must be logged in to create a post." };
+  }
 
   const { data: post, error } = await supabase
     .from("posts")
     .insert({
+      user_id: user.id,
       content: data.content,
       platforms: data.platforms,
       scheduled_at: data.scheduledAt,
       status: data.status,
       media_urls: data.mediaUrls ?? [],
+      location: data.location ?? null,
+      tags: data.tags ?? [],
     })
     .select()
     .single();
@@ -48,6 +59,8 @@ export async function updatePost(id: string, data: {
   scheduledAt?: string | null;
   status?: "draft" | "scheduled" | "published" | "failed";
   mediaUrls?: string[];
+  location?: string;
+  tags?: string[];
 }) {
   const supabase = await createClient();
 
@@ -57,6 +70,8 @@ export async function updatePost(id: string, data: {
   if (data.scheduledAt !== undefined) updateData.scheduled_at = data.scheduledAt;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.mediaUrls !== undefined) updateData.media_urls = data.mediaUrls;
+  if (data.location !== undefined) updateData.location = data.location;
+  if (data.tags !== undefined) updateData.tags = data.tags;
 
   const { data: post, error } = await supabase
     .from("posts")
@@ -77,7 +92,17 @@ export async function updatePost(id: string, data: {
 export async function deletePost(id: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase.from("posts").delete().eq("id", id);
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "You must be logged in to delete a post." };
+  }
+
+  const { error } = await supabase
+    .from("posts")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (error) {
     console.error("Error deleting post:", error);

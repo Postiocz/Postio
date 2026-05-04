@@ -3,47 +3,48 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Link as LinkIcon, 
-  BarChart3, 
-  Settings 
+import {
+  LayoutDashboard,
+  FileText,
+  Calendar,
+  Link as LinkIcon,
+  BarChart3,
+  Settings
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { 
-    id: "dashboard", 
-    icon: LayoutDashboard, 
-    path: "/", 
-    labelKey: "nav.dashboard" 
+  {
+    id: "dashboard",
+    icon: LayoutDashboard,
+    path: "/",
+    labelKey: "nav.dashboard"
   },
-  { 
-    id: "posts", 
-    icon: FileText, 
-    path: "/posts", 
-    labelKey: "nav.posts" 
+  {
+    id: "posts",
+    icon: FileText,
+    path: "/posts",
+    labelKey: "nav.posts"
   },
-  { 
-    id: "accounts", 
-    icon: LinkIcon, 
-    path: "/accounts", 
-    labelKey: "nav.accounts" 
+  {
+    id: "calendar",
+    icon: Calendar,
+    path: "/calendar",
+    labelKey: "nav.calendar"
   },
-  { 
-    id: "analytics", 
-    icon: BarChart3, 
-    path: "/analytics", 
-    labelKey: "nav.analytics" 
+  {
+    id: "analytics",
+    icon: BarChart3,
+    path: "/analytics",
+    labelKey: "nav.analytics"
   },
-  { 
-    id: "settings", 
-    icon: Settings, 
-    path: "/settings", 
-    labelKey: "nav.settings" 
+  {
+    id: "settings",
+    icon: Settings,
+    path: "/settings",
+    labelKey: "nav.settings"
   },
 ];
 

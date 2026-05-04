@@ -1,4 +1,165 @@
+## 2026-05-04
+
+### Krok 56 – Kalendář: Oprava mobilního zobrazení (DOKONČENO)
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – opravy mobilního Agenda View:
+  - **Navigace měsíci**: Šipky nyní posouvají o celý měsíc (`previousMonth`/`nextMonth`) místo o 1 den
+  - **Větší touch-targety**: Šipky zvětšeny na `h-10 w-10` (40x40px) s ikonami `h-5 w-5` pro snadné trefení palcem
+  - **Sticky hlavička**: Hlavička s měsícem a šipkami je `sticky top-0` s `backdrop-blur-xl` – zůstává vidět při scrollování dnů
+  - **Všechny dny měsíce**: Nový `mobileAgendaDays` useMemo generuje VŠECHNY dny aktuálního měsíce (startOfMonth → endOfMonth), nejen dny s příspěvky
+  - **Prázdné dny**: Dny bez příspěvků zobrazují "Žádné příspěvky" + malé `+` tlačítko. Kliknutí na celý řádek otevře modal pro nový příspěvek
+  - **Plně scrollovatelný seznam**: Seznam dnů má `max-h-[calc(100vh-280px)]` a `overflow-y-auto`
+  - **České měsíce 100%**: Název měsíce v hlavičce z `months[month]` (props z `t.raw("months")`) + v seznamu dnů `months[day.getMonth()]` – vždy z lokálních překlادů
+  - **Jeden kontejner**: Celý mobilní view je v jednom `rounded-[20px]` kontejneru místo dvou samostatných karet
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 55 – Kalendář: Modal pro nový příspěvek + oprava filtrů + i18n + UI polish (DOKONČENO)
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – kompletní vylepšení:
+  - **Modal Dialog pro nový příspěvek**: Kliknutí na "+ Přidat příspěvek" v mobilním Agenda View otevírá modal s formulářem místo redirectu na /posts/new
+    - Formulář: obsah, platformy (pill tlačítka s ikonami), lokace, štítky, DateTimePicker
+    - Tlačítka: Koncept / Naplánovat / Publikovat (stejný styl jako /posts/new)
+    - Po úspěchu: toast + reload stránky
+    - Reset formuláře při zavření modálu
+  - **Oprava filtrů platforem**: UI tlačítka nyní používají `activePlatformFilter` (lokální stav) místo `selectedPlatform` (props z URL) – filtry fungují správně
+  - **Oprava příspěvků v gridu**: Desktop grid používá `getPostsForDayEffective` (respektuje filtry) místo `getPostsForDay`
+  - **Kliknutí na den**: Zachováno – redirect na `/posts/new?date=YYYY-MM-dd`
+  - **Česká lokalizace Agenda View**: `formatAgendaDate` s `date-fns/locale/cs` – dny a měsíce v češtině (čtvrtek, 6. května 2026)
+  - **Lokalizace množného čísla**: CS (příspěvek/příspěvky/příspěvků), UK (публікація/публікації/публікацій), EN (post/posts)
+  - **Lokalizace "+ more"**: další / більше / more
+  - **UI polish**: Lepší kontrast mřížky (`border-white/10`), zvýraznění dneška (`bg-indigo-500/5 ring-indigo-500/20`), tmavší dny mimo měsíc (`bg-black/30`)
+  - **Nové stavy**: `formContent`, `formPlatforms`, `formScheduledAt`, `formLocation`, `formTags`, `formTagDraft`, `formLoading`, `formError`
+  - **Nové funkce**: `handleOpenNewPostModal`, `handleToggleFormPlatform`, `handleCommitTag`, `handleRemoveTag`, `handleFormSubmit`
+- `src/app/[locale]/(dashboard)/calendar/page.tsx` – rozšířený `tCalendar` props o 16 nových klíčů
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové klíče:
+  - `calendar.addPost`, `calendar.newPost`, `calendar.content`, `calendar.contentPlaceholder`
+  - `calendar.selectPlatforms`, `calendar.saveDraft`, `calendar.schedule`, `calendar.publishNow`
+  - `calendar.scheduledAt`, `calendar.saving`, `calendar.addTags`, `calendar.locationPlaceholder`
+  - `calendar.postCreated`, `calendar.errorSaving`, `calendar.characterCount`, `calendar.maxFilesReached`
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 54 – Kalendář: Mobile Agenda View + Klikání na dny a příspěvky (DOKONČENO)
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – kompletní přepracování:
+  - **Desktop (lg+)**: Měsíční/týdenní mřížka zachována (hidden lg:block)
+  - **Mobile (pod lg)**: Nový Agenda View – vertikální seznam dnů s příspěvky
+    - Navigace: šipky pro posun dnů, název měsíce a roku
+    - Prázdný stav: ikona kalendáře + hláška "Žádné příspěvky" (lokalizováno)
+    - Dny s příspěvky: kroužek s číslem dne (gradient pro dnes), název dne, počet příspěvků
+    - Karty příspěvků: ikona platformy + obsah + čas, barevné statusy (published/scheduled/failed)
+    - Tlačítko "+ Přidat příspěvek" pod každým dnem
+  - **Kliknutí na den** (desktop + mobile): redirect na `/posts/new?date=YYYY-MM-dd`
+  - **Kliknutí na příspěvek**: `stopPropagation` + redirect na `/posts/[id]`
+  - **Filtry platforem**: zachovány, funkční na obou zobrazeních
+  - **Navigace Měsíc/Týden**: pouze desktop (hidden lg:flex)
+- `src/messages/cs.json`, `en.json`, `uk.json` – klíč `calendar.noPostsThisDay` (přidán v předchozí relaci)
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 53 – DB Sync: Média, Štítky, Lokace (DOKONČENO)
+- `supabase/migrations/005_add_location_tags_to_posts.sql` – nová migrace:
+  - Přidány sloupce `location TEXT DEFAULT NULL` a `tags TEXT[] DEFAULT '{}'` do tabulky `posts`
+- `src/lib/actions/posts.ts` – rozšířené server actions:
+  - `createPostAction` – nově přijímá a ukládá `location`, `tags` (kromě již existujícího `mediaUrls`)
+  - `updatePost` – nově přijímá a aktualizuje `location`, `tags`
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx` – `handleSubmit` předává do `createPostAction`:
+  - `location` z inputu, `tags` z badge seznamu, `mediaUrls` z dropzóny (jména souborů)
+- `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – editace příspěvku:
+  - useEffect načítá z DB i `location`, `tags`, `media_urls`
+  - `handleSave` předává do `updatePost` všechny tři pole
+- **Poznámka:** Média se ukládají jako jména souborů. Pro produkci bude potřeba upload do Supabase Storage
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 52 – Kalendář pro plánování obsahu (DOKONČENO)
+- `src/app/[locale]/(dashboard)/calendar/page.tsx` – nová Server Component stránka:
+  - Načítá příspěvky z DB (`posts` tabulka) filtrované podle `user_id` a `status != draft`
+  - Předává data do Client Component `_calendar-view` s lokalizací
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – Client Component s interaktivním kalendářem:
+  - **Mřížka kalendáře**: 7 sloupců (Po-Ne), `border border-white/5`, glassmorphism (`bg-card/40 backdrop-blur-md rounded-[20px]`)
+  - **Hlavička**: Šipky pro přepínání měsíců/týdnů, název měsíce lokalizovaný, přepínač Měsíc/Týden
+  - **Příspěvky v buňkách**: Skleněné karty (`bg-indigo-500/20`) s ikonou platformy, časem a ukázkou obsahu
+  - **Status barvy**: published = emerald, scheduled = indigo, failed = red
+  - **Filtry platforem**: Pill tlačítka nad kalendářem (Instagram, Facebook, X, LinkedIn, YouTube, TikTok) s ikonami
+  - **Dnes**: Gradient kroužek (`from-indigo-600 to-purple-600`) s glow efektem
+  - **Navigace**: `date-fns` pro generování dnů v měsíci/týdnu, `weekStartsOn: 1` (pondělí)
+- `src/components/dashboard/sidebar.tsx` – přidána `Calendar` ikona do `ICON_MAP`
+- `src/app/[locale]/(dashboard)/layout.tsx` – přidána položka Kalendář do `navItems` a `mobileNavItems`
+- `src/components/dashboard/mobile-nav.tsx` – přidána položka Kalendář do spodního menu
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové sekce `calendar.*` (title, subtitle, month, week, weekdays, months, filtry)
+- `nav.calendar` přidán do všech tří jazyků
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 49 – Premium DateTimePicker – Redesign kalendáře (DOKONČENO)
+- `src/components/ui/date-time-picker.tsx` – nová komponenta:
+  - **Trigger tlačítko**: Glass styl (`bg-white/[0.03] border-white/10 rounded-xl h-12`), ikona kalendáře vlevo, vybrané datum textem uprostřed, ikona hodin vpravo
+  - **Popover**: `bg-black/80 backdrop-blur-xl border border-white/10 rounded-[20px] p-4 shadow-2xl` – premium tmavý popover s blur efektem
+  - **Kalendář**: Vlastní grid 7xN, bílé čísla, vybraný den s indigo-purple gradientem + glow (`shadow-[0_0_12px_rgba(99,102,241,0.4)]`), hover `bg-white/10 rounded-lg`, dnes vyznačen indigo borderem
+  - **Navigace měsíců**: ChevronLeft/ChevronRight šipky, název měsíce lokalizovaný (`date-fns/locale/cs`, `uk`, `enUS`)
+  - **Výběr času**: Dvě select pole (HH : MM) s hodnotami 0-23 a 00/15/30/45, glass styl, custom chevron ikona
+  - **Lokalizace**: Český/anglický/ukrajinský kalendář přes `date-fns` locale + ruční weekDays (Po-Ne / Mo-Su / Пн-Нд)
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx` – nahrazen `<input type="datetime-local">` za `<DateTimePicker>`
+- `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – nahrazen `<input type="datetime-local">` za `<DateTimePicker>`
+- **Dependence**: `date-fns`, `@radix-ui/react-popover` (nově nainstalovány)
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 50 – Posts Page: Prémiový feed karet + animace (DOKONČENO)
+- `src/app/[locale]/(dashboard)/posts/page.tsx`
+  - Kontejner stránky omezen na `max-w-3xl mx-auto` (už není roztažený přes celou obrazovku)
+  - Seznam příspěvků přepojen na client list komponentu kvůli animacím a plynulému mazání
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx`
+  - Nová struktura karty: header (platform icon + status badge + akce), výrazný content (`text-lg`), footer s border-top (created date + scheduled time s ikonou hodin)
+  - Styl karty dle specifikace (`rounded-[24px]`, `bg-card/40`, `backdrop-blur`, jemný indigo hover border)
+  - Framer Motion: `<AnimatePresence>` + enter/exit animace (fade-in + slide-up, při smazání plynulý exit)
+  - Mazání: po úspěchu se karta okamžitě odstraní ze seznamu (bez refresh)
+
+### Krok 51 – Editor příspěvků: Média, Lokace, Štítky (DOKONČENO)
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx`
+  - Přidána sekce Médií pod pole Obsah: drag & drop zóna (dashed border, glass hover) + náhledy v gridu + mazání
+  - Přidán input pro Lokaci (MapPin vlevo) pod výběr platforem
+  - Přidána sekce Štítky: Enter/mezerník vytvoří tag odznáček s křížkem, indigo/purple gradient
+- `src/app/[locale]/(dashboard)/posts/[id]/page.tsx`
+  - Sjednocen vizuál na prémiový glass layout a doplněny stejné sekce (Média, Lokace, Štítky)
+- `src/messages/cs.json`, `en.json`, `uk.json`
+  - Nové i18n klíče: `addMedia`, `locationPlaceholder`, `addTags`, `maxFilesReached`
+
 ## 2026-05-03
+
+### Krok 48 – Výpis příspěvků z databáze (DOKONČENO)
+- `src/app/[locale]/(dashboard)/posts/page.tsx` – kompletní přepracování:
+  - **Načítání z DB**: Query nyní filtruje podle `user_id` aktuálního uživatele (`.eq("user_id", user.id)`) – uživatel vidí pouze své příspěvky
+  - **Řazení**: `order("created_at", { ascending: false })` – nejnovější první
+  - **Filtry**: Pills filtry s novými i18n klíči (`statusDraft`, `statusScheduled`, `statusPublished`, `statusFailed`)
+  - **Empty State**: Zachován krásný vizuální prázdný stav s velkou ikonou `FileText` a fialovou září
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – nová Client Component pro karty příspěvků:
+  - **Design**: Premium Glass (`bg-card/40 backdrop-blur-md border border-white/5 rounded-[20px] p-6`)
+  - **Obsah**: Text příspěvku (content, max 200 znaků preview), ikony platforem (Instagram, Facebook, X, LinkedIn, YouTube, TikTok), datum vytvoření, čas naplánování (Calendar ikona)
+  - **Status Badge**: Barevné odznaky – draft (šedý), scheduled (indigo/modrý), published (zelený/emerald), failed (červený/red)
+  - **Akce**: Edit (Edit ikona) + Delete (Trash2 ikona s `confirm()` dialogem)
+  - **Lokalizace dat**: `toLocaleDateString()` s locale podle jazyka (cs-CZ, uk-UA, en-US)
+- `src/lib/actions/posts.ts` – oprava `deletePost`:
+  - Přidán auth check (`supabase.auth.getUser()`)
+  - Přidán `.eq("user_id", user.id)` – lze smazat pouze vlastní příspěvky
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové klíče: `statusDraft`, `statusScheduled`, `statusPublished`, `statusFailed`, `deleteConfirm`
+- **LocaleSwitcher**: Zkontrolováno – kód je správný, používá `locales.find()` pro labely. Žádný "login" bug nebyl nalezen (pravděpodobně již opraven dříve)
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 47 – Přechod na klasický Login (E-mail + Heslo) (DOKONČENO)
+- `src/components/auth/email-signin.tsx` – kompletní přepsání: odstraněn Magic Link (OTP) systém, nahrazen klasickým loginem s heslem (`signInWithPassword`), přidána registrace (`signUp`), přepínač režimů signin/signup, pole pro heslo s toggle visibility (Eye/EyeOff), validace email verification (pokud uživatel nemá ověřený e-mail, dostane chybovou hlášku + automatické odhlášení), redirect po registraci na `/[locale]/dashboard`
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové i18n klíče: `signIn`, `signUp`, `signingIn`, `emailNotVerified`, `invalidCredentials`, `signInError`, `signUpError`, `emailAlreadyExists`, `checkEmailToVerify`, `emailVerified`, `emailNotVerifiedBadge` – odstraněny staré OTP klíče (`checkEmailTitle`, `checkEmailDesc`, `sendingEmail`, `rateLimitExceeded`, `tryAgainIn`, `otpSendError`)
+- `src/app/[locale]/(dashboard)/settings/page.tsx` – do sekce Profil přidán řádek s e-mailem a verification badge (zelený „Ověřen" s CheckCircle2 vs. oranžový „Neověřen" s AlertCircle)
+- Design: Inputy s ikonami (Mail, Lock) vlevo, glassmorphism styl (`bg-white/[0.03]`, `rounded-2xl`), tlačítko „Přihlásit se" / „Zaregistrujte se", odkazy „Zapomněli jste heslo?" a „Nemáte účet? Zaregistrujte se"
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 8.1 – Login: Přidání e-mailu (UI + i18n) (DOKONČENO)
+- `src/app/[locale]/(auth)/login/page.tsx` – pod Google tlačítko přidán divider „nebo“, e-mail input + CTA a vrácen privacy disclaimer s odkazem na `/privacy`
+- `src/components/auth/email-signin.tsx` – nový klientský blok pro přihlášení e-mailem přes Supabase OTP (magic link) včetně designu inputu a tlačítka
+- `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json` – doplněny klíče `auth.or`, `auth.emailPlaceholder`, `auth.continueWithEmail`, `auth.privacyDisclaimer`
+
+### Krok 8.2 – Login: Magic Link logika a redesign rozložení (DOKONČENO)
+- `src/components/auth/email-signin.tsx` – implementována logika Supabase Magic Link (`signInWithOtp`), přidán Success View s ikonou obálky a fialovou září, aktualizován stav tlačítka při načítání („Odesílám...“) a vizuální polish (čistě bílé tlačítko, jemný border inputu)
+- `src/app/[locale]/(auth)/login/page.tsx` – přesunut Privacy Disclaimer z patičky přímo pod blok přihlášení e-mailem pro lepší vizuální celistvost
+- `src/messages/cs.json`, `en.json`, `uk.json` – doplněny klíče pro Success View (`checkEmailTitle`, `checkEmailDesc`) a stav odesílání (`sendingEmail`)
+- Sjednocení login bloku do jednoho vycentrovaného celku
+
+### Krok 8.2.1 – Login: UX pro Supabase rate limit (DOKONČENO)
+- `src/components/auth/email-signin.tsx` – přidán perzistentní cooldown přes `localStorage` a uživatelské hlášky místo console error (eliminuje spam při refreshi)
+- `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json` – doplněny klíče `rateLimitExceeded`, `tryAgainIn`, `otpSendError`
 
 ### Krok 46 – Účty: Drag & Drop pořadí sítí + přidání YouTube a TikTok (DOKONČENO)
 - `src/app/[locale]/(dashboard)/accounts/page.tsx` – ikony platforem jsou přetahovatelné přes Framer Motion `Reorder` (lokální `useState`), včetně jemného zvětšení + výraznějšího glow při drag; zároveň doplněny platformy YouTube a TikTok a labely jsou napojené na i18n

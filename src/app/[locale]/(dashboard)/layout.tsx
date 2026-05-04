@@ -53,18 +53,18 @@ export default async function DashboardLayout({
   const navItems = [
     { href: `/${locale}`, label: navT("dashboard"), icon: "dashboard" as const },
     { href: `/${locale}/posts`, label: navT("posts"), icon: "posts" as const },
-    { href: `/${locale}/accounts`, label: navT("accounts"), icon: "accounts" as const },
-    { href: `/${locale}/templates`, label: navT("templates"), icon: "templates" as const },
+    { href: `/${locale}/calendar`, label: navT("calendar"), icon: "calendar" as const },
     { href: `/${locale}/analytics`, label: navT("analytics"), icon: "analytics" as const },
+    { href: `/${locale}/settings`, label: navT("settings"), icon: "settings" as const },
   ];
- 
-   const mobileNavItems = [
-     { href: `/${locale}`, label: navT("dashboard"), icon: "dashboard" as const },
-     { href: `/${locale}/posts`, label: navT("posts"), icon: "posts" as const },
-     { href: `/${locale}/accounts`, label: navT("accounts"), icon: "accounts" as const },
-     { href: `/${locale}/templates`, label: navT("templates"), icon: "templates" as const },
-     { href: `/${locale}/analytics`, label: navT("analytics"), icon: "analytics" as const },
-   ];
+
+  const mobileNavItems = [
+    { href: `/${locale}`, label: navT("dashboard"), icon: "dashboard" as const },
+    { href: `/${locale}/posts`, label: navT("posts"), icon: "posts" as const },
+    { href: `/${locale}/calendar`, label: navT("calendar"), icon: "calendar" as const },
+    { href: `/${locale}/analytics`, label: navT("analytics"), icon: "analytics" as const },
+    { href: `/${locale}/settings`, label: navT("settings"), icon: "settings" as const },
+  ];
 
   return (
     <div className="flex h-screen bg-background font-sans">

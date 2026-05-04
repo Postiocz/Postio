@@ -6,15 +6,16 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Link as LinkIcon, 
-  Copy, 
-  BarChart3, 
-  Settings, 
+import {
+  LayoutDashboard,
+  FileText,
+  Link as LinkIcon,
+  Copy,
+  BarChart3,
+  Settings,
   ChevronUp,
-  User
+  User,
+  Calendar,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -24,6 +25,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   templates: Copy,
   analytics: BarChart3,
   settings: Settings,
+  calendar: Calendar,
 };
 
 interface NavItem {

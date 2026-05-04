@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieConsent } from "@/components/cookie-consent";
+import { Toaster } from "sonner";
 
 export default async function LocaleLayout({
   children,
@@ -23,6 +24,7 @@ export default async function LocaleLayout({
       >
         {children}
         <CookieConsent />
+        <Toaster position="top-center" richColors />
       </ThemeProvider>
     </NextIntlClientProvider>
   );

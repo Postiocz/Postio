@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
 
 const PLAN_PRICES: Record<string, number> = {
   free: 0,
@@ -20,12 +20,15 @@ const PLAN_PRICES: Record<string, number> = {
 
 export default function SettingsPage() {
   const settingsT = useTranslations("settings");
+  const authT = useTranslations("auth");
   const commonT = useTranslations("common");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(true);
   const [language, setLanguage] = useState("cs");
   const [plan, setPlan] = useState("free");
   const [loading, setLoading] = useState(true);
@@ -38,6 +41,8 @@ export default function SettingsPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("No session");
+        setEmail(user.email ?? "");
+        setEmailVerified(!!user.email_confirmed_at);
         const { data } = await supabase.from("users").select("*").single();
         if (data) {
           setFullName(data.full_name ?? user.email?.split("@")[0] ?? "");
@@ -121,6 +126,27 @@ export default function SettingsPage() {
           <CardTitle>{settingsT("profile")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Email + verification badge */}
+          <div className="space-y-2">
+            <Label htmlFor="email">{authT("email")}</Label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-muted-foreground/70">
+                {email}
+              </div>
+              {emailVerified ? (
+                <Badge variant="default" className="rounded-full gap-1 bg-green-500/20 text-green-400 border border-green-500/20 hover:bg-green-500/30">
+                  <CheckCircle2 className="size-3" />
+                  {authT("emailVerified")}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="rounded-full gap-1 bg-amber-500/20 text-amber-400 border border-amber-500/20 hover:bg-amber-500/30">
+                  <AlertCircle className="size-3" />
+                  {authT("emailNotVerifiedBadge")}
+                </Badge>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="fullName">{settingsT("fullName")}</Label>
             <Input

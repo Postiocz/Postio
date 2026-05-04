@@ -1,18 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Edit, FileText } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
-import { deletePost } from "@/lib/actions/posts";
-
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "success" | "warning" | "error"> = {
-  draft: "secondary",
-  scheduled: "warning",
-  published: "success",
-  failed: "error",
-};
+import { PostsList } from "./_post-card";
 
 export default async function PostsPage({
   params,
@@ -26,29 +17,39 @@ export default async function PostsPage({
   const sp = await searchParams;
   const supabase = await createClient();
 
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return <div className="text-muted-foreground">{t("errorDeleting")}</div>;
+  }
+
   const statusFilter = sp?.status;
-  let query = supabase.from("posts").select("*").order("created_at", { ascending: false });
+  let query = supabase
+    .from("posts")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
   if (statusFilter) {
     query = query.eq("status", statusFilter);
   }
+
   const { data: posts, error: postsError } = await query;
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (postsError || authError || !user) {
-    return <div>{t("errorDeleting")}</div>;
+  if (postsError) {
+    return <div className="text-muted-foreground">{t("errorDeleting")}</div>;
   }
 
   const filters = [
     { label: t("filterAll"), value: "" },
-    { label: t("draft"), value: "draft" },
-    { label: t("scheduled"), value: "scheduled" },
-    { label: t("published"), value: "published" },
-    { label: t("failed"), value: "failed" },
+    { label: t("statusDraft"), value: "draft" },
+    { label: t("statusScheduled"), value: "scheduled" },
+    { label: t("statusPublished"), value: "published" },
+    { label: t("statusFailed"), value: "failed" },
   ];
 
   return (
-    <div className="relative space-y-8">
+    <div className="relative space-y-8 max-w-3xl mx-auto">
       {/* Background glow effects */}
       <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-[100px]" />
       <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-purple-500/10 blur-[100px]" />
@@ -95,6 +96,8 @@ export default async function PostsPage({
           })}
         </div>
 
+        {/* Posts List / Empty State — with top margin */}
+        <div className="mt-10 space-y-6">
         {/* Empty State — Visual Center */}
         {posts.length === 0 ? (
           <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
@@ -119,76 +122,27 @@ export default async function PostsPage({
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {posts.map((post: { id: string; content: string; status: string; platforms: string[]; scheduled_at: string | null; created_at: string; updated_at: string }) => (
-              <PostCard key={post.id} post={post} locale={locale} t={t} />
-            ))}
-          </div>
+          <PostsList
+            initialPosts={posts.map((post) => ({
+              id: post.id,
+              content: post.content,
+              status: post.status,
+              platforms: post.platforms ?? [],
+              scheduled_at: post.scheduled_at,
+              created_at: post.created_at,
+            }))}
+            locale={locale}
+            tStatusDraft={t("statusDraft")}
+            tStatusScheduled={t("statusScheduled")}
+            tStatusPublished={t("statusPublished")}
+            tStatusFailed={t("statusFailed")}
+            tScheduledAt={t("scheduledAt")}
+            tEditPost={t("editPost")}
+            tDeleteConfirm={t("deleteConfirm")}
+          />
         )}
+        </div>
       </div>
     </div>
-  );
-}
-
-function PostCard({
-  post,
-  locale,
-  t,
-}: {
-  post: {
-    id: string;
-    content: string;
-    status: string;
-    platforms: string[];
-    scheduled_at: string | null;
-    created_at: string;
-    updated_at: string;
-  };
-  locale: string;
-  t: (key: string) => string;
-}) {
-  const contentPreview = post.content.length > 200 ? post.content.slice(0, 200) + "..." : post.content;
-
-  return (
-    <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">
-      <CardContent className="flex items-start gap-4 p-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <Badge variant={STATUS_VARIANTS[post.status] ?? "default"}>
-              {t(post.status)}
-            </Badge>
-            {post.platforms.map((p) => (
-              <Badge key={p} variant="outline">
-                {p}
-              </Badge>
-            ))}
-          </div>
-          <p className="mt-3 whitespace-pre-line text-sm">{contentPreview}</p>
-          <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-            <span>{new Date(post.created_at).toLocaleDateString()}</span>
-            {post.scheduled_at && (
-              <span>{t("scheduledAt")}: {new Date(post.scheduled_at).toLocaleString()}</span>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-1">
-          <Link href={`/${locale}/posts/${post.id}`}>
-            <Button variant="ghost" size="icon-xs" title={t("editPost")}>
-              <Edit className="h-4 w-4" />
-            </Button>
-          </Link>
-          <form
-            action={async () => {
-              "use server";
-              await deletePost(post.id);
-            }}
-          >
-            <Button variant="ghost" size="icon-xs" type="submit">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </form>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

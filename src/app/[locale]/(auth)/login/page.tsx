@@ -1,7 +1,9 @@
+import { EmailSignIn } from "@/components/auth/email-signin";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { LoginVisual } from "@/components/auth/login-visual";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 
 export default async function LoginPage({
   params,
@@ -19,23 +21,40 @@ export default async function LoginPage({
 
         <div className="flex-1 flex items-center justify-center">
           <div className="mx-auto w-full max-w-[320px] lg:max-w-sm px-4 text-center">
-          <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
-            <span className="text-primary">P</span>ostio
-          </h1>
+            <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
+              <span className="text-primary">P</span>ostio
+            </h1>
 
-          <h2 className="mt-8 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            {t("getStarted")}
-          </h2>
+            <h2 className="mt-8 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              {t("getStarted")}
+            </h2>
 
-          <p className="mt-3 text-lg leading-relaxed text-muted-foreground">
-            {t("getStartedSubtitle")}
-          </p>
+            <p className="mt-3 text-lg leading-relaxed text-muted-foreground">
+              {t("getStartedSubtitle")}
+            </p>
 
-          <div className="mt-12">
-            <GoogleSignInButton />
+            <div className="mt-12 space-y-6">
+              <GoogleSignInButton />
+              <div className="relative">
+                <EmailSignIn />
+                <div className="mt-4">
+                  <p className="text-[11px] text-muted-foreground/60 text-center leading-relaxed">
+                    {t.rich("privacyDisclaimer", {
+                      policy: (chunks) => (
+                        <Link
+                          href={`/${locale}/privacy`}
+                          className="underline underline-offset-4"
+                        >
+                          {chunks}
+                        </Link>
+                      ),
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       {/* Right: visual panel – hidden on <lg, 60% on lg+ */}

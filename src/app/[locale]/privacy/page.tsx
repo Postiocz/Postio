@@ -21,7 +21,7 @@ export default async function PrivacyPage({
         </div>
       </header>
 
-      <main className="flex-1 px-6 py-12 lg:py-24">
+      <main className="flex-1 px-6 py-12 pb-48 lg:py-24 lg:pb-32">
         <div className="mx-auto max-w-3xl space-y-12">
           <div className="space-y-4">
             <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
@@ -103,7 +103,7 @@ export default async function PrivacyPage({
           <div className="flex justify-center pt-8">
             <Link
               href={`/${locale}/`}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 py-3 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-white/10 hover:border-white/20 backdrop-blur-sm"
+              className="relative z-10 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 py-3 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-white/10 hover:border-white/20 backdrop-blur-sm"
             >
               {common("back")}
             </Link>

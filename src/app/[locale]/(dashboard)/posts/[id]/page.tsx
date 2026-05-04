@@ -9,21 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { updatePost } from "@/lib/actions/posts";
-import { ArrowLeft, Film, Image as ImageIcon, MapPin, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import NextImage from "next/image";
+import { useMediaUpload } from "@/hooks/use-media-upload";
 
 const PLATFORMS = ["instagram", "facebook", "twitter", "linkedin"];
-
-type MediaItem = {
-  id: string;
-  file: File;
-  previewUrl: string;
-  kind: "image" | "video";
-};
 
 const MAX_MEDIA_FILES = 10;
 
@@ -38,23 +32,33 @@ export default function EditPostPage() {
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const supabase = createClient();
+  const {
+    items: mediaItems,
+    addFiles: addMediaFiles,
+    removeItem: removeMediaItem,
+    loadExistingUrls,
+    getMediaUrls,
+    hasUploading,
+  } = useMediaUpload(userId, MAX_MEDIA_FILES);
 
+  // Get current user ID
   useEffect(() => {
-    return () => {
-      for (const item of mediaItems) {
-        URL.revokeObjectURL(item.previewUrl);
-      }
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
     };
-  }, [mediaItems]);
+    getUser();
+  }, [supabase]);
 
+  // Load post data
   useEffect(() => {
     (async () => {
       const { data: postData, error: err } = (await supabase
@@ -77,46 +81,18 @@ export default function EditPostPage() {
         const d = new Date(postData.scheduled_at);
         setScheduledAt(d.toISOString().slice(0, 16));
       }
+      // Load existing media URLs from database
+      if (postData.media_urls && postData.media_urls.length > 0) {
+        loadExistingUrls(postData.media_urls);
+      }
       setLoading(false);
     })();
-  }, [id, supabase]);
+  }, [id, supabase, loadExistingUrls]);
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) =>
       prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
     );
-  };
-
-  const addMediaFiles = (incoming: File[]) => {
-    const usable = incoming.filter(
-      (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
-    );
-
-    setMediaItems((prev) => {
-      const remainingSlots = Math.max(0, MAX_MEDIA_FILES - prev.length);
-      const toAdd = usable.slice(0, remainingSlots);
-
-      if (toAdd.length < usable.length) {
-        toast.error(t("maxFilesReached"));
-      }
-
-      const created: MediaItem[] = toAdd.map((file) => ({
-        id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-        file,
-        previewUrl: URL.createObjectURL(file),
-        kind: file.type.startsWith("video/") ? "video" : "image",
-      }));
-
-      return [...prev, ...created];
-    });
-  };
-
-  const removeMediaItem = (itemId: string) => {
-    setMediaItems((prev) => {
-      const item = prev.find((x) => x.id === itemId);
-      if (item) URL.revokeObjectURL(item.previewUrl);
-      return prev.filter((x) => x.id !== itemId);
-    });
   };
 
   const commitTag = (raw: string) => {
@@ -139,18 +115,38 @@ export default function EditPostPage() {
   };
 
   const handleSave = async () => {
+    if (hasUploading()) {
+      toast.info(t("uploading"));
+      return;
+    }
+
+    // Commit remaining tag draft before saving
+    let finalTags = [...tags];
+    if (tagDraft.trim()) {
+      const cleaned = tagDraft.trim();
+      const core = cleaned.startsWith("#") ? cleaned.slice(1) : cleaned;
+      const normalized = core.replace(/[^\p{L}\p{N}_-]+/gu, "");
+      if (normalized) {
+        const tag = `#${normalized}`;
+        const exists = finalTags.some((t0) => t0.toLowerCase() === tag.toLowerCase());
+        if (!exists) finalTags = [...finalTags, tag];
+      }
+    }
+    setTagDraft("");
+
     setSaving(true);
     setError(null);
 
     try {
+      const mediaUrls = getMediaUrls();
       const result = await updatePost(id, {
         content: content.trim(),
         platforms: selectedPlatforms,
         scheduledAt: scheduledAt || null,
         status: status as "draft" | "scheduled" | "published",
         location: location.trim() || "",
-        tags,
-        mediaUrls: mediaItems.map((m) => m.file.name),
+        tags: finalTags,
+        mediaUrls,
       });
 
       if (result.success) {
@@ -245,7 +241,14 @@ export default function EditPostPage() {
               className="hidden"
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? []);
-                if (files.length > 0) addMediaFiles(files);
+                if (files.length > 0) {
+                  const tooLarge = files.some(f => f.size > 50 * 1024 * 1024);
+                  if (tooLarge) {
+                    toast.error(t("fileTooLarge"));
+                    return;
+                  }
+                  addMediaFiles(files);
+                }
                 e.currentTarget.value = "";
               }}
             />
@@ -272,7 +275,14 @@ export default function EditPostPage() {
                 e.stopPropagation();
                 setIsDraggingMedia(false);
                 const files = Array.from(e.dataTransfer.files ?? []);
-                if (files.length > 0) addMediaFiles(files);
+                if (files.length > 0) {
+                  const tooLarge = files.some(f => f.size > 50 * 1024 * 1024);
+                  if (tooLarge) {
+                    toast.error(t("fileTooLarge"));
+                    return;
+                  }
+                  addMediaFiles(files);
+                }
               }}
               className={cn(
                 "group relative w-full rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] p-6 text-left backdrop-blur-md transition-colors hover:bg-white/[0.05]",
@@ -302,10 +312,25 @@ export default function EditPostPage() {
                     key={item.id}
                     className="group relative overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.02] backdrop-blur-md"
                   >
+                    {/* Upload progress overlay */}
+                    {item.status === "uploading" && (
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
+                        <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+                        <span className="text-[10px] font-medium text-indigo-200/80">{t("uploading")}</span>
+                      </div>
+                    )}
+
+                    {/* Upload success indicator */}
+                    {item.status === "ready" && (
+                      <div className="absolute left-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/80 backdrop-blur-md">
+                        <CheckCircle2 className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+
                     {item.kind === "image" ? (
                       <NextImage
                         src={item.previewUrl}
-                        alt={item.file.name}
+                        alt="Media preview"
                         width={240}
                         height={96}
                         className="h-24 w-full object-cover"
@@ -323,7 +348,7 @@ export default function EditPostPage() {
                     <button
                       type="button"
                       onClick={() => removeMediaItem(item.id)}
-                      className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
+                      className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
                       aria-label="Remove"
                     >
                       <X className="h-4 w-4" />
@@ -407,6 +432,7 @@ export default function EditPostPage() {
                   removeTag(tags[tags.length - 1] ?? "");
                 }
               }}
+              onBlur={() => commitTag(tagDraft)}
               placeholder={t("addTags")}
               className="h-12 rounded-xl border-white/10 bg-black/20 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
             />
@@ -426,10 +452,11 @@ export default function EditPostPage() {
           <div className="flex gap-3 pt-2">
             <Button
               onClick={handleSave}
-              disabled={saving || !content.trim()}
+              disabled={saving || !content.trim() || hasUploading()}
               className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
             >
-              {saving ? t("loading") : t("save")}
+              {saving || hasUploading() ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {saving || hasUploading() ? t("loading") : t("save")}
             </Button>
           </div>
         </div>

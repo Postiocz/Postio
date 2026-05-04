@@ -1,4 +1,73 @@
+## 2026-05-05
+
+### Krok 59 – Univerzální Edit Modal + Kalendář: Drafty + Filtry statusu (DOKONČENO)
+- `src/components/edit-post-dialog.tsx` – nová sdílená komponenta `EditPostDialog`:
+  - Slouží jak pro editaci, tak pro vytvoření nového příspěvku
+  - Používá se jak z kalendáře, tak ze seznamu příspěvků
+  - Podpora: content, platformy, scheduled_at, status, location, tags, media (drag & drop + upload do Supabase Storage)
+  - useMediaUpload hook pro nahrávání médií
+  - Status pills (draft/scheduled/published/failed) – pouze v edit mode
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – kompletní vylepšení:
+  - **Koncepty (draft) viditelné**: Příspěvky se statusem `draft` se zobrazují s nižší opacitou (`opacity-60`)
+  - **Filtry statusu**: Nové pill filtry (Vše, Koncept, Naplánované, Publikované, Neúspěšné) pod platform filtry
+  - **Kliknutí na příspěvek**: Otevírá `EditPostDialog` modal místo redirectu na `/posts/[id]`
+  - **activeStatusFilter**: Lokální stav pro UI filtr statusu (nezávislý na URL)
+  - **Post interface rozšířen**: location, tags, media_urls
+  - **getPostsForDayEffective**: Drafty bez `scheduled_at` se zobrazují v dnešním dni
+- `src/app/[locale]/(dashboard)/calendar/page.tsx` – odstraněn filtr `.neq("status", "draft")`:
+  - `selectedStatus` se předává z URL searchParams (`?status=draft`)
+  - Nové tCalendar klíče: editPost, postUpdated, addMedia
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – integrace EditPostDialog:
+  - Tlačítko "Upravit" (ikona tužky) otevírá modal místo redirectu přes Link
+  - PostCard přijímá `tLabels` prop a předává do EditPostDialog
+  - PostsList přijímá `tLabels` prop a předává do PostCard
+  - PostListItem rozšířen: location, tags, media_urls
+- `src/app/[locale]/(dashboard)/posts/page.tsx` – rozšířené mapování příspěvků:
+  - location, tags, media_urls se předávají do PostsList
+  - tLabels prop s všemi potřebnými i18n klíči
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové klíče v calendar namespace:
+  - `filterAll`, `editPost`, `postUpdated`, `addMedia`
+- Build: úspěšný, žádné TypeScript chyby
+
 ## 2026-05-04
+
+### Krok 58 – Oprava ukládání štítků (tags) (DOKONČENO)
+- **Kořen problému**: Uživatel napsal tag do inputu a klikl na "Uložit" bez Enter/Space. Text zůstal v `tagDraft` a nikdy se nekomitoval do `tags` pole → do DB se uložilo prázdné pole.
+- `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` (edit post):
+  - **handleSave**: Před uložením se commitne zbylý `tagDraft` do `finalTags` (s normalizací + deduplikace)
+  - `setTagDraft("")` po commitu
+  - `updatePost` dostává `tags: finalTags` (vždy pole, nikdy undefined)
+  - Input: přidán `onBlur={() => commitTag(tagDraft)}` – tag se commitne i při ztrátě fokusu
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx` (new post):
+  - **handleSubmit**: Stejný fix – commit `tagDraft` → `finalTags` před `createPostAction`
+  - `tags: finalTags` (vždy pole, nikdy undefined)
+  - Input: přidán `onBlur={() => commitTag(tagDraft)}`
+- `src/lib/actions/posts.ts` – server actions už `tags` správně zpracovávají (žádná změna potřeba)
+- Migrace `005_add_location_tags_to_posts.sql` – sloupec `tags TEXT[] DEFAULT '{}'` existuje
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 57 – Upload médií do Supabase Storage (DOKONČENO)
+- `src/hooks/use-media-upload.ts` – nový custom hook pro nahrávání médií:
+  - **uploadFile**: Upload souboru do Supabase Storage bucket `post-media` s unikátní cestou `{userId}/{timestamp}-{filename}`
+  - **addFiles**: Přidání souborů s validací (image/video, max 50MB, max 10 souborů), automatický upload po přidání
+  - **removeItem**: Odstranění souboru + revoke ObjectURL + smazání ze storage
+  - **loadExistingUrls**: Načtení existujících URL z DB (pro editaci příspěvků)
+  - **getMediaUrls**: Vrátí pole public URL všech ready souborů
+  - **hasUploading**: Indikace zda probíhá upload (blokuje odeslání formuláře)
+  - **Stavy**: `uploading` (spinner) → `ready` (CheckCircle2) / `error` (toast error)
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx` – integrace useMediaUpload:
+  - Drag & drop zóna s vizuální feedback (border-indigo při drag)
+  - Preview grid (3/4 sloupce) s thumbnails, upload progress overlay, success indicator
+  - File size validation (50MB limit) + toast error
+  - Blocking upload při submit – toast.info("Nahrávám...")
+  - mediaUrls se předávají do createPostAction
+- `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – integrace useMediaUpload:
+  - loadExistingUrls při načtení příspěvku z DB (media_urls pole)
+  - Stejný UI jako new post (drag & drop, preview grid, stavy)
+  - mediaUrls se předávají do updatePost
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové klíče:
+  - `posts.uploading`, `posts.uploadSuccess`, `posts.uploadError`, `posts.fileTooLarge`
+- Build: úspěšný, žádné TypeScript chyby
 
 ### Krok 56 – Kalendář: Oprava mobilního zobrazení (DOKONČENO)
 - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – opravy mobilního Agenda View:

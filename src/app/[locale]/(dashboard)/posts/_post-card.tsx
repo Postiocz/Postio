@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { deletePost } from "@/lib/actions/posts";
+import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-white/10 text-muted-foreground border border-white/10",
@@ -41,6 +42,9 @@ type PostListItem = {
   platforms: string[];
   scheduled_at: string | null;
   created_at: string;
+  location: string | null;
+  tags: string[];
+  media_urls: string[];
 };
 
 function toLocaleTag(locale: string) {
@@ -61,6 +65,7 @@ export function PostCard({
   tDeleteConfirm,
   onDeleted,
   animationDelay = 0,
+  tLabels,
 }: {
   post: PostListItem;
   locale: string;
@@ -73,8 +78,37 @@ export function PostCard({
   tDeleteConfirm: string;
   onDeleted?: (id: string) => void;
   animationDelay?: number;
+  tLabels: {
+    newPost: string;
+    editPost: string;
+    content: string;
+    contentPlaceholder: string;
+    selectPlatforms: string;
+    saveDraft: string;
+    schedule: string;
+    publishNow: string;
+    scheduledAt: string;
+    saving: string;
+    addTags: string;
+    locationPlaceholder: string;
+    postCreated: string;
+    postUpdated: string;
+    errorSaving: string;
+    characterCount: string;
+    maxFilesReached: string;
+    addMedia: string;
+    dropMedia: string;
+    uploading: string;
+    uploadError: string;
+    fileTooLarge: string;
+    statusDraft: string;
+    statusScheduled: string;
+    statusPublished: string;
+    statusFailed: string;
+  };
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const statusLabels: Record<string, string> = {
     draft: tStatusDraft,
@@ -106,6 +140,7 @@ export function PostCard({
     : "—";
 
   return (
+    <>
     <motion.article
       layout
       initial={{ opacity: 0, y: 14 }}
@@ -125,11 +160,15 @@ export function PostCard({
         </div>
 
         <div className="flex gap-1 shrink-0">
-          <Link href={`/${locale}/posts/${post.id}`}>
-            <Button variant="ghost" size="icon-sm" className="h-8 w-8" title={tEditPost}>
-              <Edit className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-8 w-8"
+            title={tEditPost}
+            onClick={() => setEditOpen(true)}
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -155,6 +194,24 @@ export function PostCard({
         </span>
       </div>
     </motion.article>
+
+    <EditPostDialog
+      open={editOpen}
+      onOpenChange={setEditOpen}
+      post={{
+        id: post.id,
+        content: post.content,
+        platforms: post.platforms ?? [],
+        scheduled_at: post.scheduled_at,
+        status: post.status,
+        location: post.location ?? null,
+        tags: post.tags ?? [],
+        media_urls: post.media_urls ?? [],
+      }}
+      locale={locale}
+      tLabels={tLabels}
+    />
+    </>
   );
 }
 
@@ -168,6 +225,7 @@ export function PostsList({
   tScheduledAt,
   tEditPost,
   tDeleteConfirm,
+  tLabels,
 }: {
   initialPosts: PostListItem[];
   locale: string;
@@ -178,6 +236,34 @@ export function PostsList({
   tScheduledAt: string;
   tEditPost: string;
   tDeleteConfirm: string;
+  tLabels: {
+    newPost: string;
+    editPost: string;
+    content: string;
+    contentPlaceholder: string;
+    selectPlatforms: string;
+    saveDraft: string;
+    schedule: string;
+    publishNow: string;
+    scheduledAt: string;
+    saving: string;
+    addTags: string;
+    locationPlaceholder: string;
+    postCreated: string;
+    postUpdated: string;
+    errorSaving: string;
+    characterCount: string;
+    maxFilesReached: string;
+    addMedia: string;
+    dropMedia: string;
+    uploading: string;
+    uploadError: string;
+    fileTooLarge: string;
+    statusDraft: string;
+    statusScheduled: string;
+    statusPublished: string;
+    statusFailed: string;
+  };
 }) {
   const [posts, setPosts] = useState<PostListItem[]>(initialPosts);
   const [refreshAfterExit, setRefreshAfterExit] = useState(false);
@@ -210,6 +296,7 @@ export function PostsList({
                 return next;
               });
             }}
+            tLabels={tLabels}
           />
         ))}
       </AnimatePresence>

@@ -7,7 +7,7 @@ export default async function CalendarPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams?: Promise<{ platform?: string }>;
+  searchParams?: Promise<{ platform?: string; status?: string }>;
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "calendar" });
@@ -21,12 +21,18 @@ export default async function CalendarPage({
     return <div className="text-muted-foreground">Must be logged in.</div>;
   }
 
-  const { data: posts, error: postsError } = await supabase
+  const statusFilter = sp?.status ?? "";
+  let query = supabase
     .from("posts")
     .select("*")
     .eq("user_id", user.id)
-    .neq("status", "draft")
     .order("scheduled_at", { ascending: true });
+
+  if (statusFilter) {
+    query = query.eq("status", statusFilter);
+  }
+
+  const { data: posts, error: postsError } = await query;
 
   if (postsError) {
     return <div className="text-muted-foreground">Error loading posts.</div>;
@@ -56,6 +62,7 @@ export default async function CalendarPage({
         posts={posts ?? []}
         platforms={platforms}
         selectedPlatform={sp?.platform ?? ""}
+        selectedStatus={statusFilter}
         weekdays={weekdays}
         months={months}
         locale={locale}
@@ -81,6 +88,14 @@ export default async function CalendarPage({
           errorSaving: t("errorSaving"),
           characterCount: t("characterCount"),
           maxFilesReached: t("maxFilesReached"),
+          statusDraft: t("statusDraft"),
+          statusScheduled: t("statusScheduled"),
+          statusPublished: t("statusPublished"),
+          statusFailed: t("statusFailed"),
+          filterAll: t("filterAll"),
+          editPost: t("editPost"),
+          postUpdated: t("postUpdated"),
+          addMedia: t("addMedia"),
         }}
       />
     </div>

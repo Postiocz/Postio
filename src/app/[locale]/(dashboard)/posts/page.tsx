@@ -130,6 +130,9 @@ export default async function PostsPage({
               platforms: post.platforms ?? [],
               scheduled_at: post.scheduled_at,
               created_at: post.created_at,
+              location: post.location ?? null,
+              tags: post.tags ?? [],
+              media_urls: post.media_urls ?? [],
             }))}
             locale={locale}
             tStatusDraft={t("statusDraft")}
@@ -139,6 +142,34 @@ export default async function PostsPage({
             tScheduledAt={t("scheduledAt")}
             tEditPost={t("editPost")}
             tDeleteConfirm={t("deleteConfirm")}
+            tLabels={{
+              newPost: t("newPost"),
+              editPost: t("editPost"),
+              content: t("content"),
+              contentPlaceholder: t("contentPlaceholder"),
+              selectPlatforms: t("selectPlatforms"),
+              saveDraft: t("saveDraft"),
+              schedule: t("schedule"),
+              publishNow: t("publishNow"),
+              scheduledAt: t("scheduledAt"),
+              saving: t("saving"),
+              addTags: t("addTags"),
+              locationPlaceholder: t("locationPlaceholder"),
+              postCreated: t("postCreated"),
+              postUpdated: t("postUpdated"),
+              errorSaving: t("errorSaving"),
+              characterCount: t("characterCount"),
+              maxFilesReached: t("maxFilesReached"),
+              addMedia: t("addMedia"),
+              dropMedia: t("dropMedia"),
+              uploading: t("uploading"),
+              uploadError: t("uploadError"),
+              fileTooLarge: t("fileTooLarge"),
+              statusDraft: t("statusDraft"),
+              statusScheduled: t("statusScheduled"),
+              statusPublished: t("statusPublished"),
+              statusFailed: t("statusFailed"),
+            }}
           />
         )}
         </div>

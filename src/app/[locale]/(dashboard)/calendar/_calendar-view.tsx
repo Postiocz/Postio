@@ -31,6 +31,7 @@ import { createPostAction } from "@/lib/actions/posts";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { toast } from "sonner";
 import NextImage from "next/image";
+import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -65,12 +66,16 @@ interface Post {
   platforms: string[];
   scheduled_at: string | null;
   status: string;
+  location: string | null;
+  tags: string[];
+  media_urls: string[];
 }
 
 interface CalendarViewProps {
   posts: Post[];
   platforms: { id: string; label: string }[];
   selectedPlatform: string;
+  selectedStatus: string;
   weekdays: string[];
   months: string[];
   locale: string;
@@ -97,6 +102,13 @@ interface CalendarViewProps {
     errorSaving?: string;
     maxFilesReached?: string;
     characterCount?: string;
+    statusDraft?: string;
+    statusScheduled?: string;
+    statusPublished?: string;
+    statusFailed?: string;
+    filterAll?: string;
+    editPost?: string;
+    postUpdated?: string;
   };
 }
 
@@ -104,6 +116,7 @@ export function CalendarView({
   posts,
   platforms,
   selectedPlatform,
+  selectedStatus,
   weekdays,
   months,
   locale,
@@ -112,6 +125,13 @@ export function CalendarView({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week">("month");
   const [modalDay, setModalDay] = useState<Date | null>(null);
+
+  // Edit post modal state
+  const [editPostOpen, setEditPostOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<EditPostData | null>(null);
+
+  // Active status filter (local state for UI)
+  const [activeStatusFilter, setActiveStatusFilter] = useState(selectedStatus);
 
   // New post form state
   const [formContent, setFormContent] = useState("");
@@ -161,7 +181,6 @@ export function CalendarView({
 
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
-      if (!post.scheduled_at) return false;
       if (selectedPlatform) {
         const postPlatforms = post.platforms || [];
         return postPlatforms.includes(selectedPlatform);
@@ -277,11 +296,20 @@ export function CalendarView({
     }
   }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, tCalendar, handleCloseModal]);
 
-  const handlePostClick = useCallback((postId: string, e: React.MouseEvent) => {
+  const handlePostClick = useCallback((post: Post, e: React.MouseEvent) => {
     e.stopPropagation();
-    const base = getBaseUrl();
-    window.location.href = `${base}/posts/${postId}`;
-  }, [getBaseUrl]);
+    setEditingPost({
+      id: post.id,
+      content: post.content,
+      platforms: post.platforms ?? [],
+      scheduled_at: post.scheduled_at,
+      status: post.status,
+      location: post.location ?? null,
+      tags: post.tags ?? [],
+      media_urls: post.media_urls ?? [],
+    });
+    setEditPostOpen(true);
+  }, []);
 
   const [activePlatformFilter, setActivePlatformFilter] = useState(selectedPlatform);
 
@@ -293,20 +321,29 @@ export function CalendarView({
     setActivePlatformFilter(selectedPlatform);
   }, [selectedPlatform]);
 
+  useEffect(() => {
+    setActiveStatusFilter(selectedStatus);
+  }, [selectedStatus]);
+
   const effectiveFilteredPosts = useMemo(() => {
     return posts.filter((post) => {
-      if (!post.scheduled_at) return false;
       if (activePlatformFilter) {
         const postPlatforms = post.platforms || [];
         return postPlatforms.includes(activePlatformFilter);
       }
+      if (activeStatusFilter) {
+        return post.status === activeStatusFilter;
+      }
       return true;
     });
-  }, [posts, activePlatformFilter]);
+  }, [posts, activePlatformFilter, activeStatusFilter]);
 
   const getPostsForDayEffective = useCallback((day: Date) => {
+    const today = new Date();
     return effectiveFilteredPosts.filter((post) => {
-      if (!post.scheduled_at) return false;
+      if (!post.scheduled_at) {
+        return isSameDay(today, day);
+      }
       const postDate = new Date(post.scheduled_at);
       return isSameDay(postDate, day);
     });
@@ -388,9 +425,37 @@ export function CalendarView({
           })}
         </div>
 
-        {/* View Toggle & Month Navigation – Desktop Only */}
-        <div className="hidden lg:flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        {/* Status Filters */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: "", label: tCalendar.filterAll || "Vše" },
+            { value: "draft", label: tCalendar.statusDraft || "Koncept" },
+            { value: "scheduled", label: tCalendar.statusScheduled || "Naplánované" },
+            { value: "published", label: tCalendar.statusPublished || "Publikované" },
+            { value: "failed", label: tCalendar.statusFailed || "Neúspěšné" },
+          ].map((filter) => {
+            const isActive = activeStatusFilter === filter.value;
+            return (
+              <button
+                key={filter.value}
+                onClick={() => setActiveStatusFilter(filter.value)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-white/10 border-white/20 text-white"
+                    : "bg-white/[0.03] border-white/5 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                )}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* View Toggle & Month Navigation – Desktop Only */}
+      <div className="hidden lg:flex items-center justify-between">
+        <div className="flex items-center gap-2">
             <button
               onClick={view === "month" ? previousMonth : previousWeek}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground"
@@ -433,7 +498,6 @@ export function CalendarView({
             </button>
           </div>
         </div>
-      </div>
 
       {/* ======================== */}
       {/* DESKTOP: Calendar Grid   */}
@@ -495,7 +559,7 @@ export function CalendarView({
                     return (
                       <div
                         key={post.id}
-                        onClick={(e) => handlePostClick(post.id, e)}
+                        onClick={(e) => handlePostClick(post, e)}
                         className={cn(
                           "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-all hover:scale-[1.02] cursor-pointer",
                           post.status === "published"
@@ -504,6 +568,8 @@ export function CalendarView({
                             ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
                             : post.status === "failed"
                             ? "bg-red-500/20 text-red-300 border border-red-500/20"
+                            : post.status === "draft"
+                            ? "bg-white/[0.02] text-muted-foreground/50 border border-white/5 opacity-60"
                             : "bg-white/5 text-muted-foreground border border-white/5"
                         )}
                         title={post.content?.substring(0, 60)}
@@ -614,7 +680,7 @@ export function CalendarView({
                       return (
                         <button
                           key={post.id}
-                          onClick={(e) => handlePostClick(post.id, e)}
+                          onClick={(e) => handlePostClick(post, e)}
                           className={cn(
                             "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all hover:scale-[1.01] active:scale-[0.99]",
                             post.status === "published"
@@ -623,6 +689,8 @@ export function CalendarView({
                               ? "bg-indigo-500/10 border-indigo-500/20"
                               : post.status === "failed"
                               ? "bg-red-500/10 border-red-500/20"
+                              : post.status === "draft"
+                              ? "bg-white/[0.02] border-white/5 opacity-60"
                               : "bg-white/[0.02] border-white/5"
                           )}
                         >
@@ -829,6 +897,45 @@ export function CalendarView({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Post Modal */}
+      <EditPostDialog
+        open={editPostOpen}
+        onOpenChange={(isOpen) => {
+          setEditPostOpen(isOpen);
+          if (!isOpen) setEditingPost(null);
+        }}
+        post={editingPost}
+        locale={locale}
+        tLabels={{
+          newPost: tCalendar.newPost || "Nový příspěvek",
+          editPost: tCalendar.editPost || "Upravit příspěvek",
+          content: tCalendar.content || "Obsah",
+          contentPlaceholder: tCalendar.contentPlaceholder || "Napište příspěvek...",
+          selectPlatforms: tCalendar.selectPlatforms || "Vyberte platformy",
+          saveDraft: tCalendar.saveDraft || "Koncept",
+          schedule: tCalendar.schedule || "Naplánovat",
+          publishNow: tCalendar.publishNow || "Publikovat",
+          scheduledAt: tCalendar.scheduledAt || "Naplánovat",
+          saving: tCalendar.saving || "Ukládání...",
+          addTags: tCalendar.addTags || "Štítky",
+          locationPlaceholder: tCalendar.locationPlaceholder || "Přidejte lokaci...",
+          postCreated: tCalendar.postCreated || "Příspěvek vytvořen!",
+          postUpdated: tCalendar.postUpdated || "Příspěvek aktualizován",
+          errorSaving: tCalendar.errorSaving || "Chyba při ukládání",
+          characterCount: tCalendar.characterCount || "/ 280",
+          maxFilesReached: tCalendar.maxFilesReached || "Maximální počet souborů dosažen",
+          addMedia: tCalendar.addMedia || "Média",
+          dropMedia: "",
+          uploading: "",
+          uploadError: "",
+          fileTooLarge: "",
+          statusDraft: tCalendar.statusDraft || "Koncept",
+          statusScheduled: tCalendar.statusScheduled || "Naplánované",
+          statusPublished: tCalendar.statusPublished || "Publikované",
+          statusFailed: tCalendar.statusFailed || "Neúspěšné",
+        }}
+      />
     </div>
   );
 }

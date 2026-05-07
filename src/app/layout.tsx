@@ -1,4 +1,5 @@
 import { Inter } from "next/font/google";
+import type { Viewport } from "next";
 import "./globals.css";
 import { cookies } from "next/headers";
 
@@ -13,26 +14,43 @@ async function getThemeCookie(): Promise<string | undefined> {
   return c.get("theme")?.value;
 }
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
+};
+
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const themeCookie = await getThemeCookie();
-  const serverThemeClass = themeCookie === "dark" ? "dark" : "";
-  const themeInitScript = `(function(){try{var m=document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/);var t=m?decodeURIComponent(m[1]):"system";var r=t==="dark"?"dark":t==="light"?"light":(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";var e=document.documentElement;e.classList.remove("light","dark");e.classList.add(r);e.style.colorScheme=r}catch(e){}})();`;
+  const isDark = themeCookie === "dark" || themeCookie === "system";
 
   return (
-    <html lang="cs" className={`${inter.variable} ${serverThemeClass}`} suppressHydrationWarning>
+    <html lang="cs" className={`${inter.variable} ${isDark ? "dark" : ""}`} suppressHydrationWarning>
       <head>
-        <script
-          id="theme-init"
-          dangerouslySetInnerHTML={{
-            __html: themeInitScript,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            var t;
+            try{t=document.cookie.match(/theme=([^;]+)/)}catch(e){}
+            var theme=t?t[1]:"system";
+            if(theme==="system"){
+              theme=window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light";
+            }
+            if(theme==="dark"){
+              document.documentElement.classList.add("dark");
+            }else{
+              document.documentElement.classList.remove("dark");
+            }
+          })();
+        `}} />
       </head>
-      <body className="min-h-screen" suppressHydrationWarning>{children}</body>
+      <body className="min-h-screen" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }

@@ -40,6 +40,15 @@ export default function EditPostPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const supabase = createClient();
+  const uploadLabels = {
+    tooManyFiles: t("tooManyFiles"),
+    uploadSuccess: t("uploadSuccess"),
+    uploadError: t("uploadError"),
+    fileDeleted: t("fileDeleted"),
+    invalidFileType: t("invalidFileType"),
+    fileTooLargeImage: t("fileTooLargeImage"),
+    fileTooLargeVideo: t("fileTooLargeVideo"),
+  };
   const {
     items: mediaItems,
     addFiles: addMediaFiles,
@@ -47,7 +56,7 @@ export default function EditPostPage() {
     loadExistingUrls,
     getMediaUrls,
     hasUploading,
-  } = useMediaUpload(userId, MAX_MEDIA_FILES);
+  } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   // Get current user ID
   useEffect(() => {
@@ -165,6 +174,13 @@ export default function EditPostPage() {
 
   return (
     <div className="relative">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M24 0v24H0' fill='none' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E")`,
+          backgroundSize: "24px 24px",
+        }}
+      />
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{

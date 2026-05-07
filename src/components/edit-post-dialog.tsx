@@ -81,7 +81,12 @@ interface EditPostDialogProps {
     dropMedia: string;
     uploading: string;
     uploadError: string;
+    uploadSuccess: string;
     fileTooLarge: string;
+    fileTooLargeImage: string;
+    fileTooLargeVideo: string;
+    fileDeleted: string;
+    invalidFileType: string;
     statusDraft: string;
     statusScheduled: string;
     statusPublished: string;
@@ -111,8 +116,35 @@ export function EditPostDialog({
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
 
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient();
+  }
+  const supabase = supabaseRef.current;
+
+  useEffect(() => {
+    if (userId || !open) return;
+    const getUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) setUserId(user.id);
+      } catch {
+        // silently ignore – user will be fetched when needed
+      }
+    };
+    getUser();
+  }, [open, supabase, userId]);
+
+  const uploadLabels = {
+    tooManyFiles: tLabels.maxFilesReached,
+    uploadSuccess: tLabels.uploadSuccess,
+    uploadError: tLabels.uploadError,
+    fileDeleted: tLabels.fileDeleted ?? "File deleted",
+    invalidFileType: tLabels.invalidFileType ?? "Unsupported file format",
+    fileTooLargeImage: tLabels.fileTooLargeImage ?? "File is too large. Max limit for images is 5MB.",
+    fileTooLargeVideo: tLabels.fileTooLargeVideo ?? "File is too large. Max limit for videos is 20MB.",
+  };
   const {
     items: mediaItems,
     addFiles: addMediaFiles,
@@ -120,15 +152,7 @@ export function EditPostDialog({
     loadExistingUrls,
     getMediaUrls,
     hasUploading,
-  } = useMediaUpload(userId, MAX_MEDIA_FILES);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-    };
-    getUser();
-  }, [supabase]);
+  } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   useEffect(() => {
     if (open) {
@@ -266,7 +290,7 @@ export function EditPostDialog({
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(); }}>
       <DialogContent
-        className="max-w-lg rounded-[20px] bg-card/95 backdrop-blur-xl border border-white/10 p-0 sm:max-w-lg"
+        className="max-w-lg rounded-[20px] bg-white/80 dark:bg-card/40 backdrop-blur-xl border border-black/5 dark:border-white/10 p-0 sm:max-w-lg shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
         showCloseButton
       >
         <DialogHeader className="px-6 pt-6">
@@ -326,7 +350,7 @@ export function EditPostDialog({
               placeholder={tLabels.contentPlaceholder}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="min-h-[120px] resize-y bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
+              className="min-h-[120px] resize-y rounded-xl transition-all focus:ring-0 text-slate-900 dark:text-white bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus:bg-white focus:border-indigo-500/30 dark:focus:bg-black/40 dark:focus:border-indigo-500/50 placeholder:text-slate-400 dark:placeholder:text-muted-foreground/30"
             />
             <div className="flex justify-end text-xs text-muted-foreground/60">
               <span className={content.length > 280 ? "text-destructive" : ""}>
@@ -470,6 +494,14 @@ export function EditPostDialog({
               {PLATFORMS.map((platform) => {
                 const isSelected = platforms.includes(platform.id);
                 const Icon = PlatformIconMap[platform.id];
+                const platformColor = {
+                  instagram: "text-[#E1306C]",
+                  facebook: "text-[#1877F2]",
+                  twitter: "text-[#1DA1F2]",
+                  linkedin: "text-[#0A66C2]",
+                  youtube: "text-[#FF0000]",
+                  tiktok: "text-[#010101]",
+                }[platform.id] ?? "text-muted-foreground";
                 return (
                   <button
                     key={platform.id}
@@ -478,11 +510,14 @@ export function EditPostDialog({
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
                       isSelected
-                        ? "border-indigo-500/50 bg-indigo-500/20 text-indigo-300"
-                        : "border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06]"
+                        ? "border-indigo-500/30 dark:border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
+                        : cn(
+                          "border-black/5 dark:border-white/5 bg-white/60 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground hover:bg-white dark:hover:bg-white/[0.06]",
+                          "dark:text-muted-foreground",
+                        )
                     )}
                   >
-                    {Icon && <Icon className="h-3.5 w-3.5" />}
+                    {Icon && <Icon className={cn("h-3.5 w-3.5", isSelected ? "" : platformColor)} />}
                     {platform.label}
                   </button>
                 );
@@ -501,7 +536,7 @@ export function EditPostDialog({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder={tLabels.locationPlaceholder}
-                className="h-10 rounded-xl border-white/10 bg-black/20 pl-10 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
+                className="h-10 rounded-xl pl-10 transition-all focus-visible:ring-0 text-slate-900 dark:text-white bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus-visible:bg-white focus-visible:border-indigo-500/30 dark:focus-visible:bg-black/40 dark:focus-visible:border-indigo-500/50 placeholder:text-slate-400 dark:placeholder:text-muted-foreground/30"
               />
             </div>
           </div>
@@ -544,7 +579,7 @@ export function EditPostDialog({
               }}
               onBlur={() => commitTag(tagDraft)}
               placeholder={tLabels.addTags}
-              className="h-10 rounded-xl border-white/10 bg-black/20 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
+              className="h-10 rounded-xl transition-all focus-visible:ring-0 text-slate-900 dark:text-white bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus-visible:bg-white focus-visible:border-indigo-500/30 dark:focus-visible:bg-black/40 dark:focus-visible:border-indigo-500/50 placeholder:text-slate-400 dark:placeholder:text-muted-foreground/30"
             />
           </div>
 

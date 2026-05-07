@@ -64,12 +64,12 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.55 0 0);
+  --muted-foreground: oklch(0.45 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.93 0 0);
-  --input: oklch(0.93 0 0);
+  --border: oklch(0.90 0 0);
+  --input: oklch(0.90 0 0);
   --ring: oklch(0.56 0.22 275);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -83,7 +83,7 @@
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.93 0 0);
+  --sidebar-border: oklch(0.90 0 0);
   --sidebar-ring: oklch(0.56 0.22 275);
   --gradient-hero: linear-gradient(135deg, oklch(0.56 0.22 275) 0%, oklch(0.62 0.25 290) 50%, oklch(0.68 0.22 310) 100%);
   --gradient-subtle: linear-gradient(180deg, oklch(0.985 0 0) 0%, oklch(0.96 0.01 275) 100%);
@@ -147,5 +147,87 @@
     @media (min-width: 768px) {
       min-height: unset;
     }
+  }
+}
+
+@layer utilities {
+  /* Glassmorphism card – light: milky glass, dark: subtle glass */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  }
+  .dark .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Glassmorphism modal – light: milky glass, dark: deep glass */
+  .glass-modal {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  .dark .glass-modal {
+    background: rgba(9, 9, 11, 0.95);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Grid pattern background – light: subtle gray, dark: subtle white */
+  .grid-bg {
+    background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 24 0 L 0 0 0 24' fill='none' stroke='%23a0a0a0' stroke-width='0.5'/%3E%3C/svg%3E");
+    opacity: 0.05;
+  }
+  .dark .grid-bg {
+    background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 24 0 L 0 0 0 24' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3C/svg%3E");
+    opacity: 0.04;
+  }
+
+  /* Calendar grid borders – light: visible gray, dark: subtle white */
+  .calendar-border {
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  .dark .calendar-border {
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Calendar day cell hover – light: subtle gray, dark: subtle white */
+  .calendar-day-hover {
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.03);
+    }
+  }
+  .dark .calendar-day-hover {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+  }
+
+  /* Post card hover shadow */
+  .post-card-shadow {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  }
+  .dark .post-card-shadow {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Button/element subtle border – light: black/10, dark: white/5 */
+  .subtle-border {
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+  .dark .subtle-border {
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Input border – light: black/10, dark: white/10 */
+  .input-border {
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+  .dark .input-border {
+    border-color: rgba(255, 255, 255, 0.1);
   }
 }

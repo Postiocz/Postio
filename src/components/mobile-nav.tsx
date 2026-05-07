@@ -15,7 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV_ICONS = {
@@ -44,7 +43,6 @@ export default function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
@@ -62,7 +60,7 @@ export default function MobileNav({
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push(`/${locale}/login`);
+    window.location.href = `/${locale}/login`;
   };
 
   return (

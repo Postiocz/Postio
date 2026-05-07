@@ -40,6 +40,23 @@ export async function GET(request: NextRequest) {
       );
 
       await supabase.auth.exchangeCodeForSession(code);
+
+      // Check if 2FA is enabled for this user
+      const { data: user } = await supabase.auth.getUser();
+      if (user?.user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("two_factor_enabled")
+          .eq("id", user.user.id)
+          .single();
+
+        if (userData?.two_factor_enabled) {
+          return NextResponse.redirect(
+            `${requestUrl.origin}/${locale}/login/verify-2fa`
+          );
+        }
+      }
+
       return redirectResponse;
     } catch {
       // Fall through to redirect without session

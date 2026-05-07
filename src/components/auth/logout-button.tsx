@@ -3,19 +3,17 @@
 import React from "react";
 import { LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export function LogoutButton() {
   const t = useTranslations("common");
-  const router = useRouter();
   const supabase = createClient();
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      router.refresh();
-      router.push("/login");
+      const locale = window.location.pathname.split("/")[1] || "cs";
+      window.location.href = `/${locale}/login`;
     } catch (error) {
       console.error("Logout error:", error);
     }

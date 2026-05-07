@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
 
   // If no session and not on a public route, redirect to login
   // But skip redirect if Supabase is not configured or errored (dev mode)
-  const publicPatterns = ["/login", "/api"];
+  const publicPatterns = ["/login", "/verify-2fa", "/api"];
   const isPublicRoute = publicPatterns.some((pattern) =>
     url.pathname.includes(pattern)
   );

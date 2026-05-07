@@ -106,7 +106,7 @@ export function DateTimePicker({
     <PopoverPrimitive.Root open={isOpen} onOpenChange={setIsOpen}>
       <PopoverPrimitive.Trigger
         className={cn(
-          "flex h-12 w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-foreground transition-all hover:bg-white/[0.06] focus-visible:border-indigo-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20",
+          "flex h-12 w-full items-center gap-3 rounded-xl border px-4 text-sm text-foreground transition-all focus-visible:outline-none focus-visible:ring-2 bg-white/50 dark:bg-white/[0.03] border-black/5 dark:border-white/10 hover:bg-white dark:hover:bg-white/[0.06] focus-visible:border-indigo-500/30 dark:focus-visible:border-indigo-500/50 focus-visible:ring-indigo-500/20",
           className
         )}
       >
@@ -124,13 +124,13 @@ export function DateTimePicker({
           sideOffset={8}
           className="z-50"
         >
-          <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-[20px] p-4 shadow-2xl w-[320px]">
+          <div className="bg-white/95 dark:bg-black/80 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-[20px] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-2xl w-[320px] text-slate-900 dark:text-white">
             {/* Month navigation */}
             <div className="flex items-center justify-between mb-4">
               <button
                 type="button"
                 onClick={prevMonth}
-                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground/60 hover:bg-white/10 hover:text-foreground transition-all"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground/60 hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground transition-all"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -140,7 +140,7 @@ export function DateTimePicker({
               <button
                 type="button"
                 onClick={nextMonth}
-                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground/60 hover:bg-white/10 hover:text-foreground transition-all"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground/60 hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground transition-all"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -176,8 +176,8 @@ export function DateTimePicker({
                       isSelected
                         ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
                         : isTodayDay
-                          ? "border border-indigo-500/30 text-indigo-300 hover:bg-white/10"
-                          : "text-foreground hover:bg-white/10"
+                          ? "border border-indigo-500/30 text-indigo-600 dark:text-indigo-300 hover:bg-black/5 dark:hover:bg-white/10"
+                          : "text-foreground hover:bg-black/5 dark:hover:bg-white/10"
                     )}
                   >
                     {format(day, "d")}
@@ -187,56 +187,40 @@ export function DateTimePicker({
             </div>
 
             {/* Divider */}
-            <div className="mt-4 mb-3 h-px bg-white/5" />
+            <div className="mt-4 mb-3 h-px bg-black/5 dark:bg-white/5" />
 
             {/* Time selection */}
             <div className="flex items-center gap-2">
               <div className="flex-1">
-                <label className="mb-1 block text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider">
+                <label className="mb-1 block text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider">
                   HH
                 </label>
-                <div className="relative">
-                  <select
-                    value={selectedHour}
-                    onChange={(e) => {
-                      setSelectedHour(Number(e.target.value));
-                      handleTimeChange();
-                    }}
-                    className="appearance-none w-full h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-foreground focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
-                  >
-                    {hours.map((h) => (
-                      <option key={h} value={h}>
-                        {String(h).padStart(2, "0")}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+                <TimeSelect
+                  value={selectedHour}
+                  options={hours}
+                  format={(v) => String(v).padStart(2, "0")}
+                  onChange={(v) => {
+                    setSelectedHour(v);
+                    handleTimeChange();
+                  }}
+                />
               </div>
 
               <span className="mt-6 text-lg font-bold text-muted-foreground/30">:</span>
 
               <div className="flex-1">
-                <label className="mb-1 block text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider">
+                <label className="mb-1 block text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider">
                   MM
                 </label>
-                <div className="relative">
-                  <select
-                    value={selectedMinute}
-                    onChange={(e) => {
-                      setSelectedMinute(Number(e.target.value));
-                      handleTimeChange();
-                    }}
-                    className="appearance-none w-full h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-foreground focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
-                  >
-                    {minutes.map((m) => (
-                      <option key={m} value={m}>
-                        {String(m).padStart(2, "0")}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+                <TimeSelect
+                  value={selectedMinute}
+                  options={minutes}
+                  format={(v) => String(v).padStart(2, "0")}
+                  onChange={(v) => {
+                    setSelectedMinute(v);
+                    handleTimeChange();
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -257,5 +241,79 @@ function ChevronIcon({ className }: { className?: string }) {
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
     </svg>
+  );
+}
+
+type TimeSelectProps = {
+  value: number;
+  options: number[];
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+};
+
+function TimeSelect({ value, options, format, onChange }: TimeSelectProps) {
+  const [open, setOpen] = React.useState(false);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (open && listRef.current) {
+      const activeEl = listRef.current.querySelector('[data-active="true"]');
+      activeEl?.scrollIntoView({ block: "nearest" });
+    }
+  }, [open]);
+
+  return (
+    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+      <PopoverPrimitive.Trigger
+        type="button"
+        className="flex items-center justify-between w-full h-10 rounded-lg border px-3 text-sm text-foreground transition-all cursor-pointer bg-white/60 dark:bg-[#09090b] border-black/5 dark:border-white/10 hover:bg-white dark:hover:bg-white/[0.06] focus:border-indigo-500/30 dark:focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+      >
+        <span>{format(value)}</span>
+        <ChevronIcon />
+      </PopoverPrimitive.Trigger>
+
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          side="bottom"
+          align="start"
+          sideOffset={4}
+          className="z-[60]"
+        >
+          <div className="w-32 bg-white/95 dark:bg-[#0b0b0b] backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-2xl overflow-hidden text-slate-900 dark:text-white">
+            <div
+              ref={listRef}
+              className="max-h-52 overflow-y-auto py-1"
+              role="listbox"
+              aria-orientation="vertical"
+            >
+              {options.map((opt) => {
+                const isSelected = opt === value;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected}
+                    onClick={() => {
+                      onChange(opt);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "flex items-center w-full px-3 py-2 text-sm text-left transition-all",
+                      isSelected
+                        ? "bg-indigo-500/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-medium"
+                        : "text-foreground hover:bg-black/5 dark:hover:bg-white/[0.06]"
+                    )}
+                  >
+                    {format(opt)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
   );
 }

@@ -1,3 +1,781 @@
+## 2026-05-07
+
+### Fix – Hydration mismatch v MobileNav + Dark mode flash při navigaci (DOKONČENO)
+
+**Problém 1 – Hydration failed (MobileNav):**
+- Server renderoval RSC placeholder pro `MobileNav`, klient renderoval `<nav>` element
+- Next.js hlásil hydration mismatch: `<nav>` (client) vs `<div>` (server)
+- Příčina: `MobileNav` (use client) byl přímo v `DashboardLayout` (Server Component) – při SSR se neshodovalo HTML
+
+**Oprava 1 – Client-side only rendering MobileNav:**
+- `mobile-nav-wrapper.tsx` – nový client wrapper: `useState(false)` + `useEffect(setMounted(true))`
+- Renderuje `null` při SSR (mounted=false), `<MobileNav>` až po client mountu
+- `layout.tsx` – swap `MobileNav` → `MobileNavWrapper`
+- Žádný hydration mismatch – server i klient vidí `null` při hydrataci
+
+**Problém 2 – Dark mode bliká light mode při přechodu mezi stránkami:**
+- Při navigaci se `DashboardLayout` re-renderuje a `ThemeProvider` se re-initializuje
+- Na krátký moment není na `<html>` class `dark` → problikne light pozadí
+- Root layout `serverThemeClass` řešil pouze `theme=dark`, ne `theme=system`
+
+**Oprava 2 – Anti-flash theme script:**
+- `src/app/layout.tsx` (root) – inline `<script>` v `<head>`:
+  - Čte `theme` cookie ještě před React hydration
+  - Pokud `system` → detekuje `prefers-color-scheme: dark` media query
+  - Okamžitě nastaví `dark` class na `<html>` – zero flash
+- `serverThemeClass` → `isDark` – default `system` = dark (většina uživatelů má dark)
+- `theme-provider.tsx` – přidaný `mounted` state guard proti dvojitému aplikování theme
+
+**Build:** `npm run build` – úspěšně, TypeScript OK
+
+### Fix – Filtry na stránce Příspěvky + SetupGuide modal persistence (DOKONČENO)
+
+**Problém 1 – Filtry na stránce "Příspěvky" nefungovaly:**
+- Klik na filtr (např. YouTube) změnil URL query params přes `<Link>` ale data se neaktualizovala bez manuálního obnovení stránky
+- Příčina: `_posts-filters.tsx` používal `<Link>` elementy pro navigaci, `page.tsx` (Server Component) filtroval data na serveru podle searchParams, ale `PostsList` (client component) měl vlastní `useState(initialPosts)` který se při client-side navigaci nepřerenderoval
+- Kalendář fungoval správně protože používal `<button>` + lokální state + `useMemo` pro client-side filtrování
+
+**Oprava 1 – Client-side filtrování jako v Kalendáři:**
+- `_posts-filters.tsx` – kompletní přepsání: `<Link>` → `<button>` s `onClick` handlerem, nový `onFilterChange` callback props, odstraněn `locale` prop a `buildHref` funkce
+- `_post-card.tsx` – `PostsList` zjednodušen: odstraněn interní state pro posts (pouze renderuje co dostane), nový `onDeleted` callback props, export `PostListItem` typ
+- `_posts-container.tsx` – **nový** client wrapper component:
+  - Drží shared state filtrů (`activePlatform`, `activeStatus`)
+  - `useMemo` pro client-side filtrování posts podle platformy i statusu
+  - Kombinuje header + filtry + posts list + empty states
+  - Manage delete operace + refresh po smazání posledního postu
+- `page.tsx` – zjednodušena: fetchuje všechny posts bez server-side filtrů, předává do `PostsContainer`
+- Odstraněny nepoužité importy (`Button`, `Plus`, `FileText`, `Link`, `PostsList`, `PostsFilters`)
+
+**Problém 2 – SetupGuide modál "Dokončete nastavení" se vrátil po refreshi:**
+- Uživatel zavřel modál tlačítkem X → `dismissed` state = `true` → modál zmizel
+- Po obnovení stránky se state resetoval na `false` → modál se znovu zobrazil
+- Příčina: `dismissed` stav byl pouze v React state, žádná persistencia
+
+**Oprava 2 – localStorage persistence:**
+- `setup-guide.tsx` – `dismissed` state se inicializuje z `localStorage` (lazy initializer)
+- `handleDismiss` callback – nastaví state i `localStorage.setItem("setup-dismissed", "true")`
+- Import `useCallback` pro optimalizaci
+
+**Build:** `npm run build` – úspěšně, TypeScript OK
+
+### Fix – Supabase "Lock stolen" runtime error (DOKONČENO)
+
+**Problém:** `Lock "lock:sb-...-auth-token" was released because another request stole it` – runtime error v `edit-post-dialog.tsx`. Příčina: každý `EditPostDialog` (jeden na každý post card) volal `createClient()` při každém renderu, což vytvořilo nové instance Supabase browser klienta. Když stránka měla 30+ postů, 30 instancí volalo `getUser()` současně v useEffect a Supabase interní mutex pro cookie parsing se mezi sebou "kradl".
+
+**Oprava:**
+- `edit-post-dialog.tsx` – Supabase klient se nyní cachuje v `useRef` (singleton pattern). `getUser()` se volá pouze když je dialog otevřený (`open` prop) a `userId` ještě není nastavená. Přidán try/catch guard.
+- `profile-form.tsx` – totéž `useRef` cachování klienta pro konzistenci
+
+**Build:** `npm run build` – úspěšně, TypeScript OK
+
+### Fix – Null-safe výpočty v analytics dashboardu (DOKONČENO)
+
+**Problém:** Když migrace 010 nebyla aplikována v Supabase (sloupce `likes`, `comments`, `shares`, `clicks`, `saves` neexistují), vracely se tyto hodnoty jako `null`. V `analytics-dashboard.tsx` se sčítaly přímo (`existing.likes + a.likes`), což při `null` vracelo `NaN` a rozbíjelo grafy i metrické karty.
+
+**Oprava:**
+- `dailyData` useMemo – všechny aritmetické operace nyní s `?? 0` fallback: `(existing.likes ?? 0) + (a.likes ?? 0)`
+- `postsWithAnalytics` useMemo – totéž
+- `dailyData` output – `likes`, `comments`, `shares` mapují na `?? 0` pro BarChart data
+- `totals` useMemo už měl `?? 0` guard – OK
+- Typ `AnalyticsRecord` má detailní sloupce jako `number | null` – správně
+
+**Poznámka:** SQL migrace 010 zatím nebyla aplikována do Supabase. Fallback v `actions.ts` vkládá pouze `impressions + engagements` pokud detailní sloupce chybí. Dashboard nyní správně handle null hodnoty.
+
+**Build:** `npm run build` – úspěšně, TypeScript OK
+
+### Krok – Analytika Dashboard s Recharts (DOKONČENO)
+
+**Cíl:** Implementace kompletního Analytics dashboardu s grafy, metriky a filtry časového období.
+
+**Nové soubory:**
+- `src/app/[locale]/(dashboard)/analytics/analytics-dashboard.tsx` – Client Component s Recharts grafy:
+  - **8 metrických karet**: Dosah (Reach), Interakce, ER%, Lajky, Komentáře, Sdílení, Kliknutí, Uloženo
+  - **Area Chart** – Výkon v čase: Zobrazení, Interakce, Lajky (indigo/purple/rose gradienty)
+  - **Bar Chart** – Lajky, Komentáře, Sdílení (rose/amber/cyan gradienty)
+  - **Top Posts** – Seznam nejlepších příspěvků s detailními metrikami
+  - **Filtr období** – 7 dní, 30 dní, 3 měsíce (pill toggle buttons)
+  - **Design**: Glassmorphism karty (20px radius), barevné ikony s gradienty, glow efekty
+  - **Empty states** – Purple glow + BarChart3 ikona + i18n texty
+- `src/app/[locale]/(dashboard)/analytics/actions.ts` – Server Actions:
+  - `generateDemoAnalytics()` – vygeneruje 30 realistických demo posts + analytics záznamů
+  - Metriky: impressions (500–5500), engagements (2–10% z impressions), likes/comments/shares/clicks/saves
+  - Platformy: instagram, facebook, twitter,.linkedin (random distribuce)
+  - Data rozložena do posledních 90 dní
+- `supabase/migrations/010_extend_analytics_table.sql` – DB migrace:
+  - Nové sloupce v `analytics`: `likes`, `comments`, `shares`, `clicks`, `saves` (INT, DEFAULT 0)
+
+**Opravené soubory:**
+- `src/app/[locale]/(dashboard)/analytics/page.tsx` – kompletně přepsaný Server Component:
+  - Fetchuje posts + analytics z Supabase pro aktuálního uživatele
+  - Auto-generuje demo data pokud jsou obě tabulky prázdné
+  - Předává data do `AnalyticsDashboard` client componentu
+- `src/lib/supabase/types.ts` – rozšířený typ `analytics` o nové sloupce (Row/Insert/Update)
+- `src/messages/cs.json` – rozšířený namespace `analytics` (14 nových klíčů):
+  - `subtitle`, `reach`, `engagementRate`, `noDataSubtitle`
+  - `last7Days`, `last30Days`, `last3Months`
+  - `overview`, `performanceOverTime`, `postsPerformance`
+  - `averageReach`, `totalLikes`, `totalComments`, `totalShares`, `clicks`, `saves`
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+
+**Dependency:**
+- `npm install recharts` – knihovna pro interaktivní grafy (AreaChart, BarChart, Tooltip, Legend)
+
+**Build:** `npm run build` – úspěšně, TypeScript OK
+
+### Fix – Demo posts insert UUID error (DOKONČENO)
+
+**Problém:** `generateDemoAnalytics()` v `actions.ts` posílal manuálně generované string ID (`demo-post-${user.id}-${i}`) do `posts` tabulky, která očekává UUID. Supabase vrátil error `42804: invalid input syntax for type uuid`.
+
+**Řešení:**
+- Odstraněno ruční `id` z `demoPosts` – DB generuje UUID přes `uuid_generate_v4()`
+- Po insertu posts: `.select("id")` vrací skutečná UUID z DB
+- Analytics insert nyní používá skutečná `post_id` UUID z `insertedPostIds[]`
+- Odstraněno `.single()` – vrací všechny řádky z batch insertu
+
+**Build:** `npm run build` – úspěšně, TypeScript OK
+
+### Krok – 2FA Login Flow (DOKONČENO)
+
+**Fix – `useActionState` outside of transition error:**
+- `src/app/[locale]/(auth)/login/verify-2fa/verify-form.tsx` – odstraněn manuální `handleSubmit` + `isVerifying` state
+- `<form action={formAction}>` – formAction se předává přímo jako `action` prop → Next.js automaticky obalí volání do `startTransition`
+- `isPending` z `useActionState` stačí pro loading state, ruční `isVerifying` není potřeba
+
+**Fix – `NEXT_REDIRECT` swallowed by catch block:**
+- `src/app/[locale]/(auth)/login/verify-2fa/actions.ts` – `catch (e)` chytal `NEXT_REDIRECT` error z `redirect()` a vracel `{ error: "internal_error" }` místo redirectu
+- Nyní: `if (e instanceof Error && e.message === "NEXT_REDIRECT") { throw e; }` – redirect errors projdou nahoru
+- **Fix – `otplib.verify()` return value:** – otplib vrací `{ valid: true, delta: 0 }` místo booleanu → `typeof result === "boolean" ? result : result.valid`
+
+**Cíl:** Po přihlášení uživatele s aktivní 2FA přesměrovat na verifikační stránku `/login/verify-2fa` místo dashboardu.
+
+**Nové soubory:**
+- `src/app/[locale]/(auth)/login/verify-2fa/actions.ts` – Server Actions pro ověření 2FA kódu při přihlášení:
+  - `verify2FACode()` – ověří TOTP kód proti `two_factor_secret` z DB nebo recovery kód proti `two_factor_recovery_codes`
+  - `signOutFrom2FA()` – odhlášení z verifikační stránky
+- `src/app/[locale]/(auth)/login/verify-2fa/verify-form.tsx` – Client Component formulář:
+  - 6místný TOTP kód (výchozí) / 8místný recovery kód (přepínač)
+  - Visual display prázdných boxů pro jednotlivé číslice
+  - Error messages + loading state
+- `src/app/[locale]/(auth)/login/verify-2fa/page.tsx` – Server Component stránka:
+  - Logo + glassmorphism card layout
+  - LocaleSwitcher + link zpět na login
+
+**Opravené soubory:**
+- `src/components/auth/email-signin.tsx` – po úspěšném `signInWithPassword`:
+  - Dotaz na `users.two_factor_enabled` pro přihlášeného uživatele
+  - Redirect na `/[locale]/login/verify-2fa` pokud je 2FA enabled
+  - Redirect na `/[locale]` (dashboard) jinak
+- `src/app/auth/callback/route.ts` – po úspěšném `exchangeCodeForSession` (Google OAuth):
+  - Stejná kontrola `two_factor_enabled`
+  - Redirect na `verify-2fa` nebo dashboard
+- `middleware.ts` – přidán `/verify-2fa` do `publicPatterns` aby byla route přístupná bez auth redirectu
+- `src/messages/cs.json`, `en.json`, `uk.json` – 15 nových klíčů v namespace `auth`:
+  - `verify2FATitle`, `verify2FASubtitle`, `verify2FAPlaceholder`, `verify2FASubmit`, `verify2FAVerifying`
+  - `verify2FAError`, `verify2FARetry`, `verify2FABackToLogin`
+  - `verify2FAUseRecoveryCode`, `verify2FARecoveryCodeTitle`, `verify2FARecoveryCodeDesc`
+  - `verify2FARecoveryCodePlaceholder`, `verify2FARecoveryCodeSubmit`, `verify2FARecoveryCodeError`, `verify2FASwitchToTOTP`
+
+**Build:** `npm run build` – úspěšně, TypeScript OK
+
+### Fix – Chybějící překlad `settings.loading` (DOKONČENO)
+
+**Problém:** `MISSING_MESSAGE: Could not resolve 'settings.loading' in messages for locale 'cs'` – tlačítko v `Setup2FADialog` volalo `t("loading")` s namespace `"settings"`, ale klíč `loading` existoval pouze v sekci `common`.
+
+**Řešení:** Přidán klíč `loading` do sekce `settings` ve všech třech jazycích:
+- `src/messages/cs.json` – `"loading": "Načítání..."`
+- `src/messages/en.json` – `"loading": "Loading..."`
+- `src/messages/uk.json` – `"loading": "Завантаження..."`
+
+### Fix – Bezpečný 2FA Verification Flow (DOKONČENO)
+
+**Problém:** 2FA se zapnula okamžitě po kliknutí na tlačítko bez ověření TOTP kódu. Uživatel jen zadával libovolný text a ten se ukládal jako "secret". Žádný QR kód, žádné ověření proti Google Authenticator.
+
+**Řešení:** Implementován bezpečný 3fázový proces aktivace 2FA:
+
+1. **Inicializace (Pending)**: Klik na "Zapnout 2FA" otevře modální dialog → Server Action `generate2FASetup()` vygeneruje `two_factor_secret` (otplib) + QR kód (qrcode library) → QR se zobrazí uživateli
+2. **Ověření (Handshake)**: Uživatel naskenuje QR kód v Google Authenticator, zadá 6místný TOTP kód do modálu → klikne "Potvrdit a aktivovat"
+3. **Finální aktivace**: Server Action `confirm2FASetup()` ověří TOTP kód proti secretu → pokud je správný: `two_factor_enabled = true`, uloží secret, vygeneruje 8 záchranných kódů → zobrazí recovery codes screen
+
+**Nové soubory:**
+- `src/app/[locale]/(dashboard)/settings/profile/setup-2fa-dialog.tsx` – Client Component modální dialog pro nastavení 2FA:
+  - **Step 1 (Setup)**: QR kód + tajný kód + vstupní pole pro 6místný TOTP kód
+  - **Step 2 (Recovery)**: Seznam 8 záchranných kódů + tlačítko kopírovat + potvrzení uložení
+  - Design: Glassmorphism, 20px radius, barevné ikony (indigo/purple/amber)
+  - Veškeré texty v češtině/angličtině/ukrajinštině (i18n)
+
+**Opravené soubory:**
+- `src/app/[locale]/(dashboard)/settings/profile/actions.ts`:
+  - Odstraněn `enable2FA` (starý nebezpečný action)
+  - Nový `generate2FASetup()` – generuje secret + QR code data URL
+  - Nový `confirm2FASetup(formData)` – ověřuje TOTP kód, generuje recovery codes, ukládá do DB
+  - Importy: `otplib` (generateSecret, generateURI, verify) + `qrcode` (toDataURL)
+  - `disable2FA` zůstává beze změny
+- `src/app/[locale]/(dashboard)/settings/profile/profile-form.tsx`:
+  - Odstraněn starý formulář s `verification_code` inputem
+  - Nové tlačítko "Zapnout 2FA" → otevře `Setup2FADialog`
+  - Nový state `show2FADialog` + handler `handle2FASuccess()`
+  - Odstraněn `enable2FAAction` + `handleEnable2FA`
+- `src/app/[locale]/(dashboard)/settings/profile/page.tsx`:
+  - Přidán `twoFASuccess` label do props
+- `src/messages/cs.json` – 18 nových klíčů: `setup2FATitle`, `setup2FAStep1-3`, `verificationCodeLabel`, `verificationCodePlaceholder`, `confirmAndEnable`, `secretCode`, `qrCodeInstructions`, `invalidCode`, `recoveryCodesTitle`, `recoveryCodesDescription`, `recoveryCodesWarning`, `copyRecoveryCodes`, `recoveryCodesCopied`, `iHaveSavedCodes`, `done`, `cancelSetup`
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- `package.json` – `@types/qrcode` přidán do devDependencies
+
+**Dependency:**
+- `npm install -D @types/qrcode` – TypeScript definice pro `qrcode` library
+
+**Build:** `npm run build` – úspěšně, TypeScript OK, žádné diagnostics chyby
+
+### Fix – Sloupec `avif_auto_download` v migraci 009 (DOKONČENO)
+- `supabase/migrations/009_create_avatars_bucket.sql` – odstraněn sloupec `avif_auto_download` z INSERT statementu:
+  - Free tier Supabase tento sloupec nemá → error `42703: column does not exist`
+  - AVIF konverze není pro avatar bucket potřeba – stačí `id`, `name`, `public`
+
+### Krok 74 – Supabase Storage Bucket pro Avatary (DOKONČENO)
+
+**Databázová migrace:**
+- `supabase/migrations/009_create_avatars_bucket.sql` – vytvoření storage bucketu `avatars`:
+  - Public bucket pro profilové obrázky
+  - RLS politiky:
+    - Users can upload avatars (INSERT do vlastního folderu `user_id/`)
+    - Anyone can view avatars (SELECT pro všechny)
+    - Users can update their own avatars (UPDATE vlastních souborů)
+    - Users can delete their own avatars (DELETE vlastních souborů)
+
+### Krok 73 – Kompletní implementace Nastavení podle Buffer UX (DOKONČENO)
+
+**Databázová migrace:**
+- `supabase/migrations/008_add_profile_settings.sql` – nové sloupce v tabulce `users`:
+  - `organization_name` TEXT – název organizace
+  - `backup_email` TEXT – záložní email
+  - `avatar_url` TEXT – URL profilového obrázku
+  - `two_factor_enabled` BOOLEAN DEFAULT FALSE – stav 2FA
+  - `two_factor_secret` TEXT – TOTP secret
+  - `two_factor_recovery_codes` JSONB – recovery kódy
+
+**Stránka Profil (`/settings/profile`):**
+- `src/app/[locale]/(dashboard)/settings/profile/profile-form.tsx` – kompletně přepsaný Client Component:
+  - **Foto profilu**: Upload do Supabase Storage (`avatars` bucket), preview, spinner při nahrávání
+  - **Email**: Read-only s badge verifikace (již existovalo)
+  - **Jméno**: Input pro jméno/příjmení s Save tlačítkem (již existovalo)
+  - **Backup Email**: Nové pole pro záložní email s popisem
+  - **Heslo**: Sekce pro změnu hesla s toggle form, show/hide password, validace (min 6 znaků)
+  - **2FA**: Toggle pro dvoufázové ověřování, enable/disable formuláře, badge stavu
+  - **Jazyk**: Selector + přepnutí locale (již existovalo)
+  - **Danger Zone**: Smazání účtu s potvrzením ("DELETE"), červená karta
+  - **Design**: Glassmorphism karty (20px radius), Buffer-style layout
+  - **Toast feedback**: Green check po úspěšném uložení každé sekce
+- `src/app/[locale]/(dashboard)/settings/profile/actions.ts` – rozšířené Server Actions:
+  - `updateFullName`, `updateLanguage` (již existovaly)
+  - `updateBackupEmail` – update backup_email
+  - `updatePassword` – Supabase auth.updateUser
+  - `enable2FA`, `disable2FA` – toggle 2FA + secret
+  - `deleteAccount` – smazání z users + signOut
+- `src/app/[locale]/(dashboard)/settings/profile/page.tsx` – update Server Component:
+  - Fetchuje nová pole: `avatar_url`, `backup_email`, `two_factor_enabled`
+  - Předává všechny labely z i18n
+
+**Stránka Organizace/Obecné (`/settings/general`):**
+- `src/app/[locale]/(dashboard)/settings/general/page.tsx` – Server Component:
+  - **Creation Date**: Read-only datum vytvoření účtu (formátováno podle locale)
+  - **Organization Name**: Input s Save tlačítkem
+  - Fetchuje `organization_name`, `created_at` z DB
+- `src/app/[locale]/(dashboard)/settings/general/general-form.tsx` – Client Component:
+  - Dvě sekce v Buffer stylu (Creation Date, Organization Name)
+  - State management pro organization name + save feedback
+- `src/app/[locale]/(dashboard)/settings/general/actions.ts` – Server Action:
+  - `updateOrganizationName` – update organization_name v DB
+
+**i18n aktualizace:**
+- `src/messages/cs.json` – nové klíče v `settings` namespace (38 nových klíčů):
+  - `generalDescription`, `creationDate`, `organizationName`, `organizationNamePlaceholder`
+  - `photo`, `uploadPhoto`, `photoDescription`, `uploading`
+  - `backupEmail`, `backupEmailPlaceholder`, `backupEmailDescription`
+  - `password`, `changePassword`, `newPassword`, `confirmPassword`
+  - `twoFactorAuth`, `twoFactorAuthDescription`, `twoFactorEnabled`, `twoFactorDisabled`
+  - `enable2FA`, `disable2FA`, `dangerZone`, `dangerZoneDesc`
+  - `deleteAccount`, `confirmPasswordDelete`, `deleteAccountConfirm`, `deletingAccount`
+  - `savedGeneral`, `errorSavingGeneral`, `savedBackupEmail`, `errorSavingBackupEmail`
+  - `savedPassword`, `errorChangingPassword`, `twoFASuccess`, `twoFADisabled`
+  - `errorEnabling2FA`, `errorDisabling2FA`, `photoUpdated`, `errorUploadingPhoto`
+  - `accountDeleted`, `errorDeletingAccount`
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- `src/messages/*.json` – `common.verificationCode` přidán do všech jazyků
+
+### Fix – Whitespace v modálu "Vytvořit nový štítek" (DOKONČENO)
+- `src/app/[locale]/(dashboard)/settings/labels/create-tag-dialog.tsx` – vylepšení spacingu pro vzdušnost:
+  - **DialogContent**: `p-6 sm:p-8` (menší padding na mobilu)
+  - **DialogTitle**: `text-lg sm:text-xl` (responzivní velikost)
+  - **DialogHeader**: `pb-3 sm:pb-4`
+  - **Formulář**: `space-y-8 sm:space-y-10 pt-4 sm:pt-6` (responzivní mezery mezi sekcemi)
+  - **Kořen problému**: `space-y-3` na wrapper `<div>` nefungoval správně – Radix Label má `leading-none` + inline display, což rozbíjelo margin kasládování. Řešení:
+    - Odstraněno `space-y-3` z obou wrapper divů
+    - Label: `block` display (překoná inline default z Radix)
+    - Input: explicitní `mt-3` (12px margin-top přímo na inputu – spolehlivé)
+    - Barvy: `mt-3` na kontejner koleček (stejný odstup jako u inputu – label "Barva štítku" na stejné výšce jako "Název štítku")
+  - **Mobilní responzivita**: Všechny paddingy a spacingy mají `sm:` varianty
+
+### Krok 72 – Nová stránka Štítky (Tags) (DOKONČENO)
+- `src/app/[locale]/(dashboard)/settings/labels/page.tsx` – Server Component stránka Štítky:
+  - **Design**: 100% konzistentní s ostatními stránkami (templates pattern) – H1 + count + tlačítko Create
+  - **Empty State**: Centrální obsah s fialovým glow (blur-3xl), Tag ikona (h-16 w-16), nadpis, podnadpis, popis + CTA tlačítko
+  - **Seznam štítků**: Karty s barevným tečkovým indikátorem + název + hover delete button (opacity transition)
+  - **Data**: Fetchuje `tags` z DB, ordered by `created_at DESC`
+  - **Responzivita**: `flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`, centrální empty state
+- `src/app/[locale]/(dashboard)/settings/labels/create-tag-dialog.tsx` – Client Component modální dialog:
+  - **Formulář**: Input pro název štítku + výběr barvy (10 barevných koleček)
+  - **Barvy**: Indigo, Purple, Pink, Red, Orange, Amber, Emerald, Teal, Cyan, Blue
+  - **Výběr barvy**: Rounded-full buttons s ring indikátorem + check ikona na vybranou barvu
+  - **Validace**: Submit disabled pokud je prázdný název nebo běží create
+  - **Dialog**: shadcn/ui Dialog s glassmorphism stylem (rounded-[20px], backdrop-blur-xl)
+- `src/app/[locale]/(dashboard)/settings/labels/tag-item.tsx` – Client Component karta štítku:
+  - **Vizuál**: Barevná tečka + název + delete button (opacity-0 → group-hover:opacity-100)
+  - **Delete**: Confirm dialog před smazáním → Server Action `deleteTag`
+- `src/app/[locale]/(dashboard)/settings/labels/actions.ts` – Server Actions:
+  - `createTag(name, color)`: INSERT do `tags` tabulky s `user_id`, revalidace `/settings`
+  - `deleteTag(id)`: DELETE z `tags` tabulky s RLS kontrolou `user_id`, revalidace `/settings`
+- `supabase/migrations/007_create_tags_table.sql` – SQL migrace:
+  - `CREATE TABLE tags` (id UUID, user_id UUID FK → users, name TEXT, color TEXT, created_at, updated_at)
+  - `INDEX idx_tags_user_id` pro rychlé dotazy
+  - RLS politiky: SELECT/INSERT/UPDATE/DELETE pouze pro vlastníka (`auth.uid() = user_id`)
+- `src/messages/cs.json` – nový namespace `tags` (22 klíčů):
+  - title, emptyTitle, emptySubtitle, emptyDescription, createTag, modalTitle
+  - nameLabel, namePlaceholder, colorLabel, cancel, create
+  - tagCreated, tagDeleted, errorCreating, errorDeleting, deleteConfirm, deleteTag
+  - usedInPosts, usedInPostsZero
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- **Navigace**: Odkaz na `/settings/labels` již existuje v sidebar dropdown menu (Tag ikona, sekce "Funkce")
+- **Build**: `npm run build` – úspěšně, TypeScript OK, nová route `/[locale]/settings/labels` registrována
+
+### Krok 71 – Nová stránka Nastavení / Předvolby (Settings/Preferences) (DOKONČENO)
+- `src/app/[locale]/(dashboard)/settings/preferences/page.tsx` – Server Component stránka Předvolby:
+  - **Design**: Stejný styl jako Profil/Fakturace – hlavička H1 + popis, responzivní font (`text-xl sm:text-2xl md:text-3xl`)
+  - **Data**: Fetchuje `timezone`, `time_format`, `start_of_week`, `default_posting_time` z tabulky `users`
+  - **Default values**: Europe/Prague, 24h, monday, 09:00 (pokud DB vrací null)
+  - **Labels**: Předává přeložené stringy z i18n do Client Componentu (pattern jako ProfileForm)
+- `src/app/[locale]/(dashboard)/settings/preferences/preferences-form.tsx` – Client Component formulář:
+  - **4 sekce** (vzor Buffer): Timezone, Time Format, Start of Week, Default Posting Action
+  - **Timezone**: Select box s 42 časovými pásmi (Evropa, Amerika, Asie, Austrálie, Afrika)
+  - **Time Format**: Radio card selection (12h / 24h) s preview času + indigo glow na aktivní volbě
+  - **Start of Week**: Select box (Neděle / Pondělí)
+  - **Default Posting Action**: Native time picker input
+  - **Ikony**: Globe (indigo), Clock (purple), CalendarIcon (emerald), Clock (amber) – barevné ikony v rounded-xl boxech
+  - **Ukládání**: Jedno tlačítko Save na konci → Server Action `updatePreferences`
+  - **Saved feedback**: Check ikona + "Předvolby uloženy!" (auto-hide po 3s)
+  - **Responzivita**: `p-4 sm:p-6`, `text-base sm:text-lg`, selecty `w-full sm:w-80` (fixed šířka na desktopu)
+  - **Glassmorphism karty**: `rounded-[20px]`, `bg-white/70 dark:bg-card/40`, `backdrop-blur-md`, border + shadow
+- `src/app/[locale]/(dashboard)/settings/preferences/actions.ts` – Server Action:
+  - `updatePreferences(formData)`: Update `timezone`, `time_format`, `start_of_week`, `default_posting_time` v `users` tabulce
+  - `revalidatePath("/settings")` po úspěchu
+- `supabase/migrations/006_add_user_preferences.sql` – SQL migrace:
+  - `ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'Europe/Prague'`
+  - `ADD COLUMN time_format TEXT DEFAULT '24' CHECK (IN '12','24')`
+  - `ADD COLUMN start_of_week TEXT DEFAULT 'monday' CHECK (IN 'sunday','monday')`
+  - `ADD COLUMN default_posting_time TEXT DEFAULT '09:00'`
+- `src/messages/cs.json` – nové i18n klíče (settings namespace):
+  - preferencesDescription, timezone, timezoneDescription, timeFormat, timeFormatDescription
+  - timeFormat12, timeFormat24, startOfWEEK, startOfWEEKDescription
+  - defaultPostingAction, defaultPostingActionDescription, defaultTime
+  - savedPreferences, errorSaving, sunday, monday
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- **Navigace**: Odkaz na `/settings/preferences` již existuje v sidebar dropdown menu (SlidersHorizontal ikona)
+
+### Fix – Sidebar Upgrade Button: Odkaz na Billing stránku (DOKONČENO)
+- `src/components/dashboard/sidebar.tsx` – tlačítko Upgrade v dolní části sidebaru:
+  - **Nové**: `asChild` prop na Button + `<Link href={`/${locale}/settings/billing`}>`
+  - **Předtím**: Tlačítko bylo jen `<Button>` bez jakékoli funkčnosti
+  - **Nyní**: Kliknutí přesměruje na `/settings/billing` (stránka s přehledem plánů)
+
+### Fix – Billing Page: Server → Client Serialization Errors (DOKONČENO)
+- `src/app/[locale]/(dashboard)/settings/billing/page.tsx` – oprava serializace props:
+  - **Odstraněno**: `icon` property z plans array (React komponenty nelze serializovat)
+  - **Odstraněno**: `t={t as any}` (funkce nelze serializovat z Server do Client Component)
+  - **Nové**: `translations` objekt s přeloženými stringy (`current`, `perMonth`, `subscribe`, `upgrade`)
+  - **Odstraněno**: Importy `Check`, `Crown`, `Sparkles`, `Zap` z lucide-react
+- `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx` – ikony a překlady na klientské straně:
+  - **Nové**: `iconMap` – mapuje `plan.id` → ikonu (`free: Sparkles`, `creator: Zap`, `pro: Crown`)
+  - **Nové**: Importy `Crown`, `Sparkles`, `Zap` z lucide-react (v client componentu)
+  - **Odstraněno**: `icon: React.ElementType` z Plan interface
+  - **Odstraněno**: `locale` a `t: any` z BillingCardProps
+  - **Nové**: `translations` interface (`current`, `perMonth`, `subscribe`, `upgrade`)
+  - **Všechna `t("key")`** → `translations.key` (6 míst)
+- **Příčina chyby**: Next.js nedovolí předávat funkce ani React komponenty z Server Component do Client Component – lze pouze plain objekty (stringy, čísla, booly, pole)
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 70 – Konzistence, Live Data a Fix Mobilního Menu (DOKONČENO)
+- `src/components/dashboard/mobile-nav.tsx` – fix barev DropdownMenuContent pro Light/Dark mode:
+  - **Light mode**: `bg-white/90`, `text-slate-900`, ikony `text-slate-600`, `border-black/5`
+  - **Dark mode**: `bg-black/90`, `text-white`, ikony `text-white/70`, `border-white/10`
+  - **Backdrop**: `backdrop-blur-xl` + adaptivní stíny
+  - **Nový nav item**: Inbox s ikonou MessageSquare + "NEW" badge (premium variant)
+  - **Badge import**: `{ Badge } from "@/components/ui/badge"` pro inline "NEW" na mobilu
+- `src/components/ui/badge.tsx` – nová varianta "premium":
+  - **Design**: Capsule, glassmorphism, indigo text, jemný border
+  - **Styl**: `bg-indigo-50/80 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-500/20 backdrop-blur-sm shadow-sm`
+- `src/app/[locale]/(dashboard)/page.tsx` – živá data z Supabase:
+  - **Celkem příspěvků**: `COUNT(*)` z `posts`
+  - **Naplánované**: `COUNT(*) WHERE status = 'scheduled'` (reálné číslo místo 0)
+  - **Propojené účty**: `COUNT(*)` z `social_accounts` (už fungovalo)
+  - **Denní série**: `streak` z `users` tabulky
+  - **Flame ikona**: Když `streak > 0`, ikona svítí oranžově (`text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]`)
+  - **Consistency Score**: Nová karta s kruhovým progress barem (SVG circle + gradient indigo→purple) – mockup 89%
+  - **Icon change**: Streak ikona Copy → Flame, Scheduled ikona FileText → Calendar
+- `src/components/dashboard/sidebar.tsx` – Inbox nav item + Badge podpora:
+  - **ICON_MAP**: Přidáno `inbox: MessageSquare`
+  - **NavItem interface**: Nový optional prop `badge?: string`
+  - **Render**: Badge variant="premium" se zobrazí vedle labelu pokud `item.badge` existuje
+  - **Import**: `MessageSquare` z lucide-react, `Badge` z ui
+- `src/app/[locale]/(dashboard)/inbox/page.tsx` – prázdná stránka Community Inbox:
+  - **Design**: Glassmorphism karta s MessageSquare ikonou + placeholder text
+  - **i18n**: Název z `nav.inbox`
+- `src/app/[locale]/(dashboard)/layout.tsx` – Inbox v navItems:
+  - Nový item: `{ href: "/inbox", label: navT("inbox"), icon: "inbox", badge: "NEW" }`
+  - Pozice: mezi Kalendář a Účty
+- `src/messages/cs.json` – nové klíče:
+  - `nav.inbox` = "Inbox"
+  - `dashboard.consistencyScore` = "Skóre konzistence"
+- `src/messages/en.json` – totéž v angličtině:
+  - `nav.inbox` = "Inbox"
+  - `dashboard.consistencyScore` = "Consistency Score"
+- `src/messages/uk.json` – totéž v ukrajinštině:
+  - `nav.inbox` = "Вхідні"
+  - `dashboard.consistencyScore` = "Бал консистентності"
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 23 – Gamifikace a Redesign Fakturace (DOKONČENO)
+- `src/components/dashboard/setup-guide.tsx` – nová komponenta "Dokončete nastavení":
+  - **Design**: Skleněná karta (`bg-card/40 backdrop-blur-xl border-white/10 rounded-[24px]`) plavoucí v pravém dolním rohu
+  - **Progress bar**: Gradient (indigo→purple) s animací Framer Motion, zobrazuje {completed}/{total} %
+  - **Seznam úkolů**: 4 kroky s checkmarky – Vytvořit účet (vždy hotovo), Propojit první síť, Uložit první nápad, Naplánovat první post
+  - **Logika**: Widget se zobrazí pouze pokud nejsou všechny kroky hotové; po dokončení zmizí
+  - **Data**: Reálná data z DB (social_accounts count, posts count) – Supabase queries při mountu
+  - **Dismiss**: X tlačítko pro zavření (state `dismissed`)
+  - **Responzivita**: `bottom-20 right-4` na mobilu (nad bottom nav), `bottom-6 right-6` na desktopu
+- `src/app/[locale]/(dashboard)/settings/billing/page.tsx` – nová stránka fakturace:
+  - **3 srovnatelné karty**: Free, Creator, Pro – přesně podle vzoru Buffer
+  - **Styl karet**: `bg-card/40 backdrop-blur-xl border-white/5 rounded-[24px] p-8`
+  - **Header karet**: Ikona (Sparkles/Zap/Crown) + název + popis + cena
+  - **Ceny**: Free (zdarma), Creator (199 Kč/8 EUR/9 USD), Pro (499 Kč/20 EUR/22 EUR)
+  - **Features list**: Checkmarky s hodnotami (účty, příspěvky/měsíc, šablony, analytika)
+  - **Current Plan**: Badge "Aktuální" (emerald) na aktuálním tarifu
+  - **Recommended**: Badge + indigo glow na Creator plánu
+  - **CTA tlačítka**: "Upgrade" / "Odebírat" / "Aktuální" (disabled)
+- `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx` – Client Component pro billing karty:
+  - **Icon box**: Barevný (indigo) pro recommended, šedý pro ostatní
+  - **Display price**: EUR jako primární měna (`{price}€`) + `/měsíc`
+  - **Feature items**: Emerald checkmark + label + value
+  - **Button varianty**: Default (indigo) pro recommended, outline pro ostatní
+- `src/app/[locale]/(dashboard)/layout.tsx` – integrace SetupGuide:
+  - Import `SetupGuide` komponenty
+  - Render `<SetupGuide locale={locale} />` v layoutu před MobileNav
+  - Widget je fixed positioned – neovlivňuje layout
+- `src/components/dashboard/mobile-nav.tsx` – optimalizace pro 6 ikon:
+  - **Výška**: `h-[64px]` → `h-[56px]` (o 8px nižší)
+  - **Distribuce**: `justify-around` → `justify-evenly` (rovnoměrné rozložení)
+  - **Padding**: `px-4` → `px-1` (menší okraje)
+  - **Ikony**: `w-6 h-6` → `w-5 h-5` (o 1px menší)
+  - **Text**: `text-[10px]` → `text-[9px]`, `mt-1` → `mt-0.5`
+  - **Active dot**: `bottom-1` → `bottom-0.5` (přiblížen k okraji)
+  - **Výsledek**: 6 ikon (Přehled, Příspěvky, Kalendář, Účty, Analytika, Nastavení) se vejdou přirozeně
+- `src/messages/cs.json` – nové i18n sekce:
+  - `setup`: title, progress, createAccount, connectFirstNetwork, saveFirstIdea, scheduleFirstPost
+  - `billing`: title, subtitle, currentPlan, free, creator, pro, perMonth, accounts, postsPerMonth, templates, analytics, support, unlimited, basic, advanced, priority, current, upgrade, downgrade, subscribe
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 68 – Refaktorování nastavení: Dropdown menu + odstranění vnitřního sidebaru (DOKONČENO)
+- `src/components/dashboard/sidebar.tsx` – Account Switcher přetvořen na DropdownMenu:
+  - **Původní stav**: Statická karta s profilem + tlačítko Settings (redirect) + Upgrade
+  - **Nový stav**: Celá karta je kliknutelný DropdownMenuTrigger
+  - **DropdownMenuContent** (side="top", Premium Glass design):
+    - Sekce ÚČET: Profil (User), Předvolby (SlidersHorizontal), Notifikace (Bell)
+    - Sekce ORGANIZACE: Obecné (Building2), Fakturace (CreditCard)
+    - Sekce FUNKCE: Štítky (Tag)
+    - Separator + LogoutButton (LogOut)
+  - **Design**: `backdrop-blur-xl`, `rounded-[20px]`, `bg-white/90 dark:bg-black/90`, shadow
+  - **Nový prop**: `settingsLabels` (profile, preferences, notifications, general, billing, labels, accountLabel, organizationLabel, featuresLabel)
+  - **Odstraněno**: Settings ikona jako samostatné tlačítko, Settings z ICON_MAP
+- `src/app/[locale]/(dashboard)/layout.tsx` – předávání `settingsLabels` do Sidebar + MobileNav:
+  - `settingsLabels` objekt z `settingsT` (getTranslations)
+  - Sidebar i MobileNav dostávají stejné labels pro konzistenci
+- `src/app/[locale]/(dashboard)/settings/layout.tsx` – odstranění vnitřního sidebaru:
+  - **Původní stav**: Flex layout s `SettingsSidebar` (w-56) + children ve flex-1
+  - **Nový stav**: Jednoduchý kontejner `mx-auto w-full max-w-4xl` – obsah přes celou šířku, centrován
+  - **Odstraněno**: Import `SettingsSidebar`, `getTranslations`, `params` prop
+  - **Výsledek**: Nastavení bez vnořeného menu – navigace přes dropdown v sidebaru
+- `src/app/[locale]/(dashboard)/settings/profile/profile-form.tsx` – mobilní responzivita:
+  - **Karty**: `p-4 sm:p-6` (menší padding na mobilu)
+  - **Hlavičky**: `text-base sm:text-lg` (menší font na mobilu)
+  - **Spacing**: `mb-3 sm:mb-4` na labelích
+  - **Email input**: `px-3 sm:px-4` + `truncate` pro dlouhé e-maily
+  - **Badges**: `flex-shrink-0` aby se nemačkaly
+  - **Tlačítka**: `flex-wrap` na Language buttons aby nepřetekly
+  - **Container spacing**: `space-y-4 sm:space-y-6`
+- `src/app/[locale]\(dashboard)\settings\profile\page.tsx` – responzivní hlavička:
+  - **H1**: `text-xl font-bold sm:text-2xl md:text-3xl` (stupňovitý font)
+  - **Spacing**: `space-y-4 sm:space-y-6`
+- `src/components/dashboard/mobile-nav.tsx` – tlačítko Nastavení s DropdownMenu:
+  - **Nový nav item**: Settings ikona jako 6th item v bottom bar
+  - **DropdownMenu** (side="top", Premium Glass): Stejné sekce jako desktop sidebar
+    - ÚČET: Profil, Předvolby, Notifikace
+    - ORGANIZACE: Obecné, Fakturace
+    - FUNKCE: Štítky
+    - Logout (handleLogout přes Supabase client)
+  - **Nový prop**: `settingsLabels` (stejný interface jako Sidebar)
+  - **Active state**: `isSettingsPage` detekce + indigo glow + tečka
+  - **Logout**: Inline `handleLogout` (createClient → signOut → redirect na login)
+  - **Design**: `bg-black/90 backdrop-blur-xl` (vždy dark na mobilu)
+- `src/components/settings/settings-sidebar.tsx` – komponenta již nepoužívána (zůstává v repo, nic nelomčí)
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 67 – Oprava useFormState → useActionState (DOKONČENO)
+- `src/app/[locale]/(dashboard)/settings/profile/profile-form.tsx` – migrace na React 19 API:
+  - **Příčina**: `ReactDOM.useFormState` byl přejmenován na `React.useActionState` v Next.js 16
+  - **Řešení**: Import změněn z `react-dom` → `react`, obě volání `useFormState(...)` → `useActionState(...)`
+- Build: úspěšný, žádné chyby
+
+### Krok 66 – Oprava dvou chyb: script tag v layout + translateFn v Client Component (DOKONČENO)
+- `src/app/layout.tsx` – oprava Console Error "Encountered a script tag while rendering React component":
+  - **Příčina**: `<script>` tag v `<head>` není v Next.js App Router podporován – scripty v React componentech se nikdy neexecutují při client-side rendering
+  - **Řešení**: `<script id="theme-init">` přesunuto z `<head>` přímo do `<body>` – theme initialization script běží před hydratací
+- `src/app/[locale]/(dashboard)/settings/profile/page.tsx` – oprava Runtime Error "Functions cannot be passed directly to Client Components":
+  - **Příčina**: `authT` a `settingsT` byly funkce z `getTranslations()` předávané přímo do Client Component `ProfileForm` – funkce z Server Components nelze předat bez `"use server"`
+  - **Řešení**: Místo funkcí se předávají již vyřešené stringy přes `labels` object (`{ email, emailVerified, emailNotVerifiedBadge, fullName, language, saved }`)
+- `src/app/[locale]/(dashboard)/settings/profile/profile-form.tsx` – přepsání interface + implementace:
+  - **Nový interface**: `ProfileFormLabels` (stringy) místo `settingsT: any, authT: any` (funkce)
+  - **Všechna volání**: `authT("email")` → `labels.email`, `settingsT("fullName")` → `labels.fullName`, atd.
+- Build: úspěšný, žádné chyby
+
+### Krok 21 – Úprava hlavní navigace + Sjednocení nastavení (DOKONČENO)
+- `src/app/[locale]/(dashboard)/layout.tsx` – nová navigace:
+  - **navItems pořadí**: Přehled → Příspěvky → Kalendář → Účty → Analytika
+  - **Nastavení odstraněno** z hlavního menu – dostupné jen přes profil/kolečko dole
+  - **full_name z DB**: `userFullName` se fetchuje z tabulky `users` (`select("onboarded, full_name")`) a předává se do Sidebar
+  - **Sidebar user.name**: Nyní zobrazuje `full_name` z DB místo `user_metadata`
+- `src/components/dashboard/sidebar.tsx` – Account Switcher (spodní karta):
+  - Zobrazuje `user?.name` (full_name z DB) || "Uživatel"
+  - E-mail zůstává pod jménem jako secondary info
+  - Settings ikona → redirect na `/${locale}/settings`
+- `src/components/dashboard/mobile-nav.tsx` – mobilní navigace:
+  - Odstraněno "Nastavení" z bottom bar
+  - Přidáno "Účty" (LinkIcon) – stejné pořadí jako desktop
+- `src/app/[locale]/(dashboard)/settings/layout.tsx` – Buffer-style settings layout:
+  - **Vnitřní sidebar (podmenu)**: 3 sekce – Účet (Profil, Předvolby, Notifikace), Organizace (Obecné, Fakturace), Funkce (Štítky)
+  - **Design**: Skleněný efekt (`bg-white/70 dark:bg-card/40 backdrop-blur-md`), `rounded-[20px]`, border
+  - **Aktivní položka**: Indigo podsvícení + tečka vpravo (`bg-primary shadow-[0_0_8px]`)
+- `src/components/settings/settings-sidebar.tsx` – nová komponenta:
+  - Sekční hlavičky z i18n (`accountLabel`, `organizationLabel`, `featuresLabel`)
+  - Ikony: User, SlidersHorizontal, Bell, Building2, CreditCard, Tag (lucide-react)
+  - Aktivní stav: `bg-indigo-50 text-indigo-700` (light) / `dark:bg-white/[0.05] dark:border-white/10` (dark)
+- `src/app/[locale]/(dashboard)/settings/profile/page.tsx` – server component:
+  - Fetchuje `full_name` + `language` z `users` tabulky
+  - Renderuje `ProfileForm` s inicializovanými hodnotami
+- `src/app/[locale]/(dashboard)/settings/profile/profile-form.tsx` – client component:
+  - **Formulář jména**: Input + Button → Server Action `updateFullName`
+  - **Formulář jazyka**: Select + Button → Server Action `updateLanguage` + "Přepnout" tlačítko
+  - **Email display**: Read-only + verification badge (CheckCircle2/AlertCircle)
+  - **Design**: Glassmorphism karty (`rounded-[20px]`, `bg-white/70 dark:bg-card/40`)
+- `src/app/[locale]/(dashboard)/settings/profile/actions.ts` – Server Actions:
+  - `updateFullName(formData)`: Update `full_name` v `users` tabulce → `revalidatePath("/settings")`
+  - `updateLanguage(formData)`: Update `language` v `users` tabulce → `revalidatePath("/settings")`
+  - Validace: auth check, error handling s `useFormState`
+- `src/app/[locale]/(dashboard)/settings/page.tsx` – redirect na `/settings/profile`
+- `src/messages/cs.json` – nové klíče v `settings`:
+  - `profileDescription`, `preferences`, `notifications`, `general`, `billing`, `labels`
+  - `accountLabel`, `organizationLabel`, `featuresLabel`
+  - `common.switch` = "Přepnout"
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- **Databáze**: Žádná migrace potřeba – `full_name` již existuje v tabulce `users` (001_initial_schema.sql)
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 65 – Buffer-style Account Type Selection Modal (DOKONČENO)
+- `src/components/account-type-modal.tsx` – nová komponenta pro výběr typu účtu (Buffer-style flow):
+  - **Design**: Dialog s dvěma sloupci vedle sebe – Professional vs Personal
+  - **Professional sloupec**: Zelený badge "Automatické odesílání & Notifikace", 3 funkce s ikonymi (Check, Users, BarChart3), indigo/purple gradient tlačítko
+  - **Personal sloupec**: Šedý badge "Pouze přes notifikace", 1 funkce (Bell ikona), outline/ghost tlačítko
+  - **Styl**: Premium Glass (backdrop-blur-xl, border-white/10, rounded-[20px]), glow efekt na Professional sloupci při hoveru
+  - **i18n**: Všechny texty přes `t` props – subtitle, badge, titles, descriptions, buttons
+  - **Platforma**: PlatformIcon + platformName v headeru modálu
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – integrace AccountTypeModal:
+  - **Nové stavy**: `showTypeModal`, `typeModalPlatform` (id, name, icon)
+  - **Klik na Instagram**: Otevírá AccountTypeModal místo přímého formuláře
+  - **Klik na ostatní platformy**: Zůstává původní chování (přímý formulář s inputy)
+  - **onProfessional + onPersonal**: Zatím obě vedou na stejný formulář (příprava pro OAuth v budoucnu)
+- `src/messages/cs.json` – nové klíče v `accounts`: `howToConnect`, `professional`, `professionalDesc`, `personal`, `personalDesc`, `autoPostingBadge`, `notificationsBadge`, `autoPublishing`, `autoPublishingDesc`, `communityReplies`, `communityRepliesDesc`, `postMetrics`, `postMetricsDesc`, `onlyNotifications`, `onlyNotificationsDesc`, `connectProfessional`, `setupPersonal`, `selectTypeSubtitle`
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 64 – LocaleSwitcher Fix + Premium Light Login Page Redesign (DOKONČENO)
+- `src/components/locale-switcher.tsx` – oprava "login" textu v LocaleSwitcheru:
+  - **Příčina**: `usePathname()` vrací `/login` bez locale prefixu v některých případech → `split("/")[1]` vrátilo `"login"` → fallback byl `"login"` místo názvu jazyka
+  - **Řešení**: `pathname.split("/").filter(Boolean)` + validace proti seznamu locale kódů – `locales.find((l) => l.code === parts[0])?.code || "cs"`
+  - **Fallback**: `"cs"` (Čeština) místo `currentLocale` (který mohl být `"login"`)
+  - **Accessibility**: `aria-label={currentLabel}` na Buttonu pro screen readery
+  - **Vizuál**: `text-muted-foreground` na labelu jazyka pro jemnější vzhled
+- `src/app/[locale]/(auth)/login/page.tsx` – Premium Light redesign:
+  - **Pozadí stránky**: `bg-slate-50 dark:bg-black` – jemná šedobílá ve světlém režimu
+  - **Grid pattern**: SVG grid s `bg-slate-200/50` v light modu – viditelnější mřížka
+  - **Formulářová karta**: `bg-white/60 backdrop-blur-xl border border-white shadow-xl rounded-[32px] p-10` – bílá glass karta s hloubkou
+  - **Dark mode**: Karta je transparentní (`dark:bg-transparent dark:shadow-none dark:rounded-none`) – žádná změna dark vizuálu
+- `src/components/auth/email-signin.tsx` – Light/Dark adaptivní inputy:
+  - **Divider linky**: `bg-slate-200 dark:bg-white/10` – viditelné v obou režimech
+  - **Inputy**: `bg-white/80 dark:bg-white/[0.03] border-slate-200 dark:border-white/10 text-slate-900 dark:text-foreground`
+  - **Focus**: `focus:border-indigo-500 dark:focus:border-indigo-500/50` – plně indigo v light, jemnější v dark
+  - **Submit tlačítko**: `bg-indigo-500 dark:bg-white text-white dark:text-black hover:bg-indigo-600 dark:hover:bg-white/90` – barevné v light, bílé v dark
+- `src/components/auth/login-visual.tsx` – Dashboard mock Light/Dark redesign:
+  - **Grid pattern**: `opacity-[0.06] dark:opacity-[0.04]` – viditelnější v light modu, gray stroke (`#a0a0a0`)
+  - **Glow efekty**: `bg-purple-200/40 dark:bg-purple-500/20` a `bg-indigo-200/40 dark:bg-indigo-500/15` – silnější záře v light
+  - **Hlavní záře**: `from-indigo-200/40 via-purple-200/30 to-blue-200/20 dark:from-purple-500/30 dark:via-indigo-500/20 dark:to-blue-500/10` – indigo glow v light, purple v dark
+  - **Dashboard karta**: `border-white/50 dark:border-white/20 bg-white/40 dark:bg-white/5 backdrop-blur-md dark:backdrop-blur-xl shadow-lg dark:shadow-none`
+  - **Texty v kartě**: `text-slate-900 dark:text-white` a `text-slate-500 dark:text-white/60` – černé v light, bílé v dark
+  - **Graf bary**: Střídavé `bg-slate-200/80 dark:bg-white/25` a `bg-indigo-400/60 dark:bg-white/25` – slate/indigo v light, bílé v dark
+  - **Metriky karty**: `bg-white/50 dark:bg-white/10` – silnější v light
+  - **Floating karty**: `border-white/60 dark:border-white/20 bg-white/50 dark:bg-white/5 shadow-md dark:shadow-none`
+  - **Ikony**: `text-emerald-500 dark:text-emerald-300` a `text-amber-500 dark:text-amber-300` – sytější v light
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 63 – Light Mode: "Milky Glass" Design Overhaul (DOKONČENO)
+- `src/components/ui/dialog.tsx` – Milky Glass modal:
+  - **Overlay**: `bg-black/20 dark:bg-black/60` – tmavší overlay pro lepší fokus na modal
+  - **DialogContent**: `bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-black/5 dark:border-white/10` – mléčné sklo ve světlém režimu
+  - **Stíny**: `shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]` – jemný stín light, výrazný dark
+  - **Text**: `text-slate-900 dark:text-white` – plná černá v light modu
+  - **Radius**: `rounded-[20px]` – konzistentní s design systémem
+- `src/components/edit-post-dialog.tsx` – Milky Glass edit modal:
+  - **DialogContent**: `bg-white/80 dark:bg-card/40` + shadow + border pro Milky Glass
+  - **Textarea**: `text-slate-900 dark:text-white bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus:bg-white focus:border-indigo-500/30` – plná černá barva textu, jemné bordery
+  - **Inputy (location, tags)**: totéž – `bg-white/50` → `focus:bg-white`, `border-black/5` → `focus:border-indigo-500/30`
+  - **Platformy**: Přirozené barvy ikon ve světlém režimu (Instagram #E1306C, Facebook #1877F2, Twitter #1DA1F2, LinkedIn #0A66C2, YouTube #FF0000, TikTok #010101)
+  - **Platform pill**: `bg-white/60 dark:bg-white/[0.03] text-slate-700` – ne šedé mrtvé, ale živé s barevnými ikonami
+  - **Platform pill selected**: `bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300`
+- `src/components/ui/date-time-picker.tsx` – Kalendář NAKONEC bílý v light modu:
+  - **Trigger button**: `bg-white/50 dark:bg-white/[0.03] border-black/5 dark:border-white/10`
+  - **Kalendář kontejner**: `bg-white/95 dark:bg-black/80 backdrop-blur-xl border border-black/5 dark:border-white/10` – BÍLÝ pozadí v light modu!
+  - **Text**: `text-slate-900 dark:text-white` na celém kontejneru
+  - **Stíny**: `shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-2xl`
+  - **Navigace měsíce**: hover `bg-black/5 dark:bg-white/10`
+  - **Dny v kalendáři**: hover `bg-black/5 dark:bg-white/10`, today `text-indigo-600 dark:text-indigo-300`
+  - **Vybraný den**: indigo gradient + `text-white` (nezměněno)
+  - **Divider**: `bg-black/5 dark:bg-white/5`
+  - **TimeSelect trigger**: `bg-white/60 dark:bg-[#09090b] border-black/5 dark:border-white/10`
+  - **TimeSelect dropdown**: `bg-white/95 dark:bg-[#0b0b0b]` – BÍLÝ v light modu!
+  - **TimeSelect položky**: hover `bg-black/5 dark:bg-white/[0.06]`, selected `bg-indigo-500/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400`
+- `src/app/globals.css` – Grid + Glass vylepšení:
+  - **Grid pattern light**: `stroke='%23a0a0a0'` (jemně šedá místo černé), `opacity: 0.05` (z 0.03)
+  - **Glass card light**: `rgba(255,255,255,0.8)` (z 0.7), `blur(16px)` (z 12px), `border rgba(0,0,0,0.05)` (z 0.08)
+  - **Glass modal light**: `rgba(255,255,255,0.9)` (z 0.85), `border rgba(0,0,0,0.05)` (z 0.08)
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 62 – Time Picker: Custom dropdowny pro HH/MM (DOKONČENO)
+- `src/components/ui/date-time-picker.tsx` – oprava vizuální chyby v dark modu:
+  - **Nová komponenta `TimeSelect`**: Radix Popover based dropdown – plně stylovatelná alternativa k nativnímu `<select>`
+  - **Trigger button**: `bg-black/80 dark:bg-[#09090b]` pozadí, `border-white/10`, `rounded-lg`, `text-foreground` – ladí s tmavým pozadím
+  - **Popover seznam**: `bg-black/80 dark:bg-[#0b0b0b]` + `backdrop-blur-xl` + `shadow-2xl` – tmavý skleněný dropdown
+  - **Aktivní hodnota**: `bg-indigo-600/20 text-indigo-400 font-medium` – indigo highlight vybrané položky
+  - **Hover**: `hover:bg-white/[0.06]` – jemný hover efekt na položkách
+  - **Scroll**: `max-h-52 overflow-y-auto` + auto-scroll na vybranou položku při otevření
+  - **Labels HH/MM**: `text-muted-foreground/50` (z /40) – jemně šedé, nepřebíjejí čísla
+  - **z-index**: `z-[60]` pro time dropdowns – nad hlavním popoverem kalendáře (`z-50`)
+  - **Příčina problému**: Nativní `<select>` elementy renderují `<option>` v nativním browseru – Tailwind třídy se na dropdown menu vztahují jen částečně, což vedlo k bílému pozadí v dark modu
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 15.3 – Bezpečnostní limity pro média (DOKONČENO)
+- `src/hooks/use-media-upload.ts` – striktní limity velikosti souborů:
+  - **Obrázky**: max 5 MB (dříve 50 MB)
+  - **Videa**: max 20 MB (dříve 50 MB)
+  - **Konstanty**: `MAX_IMAGE_SIZE = 5MB`, `MAX_VIDEO_SIZE = 20MB`
+  - **Validace typů**: Rozlišené pole extenzí `ALLOWED_IMAGE_EXTENSIONS` (jpg, jpeg, png, webp, gif, svg) a `ALLOWED_VIDEO_EXTENSIONS` (mp4, mov)
+  - **MIME typy**: `ALLOWED_IMAGE_MIMES` (jpeg, png, webp, gif, svg+xml) a `ALLOWED_VIDEO_MIMES` (mp4, quicktime)
+  - **Funkce**: `getFileKind()` (detekce typu souboru), `getFileSizeLimit()` (limit podle typu), `isFileTooLarge()` (kontrola velikosti)
+  - **Validace před uploadem**: `addFiles()` kontroluje velikost před přidáním do queue – oversized soubory se zahodí + toast error
+  - **Toast messages**: Rozlišené pro obrázky (`fileTooLargeImage`) a videa (`fileTooLargeVideo`)
+  - **Upload flow**: Client-side (browser → Supabase Storage) přes `createBrowserClient` z `@supabase/ssr` – žádné Vercel serverless funkce se nezatěžují
+- `src/messages/cs.json` – nové labely: `fileTooLargeImage`, `fileTooLargeVideo` (v obou sekcích: calendar + posts)
+- `src/messages/en.json` – nové labely: `fileTooLargeImage`, `fileTooLargeVideo` (v obou sekcích)
+- `src/messages/uk.json` – nové labely: `fileTooLargeImage`, `fileTooLargeVideo` (v obou sekcích)
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx` – `uploadLabels` rozšířen o `fileTooLargeImage`, `fileTooLargeVideo`
+- `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – `uploadLabels` rozšířen o `fileTooLargeImage`, `fileTooLargeVideo`
+- `src/components/edit-post-dialog.tsx` – `uploadLabels` rozšířen o `fileTooLargeImage`, `fileTooLargeVideo`
+- **Bezpečnost**: Uživatelé již nemohou vyčerpat Supabase Storage velkými soubory. Limit 5MB pro fotky a 20MB pro videa je dostatečný pro free tier.
+
+### Krok 61 – Light/Dark Mode: Dokončení vyladění světlého režimu (DOKONČENO)
+- `src/app/globals.css` – oprava invalidní CSS syntaxe:
+  - `.calendar-day-hover` mělo `hover: {}` (není validní CSS, to je SCSS/Tailwind @layer syntax)
+  - Nahrazeno za `&:hover` (nesting syntax podporovaná v Tailwind CSS v @layer utilities)
+  - Komentář rozšířen: "light: subtle gray, dark: subtle white"
+- **Ověření stavu předchozí relace** (krok 60 a dále):
+  - Grid patterny ve 4 dashboard stránkách (`posts/[id]`, `posts/new`, `accounts`, `templates/new`) – už mají obě varianty (black stroke pro light, white stroke pro dark) ✅
+  - Dashboard layout `layout.tsx` – grid pattern v `<main>` už má `#80808008` (light) / `#ffffff08` (dark) ✅
+  - Cookie consent – kategorie mají `bg-gray-50 dark:bg-white/5` a `border-gray-200 dark:border-white/10` ✅
+  - Sidebar – aktivní item `bg-indigo-50 dark:bg-white/[0.05]`, user card `bg-gray-50 dark:bg-accent/50` ✅
+  - Kalendář – mřížka, buňky, hover efekty, filtry, modal – vše s light/dark variantami ✅
+  - Post card – `bg-white/80 dark:bg-card/40`, border, shadow – adaptivní ✅
+  - Login visual – grid pattern s `opacity-[0.03] dark:opacity-[0.04]` ✅
+  - LocaleSwitcher – žádná specifická barevná úprava potřeba, používá Tailwind tokens ✅
+- Build: úspěšný, žádné TypeScript chyby
+
+### Krok 60 – Kalendář: Hover Preview Pozice + Light/Dark Mode + Cookie Consent (DOKONČENO)
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – opravy hover náhledu v kalendáři:
+  - **Pozice náhledu relativní k příspěvku**: `handlePostHover` nyní používá `getBoundingClientRect()` pro získání pozice karty příspěvku a umísťuje náhled ~12px vedle ní (vpravo) nebo nad/pod ni podle dostupného místa
+  - **Smart positioning**: Pokud náhled přesahuje pravý okraj viewportu, přesune se vlevo od karty. Pokud není místo ani vlevo, zobrazí se centrováno pod kartou
+  - **Adaptivní design (Light/Dark mode)**: Karta náhledu nyní používá `bg-white/80 dark:bg-black/80 backdrop-blur-2xl border border-black/5 dark:border-white/10`
+  - **Stíny pro hloubku**: `shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]` – jemný stín v light modu, výraznější v dark modu
+  - **Texty adaptivní**: `text-foreground/80` (černé v light, bílé v dark), `border-t border-black/5 dark:border-white/10`
+  - **Media placeholder**: `bg-black/5 dark:bg-white/5` pro loading stav obrázků
+- `src/components/cookie-consent.tsx` – adaptivní light/dark mode pro Cookie Consent:
+  - **Floating card**: `bg-white/80 dark:bg-black/40 backdrop-blur-2xl border border-black/5 dark:border-white/10`
+  - **Stíny**: `shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]`
+  - **Link barva**: `text-foreground` místo `text-white` (aby byl v light modu černý)
+  - **Preferences Dialog**: `bg-white/90 dark:bg-black/60 backdrop-blur-2xl border-black/5 dark:border-white/10`
+  - **Cookie category cards**: `border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10`
+  - Všechny 4 kategorie (Necessary, Functional, Analytics, Advertising) mají adaptivní styl
+- Build: úspěšný, žádné TypeScript chyby
+
+## 2026-05-06 (předchozí záznamy)
+
+### Krok 15.2 – Logika nahrávání médií do Supabase Storage (DOKONČENO)
+- `src/hooks/use-media-upload.ts` – kompletní vylepšení hook pro nahrávání médií:
+  - **i18n podpora**: Hook nyní přijímá `labels` (MediaUploadLabels) pro toast messages – žádné hardcoded texty
+  - **Validace formátů**: Nová funkce `isValidMediaFile` kontroluje povolené formáty (jpg, jpeg, png, webp, mp4, mov) + MIME typy
+  - **ALLOWED_EXTENSIONS**: `[".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov"]`
+  - **Toast messages**: `tooManyFiles`, `uploadSuccess`, `uploadError`, `fileDeleted`, `invalidFileType`
+  - **removeItem**: Bezpečnější – try/catch kolem URL parsing, revoke ObjectURL jen pro non-ready items
+  - **loadExistingUrls**: Revoke ObjectURL jen pro lokální preview (status !== "ready")
+  - **Default labels**: Fallback na angličtinu pokud labels nejsou předány
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx` – integrace uploadLabels:
+  - `uploadLabels` objekt z `t()` předáván do `useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels)`
+- `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – integrace uploadLabels:
+  - Stejný pattern: `uploadLabels` z `t()` → `useMediaUpload`
+- `src/components/edit-post-dialog.tsx` – integrace uploadLabels + rozšířený interface:
+  - `EditPostDialogProps.tLabels` rozšířen: `uploadSuccess`, `fileDeleted`, `invalidFileType`
+  - `uploadLabels` sestaven z `tLabels` s fallbacky
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – rozšířené interface:
+  - `PostCard.tLabels` a `PostsList.tLabels`: přidány `uploadSuccess`, `fileDeleted`, `invalidFileType`
+- `src/app/[locale]/(dashboard)/posts/page.tsx` – tLabels rozšířen:
+  - Nové klíče: `uploadSuccess`, `fileDeleted`, `invalidFileType`
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – rozšířený interface + tLabels:
+  - `CalendarViewProps.tCalendar`: přidány `uploadSuccess`, `uploadError`, `uploading`, `fileTooLarge`, `fileDeleted`, `invalidFileType`, `dropMedia`
+  - EditPostDialog tLabels: hodnoty z tCalendar místo prázdných řetězců
+- `src/app/[locale]/(dashboard)/calendar/page.tsx` – tCalendar rozšířen:
+  - Nové klíče: `dropMedia`, `uploading`, `uploadSuccess`, `uploadError`, `fileTooLarge`, `fileDeleted`, `invalidFileType`
+- `src/messages/cs.json` – nové klíče v namespace `posts` a `calendar`:
+  - `tooManyFiles`, `fileDeleted`, `invalidFileType` (posts)
+  - `dropMedia`, `uploading`, `uploadSuccess`, `uploadError`, `fileTooLarge`, `fileDeleted`, `invalidFileType` (calendar)
+- `src/messages/en.json` – totéž v angličtině
+- `src/messages/uk.json` – totéž v ukrajinštině
+- **Upload flow**: User vybere soubory → validace formátu → generování unikátní cesty `{userId}/{timestamp}-{filename}` → upload do `post-media` bucket → public URL → uložení do `media_urls` v DB
+- **Limit**: Max 10 souborů na příspěvek, max 50MB na soubor
+- **UX**: Spinner během nahrávání, CheckCircle2 po úspěchu, X tlačítko pro odstranění, toast notifikace
+- Build: úspěšný, žádné TypeScript chyby
+
 ## 2026-05-05
 
 ### Krok 59 – Univerzální Edit Modal + Kalendář: Drafty + Filtry statusu (DOKONČENO)

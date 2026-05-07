@@ -1,0 +1,200 @@
+"use client";
+
+import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { FileText, Plus } from "lucide-react";
+import Link from "next/link";
+import { PostsFilters } from "./_posts-filters";
+import { PostsList, PostListItem } from "./_post-card";
+
+export function PostsContainer({
+  initialPosts,
+  locale,
+  postsCount,
+  tTitle,
+  tNewPost,
+  tAllPlatforms,
+  tFilterAll,
+  tStatusDraft,
+  tStatusScheduled,
+  tStatusPublished,
+  tStatusFailed,
+  tNoPosts,
+  tNoPostsSubtitle,
+  tScheduledAt,
+  tEditPost,
+  tDeleteConfirm,
+  tLabels,
+}: {
+  initialPosts: PostListItem[];
+  locale: string;
+  postsCount: number;
+  tTitle: string;
+  tNewPost: string;
+  tAllPlatforms: string;
+  tFilterAll: string;
+  tStatusDraft: string;
+  tStatusScheduled: string;
+  tStatusPublished: string;
+  tStatusFailed: string;
+  tNoPosts: string;
+  tNoPostsSubtitle: string;
+  tScheduledAt: string;
+  tEditPost: string;
+  tDeleteConfirm: string;
+  tLabels: {
+    newPost: string;
+    editPost: string;
+    content: string;
+    contentPlaceholder: string;
+    selectPlatforms: string;
+    saveDraft: string;
+    schedule: string;
+    publishNow: string;
+    scheduledAt: string;
+    saving: string;
+    addTags: string;
+    locationPlaceholder: string;
+    postCreated: string;
+    postUpdated: string;
+    errorSaving: string;
+    characterCount: string;
+    maxFilesReached: string;
+    addMedia: string;
+    dropMedia: string;
+    uploading: string;
+    uploadError: string;
+    uploadSuccess: string;
+    fileTooLarge: string;
+    fileTooLargeImage: string;
+    fileTooLargeVideo: string;
+    fileDeleted: string;
+    invalidFileType: string;
+    statusDraft: string;
+    statusScheduled: string;
+    statusPublished: string;
+    statusFailed: string;
+  };
+}) {
+  const [posts, setPosts] = useState(initialPosts);
+  const [activePlatform, setActivePlatform] = useState("");
+  const [activeStatus, setActiveStatus] = useState("");
+  const [refreshAfterExit, setRefreshAfterExit] = useState(false);
+  const router = useRouter();
+
+  const handleFilterChange = useCallback((platform: string, status: string) => {
+    setActivePlatform(platform);
+    setActiveStatus(status);
+  }, []);
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      if (activePlatform) {
+        const postPlatforms = post.platforms || [];
+        if (!postPlatforms.includes(activePlatform)) return false;
+      }
+      if (activeStatus) {
+        if (post.status !== activeStatus) return false;
+      }
+      return true;
+    });
+  }, [posts, activePlatform, activeStatus]);
+
+  const handleDeleted = useCallback((id: string) => {
+    setPosts((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      if (next.length === 0) setRefreshAfterExit(true);
+      return next;
+    });
+  }, []);
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">{tTitle}</h1>
+          <p className="mt-1 text-muted-foreground/60">
+            {postsCount} {tTitle.toLowerCase()}
+          </p>
+        </div>
+        <Link href={`/${locale}/posts/new`} className="sm:w-auto">
+          <Button
+            className="w-full gap-2 bg-gradient-to-br from-indigo-600 to-purple-600 shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] rounded-[20px] sm:w-auto"
+          >
+            <Plus className="h-4 w-4" />
+            {tNewPost}
+          </Button>
+        </Link>
+      </div>
+
+      {/* Filters */}
+      <div className="pt-4">
+        <PostsFilters
+          initialStatus=""
+          initialPlatform=""
+          onFilterChange={handleFilterChange}
+          tAllPlatforms={tAllPlatforms}
+          tFilterAll={tFilterAll}
+          tStatusDraft={tStatusDraft}
+          tStatusScheduled={tStatusScheduled}
+          tStatusPublished={tStatusPublished}
+          tStatusFailed={tStatusFailed}
+        />
+      </div>
+
+      {/* Posts List / Empty State */}
+      <div className="mt-10 space-y-6">
+        {filteredPosts.length === 0 ? (
+          <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-3xl" />
+              <FileText className="relative h-16 w-16 text-indigo-500/80" />
+            </div>
+            <p className="text-xl font-medium text-muted-foreground/60">
+              {initialPosts.length === 0 ? tNoPosts : tFilterAll}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground/40">
+              {initialPosts.length === 0 ? tNoPostsSubtitle : ""}
+            </p>
+            {initialPosts.length === 0 && (
+              <Link href={`/${locale}/posts/new`} className="mt-6">
+                <Button
+                  variant="outline"
+                  className="gap-2 rounded-[20px] bg-card/40 border-white/5 backdrop-blur-md hover:bg-card/60"
+                >
+                  <Plus className="h-4 w-4" />
+                  {tNewPost}
+                </Button>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {(function() {
+              if (refreshAfterExit) {
+                router.refresh();
+                setRefreshAfterExit(false);
+              }
+              return null;
+            })()}
+            <PostsList
+              posts={filteredPosts}
+              locale={locale}
+              tStatusDraft={tStatusDraft}
+              tStatusScheduled={tStatusScheduled}
+              tStatusPublished={tStatusPublished}
+              tStatusFailed={tStatusFailed}
+              tScheduledAt={tScheduledAt}
+              tEditPost={tEditPost}
+              tDeleteConfirm={tDeleteConfirm}
+              tLabels={tLabels}
+              onDeleted={handleDeleted}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

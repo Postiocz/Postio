@@ -20,7 +20,8 @@ export function LocaleSwitcher({ className }: { className?: string }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  const currentLocale = pathname.split("/")[1];
+  const parts = pathname.split("/").filter(Boolean);
+  const currentLocale = locales.find((l) => l.code === parts[0])?.code || "cs";
 
   const handleChange = (newLocale: string) => {
     // Hard navigation required: next-intl loads messages server-side via getMessages().
@@ -30,15 +31,20 @@ export function LocaleSwitcher({ className }: { className?: string }) {
     window.location.href = query ? `${path}?${query}` : path;
   };
 
-  const currentLabel = locales.find((l) => l.code === currentLocale)?.label || currentLocale;
+  const currentLabel = locales.find((l) => l.code === currentLocale)?.label || "Čeština";
 
   return (
     <div className={className}>
       <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-foreground"
+          aria-label={currentLabel}
+        >
           <Globe className="h-4 w-4" />
-          <span className="text-sm">{currentLabel}</span>
+          <span className="text-sm text-muted-foreground">{currentLabel}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

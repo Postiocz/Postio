@@ -134,6 +134,11 @@ export interface Database {
           post_id: string
           impressions: number
           engagements: number
+          likes: number
+          comments: number
+          shares: number
+          clicks: number
+          saves: number
           recorded_at: string
         }
         Insert: {
@@ -141,6 +146,11 @@ export interface Database {
           post_id: string
           impressions?: number
           engagements?: number
+          likes?: number
+          comments?: number
+          shares?: number
+          clicks?: number
+          saves?: number
           recorded_at?: string
         }
         Update: {
@@ -148,6 +158,11 @@ export interface Database {
           post_id?: string
           impressions?: number
           engagements?: number
+          likes?: number
+          comments?: number
+          shares?: number
+          clicks?: number
+          saves?: number
           recorded_at?: string
         }
       }

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ArrowLeft, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ArrowLeft, Film, Image as ImageIcon, Loader2, MapPin, X, Clock } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -109,6 +110,15 @@ interface CalendarViewProps {
     filterAll?: string;
     editPost?: string;
     postUpdated?: string;
+    uploadSuccess?: string;
+    uploadError?: string;
+    uploading?: string;
+    fileTooLarge?: string;
+    fileTooLargeImage?: string;
+    fileTooLargeVideo?: string;
+    fileDeleted?: string;
+    invalidFileType?: string;
+    dropMedia?: string;
   };
 }
 
@@ -129,6 +139,12 @@ export function CalendarView({
   // Edit post modal state
   const [editPostOpen, setEditPostOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<EditPostData | null>(null);
+
+  // Hover preview state
+  const [hoveredPost, setHoveredPost] = useState<Post | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const postCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Active status filter (local state for UI)
   const [activeStatusFilter, setActiveStatusFilter] = useState(selectedStatus);
@@ -384,6 +400,48 @@ export function CalendarView({
     return `${weekdays[day.getDay() === 0 ? 6 : day.getDay() - 1]}, ${format(day, "MMMM yyyy")}`;
   }, [locale, weekdays]);
 
+  const handlePostHover = useCallback((post: Post, element: HTMLDivElement) => {
+    const rect = element.getBoundingClientRect();
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredPost(post);
+      const previewWidth = 288;
+      const previewHeight = 250;
+      const gap = 12;
+      let x = rect.right + gap;
+      let y = rect.top - previewHeight + gap;
+      if (x + previewWidth > window.innerWidth - 12) {
+        x = rect.left - previewWidth - gap;
+      }
+      if (x < 12) {
+        x = rect.left + rect.width / 2 - previewWidth / 2;
+        y = rect.bottom + gap;
+      }
+      if (y < 12) {
+        y = rect.bottom + gap;
+      }
+      setHoverPosition({ x, y });
+    }, 100);
+  }, []);
+
+  const handlePostLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setHoveredPost(null);
+  }, []);
+
+  const getPlatformColor = useCallback((platformId: string): string => {
+    const colors: Record<string, string> = {
+      instagram: "text-pink-500",
+      facebook: "text-blue-600",
+      twitter: "text-sky-500",
+      x: "text-sky-500",
+      linkedin: "text-blue-700",
+      youtube: "text-red-600",
+      tiktok: "text-rose-500",
+    };
+    return colors[platformId?.toLowerCase()] || "text-foreground/60";
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Filters Bar */}
@@ -395,8 +453,8 @@ export function CalendarView({
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200",
               activePlatformFilter === ""
-                ? "bg-white/10 border-white/20 text-white"
-                : "bg-white/[0.03] border-white/5 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-white/10 dark:border-white/20 dark:text-white"
+                : "bg-gray-50 border-gray-200 text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
             )}
           >
             <CalendarIcon className="h-3 w-3" />
@@ -414,8 +472,8 @@ export function CalendarView({
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200",
                   isActive
-                    ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-300"
-                    : "bg-white/[0.03] border-white/5 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/20 dark:border-indigo-500/50 dark:text-indigo-300"
+                    : "bg-gray-50 border-gray-200 text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
                 )}
               >
                 {Icon && <Icon className="h-3 w-3" />}
@@ -442,8 +500,8 @@ export function CalendarView({
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200",
                   isActive
-                    ? "bg-white/10 border-white/20 text-white"
-                    : "bg-white/[0.03] border-white/5 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-white/10 dark:border-white/20 dark:text-white"
+                    : "bg-gray-50 border-gray-200 text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
                 )}
               >
                 {filter.label}
@@ -458,13 +516,13 @@ export function CalendarView({
         <div className="flex items-center gap-2">
             <button
               onClick={view === "month" ? previousMonth : previousWeek}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={view === "month" ? nextMonth : nextWeek}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -473,13 +531,13 @@ export function CalendarView({
             </h2>
           </div>
 
-          <div className="flex items-center rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+          <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-white/10 dark:bg-white/[0.03]">
             <button
               onClick={() => setView("month")}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
                 view === "month"
-                  ? "bg-white/10 text-white shadow-sm"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -490,7 +548,7 @@ export function CalendarView({
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
                 view === "week"
-                  ? "bg-white/10 text-white shadow-sm"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -502,13 +560,13 @@ export function CalendarView({
       {/* ======================== */}
       {/* DESKTOP: Calendar Grid   */}
       {/* ======================== */}
-      <div className="hidden lg:block rounded-[20px] border border-white/5 bg-card/40 backdrop-blur-md shadow-2xl overflow-hidden">
+      <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
         {/* Weekday Headers */}
-        <div className="grid grid-cols-7 border-b border-white/5">
+        <div className="grid grid-cols-7 border-b border-black/[0.08] dark:border-white/[0.06]">
           {weekdays.map((day, i) => (
             <div
               key={i}
-              className="border-r border-white/5 last:border-r-0 px-2 py-3 text-center text-xs font-medium text-muted-foreground/60"
+              className="border-r border-black/[0.08] dark:border-white/[0.06] last:border-r-0 px-2 py-3 text-center text-xs font-medium text-muted-foreground/60"
             >
               {day}
             </div>
@@ -527,8 +585,8 @@ export function CalendarView({
                 key={dayIndex}
                 onClick={() => handleDayClick(day)}
                 className={cn(
-                  "relative min-h-[90px] border-r border-b border-white/10 p-2 transition-colors cursor-pointer hover:bg-white/[0.03]",
-                  !inCurrentMonth && "bg-black/30",
+                  "relative min-h-[90px] border-r border-b border-black/[0.08] dark:border-white/[0.06] p-2 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]",
+                  !inCurrentMonth && "bg-gray-100/50 dark:bg-transparent",
                   today && "bg-indigo-500/5 ring-1 ring-inset ring-indigo-500/20",
                   dayIndex % 7 === 6 && "border-r-0"
                 )}
@@ -559,18 +617,26 @@ export function CalendarView({
                     return (
                       <div
                         key={post.id}
+                        ref={(el) => {
+                          if (el) postCardRefs.current.set(post.id, el);
+                        }}
                         onClick={(e) => handlePostClick(post, e)}
+                        onMouseEnter={(e) => {
+                          const target = e.currentTarget as HTMLDivElement;
+                          handlePostHover(post, target);
+                        }}
+                        onMouseLeave={handlePostLeave}
                         className={cn(
-                          "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-all hover:scale-[1.02] cursor-pointer",
+                          "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-all hover:scale-[1.02] cursor-pointer lg:hover:scale-[1.02]",
                           post.status === "published"
-                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/20"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/20"
                             : post.status === "scheduled"
-                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
+                            ? "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/20"
                             : post.status === "failed"
-                            ? "bg-red-500/20 text-red-300 border border-red-500/20"
+                            ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/20"
                             : post.status === "draft"
-                            ? "bg-white/[0.02] text-muted-foreground/50 border border-white/5 opacity-60"
-                            : "bg-white/5 text-muted-foreground border border-white/5"
+                            ? "bg-gray-50 text-muted-foreground border border-gray-200 opacity-70 dark:bg-white/[0.02] dark:text-muted-foreground/50 dark:border-white/5 dark:opacity-60"
+                            : "bg-gray-50 text-muted-foreground border border-gray-200 dark:bg-white/5 dark:text-muted-foreground dark:border-white/5"
                         )}
                         title={post.content?.substring(0, 60)}
                       >
@@ -597,12 +663,12 @@ export function CalendarView({
       {/* ======================== */}
       {/* MOBILE: Agenda View      */}
       {/* ======================== */}
-      <div className="lg:hidden flex flex-col rounded-[20px] border border-white/5 bg-card/40 backdrop-blur-md shadow-2xl overflow-hidden">
+      <div className="lg:hidden flex flex-col rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
         {/* Mobile Navigation – Sticky Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between w-full px-4 py-3 border-b border-white/5 bg-card/95 backdrop-blur-xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between w-full px-4 py-3 border-b border-black/[0.08] dark:border-white/[0.06] bg-white/90 dark:bg-card/95 backdrop-blur-xl">
           <button
             onClick={previousMonth}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -611,14 +677,14 @@ export function CalendarView({
           </h2>
           <button
             onClick={nextMonth}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
           >
             <ChevronRightIcon className="h-5 w-5" />
           </button>
         </div>
 
         {/* Mobile Agenda – All days of current month */}
-        <div className="flex flex-col divide-y divide-white/5 overflow-y-auto max-h-[calc(100vh-280px)]">
+        <div className="flex flex-col divide-y divide-gray-200 dark:divide-white/5 overflow-y-auto max-h-[calc(100vh-280px)]">
           {mobileAgendaDays.map(({ day, posts }) => {
             const todayFlag = isToday(day);
             const weekdayName = weekdays[day.getDay() === 0 ? 6 : day.getDay() - 1];
@@ -631,7 +697,7 @@ export function CalendarView({
                 {/* Day Header */}
                 <div
                   onClick={() => handleOpenNewPostModal(day)}
-                  className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]"
                 >
                   <div
                     className={cn(
@@ -684,14 +750,14 @@ export function CalendarView({
                           className={cn(
                             "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all hover:scale-[1.01] active:scale-[0.99]",
                             post.status === "published"
-                              ? "bg-emerald-500/10 border-emerald-500/20"
+                              ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
                               : post.status === "scheduled"
-                              ? "bg-indigo-500/10 border-indigo-500/20"
+                              ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/20"
                               : post.status === "failed"
-                              ? "bg-red-500/10 border-red-500/20"
+                              ? "bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20"
                               : post.status === "draft"
-                              ? "bg-white/[0.02] border-white/5 opacity-60"
-                              : "bg-white/[0.02] border-white/5"
+                              ? "bg-gray-50 border-gray-200 opacity-70 dark:bg-white/[0.02] dark:border-white/5 dark:opacity-60"
+                              : "bg-gray-50 border-gray-200 dark:bg-white/[0.02] dark:border-white/5"
                           )}
                         >
                           <Icon
@@ -729,7 +795,7 @@ export function CalendarView({
 
       {/* New Post Modal */}
       <Dialog open={modalDay !== null} onOpenChange={(open) => { if (!open) handleCloseModal(); }}>
-        <DialogContent className="max-w-lg rounded-[20px] bg-card/95 backdrop-blur-xl border border-white/10 p-0 sm:max-w-lg" showCloseButton>
+        <DialogContent className="max-w-lg rounded-[20px] bg-white/90 dark:bg-card/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/10 p-0 sm:max-w-lg" showCloseButton>
           <DialogHeader className="px-6 pt-6">
             <DialogTitle className="text-lg font-semibold">
               {tCalendar.newPost || "Nový příspěvek"}
@@ -758,7 +824,7 @@ export function CalendarView({
                 placeholder={tCalendar.contentPlaceholder || "Napište příspěvek..."}
                 value={formContent}
                 onChange={(e) => setFormContent(e.target.value)}
-                className="min-h-[120px] resize-y bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
+                className="min-h-[120px] resize-y bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
               />
               <div className="flex justify-end text-xs text-muted-foreground/60">
                 <span className={formContent.length > 280 ? "text-destructive" : ""}>
@@ -784,8 +850,8 @@ export function CalendarView({
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
                         isSelected
-                          ? "border-indigo-500/50 bg-indigo-500/20 text-indigo-300"
-                          : "border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06]"
+                          ? "border-indigo-500/50 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                          : "border-gray-200 bg-gray-50 text-muted-foreground hover:bg-gray-100 dark:border-white/5 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
                       )}
                     >
                       {Icon && <Icon className="h-3.5 w-3.5" />}
@@ -805,7 +871,7 @@ export function CalendarView({
                   value={formLocation}
                   onChange={(e) => setFormLocation(e.target.value)}
                   placeholder={tCalendar.locationPlaceholder || "Přidejte lokaci..."}
-                  className="h-10 rounded-xl border-white/10 bg-black/20 pl-10 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
+                  className="h-10 rounded-xl border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-black/20 pl-10 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
                 />
               </div>
             </div>
@@ -847,7 +913,7 @@ export function CalendarView({
                   }
                 }}
                 placeholder={tCalendar.addTags || "Přidat štítky..."}
-                className="h-10 rounded-xl border-white/10 bg-black/20 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
+                className="h-10 rounded-xl border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-black/20 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
               />
             </div>
 
@@ -865,13 +931,13 @@ export function CalendarView({
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 px-6 pb-6 pt-4 border-t border-white/5">
+          <div className="flex gap-3 px-6 pb-6 pt-4 border-t border-gray-200 dark:border-white/5">
             <Button
               type="button"
               onClick={() => handleFormSubmit("draft")}
               disabled={!formContent.trim() || formLoading}
               variant="outline"
-              className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+              className="rounded-xl border-gray-200 bg-gray-50 hover:bg-gray-100 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
             >
               {formLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {formLoading ? (tCalendar.saving || "Ukládání...") : (tCalendar.saveDraft || "Koncept")}
@@ -926,16 +992,80 @@ export function CalendarView({
           characterCount: tCalendar.characterCount || "/ 280",
           maxFilesReached: tCalendar.maxFilesReached || "Maximální počet souborů dosažen",
           addMedia: tCalendar.addMedia || "Média",
-          dropMedia: "",
-          uploading: "",
-          uploadError: "",
-          fileTooLarge: "",
+          dropMedia: tCalendar.dropMedia || "",
+          uploading: tCalendar.uploading || "",
+          uploadError: tCalendar.uploadError || "",
+          uploadSuccess: tCalendar.uploadSuccess || "",
+          fileTooLarge: tCalendar.fileTooLarge || "",
+          fileTooLargeImage: tCalendar.fileTooLargeImage || "",
+          fileTooLargeVideo: tCalendar.fileTooLargeVideo || "",
+          fileDeleted: tCalendar.fileDeleted || "",
+          invalidFileType: tCalendar.invalidFileType || "",
           statusDraft: tCalendar.statusDraft || "Koncept",
           statusScheduled: tCalendar.statusScheduled || "Naplánované",
           statusPublished: tCalendar.statusPublished || "Publikované",
           statusFailed: tCalendar.statusFailed || "Neúspěšné",
         }}
       />
+
+      {/* Hover Preview – Desktop Only */}
+      <AnimatePresence>
+        {hoveredPost && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="hidden lg:block fixed z-[9999] pointer-events-none"
+            style={{
+              left: hoverPosition.x,
+              top: hoverPosition.y,
+            }}
+          >
+            <div className="bg-white/80 dark:bg-black/80 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-[16px] p-4 w-72 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+              {hoveredPost.media_urls && hoveredPost.media_urls.length > 0 && (
+                <div className="w-full aspect-video rounded-lg overflow-hidden mb-3 bg-black/5 dark:bg-white/5">
+                  <NextImage
+                    src={hoveredPost.media_urls[0]}
+                    alt="Media preview"
+                    width={384}
+                    height={216}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 mb-3">
+                {hoveredPost.content?.substring(0, 80)}
+                {hoveredPost.content?.length > 80 ? "..." : ""}
+              </p>
+              <div className="flex items-center justify-between border-t border-black/5 dark:border-white/10 pt-3">
+                <div className="flex items-center gap-1.5">
+                  {(hoveredPost.platforms || []).slice(0, 4).map((platformId) => {
+                    const Icon = PlatformIconMap[platformId];
+                    return Icon ? (
+                      <Icon
+                        key={platformId}
+                        className={`h-3.5 w-3.5 ${getPlatformColor(platformId)}`}
+                      />
+                    ) : null;
+                  })}
+                </div>
+                {hoveredPost.scheduled_at && (
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                    <Clock className="h-3 w-3" />
+                    <span>
+                      {new Date(hoveredPost.scheduled_at).toLocaleTimeString(
+                        locale === "cs" ? "cs-CZ" : locale === "uk" ? "uk-UA" : "en-US",
+                        { hour: "2-digit", minute: "2-digit" }
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

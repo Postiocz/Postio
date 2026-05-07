@@ -8,6 +8,7 @@ const variants = {
   success: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
   warning: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
   error: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+  premium: "bg-indigo-50/80 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-500/20 backdrop-blur-sm shadow-sm",
 } as const;
 
 type Variant = keyof typeof variants;
@@ -28,3 +29,4 @@ export function Badge({
     />
   );
 }
+

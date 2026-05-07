@@ -19,13 +19,19 @@ export function ThemeProvider({
   enableSystem = true,
   disableTransitionOnChange = false,
 }: ThemeProviderProps) {
+  const [mounted, setMounted] = React.useState(false);
   const [theme, setTheme] = React.useState<Theme>(() => {
     if (typeof document === "undefined") return defaultTheme;
     return (document.cookie.match(/theme=([^;]+)/)?.[1] as Theme) || defaultTheme;
   });
 
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Apply theme on mount and change
   React.useEffect(() => {
+    if (!mounted) return;
     const root = document.documentElement;
     const resolveTheme = (t: Theme): "light" | "dark" => {
       if (t === "system") {
@@ -45,14 +51,13 @@ export function ThemeProvider({
       root.setAttribute(attribute, resolved);
     }
 
-    // Disable transition on initial mount to prevent flash
     if (disableTransitionOnChange) {
       root.style.transition = "none";
       requestAnimationFrame(() => {
         root.style.transition = "";
       });
     }
-  }, [theme, attribute, disableTransitionOnChange]);
+  }, [theme, attribute, disableTransitionOnChange, mounted]);
 
   // Listen for system preference changes
   React.useEffect(() => {

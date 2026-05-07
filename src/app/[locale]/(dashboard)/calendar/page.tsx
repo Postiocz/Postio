@@ -96,6 +96,15 @@ export default async function CalendarPage({
           editPost: t("editPost"),
           postUpdated: t("postUpdated"),
           addMedia: t("addMedia"),
+          dropMedia: t("dropMedia"),
+          uploading: t("uploading"),
+          uploadSuccess: t("uploadSuccess"),
+          uploadError: t("uploadError"),
+          fileTooLarge: t("fileTooLarge"),
+          fileTooLargeImage: t("fileTooLargeImage"),
+          fileTooLargeVideo: t("fileTooLargeVideo"),
+          fileDeleted: t("fileDeleted"),
+          invalidFileType: t("invalidFileType"),
         }}
       />
     </div>

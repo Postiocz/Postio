@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Link as LinkIcon, Copy, Plus, ArrowRight, Crown, Sparkles } from "lucide-react";
+import { FileText, Link as LinkIcon, Copy, Plus, ArrowRight, Crown, Sparkles, Flame, Calendar as CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export default async function DashboardPage({
@@ -17,29 +18,35 @@ export default async function DashboardPage({
   const settingsT = await getTranslations({ locale, namespace: "settings" });
 
   let totalPosts = 0;
+  let scheduledPosts = 0;
   let connectedAccounts = 0;
   let streak = 0;
   let currentPlan = "free";
+  let consistencyScore = 89;
 
   try {
     const supabase = await createClient();
 
-    const [postsData, accountsData, userData] = await Promise.all([
+    const [postsData, scheduledData, accountsData, userData] = await Promise.all([
       supabase.from("posts").select("*", { count: "exact", head: true }),
+      supabase.from("posts").select("*", { count: "exact", head: true }).eq("status", "scheduled"),
       supabase.from("social_accounts").select("*", { count: "exact", head: true }),
       supabase.from("users").select("streak, plan").single(),
     ]);
 
     totalPosts = postsData.count ?? 0;
+    scheduledPosts = scheduledData.count ?? 0;
     connectedAccounts = accountsData.count ?? 0;
     streak = userData.data?.streak ?? 0;
     currentPlan = userData.data?.plan ?? "free";
   } catch {
     // Supabase unavailable – use mock data for testing
     totalPosts = 0;
+    scheduledPosts = 0;
     connectedAccounts = 0;
     streak = 0;
     currentPlan = "free";
+    consistencyScore = 89;
   }
 
   return (
@@ -52,10 +59,13 @@ export default async function DashboardPage({
         {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title={t("totalPosts")} value={totalPosts} icon={FileText} />
-        <StatCard title={t("scheduled")} value={0} icon={FileText} />
+        <StatCard title={t("scheduled")} value={scheduledPosts} icon={CalendarIcon} />
         <StatCard title={t("connectedAccounts")} value={connectedAccounts} icon={LinkIcon} />
-        <StatCard title={t("streak")} value={`${streak}d`} icon={Copy} />
+        <StatCard title={t("streak")} value={`${streak}d`} icon={Flame} isGlowing={streak > 0} />
       </div>
+
+      {/* Consistency Score */}
+      <ConsistencyScore score={consistencyScore} label={t("consistencyScore")} />
 
       {/* Quick actions */}
       <div>
@@ -103,10 +113,12 @@ function StatCard({
   title,
   value,
   icon: Icon,
+  isGlowing = false,
 }: {
   title: string;
   value: string | number;
   icon: React.ElementType;
+  isGlowing?: boolean;
 }) {
   return (
     <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">
@@ -114,10 +126,65 @@ function StatCard({
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <Icon className="h-3 w-3 text-muted-foreground/40" />
+        <Icon className={cn(
+          "h-3 w-3 text-muted-foreground/40",
+          isGlowing && "text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]"
+        )} />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold tracking-tight">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ConsistencyScore({ score, label }: { score: number; label: string }) {
+  const circumference = 2 * Math.PI * 36;
+  const offset = circumference - (score / 100) * circumference;
+
+  return (
+    <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">
+      <CardContent className="flex items-center gap-6 p-6">
+        <div className="relative flex-shrink-0">
+          <svg className="h-24 w-24 -rotate-90" viewBox="0 0 80 80">
+            <circle
+              cx="40"
+              cy="40"
+              r="36"
+              fill="none"
+              stroke="currentColor"
+              className="text-muted-foreground/10"
+              strokeWidth="6"
+            />
+            <circle
+              cx="40"
+              cy="40"
+              r="36"
+              fill="none"
+              stroke="url(#consistencyGradient)"
+              strokeWidth="6"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              className="transition-all duration-1000 ease-out"
+            />
+            <defs>
+              <linearGradient id="consistencyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#a855f7" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-2xl font-bold tracking-tight">{score}%</span>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground/60">
+            {score >= 80 ? "Výborná konzistence!" : score >= 50 ? "Dobrá, můžeš lepší!" : "Zkus postovat pravidelněji."}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

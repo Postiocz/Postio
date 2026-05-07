@@ -50,6 +50,13 @@ export default function NewTemplatePage() {
     <div className="relative">
       {/* Background grid & glow effects */}
       <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M24 0v24H0' fill='none' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E")`,
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M24 0v24H0' fill='none' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E")`,

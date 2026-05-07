@@ -24,6 +24,7 @@ import {
   TikTok,
 } from "@/components/ui/social-icons";
 import { Reorder } from "framer-motion";
+import { AccountTypeModal } from "@/components/account-type-modal";
 
 type PlatformId =
   | "instagram"
@@ -117,6 +118,12 @@ export default function AccountsPage() {
   const [accessToken, setAccessToken] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [typeModalPlatform, setTypeModalPlatform] = useState<{
+    id: PlatformId;
+    name: string;
+    icon: ComponentType<{ className?: string }>;
+  } | null>(null);
   const isDraggingRef = useRef(false);
 
   const platformById = useMemo(() => {
@@ -189,6 +196,13 @@ export default function AccountsPage() {
     <div className="relative space-y-8">
       {/* Background grid & glow effects */}
       <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M24 0v24H0' fill='none' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E")`,
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M24 0v24H0' fill='none' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E")`,
@@ -239,7 +253,16 @@ export default function AccountsPage() {
                   }}
                   onClick={() => {
                     if (isDraggingRef.current) return;
-                    setSelectedPlatform(platform.id);
+                    if (platform.id === "instagram") {
+                      setTypeModalPlatform({
+                        id: platform.id,
+                        name: getPlatformLabel(platform.id),
+                        icon: platform.icon,
+                      });
+                      setShowTypeModal(true);
+                    } else {
+                      setSelectedPlatform(platform.id);
+                    }
                   }}
                   whileDrag={{
                     scale: 1.06,
@@ -414,6 +437,48 @@ export default function AccountsPage() {
           })}
         </div>
       ) : null}
+
+      {/* Account Type Selection Modal (Buffer-style) */}
+      {typeModalPlatform && (
+        <AccountTypeModal
+          open={showTypeModal}
+          onOpenChange={(open) => {
+            setShowTypeModal(open);
+            if (!open) {
+              setTypeModalPlatform(null);
+            }
+          }}
+          platformName={typeModalPlatform.name}
+          PlatformIcon={typeModalPlatform.icon}
+          onProfessional={() => {
+            setShowTypeModal(false);
+            setSelectedPlatform(typeModalPlatform.id);
+          }}
+          onPersonal={() => {
+            setShowTypeModal(false);
+            setSelectedPlatform(typeModalPlatform.id);
+          }}
+          t={{
+            subtitle: t("selectTypeSubtitle"),
+            autoPostingBadge: t("autoPostingBadge"),
+            notificationsBadge: t("notificationsBadge"),
+            professional: t("professional"),
+            professionalDesc: t("professionalDesc"),
+            personal: t("personal"),
+            personalDesc: t("personalDesc"),
+            autoPublishing: t("autoPublishing"),
+            autoPublishingDesc: t("autoPublishingDesc"),
+            communityReplies: t("communityReplies"),
+            communityRepliesDesc: t("communityRepliesDesc"),
+            postMetrics: t("postMetrics"),
+            postMetricsDesc: t("postMetricsDesc"),
+            onlyNotifications: t("onlyNotifications"),
+            onlyNotificationsDesc: t("onlyNotificationsDesc"),
+            connectProfessional: t("connectProfessional"),
+            setupPersonal: t("setupPersonal"),
+          }}
+        />
+      )}
     </div>
   );
 }

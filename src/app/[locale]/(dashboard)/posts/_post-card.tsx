@@ -19,10 +19,10 @@ import { deletePost } from "@/lib/actions/posts";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 
 const STATUS_STYLES: Record<string, string> = {
-  draft: "bg-white/10 text-muted-foreground border border-white/10",
-  scheduled: "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30",
-  published: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30",
-  failed: "bg-red-500/20 text-red-300 border border-red-500/30",
+  draft: "bg-gray-100 text-muted-foreground border border-gray-200 dark:bg-white/10 dark:border-white/10",
+  scheduled: "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30",
+  published: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30",
+  failed: "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30",
 };
 
 const platformIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -35,7 +35,7 @@ const platformIcons: Record<string, React.ComponentType<{ className?: string }>>
   tiktok: TikTok,
 };
 
-type PostListItem = {
+export type PostListItem = {
   id: string;
   content: string;
   status: string;
@@ -100,7 +100,12 @@ export function PostCard({
     dropMedia: string;
     uploading: string;
     uploadError: string;
+    uploadSuccess: string;
     fileTooLarge: string;
+    fileTooLargeImage: string;
+    fileTooLargeVideo: string;
+    fileDeleted: string;
+    invalidFileType: string;
     statusDraft: string;
     statusScheduled: string;
     statusPublished: string;
@@ -147,11 +152,11 @@ export function PostCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.26, ease: "easeOut", delay: animationDelay }}
-      className="bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-6 mb-6 transition-all hover:border-indigo-500/30"
+      className="bg-white/80 dark:bg-card/40 backdrop-blur-md border border-black/[0.08] dark:border-white/[0.06] rounded-[24px] p-6 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.03] border border-white/5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.03] border border-gray-200 dark:border-white/5">
             <PlatformIcon className="h-5 w-5 text-foreground/80" />
           </div>
           <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs ${statusStyle}`}>
@@ -186,7 +191,7 @@ export function PostCard({
         {post.content}
       </div>
 
-      <div className="flex justify-between items-center text-xs text-muted-foreground/50 border-t border-white/5 pt-4">
+      <div className="flex justify-between items-center text-xs text-muted-foreground/50 border-t border-gray-200 dark:border-white/5 pt-4">
         <span>{createdDate}</span>
         <span className="flex items-center gap-1">
           <Clock className="h-3.5 w-3.5" />
@@ -216,7 +221,7 @@ export function PostCard({
 }
 
 export function PostsList({
-  initialPosts,
+  posts,
   locale,
   tStatusDraft,
   tStatusScheduled,
@@ -226,8 +231,9 @@ export function PostsList({
   tEditPost,
   tDeleteConfirm,
   tLabels,
+  onDeleted,
 }: {
-  initialPosts: PostListItem[];
+  posts: PostListItem[];
   locale: string;
   tStatusDraft: string;
   tStatusScheduled: string;
@@ -258,24 +264,22 @@ export function PostsList({
     dropMedia: string;
     uploading: string;
     uploadError: string;
+    uploadSuccess: string;
     fileTooLarge: string;
+    fileTooLargeImage: string;
+    fileTooLargeVideo: string;
+    fileDeleted: string;
+    invalidFileType: string;
     statusDraft: string;
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
   };
+  onDeleted?: (id: string) => void;
 }) {
-  const [posts, setPosts] = useState<PostListItem[]>(initialPosts);
-  const [refreshAfterExit, setRefreshAfterExit] = useState(false);
-  const router = useRouter();
-
   return (
     <div className="space-y-6">
-      <AnimatePresence
-        onExitComplete={() => {
-          if (refreshAfterExit) router.refresh();
-        }}
-      >
+      <AnimatePresence>
         {posts.map((post, index) => (
           <PostCard
             key={post.id}
@@ -289,13 +293,7 @@ export function PostsList({
             tEditPost={tEditPost}
             tDeleteConfirm={tDeleteConfirm}
             animationDelay={Math.min(index * 0.04, 0.2)}
-            onDeleted={(id) => {
-              setPosts((prev) => {
-                const next = prev.filter((p) => p.id !== id);
-                if (next.length === 0) setRefreshAfterExit(true);
-                return next;
-              });
-            }}
+            onDeleted={onDeleted}
             tLabels={tLabels}
           />
         ))}

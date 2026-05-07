@@ -53,7 +53,18 @@ export function EmailSignIn() {
         await supabase.auth.signOut();
       } else {
         const locale = window.location.pathname.split("/")[1] || "cs";
-        window.location.href = `/${locale}`;
+        // Check if 2FA is enabled for this user
+        const { data: userData } = await supabase
+          .from("users")
+          .select("two_factor_enabled")
+          .eq("id", data.user.id)
+          .single();
+
+        if (userData?.two_factor_enabled) {
+          window.location.href = `/${locale}/login/verify-2fa`;
+        } else {
+          window.location.href = `/${locale}`;
+        }
       }
     } catch {
       setErrorMessage(t("signInError"));
@@ -106,9 +117,9 @@ export function EmailSignIn() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/10" />
+        <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
         <span className="text-xs text-muted-foreground/60">{t("or")}</span>
-        <div className="h-px flex-1 bg-white/10" />
+        <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
       </div>
 
       <form
@@ -124,7 +135,7 @@ export function EmailSignIn() {
             inputMode="email"
             autoComplete="email"
             placeholder={t("emailPlaceholder")}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-2xl h-12 pl-11 pr-4 text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-0 focus:border-indigo-500/50 transition-all"
+            className="w-full bg-white/80 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl h-12 pl-11 pr-4 text-slate-900 dark:text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-0 focus:border-indigo-500 dark:focus:border-indigo-500/50 transition-all"
           />
         </div>
 
@@ -136,7 +147,7 @@ export function EmailSignIn() {
             type={showPassword ? "text" : "password"}
             autoComplete={mode === "signin" ? "current-password" : "new-password"}
             placeholder={t("password")}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-2xl h-12 pl-11 pr-12 text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-0 focus:border-indigo-500/50 transition-all"
+            className="w-full bg-white/80 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl h-12 pl-11 pr-12 text-slate-900 dark:text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-0 focus:border-indigo-500 dark:focus:border-indigo-500/50 transition-all"
           />
           <button
             type="button"
@@ -159,7 +170,7 @@ export function EmailSignIn() {
             !email.trim() ||
             !password.trim()
           }
-          className="w-full h-12 rounded-2xl bg-white text-black font-semibold hover:bg-white/90 transition-all disabled:opacity-50 disabled:pointer-events-none"
+          className="w-full h-12 rounded-2xl bg-indigo-500 dark:bg-white text-white dark:text-black font-semibold hover:bg-indigo-600 dark:hover:bg-white/90 transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           {loading
             ? mode === "signin"

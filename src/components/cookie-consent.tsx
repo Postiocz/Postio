@@ -80,12 +80,12 @@ export function CookieConsent() {
     <>
       {/* Floating cookie card – responsive positioning */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[400px] z-50 lg:left-auto lg:right-6 lg:bottom-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-4 lg:p-5 backdrop-blur-md shadow-2xl">
+        <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/40 p-4 lg:p-5 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           <p className="mb-4 lg:mb-6 text-[11px] leading-tight lg:text-sm lg:leading-relaxed text-muted-foreground">
             {cookie("usesCookies")}{" "}
             <Link
               href={`/${locale}/privacy`}
-              className="text-white font-medium underline underline-offset-4 hover:text-white/80 transition-colors"
+              className="text-foreground font-medium underline underline-offset-4 hover:text-foreground/80 transition-colors"
             >
               {cookie("learnMore")}
             </Link>
@@ -115,7 +115,7 @@ export function CookieConsent() {
         <DialogTrigger asChild>
           <span className="hidden">{cookie("preferences")}</span>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-lg border-white/10 bg-black/60 backdrop-blur-xl text-foreground">
+        <DialogContent className="sm:max-w-lg border-black/10 dark:border-white/10 bg-white/90 dark:bg-black/60 backdrop-blur-2xl text-foreground">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold tracking-tight">
               {cookie("preferencesTitle")}
@@ -129,7 +129,7 @@ export function CookieConsent() {
           {/* Cookie categories */}
           <div className="space-y-4">
             {/* Necessary */}
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">
                   {cookie("necessary")}
@@ -146,7 +146,7 @@ export function CookieConsent() {
             </div>
 
             {/* Functional */}
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">
                   {cookie("functional")}
@@ -164,7 +164,7 @@ export function CookieConsent() {
             </div>
 
             {/* Analytics */}
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">
                   {cookie("analytics")}
@@ -182,7 +182,7 @@ export function CookieConsent() {
             </div>
 
             {/* Advertising */}
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4 transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">
                   {cookie("advertising")}

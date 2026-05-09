@@ -1575,3 +1575,11 @@
   - `ease: "easeInOut"` → `ease: "easeInOut" as const` (3 místa)
   - Bez `as const` hlásí TypeScript chybu při buildu (infernovaný `string` není kompatibilní s `Easing`)
 - Build úspěšný
+
+### Krok 31 – Scheduler: Edge Function + Vercel Cron + ECC Service Role auth (DOKONČENO)
+**Hotovo:**
+- `supabase/functions/process-scheduled-posts/index.ts` – Edge Function, která zpracuje `posts` se statusem `scheduled` a `scheduled_at <= now()`, přepne je na `published` a založí výchozí řádek v `analytics`
+  - Autorizace přes `Authorization: Bearer` ověřená jako JWT s rolí `service_role` přes Supabase JWKS (ECC klíče)
+- `src/app/api/cron/process-scheduled-posts/route.ts` – Next.js API endpoint pro Vercel Cron, který volá Supabase Edge Function a předává `SUPABASE_SERVICE_ROLE_KEY` v hlavičce
+- `vercel.json` – Cron definice `* * * * *` pro `/api/cron/process-scheduled-posts`
+ - Pozn.: Supabase CLI nepovoluje secrets s prefixem `SUPABASE_`, proto Edge Function čte DB klíč z `POSTIO_SERVICE_ROLE_KEY`

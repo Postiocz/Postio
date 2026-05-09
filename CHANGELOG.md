@@ -1585,3 +1585,4 @@
  - Cron auth kompatibilita: Edge Function bere `Authorization: Bearer` jak ve formátu JWT, tak i ve formátu `sb_secret_*` (porovnání proti `POSTIO_SERVICE_ROLE_KEY`)
  - Vercel Cron vypnut: odstraněn `vercel.json` a Next.js cron route (Vercel Hobby limity); spouštění řešeno přes Supabase Cron (pg_cron)
  - Fix deploy: `tsconfig.json` vylučuje `supabase/functions/**`, aby Next.js typecheck nepadal na Deno remote importe (esm.sh / npm:)
+ - Fix: `middleware.ts` vyjímá `/icon` a `/apple-icon` z middleware matcheru, aby se favicon/ikony neredirectovaly na login

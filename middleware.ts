@@ -73,6 +73,6 @@ export const config = {
   matcher: [
     "/",
     "/(cs|en|uk)/:path*",
-    "/((?!api|_next/static|_next/image|_vercel|auth/callback|favicon).*)",
+    "/((?!api|_next/static|_next/image|_vercel|auth/callback|favicon|icon|apple-icon|manifest|robots\\.txt|sitemap\\.xml).*)",
   ],
 };

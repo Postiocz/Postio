@@ -25,6 +25,19 @@ async function verifyServiceRoleJwt(params: { token: string; supabaseUrl: string
   return verified;
 }
 
+function isLikelyJwt(token: string) {
+  return token.split(".").length === 3;
+}
+
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -56,12 +69,19 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const verified = await verifyServiceRoleJwt({ token, supabaseUrl });
-    console.log("process-scheduled-posts auth ok", {
-      alg: verified.protectedHeader.alg,
-      kid: verified.protectedHeader.kid,
-      role: (verified.payload as Record<string, unknown>).role,
-    });
+    if (isLikelyJwt(token)) {
+      const verified = await verifyServiceRoleJwt({ token, supabaseUrl });
+      console.log("process-scheduled-posts auth ok (jwt)", {
+        alg: verified.protectedHeader.alg,
+        kid: verified.protectedHeader.kid,
+        role: (verified.payload as Record<string, unknown>).role,
+      });
+    } else {
+      if (!timingSafeEqual(token, serviceRoleKey)) {
+        throw new Error("Secret key mismatch");
+      }
+      console.log("process-scheduled-posts auth ok (secret key)");
+    }
   } catch {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

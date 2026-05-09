@@ -1584,3 +1584,4 @@
 - `vercel.json` – Cron definice `* * * * *` pro `/api/cron/process-scheduled-posts`
  - Pozn.: Supabase CLI nepovoluje secrets s prefixem `SUPABASE_`, proto Edge Function čte DB klíč z `POSTIO_SERVICE_ROLE_KEY`
  - Repo hygiene: ignorování `supabase/.temp/` (lokální soubory Supabase CLI)
+ - Cron auth kompatibilita: Edge Function bere `Authorization: Bearer` jak ve formátu JWT, tak i ve formátu `sb_secret_*` (porovnání proti `POSTIO_SERVICE_ROLE_KEY`)

@@ -1580,8 +1580,7 @@
 **Hotovo:**
 - `supabase/functions/process-scheduled-posts/index.ts` – Edge Function, která zpracuje `posts` se statusem `scheduled` a `scheduled_at <= now()`, přepne je na `published` a založí výchozí řádek v `analytics`
   - Autorizace přes `Authorization: Bearer` ověřená jako JWT s rolí `service_role` přes Supabase JWKS (ECC klíče)
-- `src/app/api/cron/process-scheduled-posts/route.ts` – Next.js API endpoint pro Vercel Cron, který volá Supabase Edge Function a předává `SUPABASE_SERVICE_ROLE_KEY` v hlavičce
-- `vercel.json` – Cron definice `* * * * *` pro `/api/cron/process-scheduled-posts`
  - Pozn.: Supabase CLI nepovoluje secrets s prefixem `SUPABASE_`, proto Edge Function čte DB klíč z `POSTIO_SERVICE_ROLE_KEY`
  - Repo hygiene: ignorování `supabase/.temp/` (lokální soubory Supabase CLI)
  - Cron auth kompatibilita: Edge Function bere `Authorization: Bearer` jak ve formátu JWT, tak i ve formátu `sb_secret_*` (porovnání proti `POSTIO_SERVICE_ROLE_KEY`)
+ - Vercel Cron vypnut: odstraněn `vercel.json` a Next.js cron route (Vercel Hobby limity); spouštění řešeno přes Supabase Cron (pg_cron)

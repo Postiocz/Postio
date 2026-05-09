@@ -1,3 +1,14 @@
+## 2026-05-09
+
+### Fix – Supabase middleware session refresh pro ECC (P-256) JWT klíče (DOKONČENO)
+
+- Supabase v projektu používá nové **asymetrické** podpisové klíče **ECC (P‑256)** pro JWT (nový bezpečnostní standard; klíče v env mají prefix `sb_`).
+- V Next.js middleware (Edge runtime) je nutné aktivně vynutit server-side validaci session, jinak může docházet k náhodným logoutům kvůli neproběhlému refreshi JWT cookie s novými ECC klíči.
+- `src/lib/supabase/middleware.ts` – upraven `cookies.setAll` na oficiální `@supabase/ssr` middleware pattern:
+  - nastavuje cookies do `request` i `response`
+  - po setnutí cookies re-generuje `NextResponse.next({ request: { headers } })` aby Edge runtime viděl aktuální session
+- `middleware.ts` – explicitní `await supabase.auth.getUser()` probíhá před redirect logikou; response se bere až po případném refreshi cookie
+
 ## 2026-05-07
 
 ### Fix – Hydration mismatch v MobileNav + Dark mode flash při navigaci (DOKONČENO)

@@ -17,10 +17,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/cs/login", request.url));
   }
 
- // Try to refresh the auth session via Supabase (graceful fallback)
+  // Try to refresh the auth session via Supabase (graceful fallback)
   let session = null;
   let supabaseError = false;
-  let authResponse = NextResponse.next({ request });
+  let authResponse = NextResponse.next({ request: { headers: request.headers } });
 
   // Check if Supabase is configured
   const isSupabaseConfigured =
@@ -28,14 +28,18 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
     !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder");
 
-  try {
-    const { supabase, response } = createClient(request);
-    const { data: { user } } = await supabase.auth.getUser();
-    session = user;
-    authResponse = response;
-  } catch {
-    // Supabase unavailable – proceed without auth
-    supabaseError = true;
+  if (isSupabaseConfigured) {
+    try {
+      const { supabase, getResponse } = createClient(request);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      session = user;
+      authResponse = getResponse();
+    } catch {
+      // Supabase unavailable – proceed without auth
+      supabaseError = true;
+    }
   }
 
   // If no session and not on a public route, redirect to login

@@ -1583,3 +1583,4 @@
 - `src/app/api/cron/process-scheduled-posts/route.ts` – Next.js API endpoint pro Vercel Cron, který volá Supabase Edge Function a předává `SUPABASE_SERVICE_ROLE_KEY` v hlavičce
 - `vercel.json` – Cron definice `* * * * *` pro `/api/cron/process-scheduled-posts`
  - Pozn.: Supabase CLI nepovoluje secrets s prefixem `SUPABASE_`, proto Edge Function čte DB klíč z `POSTIO_SERVICE_ROLE_KEY`
+ - Repo hygiene: ignorování `supabase/.temp/` (lokální soubory Supabase CLI)

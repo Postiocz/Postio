@@ -162,12 +162,7 @@ export function EditPostDialog({
         setStatus(post.status);
         setLocation(post.location ?? "");
         setTags(post.tags ?? []);
-        if (post.scheduled_at) {
-          const d = new Date(post.scheduled_at);
-          setScheduledAt(d.toISOString().slice(0, 16));
-        } else {
-          setScheduledAt("");
-        }
+        setScheduledAt(post.scheduled_at ?? "");
         if (post.media_urls && post.media_urls.length > 0) {
           loadExistingUrls(post.media_urls);
         }

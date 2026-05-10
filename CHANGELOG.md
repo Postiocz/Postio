@@ -4,6 +4,7 @@
 
 - `src/components/ui/date-time-picker.tsx` – minuty v pickeru jsou nyní 0–59 místo pouze 0/15/30/45, takže při plánování příspěvků lze nastavit čas po minutách.
 - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`, `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx` – `scheduled_at` se nyní ukládá i při uložení jako koncept (pokud je čas vyplněn), takže se čas publikování neztrácí po refreshi.
+- `src/components/ui/date-time-picker.tsx`, `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – opravený bug kdy se při změně minut/hodin ukládal čas s minutami `00` (race condition ve state); zároveň se `scheduled_at` už nepřevádí přes `toISOString().slice(0, 16)`, aby nedocházelo k posunům času.
 - `supabase/functions/process-scheduled-posts` – doplněné lokální TS typy pro Deno/URL importy, aby v editoru nezobrazovaly falešné TypeScript chyby.
 
 ## 2026-05-09

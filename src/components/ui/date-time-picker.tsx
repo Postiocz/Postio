@@ -64,6 +64,23 @@ export function DateTimePicker({
   const dateLocale = getLocale(locale);
   const weekDays = getWeekDays(locale);
 
+  React.useEffect(() => {
+    if (!value) {
+      setSelectedDate(null);
+      setSelectedHour(12);
+      setSelectedMinute(0);
+      return;
+    }
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return;
+
+    setSelectedDate(d);
+    setSelectedHour(d.getHours());
+    setSelectedMinute(d.getMinutes());
+    setViewDate(d);
+  }, [value]);
+
   const monthStart = startOfMonth(viewDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(endOfMonth(viewDate), { weekStartsOn: 1 });
@@ -75,21 +92,31 @@ export function DateTimePicker({
     day = addDays(day, 1);
   }
 
-  const handleDayClick = (d: Date) => {
-    const newDate = new Date(d);
-    newDate.setHours(selectedHour, selectedMinute, 0, 0);
-    setSelectedDate(newDate);
-    const iso = newDate.toISOString().slice(0, 16);
-    onChange(iso);
+  const applyTime = (base: Date, hour: number, minute: number) => {
+    const next = new Date(base);
+    next.setHours(hour, minute, 0, 0);
+    return next;
   };
 
-  const handleTimeChange = () => {
+  const emitChange = (d: Date) => {
+    setSelectedDate(d);
+    onChange(d.toISOString());
+  };
+
+  const handleDayClick = (d: Date) => {
+    emitChange(applyTime(d, selectedHour, selectedMinute));
+  };
+
+  const handleHourChange = (hour: number) => {
+    setSelectedHour(hour);
     const base = selectedDate || new Date();
-    const newDate = new Date(base);
-    newDate.setHours(selectedHour, selectedMinute, 0, 0);
-    setSelectedDate(newDate);
-    const iso = newDate.toISOString().slice(0, 16);
-    onChange(iso);
+    emitChange(applyTime(base, hour, selectedMinute));
+  };
+
+  const handleMinuteChange = (minute: number) => {
+    setSelectedMinute(minute);
+    const base = selectedDate || new Date();
+    emitChange(applyTime(base, selectedHour, minute));
   };
 
   const prevMonth = () => setViewDate(subMonths(viewDate, 1));
@@ -199,10 +226,7 @@ export function DateTimePicker({
                   value={selectedHour}
                   options={hours}
                   format={(v) => String(v).padStart(2, "0")}
-                  onChange={(v) => {
-                    setSelectedHour(v);
-                    handleTimeChange();
-                  }}
+                  onChange={handleHourChange}
                 />
               </div>
 
@@ -216,10 +240,7 @@ export function DateTimePicker({
                   value={selectedMinute}
                   options={minutes}
                   format={(v) => String(v).padStart(2, "0")}
-                  onChange={(v) => {
-                    setSelectedMinute(v);
-                    handleTimeChange();
-                  }}
+                  onChange={handleMinuteChange}
                 />
               </div>
             </div>

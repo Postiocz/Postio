@@ -86,10 +86,7 @@ export default function EditPostPage() {
       setStatus(postData.status);
       setLocation(postData.location ?? "");
       setTags(postData.tags ?? []);
-      if (postData.scheduled_at) {
-        const d = new Date(postData.scheduled_at);
-        setScheduledAt(d.toISOString().slice(0, 16));
-      }
+      setScheduledAt(postData.scheduled_at ?? "");
       // Load existing media URLs from database
       if (postData.media_urls && postData.media_urls.length > 0) {
         loadExistingUrls(postData.media_urls);

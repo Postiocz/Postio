@@ -1,3 +1,9 @@
+## 2026-05-10
+
+### Fix – Kalendář/time picker umožňuje výběr minut (DOKONČENO)
+
+- `src/components/ui/date-time-picker.tsx` – minuty v pickeru jsou nyní 0–59 místo pouze 0/15/30/45, takže při plánování příspěvků lze nastavit čas po minutách.
+
 ## 2026-05-09
 
 ### Fix – Supabase middleware session refresh pro ECC (P-256) JWT klíče (DOKONČENO)

@@ -243,7 +243,7 @@ export function EditPostDialog({
           result = await updatePost(post.id, {
             content: content.trim(),
             platforms,
-            scheduledAt: newStatus === "scheduled" ? scheduledAt : null,
+            scheduledAt: newStatus === "published" ? null : (scheduledAt || null),
             status: newStatus,
             location: location.trim() || "",
             tags: finalTags,
@@ -253,7 +253,7 @@ export function EditPostDialog({
           result = await createPostAction({
             content: content.trim(),
             platforms,
-            scheduledAt: newStatus === "scheduled" ? scheduledAt : null,
+            scheduledAt: newStatus === "published" ? null : (scheduledAt || null),
             status: newStatus,
             location: location.trim() || undefined,
             tags: finalTags.length > 0 ? finalTags : undefined,

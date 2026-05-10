@@ -117,7 +117,7 @@ export default function NewPostPage() {
       const result = await createPostAction({
         content: content.trim(),
         platforms: selectedPlatforms,
-        scheduledAt: status === "scheduled" ? scheduledAt : null,
+        scheduledAt: status === "published" ? null : (scheduledAt || null),
         status,
         location: location.trim() || undefined,
         tags: finalTags,

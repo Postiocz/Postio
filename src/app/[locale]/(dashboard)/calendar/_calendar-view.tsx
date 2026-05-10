@@ -289,7 +289,7 @@ export function CalendarView({
       const result = await createPostAction({
         content: formContent.trim(),
         platforms: formPlatforms,
-        scheduledAt: status === "scheduled" ? formScheduledAt : null,
+        scheduledAt: status === "published" ? null : (formScheduledAt || null),
         status,
         location: formLocation.trim() || undefined,
         tags: formTags.length > 0 ? formTags : undefined,

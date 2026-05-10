@@ -38,7 +38,7 @@ function timingSafeEqual(a: string, b: string) {
   return diff === 0;
 }
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,

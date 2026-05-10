@@ -219,6 +219,13 @@ export function EditPostDialog({
     return finalTags;
   }, [tags, tagDraft]);
 
+  const normalizeScheduledAt = useCallback((value: string): string | null => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }, []);
+
   const handleSubmit = useCallback(
     async (newStatus: "draft" | "scheduled" | "published") => {
       if (!content.trim()) return;
@@ -231,6 +238,7 @@ export function EditPostDialog({
       setError(null);
       const finalTags = handleCommitRemainingTag();
       const mediaUrls = getMediaUrls();
+      const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
 
       try {
         let result;
@@ -238,7 +246,7 @@ export function EditPostDialog({
           result = await updatePost(post.id, {
             content: content.trim(),
             platforms,
-            scheduledAt: newStatus === "published" ? null : (scheduledAt || null),
+            scheduledAt: newStatus === "published" ? null : normalizedScheduledAt,
             status: newStatus,
             location: location.trim() || "",
             tags: finalTags,
@@ -248,7 +256,7 @@ export function EditPostDialog({
           result = await createPostAction({
             content: content.trim(),
             platforms,
-            scheduledAt: newStatus === "published" ? null : (scheduledAt || null),
+            scheduledAt: newStatus === "published" ? null : normalizedScheduledAt,
             status: newStatus,
             location: location.trim() || undefined,
             tags: finalTags.length > 0 ? finalTags : undefined,

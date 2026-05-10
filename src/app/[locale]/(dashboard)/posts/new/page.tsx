@@ -88,6 +88,13 @@ export default function NewPostPage() {
     setTags((prev) => prev.filter((t0) => t0 !== tag));
   };
 
+  const normalizeScheduledAt = (value: string): string | null => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  };
+
   const handleSubmit = async (status: "draft" | "scheduled" | "published") => {
     if (!content.trim()) return;
     if (hasUploading()) {
@@ -114,10 +121,11 @@ export default function NewPostPage() {
 
     try {
       const mediaUrls = getMediaUrls();
+      const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
       const result = await createPostAction({
         content: content.trim(),
         platforms: selectedPlatforms,
-        scheduledAt: status === "published" ? null : (scheduledAt || null),
+        scheduledAt: status === "published" ? null : normalizedScheduledAt,
         status,
         location: location.trim() || undefined,
         tags: finalTags,

@@ -280,16 +280,24 @@ export function CalendarView({
     setFormTags((prev) => prev.filter((t) => t !== tag));
   }, []);
 
+  const normalizeScheduledAt = useCallback((value: string): string | null => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }, []);
+
   const handleFormSubmit = useCallback(async (status: "draft" | "scheduled" | "published") => {
     if (!formContent.trim()) return;
     setFormLoading(true);
     setFormError(null);
 
     try {
+      const normalizedScheduledAt = normalizeScheduledAt(formScheduledAt);
       const result = await createPostAction({
         content: formContent.trim(),
         platforms: formPlatforms,
-        scheduledAt: status === "published" ? null : (formScheduledAt || null),
+        scheduledAt: status === "published" ? null : normalizedScheduledAt,
         status,
         location: formLocation.trim() || undefined,
         tags: formTags.length > 0 ? formTags : undefined,
@@ -310,7 +318,7 @@ export function CalendarView({
     } finally {
       setFormLoading(false);
     }
-  }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, tCalendar, handleCloseModal]);
+  }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, tCalendar, handleCloseModal, normalizeScheduledAt]);
 
   const handlePostClick = useCallback((post: Post, e: React.MouseEvent) => {
     e.stopPropagation();

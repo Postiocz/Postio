@@ -120,6 +120,13 @@ export default function EditPostPage() {
     setTags((prev) => prev.filter((t0) => t0 !== tag));
   };
 
+  const normalizeScheduledAt = (value: string): string | null => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  };
+
   const handleSave = async () => {
     if (hasUploading()) {
       toast.info(t("uploading"));
@@ -145,10 +152,11 @@ export default function EditPostPage() {
 
     try {
       const mediaUrls = getMediaUrls();
+      const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
       const result = await updatePost(id, {
         content: content.trim(),
         platforms: selectedPlatforms,
-        scheduledAt: scheduledAt || null,
+        scheduledAt: status === "published" ? null : normalizedScheduledAt,
         status: status as "draft" | "scheduled" | "published",
         location: location.trim() || "",
         tags: finalTags,

@@ -1,5 +1,25 @@
 ## 2026-05-10
 
+### Fix – Probliknutí light mode při přihlášení/odhlášení (DOKONČENO)
+
+- `src/app/layout.tsx` – server-side default pro `<html class="dark">` je nyní zapnutý, pokud cookie `theme` není explicitně `light` (tzn. i při chybějící cookie se SSR renderuje v dark). Tím se eliminuje krátký „light flash“ při full reloadu během auth redirectů (login/logout).
+
+### Fix – Google OAuth návrat do dashboardu házel hydration mismatch (DOKONČENO)
+
+- `src/components/dashboard/setup-guide.tsx` – odstraněn `typeof window` branch při SSR (četl localStorage už během renderu) → nově `ready` state načte `setup-dismissed` až v `useEffect` a komponenta do té doby renderuje `null`, takže server i klient mají při hydrataci identické HTML; zároveň Supabase browser klient je cachovaný přes `useRef` (stabilní deps, bez opakovaných requestů).
+- `src/app/layout.tsx` – anti-flash theme init skript přes `next/script` (`strategy="beforeInteractive"`) místo inline `<script dangerouslySetInnerHTML>`, aby se vyhnul React warningu o `<script>` při renderu a pořád běžel ještě před hydratací.
+
+### Fix – Responzivita modálu pro výběr typu účtu (Instagram connect) na mobilech (DOKONČENO)
+
+- `src/components/account-type-modal.tsx` – odstraněn `min-w-[600px]` (způsoboval horizontální overflow na mobilech) + obsah má nyní `max-h` podle viewportu a `overflow-y-auto`, aby byl celý modál použitelný i na menších displejích; zároveň lehce upravené paddingy/gapy pro mobile.
+
+### Fix – Login na localhostu nefungoval při použití Supabase publishable key (DOKONČENO)
+
+- `src/lib/supabase/client.ts`, `src/lib/supabase/server.ts`, `src/lib/supabase/middleware.ts`, `src/app/auth/callback/route.ts` – Supabase klienti nyní berou klíč z `NEXT_PUBLIC_SUPABASE_ANON_KEY` nebo fallback `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (nové Supabase klíče), takže autentizace funguje i při nové konfiguraci env.
+- `middleware.ts` – detekce „Supabase je nakonfigurována“ nyní počítá i s `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` a hlídá `placeholder` hodnoty.
+- `src/lib/actions/auth.ts`, `src/components/auth/email-signin.tsx` – email login/signup přes Server Action (`emailAuthAction`) pro spolehlivé setnutí session cookies na serveru; signup používá `emailRedirectTo: /auth/callback`.
+- `src/components/auth/google-signin-button.tsx` – Google OAuth `redirectTo` má fallback na `window.location.origin` pokud chybí `NEXT_PUBLIC_APP_URL` + v UI se nově zobrazí konkrétní chyba od Supabase (pomáhá odhalit špatně nastavené Redirect URLs v Supabase/Google).
+
 ### Fix – Kalendář/time picker umožňuje výběr minut (DOKONČENO)
 
 - `src/components/ui/date-time-picker.tsx` – minuty v pickeru jsou nyní 0–59 místo pouze 0/15/30/45, takže při plánování příspěvků lze nastavit čas po minutách.
@@ -7,6 +27,42 @@
 - `src/components/ui/date-time-picker.tsx`, `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – opravený bug kdy se při změně minut/hodin ukládal čas s minutami `00` (race condition ve state); zároveň se `scheduled_at` už nepřevádí přes `toISOString().slice(0, 16)`, aby nedocházelo k posunům času.
 - `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/[id]/page.tsx`, `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – `scheduled_at` se před uložením normalizuje na validní ISO timestamp (včetně timezone), aby se do DB nikdy neposílal “naivní” čas bez pásma a nedocházelo k rozhození plánování.
 - `supabase/functions/process-scheduled-posts` – doplněné lokální TS typy pro Deno/URL importy, aby v editoru nezobrazovaly falešné TypeScript chyby.
+
+### Fix – Cron → Edge Function auth pro nové sb_secret (ECC) klíče (DOKONČENO)
+
+- `supabase/config.toml` – pro `process-scheduled-posts` nastaveno `verify_jwt = false`, aby Edge Runtime nezkoušel parsovat `sb_secret_...` jako JWT (řeší `UNAUTHORIZED_INVALID_JWT_FORMAT` ještě před spuštěním funkce).
+- `supabase/functions/process-scheduled-posts/index.ts` – autentizace preferuje hlavičku `apikey` a porovnává ji proti `SUPABASE_SECRET_KEYS` (default secrets v Edge Functions) + fallback na legacy `SUPABASE_SERVICE_ROLE_KEY`.
+- Supabase Dashboard → Edge Functions → `process-scheduled-posts` → Settings – `Verify JWT` vypnuto (OFF), aby gateway nevyžadovala `Authorization: Bearer <user-jwt>` pro cron/pg_net volání.
+- Ověřeno ručně přes `curl`: `apikey: sb_secret_...` → `HTTP 200` a response `{"ok":true,...}`.
+- SQL (Supabase Dashboard → SQL Editor) – cron job musí posílat `sb_secret_...` v hlavičce `apikey` (NE v `Authorization: Bearer ...`):
+
+```sql
+-- pokud už job existuje, nejdřív ho smažte
+select cron.unschedule('process-scheduled-posts-job');
+
+-- znovu naplánujte se správnou hlavičkou apikey
+select cron.schedule(
+  'process-scheduled-posts-job',
+  '* * * * *',
+  $$
+    select net.http_post(
+      url := 'https://rfgortcdptfmmonsqjtp.supabase.co/functions/v1/process-scheduled-posts',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'apikey', '<sb_secret_...>'
+      ),
+      body := '{}'::jsonb
+    );
+  $$
+);
+```
+
+### Refactor – Navigace: 5 hlavních položek + Nastavení submenu + badge dot (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/layout.tsx` – hlavní navigace zredukovaná na přesně 5 položek (Přehled, Příspěvky, Kalendář, Účty, Nastavení); dřívější Šablony/Analytika/Zprávy přesunuté do submenu pod Nastavení.
+- `src/components/dashboard/sidebar.tsx` – desktop sidebar vyčištěn na 5 položek; Nastavení rozbaluje inline submenu (Šablony, Analytika, Zprávy NEW, Profil, Předvolby, Notifikace, Obecné, Fakturace, Štítky, Upgrade, Odhlásit se) + dot indikátor, pokud je v submenu něco „nepřečteného“.
+- `src/components/dashboard/mobile-nav.tsx`, `src/components/dashboard/mobile-nav-wrapper.tsx` – mobile bottom tab bar má pouze 5 položek; Nastavení otevírá menu se všemi sekundárními položkami; dot indikátor na Nastavení (NEW pro Zprávy) se schová po první návštěvě `/inbox` (localStorage `postio:seen:inbox`).
+- `src/app/[locale]/(dashboard)/page.tsx` – v „Rychlé akce“ přidány rychlé vstupy na Šablony a Analytiku vedle „Nový příspěvek“ (podle referenčního návrhu).
 
 ## 2026-05-09
 

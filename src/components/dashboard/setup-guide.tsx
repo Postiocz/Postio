@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { motion } from "framer-motion";
 import { Check, X, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
@@ -19,7 +19,11 @@ interface SetupGuideProps {
 
 export default function SetupGuide({ locale }: SetupGuideProps) {
   const t = useTranslations("setup");
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient();
+  }
+  const supabase = supabaseRef.current;
 
   const [tasks, setTasks] = useState<SetupTask[]>([
     { id: "create_account", labelKey: "createAccount", isCompleted: true },
@@ -28,10 +32,13 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
     { id: "schedule_first_post", labelKey: "scheduleFirstPost", isCompleted: false },
   ]);
 
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("setup-dismissed") === "true";
-  });
+  const [ready, setReady] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    setDismissed(localStorage.getItem("setup-dismissed") === "true");
+    setReady(true);
+  }, []);
 
   const handleDismiss = useCallback(() => {
     setDismissed(true);
@@ -39,6 +46,7 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
   }, []);
 
   useEffect(() => {
+    if (!ready || dismissed) return;
     const checkProgress = async () => {
       try {
         const [accountsData, postsData] = await Promise.all([
@@ -62,13 +70,13 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
     };
 
     checkProgress();
-  }, [supabase]);
+  }, [dismissed, ready, supabase]);
 
   const completedCount = tasks.filter((t) => t.isCompleted).length;
   const totalCount = tasks.length;
   const progressPercent = (completedCount / totalCount) * 100;
 
-  if (completedCount === totalCount || dismissed) return null;
+  if (!ready || completedCount === totalCount || dismissed) return null;
 
   return (
     <motion.div

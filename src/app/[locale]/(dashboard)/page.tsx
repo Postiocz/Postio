@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Link as LinkIcon, Copy, Plus, ArrowRight, Crown, Sparkles, Flame, Calendar as CalendarIcon } from "lucide-react";
+import { FileText, Link as LinkIcon, Copy, Plus, ArrowRight, Crown, Sparkles, Flame, Calendar as CalendarIcon, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -14,6 +14,7 @@ export default async function DashboardPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "dashboard" });
+  const navT = await getTranslations({ locale, namespace: "nav" });
   const commonT = await getTranslations({ locale, namespace: "common" });
   const settingsT = await getTranslations({ locale, namespace: "settings" });
 
@@ -79,16 +80,16 @@ export default async function DashboardPage({
             emphasis="primary"
           />
           <QuickActionCard
-            title={t("connectAccount")}
-            description={t("connectAccount")}
-            href={`/${locale}/accounts`}
-            icon={LinkIcon}
-          />
-          <QuickActionCard
-            title={t("browseTemplates")}
-            description={t("browseTemplates")}
+            title={navT("templates")}
+            description={navT("templates")}
             href={`/${locale}/templates`}
             icon={Copy}
+          />
+          <QuickActionCard
+            title={navT("analytics")}
+            description={navT("analytics")}
+            href={`/${locale}/analytics`}
+            icon={BarChart3}
           />
         </div>
       </div>

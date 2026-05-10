@@ -23,10 +23,14 @@ export async function middleware(request: NextRequest) {
   let authResponse = NextResponse.next({ request: { headers: request.headers } });
 
   // Check if Supabase is configured
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const isSupabaseConfigured =
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder");
+    supabaseKey &&
+    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder") &&
+    !supabaseKey.includes("placeholder");
 
   if (isSupabaseConfigured) {
     try {

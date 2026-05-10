@@ -1,6 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.6.3";
 
+function getApiKey(request: Request): string | null {
+  const apiKey = request.headers.get("apikey") ?? request.headers.get("Apikey");
+  return apiKey?.trim() || null;
+}
+
 function getBearerToken(request: Request): string | null {
   const header =
     request.headers.get("authorization") ?? request.headers.get("Authorization");
@@ -38,6 +43,30 @@ function timingSafeEqual(a: string, b: string) {
   return diff === 0;
 }
 
+function getSupabaseSecretKeys(): Record<string, string> | null {
+  const raw = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return null;
+
+    const record: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === "string") record[k] = v;
+    }
+    return Object.keys(record).length > 0 ? record : null;
+  } catch {
+    return null;
+  }
+}
+
+function keyMatchesAny(params: { provided: string; expected: string[] }) {
+  for (const key of params.expected) {
+    if (timingSafeEqual(params.provided, key)) return true;
+  }
+  return false;
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -45,48 +74,64 @@ Deno.serve(async (request: Request) => {
       headers: {
         "access-control-allow-origin": "*",
         "access-control-allow-methods": "GET,POST,OPTIONS",
-        "access-control-allow-headers": "authorization,content-type",
+        "access-control-allow-headers": "authorization,apikey,content-type",
       },
     });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey =
+  const explicitAdminKey =
     Deno.env.get("POSTIO_SERVICE_ROLE_KEY") ??
     Deno.env.get("SERVICE_ROLE_KEY") ??
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const secretKeys = getSupabaseSecretKeys();
+  const defaultSecretKey = secretKeys?.default ?? null;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  const adminKey = explicitAdminKey ?? defaultSecretKey;
+
+  if (!supabaseUrl || !adminKey) {
     return Response.json(
-      { error: "Missing SUPABASE_URL or POSTIO_SERVICE_ROLE_KEY" },
+      { error: "Missing SUPABASE_URL or an admin API key" },
       { status: 500 }
     );
   }
 
+  const expectedKeys = [
+    ...(explicitAdminKey ? [explicitAdminKey] : []),
+    ...(secretKeys ? Object.values(secretKeys) : []),
+  ];
+
+  const apiKey = getApiKey(request);
   const token = getBearerToken(request);
-  if (!token) {
-    return Response.json({ error: "Missing Authorization: Bearer" }, { status: 401 });
-  }
 
   try {
-    if (isLikelyJwt(token)) {
-      const verified = await verifyServiceRoleJwt({ token, supabaseUrl });
-      console.log("process-scheduled-posts auth ok (jwt)", {
-        alg: verified.protectedHeader.alg,
-        kid: verified.protectedHeader.kid,
-        role: (verified.payload as Record<string, unknown>).role,
-      });
-    } else {
-      if (!timingSafeEqual(token, serviceRoleKey)) {
-        throw new Error("Secret key mismatch");
+    if (apiKey) {
+      if (!keyMatchesAny({ provided: apiKey, expected: expectedKeys })) {
+        throw new Error("API key mismatch");
       }
-      console.log("process-scheduled-posts auth ok (secret key)");
+      console.log("process-scheduled-posts auth ok (apikey)");
+    } else if (token) {
+      if (isLikelyJwt(token)) {
+        const verified = await verifyServiceRoleJwt({ token, supabaseUrl });
+        console.log("process-scheduled-posts auth ok (jwt)", {
+          alg: verified.protectedHeader.alg,
+          kid: verified.protectedHeader.kid,
+          role: (verified.payload as Record<string, unknown>).role,
+        });
+      } else {
+        if (!keyMatchesAny({ provided: token, expected: expectedKeys })) {
+          throw new Error("Secret key mismatch");
+        }
+        console.log("process-scheduled-posts auth ok (secret key)");
+      }
+    } else {
+      return Response.json({ error: "Missing apikey header" }, { status: 401 });
     }
   } catch {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+  const supabaseAdmin = createClient(supabaseUrl, adminKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 

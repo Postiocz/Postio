@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useActionState } from "react";
 import { useTranslations } from "next-intl";
-import { createClient } from "@/lib/supabase/client";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { emailAuthAction } from "@/lib/actions/auth";
 
 const isSupabaseConfigured =
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+  (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) &&
   !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder") &&
-  !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes("placeholder");
+  !(
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ?? ""
+  ).includes("placeholder");
 
 type Mode = "signin" | "signup";
 
@@ -18,101 +22,29 @@ export function EmailSignIn() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const normalizedEmail = email.trim();
-    if (!normalizedEmail || !password) return;
-    setErrorMessage(null);
-    setSuccessMessage(null);
+  const [state, formAction, isPending] = useActionState(emailAuthAction, {
+    errorKey: null,
+    errorMessage: null,
+    successKey: null,
+  });
 
-    try {
-      setLoading(true);
-      const supabase = createClient();
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-
-      if (error) {
-        const msg = String(error.message || "").toLowerCase();
-        if (msg.includes("email") && msg.includes("confirm")) {
-          setErrorMessage(t("emailNotVerified"));
-        } else if (msg.includes("invalid login")) {
-          setErrorMessage(t("invalidCredentials"));
-        } else {
-          setErrorMessage(t("signInError"));
-        }
-      } else if (!data?.user?.email_confirmed_at) {
-        setErrorMessage(t("emailNotVerified"));
-        await supabase.auth.signOut();
-      } else {
-        const locale = window.location.pathname.split("/")[1] || "cs";
-        // Check if 2FA is enabled for this user
-        const { data: userData } = await supabase
-          .from("users")
-          .select("two_factor_enabled")
-          .eq("id", data.user.id)
-          .single();
-
-        if (userData?.two_factor_enabled) {
-          window.location.href = `/${locale}/login/verify-2fa`;
-        } else {
-          window.location.href = `/${locale}`;
-        }
-      }
-    } catch {
-      setErrorMessage(t("signInError"));
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (state.successKey) {
+      setMode("signin");
+      setEmail("");
+      setPassword("");
     }
-  };
+  }, [state.successKey]);
 
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const normalizedEmail = email.trim();
-    if (!normalizedEmail || !password) return;
-    setErrorMessage(null);
-    setSuccessMessage(null);
+  const locale =
+    typeof window !== "undefined"
+      ? window.location.pathname.split("/")[1] || "cs"
+      : "cs";
 
-    try {
-      setLoading(true);
-      const supabase = createClient();
-
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/${
-            window.location.pathname.split("/")[1] || "cs"
-          }/dashboard`,
-        },
-      });
-
-      if (error) {
-        const msg = String(error.message || "").toLowerCase();
-        if (msg.includes("already")) {
-          setErrorMessage(t("emailAlreadyExists"));
-        } else {
-          setErrorMessage(t("signUpError"));
-        }
-      } else if (data.user && !data.user.email_confirmed_at) {
-        setSuccessMessage(t("checkEmailToVerify"));
-        setEmail("");
-        setPassword("");
-        setMode("signin");
-      }
-    } catch {
-      setErrorMessage(t("signUpError"));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const errorText = state.errorKey ? t(state.errorKey) : state.errorMessage;
+  const successText = state.successKey ? t(state.successKey) : null;
 
   return (
     <div className="space-y-4">
@@ -123,12 +55,16 @@ export function EmailSignIn() {
       </div>
 
       <form
-        onSubmit={mode === "signin" ? handleSignIn : handleSignUp}
+        action={formAction}
         className="space-y-3"
       >
+        <input type="hidden" name="locale" value={locale} />
+        <input type="hidden" name="mode" value={mode} />
+
         <div className="relative">
           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/40 pointer-events-none" />
           <input
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             type="email"
@@ -142,6 +78,7 @@ export function EmailSignIn() {
         <div className="relative">
           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/40 pointer-events-none" />
           <input
+            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type={showPassword ? "text" : "password"}
@@ -165,14 +102,14 @@ export function EmailSignIn() {
         <button
           type="submit"
           disabled={
-            loading ||
+            isPending ||
             !isSupabaseConfigured ||
             !email.trim() ||
             !password.trim()
           }
           className="w-full h-12 rounded-2xl bg-indigo-500 dark:bg-white text-white dark:text-black font-semibold hover:bg-indigo-600 dark:hover:bg-white/90 transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
-          {loading
+          {isPending
             ? mode === "signin"
               ? t("signingIn")
               : t("creatingAccount")
@@ -194,8 +131,6 @@ export function EmailSignIn() {
             type="button"
             onClick={() => {
               setMode("signup");
-              setErrorMessage(null);
-              setSuccessMessage(null);
             }}
             className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
@@ -210,8 +145,6 @@ export function EmailSignIn() {
             type="button"
             onClick={() => {
               setMode("signin");
-              setErrorMessage(null);
-              setSuccessMessage(null);
             }}
             className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
@@ -220,15 +153,15 @@ export function EmailSignIn() {
         </div>
       )}
 
-      {(errorMessage || successMessage) && (
+      {(errorText || successText) && (
         <p
           className={`text-xs text-center leading-relaxed ${
-            successMessage
+            successText
               ? "text-green-400/80"
               : "text-muted-foreground/70"
           }`}
         >
-          {errorMessage || successMessage}
+          {errorText || successText}
         </p>
       )}
     </div>

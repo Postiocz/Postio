@@ -9,6 +9,9 @@ export default function MobileNavWrapper({
 }: {
   locale: string;
   settingsLabels: {
+    templates: string;
+    analytics: string;
+    inbox: string;
     profile: string;
     preferences: string;
     notifications: string;

@@ -7,29 +7,40 @@ import { useTranslations } from "next-intl";
 
 const isSupabaseConfigured =
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+  (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) &&
   !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder") &&
-  !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes("placeholder");
+  !(
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ?? ""
+  ).includes("placeholder");
 
 export function GoogleSignInButton() {
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const t = useTranslations("auth");
 
   const handleSignIn = async () => {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const supabase = createClient();
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+          redirectTo: `${baseUrl}/auth/callback`,
         },
       });
 
       if (error) {
         console.error("Sign in error:", error);
+        setErrorMessage(error.message);
       }
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -67,6 +78,12 @@ export function GoogleSignInButton() {
       {!isSupabaseConfigured && (
         <p className="text-xs text-center text-muted-foreground">
           Supabase není připojena – přihlášení je disabled pro testování.
+        </p>
+      )}
+
+      {errorMessage && (
+        <p className="text-xs text-center text-muted-foreground/70">
+          {errorMessage}
         </p>
       )}
     </div>

@@ -59,9 +59,8 @@ export default async function DashboardLayout({
     { href: `/${locale}`, label: navT("dashboard"), icon: "dashboard" as const },
     { href: `/${locale}/posts`, label: navT("posts"), icon: "posts" as const },
     { href: `/${locale}/calendar`, label: navT("calendar"), icon: "calendar" as const },
-    { href: `/${locale}/inbox`, label: navT("inbox"), icon: "inbox" as const, badge: "NEW" },
     { href: `/${locale}/accounts`, label: navT("accounts"), icon: "accounts" as const },
-    { href: `/${locale}/analytics`, label: navT("analytics"), icon: "analytics" as const },
+    { href: `/${locale}/settings`, label: navT("settings"), icon: "settings" as const },
   ];
 
   return (
@@ -83,6 +82,9 @@ export default async function DashboardLayout({
           upgrade: settingsT("upgrade"),
         }}
         settingsLabels={{
+          templates: navT("templates"),
+          analytics: navT("analytics"),
+          inbox: navT("inbox"),
           profile: settingsT("profile"),
           preferences: settingsT("preferences"),
           notifications: settingsT("notifications"),
@@ -128,6 +130,9 @@ export default async function DashboardLayout({
       <MobileNavWrapper
         locale={locale}
         settingsLabels={{
+          templates: navT("templates"),
+          analytics: navT("analytics"),
+          inbox: navT("inbox"),
           profile: settingsT("profile"),
           preferences: settingsT("preferences"),
           notifications: settingsT("notifications"),

@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import { CalendarView } from "./_calendar-view";
+import { CalendarClient } from "./_calendar-client";
 
 export default async function CalendarPage({
   params,
@@ -11,7 +11,6 @@ export default async function CalendarPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "calendar" });
-  const navT = await getTranslations({ locale, namespace: "nav" });
   const sp = await searchParams;
 
   const supabase = await createClient();
@@ -21,16 +20,11 @@ export default async function CalendarPage({
     return <div className="text-muted-foreground">Must be logged in.</div>;
   }
 
-  const statusFilter = sp?.status ?? "";
   let query = supabase
     .from("posts")
     .select("*")
     .eq("user_id", user.id)
     .order("scheduled_at", { ascending: true });
-
-  if (statusFilter) {
-    query = query.eq("status", statusFilter);
-  }
 
   const { data: posts, error: postsError } = await query;
 
@@ -41,7 +35,7 @@ export default async function CalendarPage({
   const platforms = [
     { id: "instagram", label: "Instagram" },
     { id: "facebook", label: "Facebook" },
-    { id: "twitter", label: "X" },
+    { id: "twitter", label: "Twitter/X" },
     { id: "linkedin", label: "LinkedIn" },
     { id: "youtube", label: "YouTube" },
     { id: "tiktok", label: "TikTok" },
@@ -58,11 +52,11 @@ export default async function CalendarPage({
         <p className="text-sm text-muted-foreground/60">{t("subtitle")}</p>
       </div>
 
-      <CalendarView
+      <CalendarClient
         posts={posts ?? []}
         platforms={platforms}
-        selectedPlatform={sp?.platform ?? ""}
-        selectedStatus={statusFilter}
+        initialPlatform={sp?.platform ?? ""}
+        initialStatus={sp?.status ?? ""}
         weekdays={weekdays}
         months={months}
         locale={locale}

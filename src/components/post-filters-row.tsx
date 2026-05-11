@@ -1,0 +1,251 @@
+"use client";
+
+import * as React from "react";
+import { cn } from "@/lib/utils";
+import { CheckCircle2, ChevronDown, Share2, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+type FilterOption = {
+  value: string;
+  label: string;
+};
+
+function useIsMobile(breakpointPx = 640) {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${breakpointPx - 1}px)`);
+    const onChange = () => setIsMobile(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [breakpointPx]);
+
+  return isMobile;
+}
+
+function FilterSelect({
+  label,
+  icon: Icon,
+  value,
+  defaultValue,
+  options,
+  onChange,
+}: {
+  label: string;
+  icon: React.ElementType;
+  value: string;
+  defaultValue: string;
+  options: FilterOption[];
+  onChange: (value: string) => void;
+}) {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = React.useState(false);
+  const isActive = value !== defaultValue;
+  const selectedLabel =
+    options.find((o) => o.value === value)?.label ??
+    options.find((o) => o.value === defaultValue)?.label ??
+    "";
+  const triggerEl = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={isMobile ? () => setOpen(true) : undefined}
+      onKeyDown={
+        isMobile
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              setOpen(true);
+            }
+          : undefined
+      }
+      className={cn(
+        "flex w-full items-center gap-2 rounded-xl border px-3 transition-all outline-none bg-white/80 dark:bg-card/40 backdrop-blur-md border-black/[0.08] dark:border-white/[0.06] hover:border-indigo-500/30 dark:hover:border-indigo-500/30 focus-visible:ring-2 focus-visible:ring-indigo-500/20 h-10 sm:h-9 text-[13px] sm:text-[12px]",
+        isActive &&
+          "border-indigo-500/40 bg-indigo-500/10 dark:bg-indigo-500/10"
+      )}
+    >
+      <Icon
+        className={cn(
+          "h-4 w-4 shrink-0",
+          isActive ? "text-indigo-500" : "text-muted-foreground/70"
+        )}
+      />
+
+      <span className="min-w-0 truncate">
+        <span className="text-muted-foreground/70">
+          {label}{" "}
+          <span className="text-muted-foreground/40">•</span>{" "}
+        </span>
+        <span className={cn(isActive && "text-indigo-700 dark:text-indigo-300")}>
+          {selectedLabel}
+        </span>
+      </span>
+
+      <span className="ml-auto flex items-center gap-1.5">
+        {isActive && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange(defaultValue);
+            }}
+            aria-label="Clear filter"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/70 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/[0.06]"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+      </span>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        {triggerEl}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent
+            className="top-auto bottom-0 left-0 right-0 w-full max-w-none translate-x-0 translate-y-0 rounded-t-[20px] rounded-b-none p-0"
+            showCloseButton={false}
+          >
+            <DialogHeader className="px-4 pt-4">
+              <DialogTitle className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-indigo-500" />
+                {label}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="px-2 pb-4 pt-2">
+              <div className="max-h-[60vh] overflow-y-auto rounded-[20px] border border-black/5 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
+                {options.map((opt) => {
+                  const selected = opt.value === value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        onChange(opt.value);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors",
+                        selected
+                          ? "bg-indigo-500/10 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-300"
+                          : "hover:bg-black/5 dark:hover:bg-white/[0.06]"
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                      {selected && <CheckCircle2 className="h-4 w-4 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>{triggerEl}</DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={8}
+        className="w-[--radix-dropdown-menu-trigger-width] p-2 rounded-[20px] border border-black/5 dark:border-white/10 bg-white/90 dark:bg-black/90 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-slate-900 dark:text-white"
+      >
+        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+          {options.map((opt) => (
+            <DropdownMenuRadioItem
+              key={opt.value}
+              value={opt.value}
+              className="rounded-xl cursor-pointer"
+            >
+              {opt.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function PostFiltersRow({
+  platformValue,
+  statusValue,
+  onChange,
+  allPlatformsLabel,
+  allStatusLabel,
+  statusDraftLabel,
+  statusScheduledLabel,
+  statusPublishedLabel,
+  statusFailedLabel,
+  platformLabel = "Platforma",
+  statusLabel = "Stav",
+}: {
+  platformValue: string;
+  statusValue: string;
+  onChange: (platform: string, status: string) => void;
+  allPlatformsLabel: string;
+  allStatusLabel: string;
+  statusDraftLabel: string;
+  statusScheduledLabel: string;
+  statusPublishedLabel: string;
+  statusFailedLabel: string;
+  platformLabel?: string;
+  statusLabel?: string;
+}) {
+  const platformOptions: FilterOption[] = [
+    { value: "", label: allPlatformsLabel || "Všechny platformy" },
+    { value: "instagram", label: "Instagram" },
+    { value: "facebook", label: "Facebook" },
+    { value: "twitter", label: "Twitter/X" },
+    { value: "linkedin", label: "LinkedIn" },
+    { value: "youtube", label: "YouTube" },
+    { value: "tiktok", label: "TikTok" },
+  ];
+
+  const statusOptions: FilterOption[] = [
+    { value: "", label: allStatusLabel || "Vše" },
+    { value: "draft", label: statusDraftLabel || "Koncept" },
+    { value: "scheduled", label: statusScheduledLabel || "Naplánované" },
+    { value: "published", label: statusPublishedLabel || "Publikované" },
+    { value: "failed", label: statusFailedLabel || "Neúspěšné" },
+  ];
+
+  return (
+    <div className="flex w-full gap-2 sm:w-fit sm:max-w-[460px]">
+      <div className="flex-1 sm:flex-none sm:w-[210px]">
+        <FilterSelect
+          label={platformLabel}
+          icon={Share2}
+          value={platformValue}
+          defaultValue=""
+          options={platformOptions}
+          onChange={(v) => onChange(v, statusValue)}
+        />
+      </div>
+      <div className="flex-1 sm:flex-none sm:w-[210px]">
+        <FilterSelect
+          label={statusLabel}
+          icon={CheckCircle2}
+          value={statusValue}
+          defaultValue=""
+          options={statusOptions}
+          onChange={(v) => onChange(platformValue, v)}
+        />
+      </div>
+    </div>
+  );
+}

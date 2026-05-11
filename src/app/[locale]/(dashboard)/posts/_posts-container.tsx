@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import Link from "next/link";
-import { PostsFilters } from "./_posts-filters";
+import { PostFiltersRow } from "@/components/post-filters-row";
 import { PostsList, PostListItem } from "./_post-card";
 
 export function PostsContainer({
@@ -129,18 +129,17 @@ export function PostsContainer({
         </Link>
       </div>
 
-      {/* Filters */}
-      <div className="pt-4">
-        <PostsFilters
-          initialStatus=""
-          initialPlatform=""
-          onFilterChange={handleFilterChange}
-          tAllPlatforms={tAllPlatforms}
-          tFilterAll={tFilterAll}
-          tStatusDraft={tStatusDraft}
-          tStatusScheduled={tStatusScheduled}
-          tStatusPublished={tStatusPublished}
-          tStatusFailed={tStatusFailed}
+      <div className="mt-3">
+        <PostFiltersRow
+          platformValue={activePlatform}
+          statusValue={activeStatus}
+          onChange={handleFilterChange}
+          allPlatformsLabel={tAllPlatforms}
+          allStatusLabel={tFilterAll}
+          statusDraftLabel={tStatusDraft}
+          statusScheduledLabel={tStatusScheduled}
+          statusPublishedLabel={tStatusPublished}
+          statusFailedLabel={tStatusFailed}
         />
       </div>
 

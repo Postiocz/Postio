@@ -75,8 +75,8 @@ interface Post {
 interface CalendarViewProps {
   posts: Post[];
   platforms: { id: string; label: string }[];
-  selectedPlatform: string;
-  selectedStatus: string;
+  platformFilter: string;
+  statusFilter: string;
   weekdays: string[];
   months: string[];
   locale: string;
@@ -125,8 +125,8 @@ interface CalendarViewProps {
 export function CalendarView({
   posts,
   platforms,
-  selectedPlatform,
-  selectedStatus,
+  platformFilter,
+  statusFilter,
   weekdays,
   months,
   locale,
@@ -145,9 +145,6 @@ export function CalendarView({
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const postCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-
-  // Active status filter (local state for UI)
-  const [activeStatusFilter, setActiveStatusFilter] = useState(selectedStatus);
 
   // New post form state
   const [formContent, setFormContent] = useState("");
@@ -194,24 +191,6 @@ export function CalendarView({
     }
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   }, [view, calendarStart, calendarEnd, weekStart, weekEnd]);
-
-  const filteredPosts = useMemo(() => {
-    return posts.filter((post) => {
-      if (selectedPlatform) {
-        const postPlatforms = post.platforms || [];
-        return postPlatforms.includes(selectedPlatform);
-      }
-      return true;
-    });
-  }, [posts, selectedPlatform]);
-
-  const getPostsForDay = useCallback((day: Date) => {
-    return filteredPosts.filter((post) => {
-      if (!post.scheduled_at) return false;
-      const postDate = new Date(post.scheduled_at);
-      return isSameDay(postDate, day);
-    });
-  }, [filteredPosts]);
 
   const formatTime = useCallback((isoString: string) => {
     const date = new Date(isoString);
@@ -335,32 +314,18 @@ export function CalendarView({
     setEditPostOpen(true);
   }, []);
 
-  const [activePlatformFilter, setActivePlatformFilter] = useState(selectedPlatform);
-
-  const handlePlatformChange = useCallback((platformId: string) => {
-    setActivePlatformFilter(platformId);
-  }, []);
-
-  useEffect(() => {
-    setActivePlatformFilter(selectedPlatform);
-  }, [selectedPlatform]);
-
-  useEffect(() => {
-    setActiveStatusFilter(selectedStatus);
-  }, [selectedStatus]);
-
   const effectiveFilteredPosts = useMemo(() => {
     return posts.filter((post) => {
-      if (activePlatformFilter) {
+      if (platformFilter) {
         const postPlatforms = post.platforms || [];
-        return postPlatforms.includes(activePlatformFilter);
+        if (!postPlatforms.includes(platformFilter)) return false;
       }
-      if (activeStatusFilter) {
-        return post.status === activeStatusFilter;
+      if (statusFilter) {
+        if (post.status !== statusFilter) return false;
       }
       return true;
     });
-  }, [posts, activePlatformFilter, activeStatusFilter]);
+  }, [posts, platformFilter, statusFilter]);
 
   const getPostsForDayEffective = useCallback((day: Date) => {
     const today = new Date();
@@ -452,73 +417,6 @@ export function CalendarView({
 
   return (
     <div className="space-y-4">
-      {/* Filters Bar */}
-      <div className="flex flex-col gap-3">
-        {/* Platform Filters */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => handlePlatformChange("")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200",
-              activePlatformFilter === ""
-                ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-white/10 dark:border-white/20 dark:text-white"
-                : "bg-gray-50 border-gray-200 text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
-            )}
-          >
-            <CalendarIcon className="h-3 w-3" />
-            {tCalendar.allPlatforms}
-          </button>
-          {platforms.map((platform) => {
-            const Icon = PlatformIconMap[platform.id];
-            const isActive = activePlatformFilter === platform.id;
-            return (
-              <button
-                key={platform.id}
-                onClick={() =>
-                  handlePlatformChange(isActive ? "" : platform.id)
-                }
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/20 dark:border-indigo-500/50 dark:text-indigo-300"
-                    : "bg-gray-50 border-gray-200 text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
-                )}
-              >
-                {Icon && <Icon className="h-3 w-3" />}
-                {platform.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Status Filters */}
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "", label: tCalendar.filterAll || "Vše" },
-            { value: "draft", label: tCalendar.statusDraft || "Koncept" },
-            { value: "scheduled", label: tCalendar.statusScheduled || "Naplánované" },
-            { value: "published", label: tCalendar.statusPublished || "Publikované" },
-            { value: "failed", label: tCalendar.statusFailed || "Neúspěšné" },
-          ].map((filter) => {
-            const isActive = activeStatusFilter === filter.value;
-            return (
-              <button
-                key={filter.value}
-                onClick={() => setActiveStatusFilter(filter.value)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-white/10 dark:border-white/20 dark:text-white"
-                    : "bg-gray-50 border-gray-200 text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
-                )}
-              >
-                {filter.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* View Toggle & Month Navigation – Desktop Only */}
       <div className="hidden lg:flex items-center justify-between">
         <div className="flex items-center gap-2">

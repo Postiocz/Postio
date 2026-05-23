@@ -1,5 +1,17 @@
 ## 2026-05-23
 
+### Feature – Facebook OAuth pro přímé propojení + Redesign karet účtů (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – kompletní redesign stránky propojených účtů:
+  - **Facebook OAuth pro přímé kliknutí**: Klik na Facebook ikonu nyní spouští reálné Facebook OAuth (`handleFacebookOAuth`) místo formuláře s manuálními inputy. Scopes: `public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,ads_management,business_management`.
+  - **Instagram Professional**: Stále přes `AccountTypeModal` → "Propojit Professional účet" → Facebook OAuth (už fungovalo).
+  - **Instagram Personal + ostatní platformy**: Twitter, LinkedIn, YouTube, TikTok – stále formulář s manuálními inputy (OAuth pro tyto platformy zatím není nakonfigurován).
+  - **Redesign karet propojených účtů**: Nový glassmorphism design (`max-w-2xl mx-auto bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-6`). Vlevo velký kulatý avatar (56px) s gradient pozadím, vedle něj jméno účtu a název platformy. Vpravo zelený svítící bod s ping animací + "Aktivní" + tlačítko odpojení (Trash ikona).
+  - **Podpora avatar_url**: Typ `SocialAccount` rozšířen o `avatar_url` a `platform_id` pro budoucí použití profilovek z Facebook Graph API.
+  - **Logika prázdného stavu**: "Žádné propojené účty" s PlusCircle se zobrazuje POUZE pokud není žádný aktivní účet. Jakmile je alespoň jeden účet propojen, prázdný stav úplně zmizí.
+  - **Počet propojených účtů**: Header ukazuje pouze aktivní účty (`accounts.filter((a) => a.is_active).length`).
+  - **Odstraněny nepoužité importy**: `Card`, `CardContent`, `Badge`, `Plus` (lucide-react).
+
 ### Feature – Reálné Facebook OAuth propojení účtů (DOKONČENO)
 
 - `src/app/auth/callback/route.ts` – po návratu z Facebook OAuth se nyní extrahuje `provider_token` (access_token) a automaticky ukládá do `social_accounts` tabulky. Graph API volání (`/me` + `/me/accounts`) vyzvedávají profil a propojené Instagram účty. Bez tohoto kroku se token ztrácel a účty byly jen "demo".

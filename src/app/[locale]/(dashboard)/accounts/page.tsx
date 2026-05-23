@@ -4,13 +4,10 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import type { ComponentType } from "react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Plus,
   Trash2,
   X,
   PlusCircle,
@@ -103,6 +100,8 @@ type SocialAccount = {
   platform: string;
   account_name: string;
   is_active: boolean;
+  avatar_url?: string | null;
+  platform_id?: string | null;
 };
 
 export default function AccountsPage() {
@@ -190,7 +189,26 @@ export default function AccountsPage() {
     fetchAccounts();
   }
 
+  const handleFacebookOAuth = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "facebook",
+      options: {
+        scopes:
+          "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,ads_management,business_management",
+        redirectTo: `${window.location.origin}/auth/callback?next=/cs/accounts`,
+        queryParams: {
+          auth_type: "rerequest",
+        },
+      },
+    });
+    if (error) {
+      setError(error.message);
+    }
+  };
+
   if (loading) return <div className="text-muted-foreground">Načítání…</div>;
+
+  const hasConnectedAccounts = accounts.some((a) => a.is_active);
 
   return (
     <div className="relative space-y-8">
@@ -217,10 +235,9 @@ export default function AccountsPage() {
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
           <p className="mt-1 text-muted-foreground/60">
-            {t("connectedAccounts", { count: accounts.length })}
+            {t("connectedAccounts", { count: accounts.filter((a) => a.is_active).length })}
           </p>
         </div>
-        {/* Logo removed from here */}
       </div>
 
       <div className="max-w-xl mx-auto mt-12 bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-8 shadow-2xl relative">
@@ -260,6 +277,8 @@ export default function AccountsPage() {
                         icon: platform.icon,
                       });
                       setShowTypeModal(true);
+                    } else if (platform.id === "facebook") {
+                      handleFacebookOAuth();
                     } else {
                       setSelectedPlatform(platform.id);
                     }
@@ -359,7 +378,6 @@ export default function AccountsPage() {
                     disabled={connecting}
                     className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
                   >
-                    <Plus className="mr-2 h-4 w-4" />
                     {connecting
                       ? t("connecting") || "Connecting..."
                       : t("connectAccount") || "Connect Account"}
@@ -384,8 +402,8 @@ export default function AccountsPage() {
         })()}
       </div>
 
-      {/* Connected accounts list */}
-      {!selectedPlatform && accounts.length === 0 ? (
+      {/* Connected accounts list - glassmorphism cards */}
+      {!hasConnectedAccounts ? (
         <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
           <div className="relative mb-6">
             <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-3xl" />
@@ -398,45 +416,63 @@ export default function AccountsPage() {
             {t("noAccountsSubtitle")}
           </p>
         </div>
-      ) : accounts.length > 0 ? (
-        <div className="space-y-3">
-          {accounts.map((account) => {
+      ) : (
+        <div className="space-y-4">
+          {accounts.filter((a) => a.is_active).map((account) => {
             const platform = platformById.get(account.platform as PlatformId);
             const Icon = platform?.icon;
             return (
-              <Card key={account.id}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">
-                      {Icon ? <Icon className="h-6 w-6" /> : "🔗"}
-                    </span>
-                    <div className="flex flex-col">
-                      <p className="font-medium">{account.account_name}</p>
-                      <p className="text-sm text-muted-foreground capitalize">
-                        {account.platform}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={account.is_active ? "success" : "outline"}>
-                      {account.is_active ? t("connected") : t("disconnected")}
-                    </Badge>
-                    {account.is_active && (
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => handleDisconnect(account.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+              <div
+                key={account.id}
+                className="max-w-2xl mx-auto bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-6 flex items-center justify-between shadow-xl"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 overflow-hidden">
+                    {account.avatar_url ? (
+                      <img
+                        src={String(account.avatar_url)}
+                        alt={account.account_name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : Icon ? (
+                      <Icon className="h-7 w-7 text-muted-foreground/60" />
+                    ) : (
+                      <span className="text-2xl">🔗</span>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex flex-col">
+                    <p className="text-lg font-semibold text-foreground">
+                      {account.account_name}
+                    </p>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      {getPlatformLabel(account.platform as PlatformId)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/50 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                    </div>
+                    <span className="text-sm font-medium text-emerald-400">
+                      {t("active") || "Aktivní"}
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDisconnect(account.id)}
+                    className="rounded-xl hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
             );
           })}
         </div>
-      ) : null}
+      )}
 
       {/* Account Type Selection Modal (Buffer-style) */}
       {typeModalPlatform && (

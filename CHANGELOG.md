@@ -1,5 +1,13 @@
 ## 2026-05-23
 
+### Feature – Reálné Facebook OAuth propojení účtů (DOKONČENO)
+
+- `src/app/auth/callback/route.ts` – po návratu z Facebook OAuth se nyní extrahuje `provider_token` (access_token) a automaticky ukládá do `social_accounts` tabulky. Graph API volání (`/me` + `/me/accounts`) vyzvedávají profil a propojené Instagram účty. Bez tohoto kroku se token ztrácel a účty byly jen "demo".
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – `onProfessional` handler rozšířen o `ads_management,business_management` scopes + `next=/cs/accounts` redirect parametr + `auth_type: rerequest` pro opakované požadování oprávnění.
+- `supabase/migrations/011_add_platform_id_to_social_accounts.sql` – nová migrace: přidán `platform_id` sloupec (TEXT, nullable) do `social_accounts`. Ukládá Facebook Page ID nebo Instagram Account ID potřebné pro publish přes Graph API.
+- `src/lib/supabase/types.ts` – typ `social_accounts` rozšířen o `platform_id: string | null` + platform enum rozšířen o `youtube`, `tiktok`.
+- `src/components/account-type-modal.tsx` – `onProfessional` typ změněn na `() => void | Promise<void>` pro správné async/await.
+
 ### Feature – Facebook OAuth pro propojení Instagram Professional účtu (DOKONČENO)
 
 - `src/app/[locale]/(dashboard)/accounts/page.tsx` – `onProfessional` callback v `AccountTypeModal` nyní spouští Facebook OAuth přes Supabase (`signInWithOAuth`) místo manuálního zadání access tokenu. Scopes: `public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement` (nezbytné pro budoucí publish fotek na Instagram).

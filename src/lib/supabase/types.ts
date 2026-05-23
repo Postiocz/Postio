@@ -39,27 +39,30 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          platform: 'instagram' | 'facebook' | 'twitter' | 'linkedin'
+          platform: 'instagram' | 'facebook' | 'twitter' | 'linkedin' | 'youtube' | 'tiktok'
           account_name: string
           access_token: string
+          platform_id: string | null
           is_active: boolean
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          platform: 'instagram' | 'facebook' | 'twitter' | 'linkedin'
+          platform: 'instagram' | 'facebook' | 'twitter' | 'linkedin' | 'youtube' | 'tiktok'
           account_name: string
           access_token: string
+          platform_id?: string | null
           is_active?: boolean
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          platform?: 'instagram' | 'facebook' | 'twitter' | 'linkedin'
+          platform?: 'instagram' | 'facebook' | 'twitter' | 'linkedin' | 'youtube' | 'tiktok'
           account_name?: string
           access_token?: string
+          platform_id?: string | null
           is_active?: boolean
           created_at?: string
         }

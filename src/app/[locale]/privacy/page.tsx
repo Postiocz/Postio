@@ -80,6 +80,15 @@ export default async function PrivacyPage({
 
             <section className="space-y-3">
               <h2 className="text-xl font-semibold text-white">
+                {t("dataDeletionTitle")}
+              </h2>
+              <p className="leading-relaxed text-muted-foreground">
+                {t("dataDeletionDesc")}
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-semibold text-white">
                 {t("contact")}
               </h2>
               <p className="leading-relaxed text-muted-foreground">

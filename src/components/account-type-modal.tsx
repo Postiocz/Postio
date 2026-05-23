@@ -11,7 +11,7 @@ interface AccountTypeModalProps {
   onOpenChange: (open: boolean) => void;
   platformName: string;
   PlatformIcon: ComponentType<{ className?: string }>;
-  onProfessional: () => void;
+  onProfessional: () => void | Promise<void>;
   onPersonal: () => void;
   t: {
     subtitle: string;

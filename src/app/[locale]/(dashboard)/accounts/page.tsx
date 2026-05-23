@@ -452,12 +452,15 @@ export default function AccountsPage() {
           PlatformIcon={typeModalPlatform.icon}
           onProfessional={async () => {
             setShowTypeModal(false);
-            const { data, error } = await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
               provider: "facebook",
               options: {
                 scopes:
-                  "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement",
-                redirectTo: `${window.location.origin}/auth/callback`,
+                  "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,ads_management,business_management",
+                redirectTo: `${window.location.origin}/auth/callback?next=/cs/accounts`,
+                queryParams: {
+                  auth_type: "rerequest",
+                },
               },
             });
             if (error) {

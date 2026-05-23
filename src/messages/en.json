@@ -438,6 +438,8 @@
     "dataSharingDesc": "We do not sell or rent your personal data to third parties. We share it only to provide the service or when required by law.",
     "yourRights": "Your Rights",
     "yourRightsDesc": "You have the right to access, correct, or delete your personal data. You may also withdraw your cookie consent at any time.",
+    "dataDeletionTitle": "Deletion of User Data",
+    "dataDeletionDesc": "In Postio, you have full control over your data. If you wish to delete your account and all related data (including connected social accounts), you can do so directly in the app under Settings -> Danger Zone -> Delete Account. Alternatively, you can send a deletion request to postio.cz@gmail.com. Your data will be permanently removed from our servers within 30 days of your request.",
     "contact": "Contact",
     "contactDesc": "If you have questions about this policy, contact us at",
     "lastUpdated": "Last updated"

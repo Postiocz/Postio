@@ -450,9 +450,19 @@ export default function AccountsPage() {
           }}
           platformName={typeModalPlatform.name}
           PlatformIcon={typeModalPlatform.icon}
-          onProfessional={() => {
+          onProfessional={async () => {
             setShowTypeModal(false);
-            setSelectedPlatform(typeModalPlatform.id);
+            const { data, error } = await supabase.auth.signInWithOAuth({
+              provider: "facebook",
+              options: {
+                scopes:
+                  "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement",
+                redirectTo: `${window.location.origin}/auth/callback`,
+              },
+            });
+            if (error) {
+              setError(error.message);
+            }
           }}
           onPersonal={() => {
             setShowTypeModal(false);

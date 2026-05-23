@@ -1,4 +1,10 @@
-## 2026-05-10
+## 2026-05-23
+
+### Feature – Facebook OAuth pro propojení Instagram Professional účtu (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – `onProfessional` callback v `AccountTypeModal` nyní spouští Facebook OAuth přes Supabase (`signInWithOAuth`) místo manuálního zadání access tokenu. Scopes: `public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement` (nezbytné pro budoucí publish fotek na Instagram).
+- `src/app/auth/callback/route.ts` – redirect po úspěšném OAuth směřuje na `/accounts` (místo obecného dashboardu), aby uživatel okamžitě viděl stav propojených účtů.
+- `.env.local` – přidána `NEXT_PUBLIC_FACEBOOK_APP_ID` (client-side přístup k ID Facebook aplikace).
 
 ### Fix – Probliknutí light mode při přihlášení/odhlášení (DOKONČENO)
 

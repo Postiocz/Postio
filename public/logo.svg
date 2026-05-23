@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#9333ea" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="20" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Black background -->
+  <rect width="1024" height="1024" rx="200" fill="#000000" />
+
+  <!-- Stylized 'P' with gradient -->
+  <path
+    d="M 320 250
+       L 320 750
+       L 380 750
+       L 380 500
+       L 500 500
+       C 620 500, 660 450, 660 380
+       C 660 310, 620 280, 500 280
+       L 320 280
+       Z"
+    fill="url(#gradient)"
+    filter="url(#glow)"
+  />
+
+  <!-- 'ostio' text -->
+  <text
+    x="580"
+    y="580"
+    font-family="Inter, system-ui, sans-serif"
+    font-size="180"
+    font-weight="bold"
+    fill="white"
+    letter-spacing="-2"
+  >ostio</text>
+</svg>

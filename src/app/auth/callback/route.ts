@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 
-  let redirectPath = "/cs";
+  let redirectPath = "/cs/accounts";
 
   if (code) {
     try {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         .get("referer")
         ?.match(/\/(cs|en|uk)\//);
       const locale = localeMatch ? localeMatch[1] : "cs";
-      redirectPath = `/${locale}`;
+      redirectPath = `/${locale}/accounts`;
 
       const redirectResponse = NextResponse.redirect(
         `${requestUrl.origin}${redirectPath}`

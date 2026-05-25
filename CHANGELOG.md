@@ -1,5 +1,11 @@
 ## 2026-05-25
 
+### Fix – Mazání propojených účtů: potvrzení + skutečné odstranění z DB (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – koš nyní otevře potvrzovací dialog a po potvrzení smaže řádek v `social_accounts` (nejen `is_active=false`), takže účet zmizí i ze Supabase.
+- `src/app/[locale]/(dashboard)/page.tsx`, `src/components/dashboard/setup-guide.tsx` – počty/progress nyní počítají jen aktivní účty (`is_active=true`), aby se dashboard nespletl při případných historických záznamech.
+- `src/messages/cs.json`, `en.json`, `uk.json` – doplněny překlady pro potvrzení smazání.
+
 ### Feature – Uložení FB stránek + IG Business účtů z Graph API do social_accounts (DOKONČENO)
 
 - `src/app/auth/callback/route.ts` – po Facebook OAuth se bere `provider_token` a volá Graph API `/me/accounts?fields=id,name,access_token,instagram_business_account,picture{url}`; ukládají se **Facebook stránky** (page access token + avatar) a k nim napojené **Instagram Business** účty (username + profile picture) přes upsert.

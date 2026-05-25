@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Trash2,
   X,
   PlusCircle,
@@ -22,6 +30,8 @@ import {
 } from "@/components/ui/social-icons";
 import { Reorder } from "framer-motion";
 import { AccountTypeModal } from "@/components/account-type-modal";
+
+export const dynamic = "force-dynamic";
 
 type PlatformId =
   | "instagram"
@@ -117,6 +127,10 @@ export default function AccountsPage() {
   const [accessToken, setAccessToken] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<SocialAccount | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [typeModalPlatform, setTypeModalPlatform] = useState<{
     id: PlatformId;
@@ -134,11 +148,15 @@ export default function AccountsPage() {
   }
 
   async function fetchAccounts() {
-    const { data } = await supabase
+    const { data: accounts, error } = await supabase
       .from("social_accounts")
       .select("*")
       .order("created_at", { ascending: false });
-    if (data) setAccounts(data as SocialAccount[]);
+    console.log("Nalezeno účtů:", accounts?.length);
+    if (error) {
+      console.error("FETCH ACCOUNTS ERROR:", error);
+    }
+    if (accounts) setAccounts(accounts as SocialAccount[]);
     setLoading(false);
   }
 
@@ -148,6 +166,10 @@ export default function AccountsPage() {
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  useEffect(() => {
+    console.log(accounts);
+  }, [accounts]);
 
   async function handleConnect(e: React.FormEvent) {
     e.preventDefault();
@@ -181,12 +203,26 @@ export default function AccountsPage() {
     setConnecting(false);
   }
 
-  async function handleDisconnect(id: string) {
-    await supabase
+  async function handleDeleteConnectedAccount() {
+    if (!accountToDelete) return;
+
+    setDeleting(true);
+    setError(null);
+
+    const { error: deleteError } = await supabase
       .from("social_accounts")
-      .update({ is_active: false })
-      .eq("id", id);
-    fetchAccounts();
+      .delete()
+      .eq("id", accountToDelete.id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      setDeleting(false);
+      return;
+    }
+
+    setAccounts((prev) => prev.filter((a) => a.id !== accountToDelete.id));
+    setAccountToDelete(null);
+    setDeleting(false);
   }
 
   const handleFacebookOAuth = async () => {
@@ -467,7 +503,10 @@ export default function AccountsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleDisconnect(account.id)}
+                    onClick={() => {
+                      setError(null);
+                      setAccountToDelete(account);
+                    }}
                     className="rounded-xl hover:bg-destructive/10"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -478,6 +517,42 @@ export default function AccountsPage() {
           })}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(accountToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setAccountToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("deleteConfirmTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("deleteConfirmDesc", {
+                name: accountToDelete?.account_name ?? "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAccountToDelete(null)}
+              disabled={deleting}
+            >
+              {t("deleteCancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteConnectedAccount}
+              disabled={deleting}
+            >
+              {t("deleteConfirmAction")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Account Type Selection Modal (Buffer-style) */}
       {typeModalPlatform && (

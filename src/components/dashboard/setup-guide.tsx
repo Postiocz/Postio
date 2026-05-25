@@ -51,7 +51,7 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
     const checkProgress = async () => {
       try {
         const [accountsData, postsData] = await Promise.all([
-          supabase.from("social_accounts").select("*", { count: "exact", head: true }),
+          supabase.from("social_accounts").select("*", { count: "exact", head: true }).eq("is_active", true),
           supabase.from("posts").select("*", { count: "exact", head: true }),
         ]);
 

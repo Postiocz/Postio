@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 
 type FacebookPagesResponse = {
   data?: Array<{
@@ -64,8 +65,12 @@ export async function GET(request: NextRequest) {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+      const finalRedirectPath = localeMatch
+        ? `/${locale}${nextPath.startsWith(`/${locale}`) ? nextPath.slice(locale.length + 1) : nextPath.replace(/^\//, "/")}`
+        : nextPath;
+
       const redirectResponse = NextResponse.redirect(
-        `${requestUrl.origin}${redirectPath}`
+        `${requestUrl.origin}${finalRedirectPath}`
       );
 
       const supabase = createServerClient(
@@ -87,6 +92,9 @@ export async function GET(request: NextRequest) {
 
       const { data: authData, error: authError } =
         await supabase.auth.exchangeCodeForSession(code);
+      const session = authData?.session;
+      console.log("SESSION DATA:", session);
+      console.log("PROVIDER TOKEN PRESENT:", !!session?.provider_token);
 
       if (authError) {
         return NextResponse.redirect(
@@ -94,21 +102,29 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const user = authData?.session?.user;
+      const user = session?.user;
 
       // If this is a Facebook OAuth callback, save the provider access token
-      if (authData?.session?.provider_token && user) {
-        const facebookToken = authData.session.provider_token;
+      if (session?.provider_token && user) {
+        const facebookToken = session.provider_token;
 
         try {
+          const pagesFields =
+            "id,name,access_token,instagram_business_account,picture{url}";
+          const pagesUrl = new URL(
+            "https://graph.facebook.com/v20.0/me/accounts"
+          );
+          pagesUrl.searchParams.set("fields", pagesFields);
+          console.log("GRAPH URL:", pagesUrl.toString());
+
           const pages = await graphFetch<FacebookPagesResponse>(
             "/me/accounts",
             facebookToken,
             {
-              fields:
-                "id,name,access_token,instagram_business_account,picture{url}",
+              fields: pagesFields,
             }
           );
+          console.log("META RESPONSE:", JSON.stringify(pages, null, 2));
 
           const rowsToUpsert: Array<{
             user_id: string;
@@ -166,6 +182,7 @@ export async function GET(request: NextRequest) {
           }
 
           if (rowsToUpsert.length > 0) {
+            console.log("DB UPSERT PAYLOAD:", rowsToUpsert);
             const { error: upsertError } = await supabase
               .from("social_accounts")
               .upsert(rowsToUpsert, {
@@ -173,18 +190,13 @@ export async function GET(request: NextRequest) {
               });
 
             if (upsertError) {
-              console.error("Error saving social accounts:", upsertError);
+              console.error("DB INSERT ERROR:", upsertError);
             }
           }
         } catch (graphError) {
           console.error("Error fetching Facebook pages:", graphError);
         }
       }
-
-      // Determine final redirect path
-      const finalRedirectPath = localeMatch
-        ? `/${locale}${nextPath.startsWith(`/${locale}`) ? nextPath.slice(locale.length + 1) : nextPath.replace(/^\//, "/")}`
-        : nextPath;
 
       // Check if 2FA is enabled for this user
       if (user) {
@@ -195,15 +207,17 @@ export async function GET(request: NextRequest) {
           .single();
 
         if (userData?.two_factor_enabled) {
-          return NextResponse.redirect(
+          revalidatePath("/", "layout");
+          redirectResponse.headers.set(
+            "Location",
             `${requestUrl.origin}/${locale}/login/verify-2fa`
           );
+          return redirectResponse;
         }
       }
 
-      return NextResponse.redirect(
-        `${requestUrl.origin}${finalRedirectPath}`
-      );
+      revalidatePath("/", "layout");
+      return redirectResponse;
     } catch {
       // Fall through to redirect without session
     }

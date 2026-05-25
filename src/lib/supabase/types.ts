@@ -43,6 +43,7 @@ export interface Database {
           account_name: string
           access_token: string
           platform_id: string | null
+          avatar_url: string | null
           is_active: boolean
           created_at: string
         }
@@ -53,6 +54,7 @@ export interface Database {
           account_name: string
           access_token: string
           platform_id?: string | null
+          avatar_url?: string | null
           is_active?: boolean
           created_at?: string
         }
@@ -63,6 +65,7 @@ export interface Database {
           account_name?: string
           access_token?: string
           platform_id?: string | null
+          avatar_url?: string | null
           is_active?: boolean
           created_at?: string
         }

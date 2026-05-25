@@ -47,6 +47,7 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
 
   useEffect(() => {
     if (!ready || dismissed) return;
+    let cancelled = false;
     const checkProgress = async () => {
       try {
         const [accountsData, postsData] = await Promise.all([
@@ -57,6 +58,7 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
         const hasAccounts = (accountsData.count ?? 0) > 0;
         const hasPosts = (postsData.count ?? 0) > 0;
 
+        if (cancelled) return;
         setTasks((prev) =>
           prev.map((task) => {
             if (task.id === "connect_first_network") return { ...task, isCompleted: hasAccounts };
@@ -69,7 +71,22 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
       }
     };
 
-    checkProgress();
+    void checkProgress();
+
+    const onFocus = () => {
+      void checkProgress();
+    };
+
+    window.addEventListener("focus", onFocus);
+    const intervalId = window.setInterval(() => {
+      void checkProgress();
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(intervalId);
+    };
   }, [dismissed, ready, supabase]);
 
   const completedCount = tasks.filter((t) => t.isCompleted).length;

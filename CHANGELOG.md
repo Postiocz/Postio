@@ -1,3 +1,12 @@
+## 2026-05-25
+
+### Feature – Uložení FB stránek + IG Business účtů z Graph API do social_accounts (DOKONČENO)
+
+- `src/app/auth/callback/route.ts` – po Facebook OAuth se bere `provider_token` a volá Graph API `/me/accounts?fields=id,name,access_token,instagram_business_account,picture{url}`; ukládají se **Facebook stránky** (page access token + avatar) a k nim napojené **Instagram Business** účty (username + profile picture) přes upsert.
+- `supabase/migrations/012_social_accounts_avatar_url_and_constraints.sql` – přidán `avatar_url`, rozšířen `platform` CHECK o `youtube,tiktok` a doplněn unikátní klíč `(user_id, platform, platform_id)` pro bezpečný upsert (bez duplicit).
+- `src/lib/supabase/types.ts` – typ `social_accounts` rozšířen o `avatar_url`.
+- `src/components/dashboard/setup-guide.tsx` – průvodce „Dokončete nastavení“ nově periodicky/focus re-checkuje stav, takže se úkol „Propojit první síť“ odškrtne i bez refresh.
+
 ## 2026-05-23
 
 ### Feature – Facebook OAuth pro přímé propojení + Redesign karet účtů (DOKONČENO)

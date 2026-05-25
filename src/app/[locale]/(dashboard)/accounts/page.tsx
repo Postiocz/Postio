@@ -439,6 +439,11 @@ export default function AccountsPage() {
                     ) : (
                       <span className="text-2xl">🔗</span>
                     )}
+                    {Icon && (
+                      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-black/50 backdrop-blur">
+                        <Icon className="h-3.5 w-3.5 text-white/80" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col">
                     <p className="text-lg font-semibold text-foreground">

@@ -28,6 +28,19 @@ export async function createPostAction(data: {
     return { success: false, error: "You must be logged in to create a post." };
   }
 
+  if (data.status === "scheduled") {
+    if (!data.scheduledAt) {
+      return { success: false, error: "Pro naplánování vyber datum a čas publikování." };
+    }
+    const scheduled = new Date(data.scheduledAt);
+    if (Number.isNaN(scheduled.getTime())) {
+      return { success: false, error: "Neplatné datum naplánování." };
+    }
+    if (scheduled.getTime() <= Date.now()) {
+      return { success: false, error: "Naplánovaný čas musí být v budoucnosti." };
+    }
+  }
+
   const { data: post, error } = await supabase
     .from("posts")
     .insert({
@@ -49,6 +62,7 @@ export async function createPostAction(data: {
   }
 
   revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
   revalidateAllLocales("/posts");
   return { success: true, data: post };
 }
@@ -63,6 +77,21 @@ export async function updatePost(id: string, data: {
   tags?: string[];
 }) {
   const supabase = await createClient();
+
+  if (data.status === "scheduled") {
+    if (data.scheduledAt === null) {
+      return { success: false, error: "Pro naplánování vyber datum a čas publikování." };
+    }
+    if (typeof data.scheduledAt === "string") {
+      const scheduled = new Date(data.scheduledAt);
+      if (Number.isNaN(scheduled.getTime())) {
+        return { success: false, error: "Neplatné datum naplánování." };
+      }
+      if (scheduled.getTime() <= Date.now()) {
+        return { success: false, error: "Naplánovaný čas musí být v budoucnosti." };
+      }
+    }
+  }
 
   const updateData: Record<string, unknown> = {};
   if (data.content !== undefined) updateData.content = data.content;
@@ -85,6 +114,8 @@ export async function updatePost(id: string, data: {
     return { success: false, error: error.message };
   }
 
+  revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
   revalidateAllLocales("/posts");
   return { success: true, data: post };
 }

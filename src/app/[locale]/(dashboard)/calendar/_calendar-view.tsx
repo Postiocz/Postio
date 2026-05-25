@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
+import { publishToFacebook } from "@/lib/actions/publish";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { toast } from "sonner";
 import NextImage from "next/image";
@@ -273,10 +274,50 @@ export function CalendarView({
 
     try {
       const normalizedScheduledAt = normalizeScheduledAt(formScheduledAt);
+
+      if (status === "published") {
+        if (formPlatforms.length === 0 || !formPlatforms.includes("facebook")) {
+          const msg = "Pro publikování vyber Facebook.";
+          setFormError(msg);
+          toast.error(msg);
+          return;
+        }
+
+        const createResult = await createPostAction({
+          content: formContent.trim(),
+          platforms: formPlatforms,
+          scheduledAt: null,
+          status: "draft",
+          location: formLocation.trim() || undefined,
+          tags: formTags.length > 0 ? formTags : undefined,
+          mediaUrls: [],
+        });
+
+        if (!createResult.success || !createResult.data?.id) {
+          const msg = createResult.error ?? (tCalendar.errorSaving || "Chyba při ukládání");
+          setFormError(msg);
+          toast.error(msg);
+          return;
+        }
+
+        const publishResult = await publishToFacebook({ postId: String(createResult.data.id) });
+        if (publishResult.success) {
+          toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+          handleCloseModal();
+          window.location.reload();
+          return;
+        }
+
+        const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+        setFormError(msg);
+        toast.error(msg);
+        return;
+      }
+
       const result = await createPostAction({
         content: formContent.trim(),
         platforms: formPlatforms,
-        scheduledAt: status === "published" ? null : normalizedScheduledAt,
+        scheduledAt: normalizedScheduledAt,
         status,
         location: formLocation.trim() || undefined,
         tags: formTags.length > 0 ? formTags : undefined,
@@ -287,10 +328,11 @@ export function CalendarView({
         toast.success(tCalendar.postCreated || "Příspěvek vytvořen!");
         handleCloseModal();
         window.location.reload();
-      } else {
-        setFormError(result.error ?? (tCalendar.errorSaving || "Chyba při ukládání"));
-        toast.error(result.error ?? (tCalendar.errorSaving || "Chyba při ukládání"));
+        return;
       }
+
+      setFormError(result.error ?? (tCalendar.errorSaving || "Chyba při ukládání"));
+      toast.error(result.error ?? (tCalendar.errorSaving || "Chyba při ukládání"));
     } catch {
       setFormError(tCalendar.errorSaving || "Chyba při ukládání");
       toast.error(tCalendar.errorSaving || "Chyba při ukládání");

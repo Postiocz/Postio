@@ -230,7 +230,7 @@ export default function AccountsPage() {
       provider: "facebook",
       options: {
         scopes:
-          "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,ads_management,business_management",
+          "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,ads_management,business_management",
         redirectTo: `${window.location.origin}/auth/callback?next=/cs/accounts`,
         queryParams: {
           auth_type: "rerequest",
@@ -572,7 +572,7 @@ export default function AccountsPage() {
               provider: "facebook",
               options: {
                 scopes:
-                  "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,ads_management,business_management",
+                  "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,ads_management,business_management",
                 redirectTo: `${window.location.origin}/auth/callback?next=/cs/accounts`,
                 queryParams: {
                   auth_type: "rerequest",

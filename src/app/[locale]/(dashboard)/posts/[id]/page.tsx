@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { updatePost } from "@/lib/actions/posts";
+import { publishToFacebook } from "@/lib/actions/publish";
 import { ArrowLeft, CheckCircle2, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
@@ -36,6 +37,7 @@ export default function EditPostPage() {
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -153,10 +155,45 @@ export default function EditPostPage() {
     try {
       const mediaUrls = getMediaUrls();
       const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
+      if (status === "published") {
+        if (selectedPlatforms.length === 0 || !selectedPlatforms.includes("facebook")) {
+          toast.error("Pro publikování vyber Facebook.");
+          return;
+        }
+
+        const saveResult = await updatePost(id, {
+          content: content.trim(),
+          platforms: selectedPlatforms,
+          scheduledAt: null,
+          location: location.trim() || "",
+          tags: finalTags,
+          mediaUrls,
+        });
+
+        if (!saveResult.success) {
+          setError(saveResult.error ?? t("errorSaving"));
+          return;
+        }
+
+        setPublishing(true);
+        const publishResult = await publishToFacebook({ postId: id });
+
+        if (publishResult.success) {
+          toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+          router.push(`/${locale}/posts`);
+          return;
+        }
+
+        const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+        setError(msg);
+        toast.error(msg);
+        return;
+      }
+
       const result = await updatePost(id, {
         content: content.trim(),
         platforms: selectedPlatforms,
-        scheduledAt: status === "published" ? null : normalizedScheduledAt,
+        scheduledAt: normalizedScheduledAt,
         status: status as "draft" | "scheduled" | "published",
         location: location.trim() || "",
         tags: finalTags,
@@ -165,13 +202,15 @@ export default function EditPostPage() {
 
       if (result.success) {
         router.push(`/${locale}/posts`);
-      } else {
-        setError(result.error ?? t("errorSaving"));
+        return;
       }
+
+      setError(result.error ?? t("errorSaving"));
     } catch {
       setError(t("errorSaving"));
     } finally {
       setSaving(false);
+      setPublishing(false);
     }
   };
 
@@ -473,11 +512,11 @@ export default function EditPostPage() {
           <div className="flex gap-3 pt-2">
             <Button
               onClick={handleSave}
-              disabled={saving || !content.trim() || hasUploading()}
+              disabled={saving || publishing || !content.trim() || hasUploading()}
               className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
             >
-              {saving || hasUploading() ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {saving || hasUploading() ? t("loading") : t("save")}
+              {saving || publishing || hasUploading() ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {saving || publishing || hasUploading() ? t("loading") : t("save")}
             </Button>
           </div>
         </div>

@@ -80,6 +80,7 @@ export interface Database {
           scheduled_at: string | null
           status: 'draft' | 'scheduled' | 'published' | 'failed'
           published_at: string | null
+          publish_error: string | null
           created_at: string
           updated_at: string
         }
@@ -92,6 +93,7 @@ export interface Database {
           scheduled_at?: string | null
           status?: 'draft' | 'scheduled' | 'published' | 'failed'
           published_at?: string | null
+          publish_error?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -104,6 +106,7 @@ export interface Database {
           scheduled_at?: string | null
           status?: 'draft' | 'scheduled' | 'published' | 'failed'
           published_at?: string | null
+          publish_error?: string | null
           created_at?: string
           updated_at?: string
         }

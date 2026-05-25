@@ -24,7 +24,10 @@ export function PostsContainer({
   tNoPostsSubtitle,
   tScheduledAt,
   tEditPost,
-  tDeleteConfirm,
+  tDeleteConfirmTitle,
+  tDeleteConfirmDesc,
+  tDeleteConfirmAction,
+  tDeleteCancel,
   tLabels,
 }: {
   initialPosts: PostListItem[];
@@ -42,7 +45,10 @@ export function PostsContainer({
   tNoPostsSubtitle: string;
   tScheduledAt: string;
   tEditPost: string;
-  tDeleteConfirm: string;
+  tDeleteConfirmTitle: string;
+  tDeleteConfirmDesc: string;
+  tDeleteConfirmAction: string;
+  tDeleteCancel: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -187,7 +193,10 @@ export function PostsContainer({
               tStatusFailed={tStatusFailed}
               tScheduledAt={tScheduledAt}
               tEditPost={tEditPost}
-              tDeleteConfirm={tDeleteConfirm}
+              tDeleteConfirmTitle={tDeleteConfirmTitle}
+              tDeleteConfirmDesc={tDeleteConfirmDesc}
+              tDeleteConfirmAction={tDeleteConfirmAction}
+              tDeleteCancel={tDeleteCancel}
               tLabels={tLabels}
               onDeleted={handleDeleted}
             />

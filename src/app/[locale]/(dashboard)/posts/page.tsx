@@ -60,7 +60,10 @@ export default async function PostsPage({
           tNoPostsSubtitle={t("noPostsSubtitle")}
           tScheduledAt={t("scheduledAt")}
           tEditPost={t("editPost")}
-          tDeleteConfirm={t("deleteConfirm")}
+          tDeleteConfirmTitle={t("deleteConfirmTitle")}
+          tDeleteConfirmDesc={t("deleteConfirmDesc")}
+          tDeleteConfirmAction={t("deleteConfirmAction")}
+          tDeleteCancel={t("deleteCancel")}
           tLabels={{
             newPost: t("newPost"),
             editPost: t("editPost"),

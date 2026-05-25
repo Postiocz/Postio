@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
+import { publishToFacebook } from "@/lib/actions/publish";
 import { ArrowLeft, Calendar, CheckCircle2, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
@@ -36,6 +37,7 @@ export default function NewPostPage() {
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
+  const [publishing, setPublishing] = useState(false);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,7 +97,7 @@ export default function NewPostPage() {
     return d.toISOString();
   };
 
-  const handleSubmit = async (status: "draft" | "scheduled" | "published") => {
+  const handleSubmit = async (status: "draft" | "scheduled") => {
     if (!content.trim()) return;
     if (hasUploading()) {
       toast.info(t("uploading"));
@@ -125,7 +127,7 @@ export default function NewPostPage() {
       const result = await createPostAction({
         content: content.trim(),
         platforms: selectedPlatforms,
-        scheduledAt: status === "published" ? null : normalizedScheduledAt,
+        scheduledAt: normalizedScheduledAt,
         status,
         location: location.trim() || undefined,
         tags: finalTags,
@@ -144,6 +146,73 @@ export default function NewPostPage() {
       toast.error(t("errorSaving"));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePublishNow = async () => {
+    if (!content.trim()) return;
+    if (hasUploading()) {
+      toast.info(t("uploading"));
+      return;
+    }
+
+    if (selectedPlatforms.length === 0 || !selectedPlatforms.includes("facebook")) {
+      toast.error("Pro publikování vyber Facebook.");
+      return;
+    }
+
+    let finalTags = [...tags];
+    if (tagDraft.trim()) {
+      const cleaned = tagDraft.trim();
+      const core = cleaned.startsWith("#") ? cleaned.slice(1) : cleaned;
+      const normalized = core.replace(/[^\p{L}\p{N}_-]+/gu, "");
+      if (normalized) {
+        const tag = `#${normalized}`;
+        const exists = finalTags.some((t0) => t0.toLowerCase() === tag.toLowerCase());
+        if (!exists) finalTags = [...finalTags, tag];
+      }
+    }
+    setTagDraft("");
+
+    setPublishing(true);
+    setError(null);
+
+    try {
+      const mediaUrls = getMediaUrls();
+      const createResult = await createPostAction({
+        content: content.trim(),
+        platforms: selectedPlatforms,
+        scheduledAt: null,
+        status: "draft",
+        location: location.trim() || undefined,
+        tags: finalTags,
+        mediaUrls,
+      });
+
+      if (!createResult.success || !createResult.data?.id) {
+        const msg = createResult.error ?? t("errorSaving");
+        setError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      const postId = createResult.data.id as string;
+      const publishResult = await publishToFacebook({ postId });
+
+      if (publishResult.success) {
+        toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+        router.push(`/${locale}/posts`);
+        return;
+      }
+
+      const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+      setError(msg);
+      toast.error(msg);
+    } catch {
+      setError("Publikování na Facebook selhalo.");
+      toast.error("Publikování na Facebook selhalo.");
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -446,7 +515,7 @@ export default function NewPostPage() {
           <div className="flex gap-3 pt-2">
             <Button
               onClick={() => handleSubmit("draft")}
-              disabled={!content.trim() || loading || hasUploading()}
+              disabled={!content.trim() || loading || publishing || hasUploading()}
               variant="outline"
               className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
             >
@@ -455,19 +524,19 @@ export default function NewPostPage() {
             </Button>
             <Button
               onClick={() => handleSubmit("scheduled")}
-              disabled={!content.trim() || !scheduledAt || loading || hasUploading()}
+              disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading()}
               className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
             >
               {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
               {(loading || hasUploading()) ? t("saving") : t("schedule")}
             </Button>
             <Button
-              onClick={() => handleSubmit("published")}
-              disabled={!content.trim() || selectedPlatforms.length === 0 || loading || hasUploading()}
+              onClick={handlePublishNow}
+              disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || hasUploading()}
               className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
             >
-              {(loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {(loading || hasUploading()) ? t("saving") : t("publishNow")}
+              {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {(publishing || loading || hasUploading()) ? t("saving") : t("publishNow")}
             </Button>
           </div>
         </div>

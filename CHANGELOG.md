@@ -1,3 +1,17 @@
+## 2026-05-26
+
+### Feature – Facebook publish: podpora fotek a videí + striktní plánování (DOKONČENO)
+
+- `src/lib/actions/publish.ts` – `publishToFacebook` nově detekuje typ media podle `media_urls[0]` a volí Graph API endpoint: `/videos` (mp4/mov), `/photos` (jpg/png/webp), jinak `/feed` (text).
+- `src/lib/actions/posts.ts` – validace pro `scheduled`: vyžaduje validní datum v budoucnosti; revalidace po vytvoření/úpravě jde na `/calendar` a `/posts`.
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – „Publikovat nyní“ v modal formuláři nyní opravdu publikuje přes `publishToFacebook` (místo pouhého uložení se statusem `published`).
+
+### Fix – UI: mazání příspěvků + default čas v plánování (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/app/[locale]/(dashboard)/posts/_posts-container.tsx`, `src/app/[locale]/(dashboard)/posts/page.tsx` – mazání příspěvku nyní používá stejný potvrzovací dialog (Radix/shadcn) jako mazání propojeného účtu (místo browser confirm).
+- `src/components/ui/date-time-picker.tsx` – výchozí čas v plánování je nyní aktuální čas (místo 12:00), pokud ještě není vybrané datum/čas.
+- `src/messages/cs.json`, `en.json`, `uk.json` – doplněny překlady pro potvrzení smazání příspěvku (texty sjednoceny tónem s potvrzením mazání účtů).
+
 ## 2026-05-25
 
 ### Fix – Mazání propojených účtů: potvrzení + skutečné odstranění z DB (DOKONČENO)

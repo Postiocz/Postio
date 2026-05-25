@@ -54,11 +54,11 @@ export function DateTimePicker({
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(
     value ? new Date(value) : null
   );
-  const [selectedHour, setSelectedHour] = React.useState(
-    value ? new Date(value).getHours() : 12
+  const [selectedHour, setSelectedHour] = React.useState(() =>
+    value ? new Date(value).getHours() : new Date().getHours()
   );
-  const [selectedMinute, setSelectedMinute] = React.useState(
-    value ? new Date(value).getMinutes() : 0
+  const [selectedMinute, setSelectedMinute] = React.useState(() =>
+    value ? new Date(value).getMinutes() : new Date().getMinutes()
   );
 
   const dateLocale = getLocale(locale);
@@ -67,8 +67,9 @@ export function DateTimePicker({
   React.useEffect(() => {
     if (!value) {
       setSelectedDate(null);
-      setSelectedHour(12);
-      setSelectedMinute(0);
+      const now = new Date();
+      setSelectedHour(now.getHours());
+      setSelectedMinute(now.getMinutes());
       return;
     }
 
@@ -104,6 +105,13 @@ export function DateTimePicker({
   };
 
   const handleDayClick = (d: Date) => {
+    if (!selectedDate && !value) {
+      const now = new Date();
+      setSelectedHour(now.getHours());
+      setSelectedMinute(now.getMinutes());
+      emitChange(applyTime(d, now.getHours(), now.getMinutes()));
+      return;
+    }
     emitChange(applyTime(d, selectedHour, selectedMinute));
   };
 

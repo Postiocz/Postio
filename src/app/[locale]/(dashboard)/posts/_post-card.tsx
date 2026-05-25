@@ -6,6 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
 import { Trash2, Edit, Clock, FileText } from "lucide-react";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Instagram,
   Facebook,
   Linkedin,
@@ -62,7 +70,10 @@ export function PostCard({
   tStatusFailed,
   tScheduledAt,
   tEditPost,
-  tDeleteConfirm,
+  tDeleteConfirmTitle,
+  tDeleteConfirmDesc,
+  tDeleteConfirmAction,
+  tDeleteCancel,
   onDeleted,
   animationDelay = 0,
   tLabels,
@@ -75,7 +86,10 @@ export function PostCard({
   tStatusFailed: string;
   tScheduledAt: string;
   tEditPost: string;
-  tDeleteConfirm: string;
+  tDeleteConfirmTitle: string;
+  tDeleteConfirmDesc: string;
+  tDeleteConfirmAction: string;
+  tDeleteCancel: string;
   onDeleted?: (id: string) => void;
   animationDelay?: number;
   tLabels: {
@@ -113,6 +127,7 @@ export function PostCard({
   };
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
   const statusLabels: Record<string, string> = {
@@ -126,10 +141,10 @@ export function PostCard({
   const statusStyle = STATUS_STYLES[post.status] ?? STATUS_STYLES.draft;
 
   const handleDelete = async () => {
-    if (!confirm(tDeleteConfirm)) return;
     setIsDeleting(true);
     const result = await deletePost(post.id);
     if (result.success) {
+      setDeleteOpen(false);
       onDeleted?.(post.id);
       return;
     }
@@ -178,9 +193,9 @@ export function PostCard({
             variant="ghost"
             size="icon-sm"
             className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={handleDelete}
+            onClick={() => setDeleteOpen(true)}
             disabled={isDeleting}
-            title={tDeleteConfirm}
+            title={tDeleteConfirmTitle}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -216,6 +231,39 @@ export function PostCard({
       locale={locale}
       tLabels={tLabels}
     />
+
+    <Dialog
+      open={deleteOpen}
+      onOpenChange={(open) => {
+        if (!open && !isDeleting) setDeleteOpen(false);
+        if (open) setDeleteOpen(true);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{tDeleteConfirmTitle}</DialogTitle>
+          <DialogDescription>{tDeleteConfirmDesc}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setDeleteOpen(false)}
+            disabled={isDeleting}
+          >
+            {tDeleteCancel}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {tDeleteConfirmAction}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
@@ -229,7 +277,10 @@ export function PostsList({
   tStatusFailed,
   tScheduledAt,
   tEditPost,
-  tDeleteConfirm,
+  tDeleteConfirmTitle,
+  tDeleteConfirmDesc,
+  tDeleteConfirmAction,
+  tDeleteCancel,
   tLabels,
   onDeleted,
 }: {
@@ -241,7 +292,10 @@ export function PostsList({
   tStatusFailed: string;
   tScheduledAt: string;
   tEditPost: string;
-  tDeleteConfirm: string;
+  tDeleteConfirmTitle: string;
+  tDeleteConfirmDesc: string;
+  tDeleteConfirmAction: string;
+  tDeleteCancel: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -291,7 +345,10 @@ export function PostsList({
             tStatusFailed={tStatusFailed}
             tScheduledAt={tScheduledAt}
             tEditPost={tEditPost}
-            tDeleteConfirm={tDeleteConfirm}
+            tDeleteConfirmTitle={tDeleteConfirmTitle}
+            tDeleteConfirmDesc={tDeleteConfirmDesc}
+            tDeleteConfirmAction={tDeleteConfirmAction}
+            tDeleteCancel={tDeleteCancel}
             animationDelay={Math.min(index * 0.04, 0.2)}
             onDeleted={onDeleted}
             tLabels={tLabels}

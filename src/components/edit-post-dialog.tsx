@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { X, MapPin, Loader2, Film, Image as ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction, updatePost } from "@/lib/actions/posts";
+import { publishToFacebook } from "@/lib/actions/publish";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -111,17 +112,13 @@ export function EditPostDialog({
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-
-  if (!supabaseRef.current) {
-    supabaseRef.current = createClient();
-  }
-  const supabase = supabaseRef.current;
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     if (userId || !open) return;
@@ -155,7 +152,8 @@ export function EditPostDialog({
   } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    Promise.resolve().then(() => {
       if (isEdit && post) {
         setContent(post.content);
         setPlatforms(post.platforms ?? []);
@@ -176,7 +174,7 @@ export function EditPostDialog({
       }
       setTagDraft("");
       setError(null);
-    }
+    });
   }, [open, isEdit, post, loadExistingUrls]);
 
   const togglePlatform = useCallback((id: string) => {
@@ -227,7 +225,7 @@ export function EditPostDialog({
   }, []);
 
   const handleSubmit = useCallback(
-    async (newStatus: "draft" | "scheduled" | "published") => {
+    async (newStatus: "draft" | "scheduled") => {
       if (!content.trim()) return;
       if (hasUploading()) {
         toast.info(tLabels.uploading);
@@ -246,7 +244,7 @@ export function EditPostDialog({
           result = await updatePost(post.id, {
             content: content.trim(),
             platforms,
-            scheduledAt: newStatus === "published" ? null : normalizedScheduledAt,
+            scheduledAt: normalizedScheduledAt,
             status: newStatus,
             location: location.trim() || "",
             tags: finalTags,
@@ -256,7 +254,7 @@ export function EditPostDialog({
           result = await createPostAction({
             content: content.trim(),
             platforms,
-            scheduledAt: newStatus === "published" ? null : normalizedScheduledAt,
+            scheduledAt: normalizedScheduledAt,
             status: newStatus,
             location: location.trim() || undefined,
             tags: finalTags.length > 0 ? finalTags : undefined,
@@ -282,9 +280,86 @@ export function EditPostDialog({
     [
       content, platforms, scheduledAt, status, location, tags, tagDraft,
       isEdit, post, hasUploading, getMediaUrls, handleCommitRemainingTag,
-      onOpenChange, tLabels,
+      normalizeScheduledAt, onOpenChange, tLabels,
     ]
   );
+
+  const handlePublishNow = async () => {
+    if (!content.trim()) return;
+    if (hasUploading()) {
+      toast.info(tLabels.uploading);
+      return;
+    }
+
+    if (platforms.length === 0 || !platforms.includes("facebook")) {
+      toast.error("Pro publikování vyber Facebook.");
+      return;
+    }
+
+    setPublishing(true);
+    setError(null);
+
+    const finalTags = handleCommitRemainingTag();
+    const mediaUrls = getMediaUrls();
+
+    try {
+      let postId = post?.id;
+
+      if (isEdit && postId) {
+        const saveResult = await updatePost(postId, {
+          content: content.trim(),
+          platforms,
+          scheduledAt: null,
+          location: location.trim() || "",
+          tags: finalTags,
+          mediaUrls,
+        });
+
+        if (!saveResult.success) {
+          const msg = saveResult.error ?? tLabels.errorSaving;
+          setError(msg);
+          toast.error(msg);
+          return;
+        }
+      } else {
+        const createResult = await createPostAction({
+          content: content.trim(),
+          platforms,
+          scheduledAt: null,
+          status: "draft",
+          location: location.trim() || undefined,
+          tags: finalTags.length > 0 ? finalTags : undefined,
+          mediaUrls,
+        });
+
+        if (!createResult.success || !createResult.data?.id) {
+          const msg = createResult.error ?? tLabels.errorSaving;
+          setError(msg);
+          toast.error(msg);
+          return;
+        }
+        postId = createResult.data.id as string;
+      }
+
+      const publishResult = await publishToFacebook({ postId: postId as string });
+
+      if (publishResult.success) {
+        toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+        onOpenChange(false);
+        window.location.reload();
+        return;
+      }
+
+      const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+      setError(msg);
+      toast.error(msg);
+    } catch {
+      setError("Publikování na Facebook selhalo.");
+      toast.error("Publikování na Facebook selhalo.");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const handleClose = useCallback(() => {
     onOpenChange(false);
@@ -604,7 +679,7 @@ export function EditPostDialog({
           <Button
             type="button"
             onClick={() => handleSubmit("draft")}
-            disabled={!content.trim() || loading}
+            disabled={!content.trim() || loading || publishing}
             variant="outline"
             className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
           >
@@ -614,7 +689,7 @@ export function EditPostDialog({
           <Button
             type="button"
             onClick={() => handleSubmit("scheduled")}
-            disabled={!content.trim() || !scheduledAt || loading}
+            disabled={!content.trim() || !scheduledAt || loading || publishing}
             className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -622,12 +697,12 @@ export function EditPostDialog({
           </Button>
           <Button
             type="button"
-            onClick={() => handleSubmit("published")}
-            disabled={!content.trim() || platforms.length === 0 || loading}
+            onClick={handlePublishNow}
+            disabled={!content.trim() || platforms.length === 0 || loading || publishing}
             className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
           >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? tLabels.saving : tLabels.publishNow}
+            {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {publishing ? tLabels.saving : tLabels.publishNow}
           </Button>
         </div>
       </DialogContent>

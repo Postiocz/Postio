@@ -100,7 +100,7 @@ export function useMediaUpload(
         .from("post-media")
         .upload(uniqueName, file, {
           cacheControl: "3600",
-          upsert: false,
+          upsert: true,
         });
 
       if (error) {

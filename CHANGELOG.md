@@ -1,8 +1,76 @@
+## 2026-05-28
+
+### Fix – Edge Function: anti-duplikace příspěvků (scheduled → publishing lock) (DOKONČENO)
+
+- `supabase/functions/process-scheduled-posts/index.ts` – oprava duplicitního odesílání na Facebook:
+  - **Lock mechanismus**: Hned po výběru příspěvků se jejich status změní z `scheduled` na `publishing` (batch update `.in("id", ...).eq("status", "scheduled")`)
+  - **Anti-duplikace**: Pokud se Edge funkce spustí dvakrát ve stejnou vteřinu, druhá instance nenajde žádné `scheduled` příspěvky (už jsou `publishing`) a skončí early return
+  - **Early exit**: Pokud není žádný `scheduled` příspěvek, funkce okamžitě vrátí HTTP 200 s `totalFound: 0`
+  - **Error handling**: Všechny DB update v loopu a catch bloku nyní checkují `.eq("status", "publishing")` místo `scheduled`
+  - **Status flow**: `scheduled` → `publishing` (lock) → `published` (success) nebo `failed` (error)
+  - **DB constraint**: `posts.status` CHECK rozšířen o `publishing` → povolené hodnoty: `('draft', 'scheduled', 'publishing', 'published', 'failed')`
+
+### Fix – Edge Function: TypeScript error u accountError?.message (DOKONČENO)
+
+---
+
+## 2026-05-27
+
+- `supabase/functions/process-scheduled-posts/index.ts` – řádek 291: `accountError?.message` hlásil TypeScript error "Property 'message' does not exist on type...". Opraveno type assertion na `(accountError as { message?: string } | null)?.message` protože import přes `esm.sh` nemá silně definovaný typ `PostgrestError`.
+
+### Fix – Edge Function: robustní logování hledání Facebook účtu (DOKONČENO)
+
+- `supabase/functions/process-scheduled-posts/index.ts` – vylepšený lookup Facebook účtu:
+  - Přidán log před dotazem: `Hledám účet pro user_id: {id} a platformu: facebook`
+  - Přidán log výsledku dotazu: `accountError`, `accountsFound`, `accounts` (pro debug)
+  - Rozlišená chyba: pokud není nalezen žádný účet → `CHYBA: Účet pro uživatele [ID] nebyl v social_accounts nalezen.`
+  - Pokud účet existuje ale chybí `access_token`/`platform_id` → původní error message
+  - Case-insensitive `.ilike("platform", "facebook")` již funguje správně
+
+### Feature – Edge Function: reálné publikování na Facebook s detekcí typu média (DOKONČENO)
+
+- `supabase/functions/process-scheduled-posts/index.ts` – kompletní přepis Edge funkce:
+  - **Nová funkce `publishToFacebook`**: Reálné odesílání příspěvků na Facebook přes Meta Graph API s plnou detekcí typu média.
+  - **Detekce média**: `detectMediaType()` analyzuje `media_urls[0]` a vybírá správný endpoint:
+    - **FOTO** (.jpg, .png, .webp) → `/{pageId}/photos` s parametry `url` + `caption`
+    - **VIDEO** (.mp4, .mov) → `/{pageId}/videos` s parametry `file_url` + `description`
+    - **TEXT** → `/{pageId}/feed` s parametrem `message`
+  - **Logging**: Přidán vstupní log `console.log(">>> Checking for scheduled posts...")` a detailní logy pro každý krok (načtení postů, zpracování, Facebook API odpověď).
+  - **Autorizace**: Podpora `service_role` klíče přes hlavičku `apikey` (pro Cron Job) i `Authorization: Bearer` (pro manuální testování).
+  - **DB update**: Po úspěšném publikování se nastaví `status = 'published'`, `published_at`, `external_id` (Facebook post ID) a `scheduled_at = null`. Při chybě `status = 'failed'` + `publish_error`.
+  - **Facebook účet**: Hledá aktivní Facebook účet uživatele přes `.ilike("platform", "facebook")` a bere `access_token` + `platform_id`.
+  - **Analytics**: Vkládá záznam do `analytics` tabulky pouze při úspěšném publikování.
+  - **Error handling**: Při unexpected error se post automaticky označí jako `failed` s chybovým textem.
+
+### Stav systému po této aktualizaci
+
+- ✅ `supabase/config.toml` – `verify_jwt = false` (již bylo nastaveno)
+- ✅ `supabase/functions/process-scheduled-posts/index.ts` – reálné publish na Facebook s media detekcí
+- ✅ `src/lib/actions/posts.ts` – `createPostAction` již správně ukládá `status: 'scheduled'`
+- ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx` – tlačítko "Naplánovat" volá `handleSubmit("scheduled")`
+- ✅ `src/components/edit-post-dialog.tsx` – tlačítko "Naplánovat" volá `handleSubmit("scheduled")`
+- ✅ `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – podpora `status: "scheduled"`
+
 ## 2026-05-26
+
+### Fix – Publikování a plánování: case-insensitive account lookup, 5 min tolerance, debug logy (DOKONČENO)
+
+- `src/lib/actions/publish.ts` – dotaz na `social_accounts` nyní používá `.ilike("platform", "facebook")` (case-insensitive), aby se nenašel účet s "Facebook" / "FACEBOOK". Při chybě dotazu nebo chybějícím tokenu/platform_id se vypíšou VŠECHNY záznamy z `social_accounts` do terminálu (`DEBUG - Všechny účty v DB`) pro snadné ladění.
+- `src/lib/actions/publish.ts` – před odesláním na Meta Graph API se loguje detail: `console.log("ODESÍLÁM NA FACEBOOK...", { platform_id, text, mediaType, mediaUrl, url })`.
+- `src/lib/actions/posts.ts` – `createPostAction` a `updatePost` nově mají 5 minut toleranci u validace času: `scheduled.getTime() < Date.now() - 5 * 60 * 1000`. Uživatel může naplánovat i čas, který právě nastal (do 5 min zpět), což řeší chybu "Čas je v minulosti" při pomalém kliknutí.
+- `src/components/locale-switcher.tsx` – zkontrolováno: žádné "login" v textu, přepínač zobrazuje správně "Čeština" / "English" / "Українська".
+
+### Fix – Stabilita auth redirectů (DOKONČENO)
+
+- `middleware.ts` – redirect na `/{locale}/login` probíhá jen pro dashboard routy bez session; `/` nově vede na `/cs` (ne přímo na login).
+- `src/app/auth/callback/route.ts` – zjednodušený callback: žádné debug logy, jeden finální `NextResponse.redirect(new URL(next, request.url))`, cookies se bezpečně přenesou do redirect response.
+- `src/app/[locale]/(dashboard)/layout.tsx` – do server layoutu přidán `console.log("CURRENT USER:", user?.id)` pro debug session v terminálu.
 
 ### Feature – Facebook publish: podpora fotek a videí + striktní plánování (DOKONČENO)
 
 - `src/lib/actions/publish.ts` – `publishToFacebook` nově detekuje typ media podle `media_urls[0]` a volí Graph API endpoint: `/videos` (mp4/mov), `/photos` (jpg/png/webp), jinak `/feed` (text).
+- `src/lib/actions/publish.ts` – loguje odpověď z Meta Graph API (`console.log("META RESPONSE:", ...)`) a po úspěchu ukládá `id` do `posts.external_id`.
+- `src/lib/actions/posts.ts` – `deletePost` při `posts.external_id` volá smazání z Facebooku přes `DELETE /{external_id}`.
 - `src/lib/actions/posts.ts` – validace pro `scheduled`: vyžaduje validní datum v budoucnosti; revalidace po vytvoření/úpravě jde na `/calendar` a `/posts`.
 - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – „Publikovat nyní“ v modal formuláři nyní opravdu publikuje přes `publishToFacebook` (místo pouhého uložení se statusem `published`).
 

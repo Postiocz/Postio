@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect root "/" to default locale
   if (url.pathname === "/") {
-    return NextResponse.redirect(new URL("/cs/login", request.url));
+    return NextResponse.redirect(new URL("/cs", request.url));
   }
 
   // Try to refresh the auth session via Supabase (graceful fallback)
@@ -46,19 +46,35 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // If no session and not on a public route, redirect to login
-  // But skip redirect if Supabase is not configured or errored (dev mode)
-  const publicPatterns = ["/login", "/verify-2fa", "/api"];
-  const isPublicRoute = publicPatterns.some((pattern) =>
-    url.pathname.includes(pattern)
-  );
+  const localeMatch = url.pathname.match(/^\/(cs|en|uk)(\/.*)?$/);
+  const locale = localeMatch ? localeMatch[1] : "cs";
+  const restPath = (localeMatch?.[2] ?? "") || "/";
 
-  if (!session && !isPublicRoute && !supabaseError && isSupabaseConfigured) {
-    const localeMatch = url.pathname.match(/^\/(cs|en|uk)/);
-    const locale = localeMatch ? localeMatch[1] : "cs";
+  const isAuthRoute =
+    restPath === "/login" ||
+    restPath.startsWith("/login/") ||
+    restPath === "/onboarding" ||
+    restPath.startsWith("/onboarding/");
+
+  const isDashboardRoute =
+    restPath === "/" ||
+    restPath.startsWith("/posts") ||
+    restPath.startsWith("/calendar") ||
+    restPath.startsWith("/accounts") ||
+    restPath.startsWith("/templates") ||
+    restPath.startsWith("/analytics") ||
+    restPath.startsWith("/inbox") ||
+    restPath.startsWith("/settings");
+
+  if (
+    isDashboardRoute &&
+    !isAuthRoute &&
+    !session &&
+    !supabaseError &&
+    isSupabaseConfigured
+  ) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     const redirectResponse = NextResponse.redirect(loginUrl);
-    // Copy auth cookies from the Supabase response
     authResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie);
     });

@@ -8,6 +8,8 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
   params,
@@ -25,6 +27,7 @@ export default async function DashboardLayout({
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    console.log("CURRENT USER:", user?.id);
     session = user;
   } catch {
     supabaseAvailable = false;

@@ -78,8 +78,9 @@ export interface Database {
           media_urls: string[]
           platforms: string[]
           scheduled_at: string | null
-          status: 'draft' | 'scheduled' | 'published' | 'failed'
+          status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
           published_at: string | null
+          external_id: string | null
           publish_error: string | null
           created_at: string
           updated_at: string
@@ -91,8 +92,9 @@ export interface Database {
           media_urls?: string[]
           platforms: string[]
           scheduled_at?: string | null
-          status?: 'draft' | 'scheduled' | 'published' | 'failed'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
           published_at?: string | null
+          external_id?: string | null
           publish_error?: string | null
           created_at?: string
           updated_at?: string
@@ -104,8 +106,9 @@ export interface Database {
           media_urls?: string[]
           platforms?: string[]
           scheduled_at?: string | null
-          status?: 'draft' | 'scheduled' | 'published' | 'failed'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
           published_at?: string | null
+          external_id?: string | null
           publish_error?: string | null
           created_at?: string
           updated_at?: string

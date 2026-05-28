@@ -31,8 +31,6 @@ import {
 import { Reorder } from "framer-motion";
 import { AccountTypeModal } from "@/components/account-type-modal";
 
-export const dynamic = "force-dynamic";
-
 type PlatformId =
   | "instagram"
   | "facebook"
@@ -148,14 +146,19 @@ export default function AccountsPage() {
   }
 
   async function fetchAccounts() {
+    console.log("Načítám účty přímo z tabulky social_accounts...");
     const { data: accounts, error } = await supabase
       .from("social_accounts")
       .select("*")
       .order("created_at", { ascending: false });
-    console.log("Nalezeno účtů:", accounts?.length);
+
+    console.log("VÝSLEDEK FETCH Z social_accounts:", { count: accounts?.length, error });
     if (error) {
       console.error("FETCH ACCOUNTS ERROR:", error);
+      setLoading(false);
+      return;
     }
+    console.log("Nalezeno účtů:", accounts?.length);
     if (accounts) setAccounts(accounts as SocialAccount[]);
     setLoading(false);
   }

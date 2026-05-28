@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { revalidatePath } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/server";
 
 type FacebookPagesResponse = {
   data?: Array<{
@@ -50,178 +50,177 @@ async function graphFetch<T>(
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const nextPath = requestUrl.searchParams.get("next") || "/cs/accounts";
+  const nextParam = requestUrl.searchParams.get("next") || "/accounts";
 
-  let redirectPath = nextPath;
+  const localeFromNext = nextParam.match(/^\/(cs|en|uk)(?:\/|$)/)?.[1];
+  const localeFromReferer = request.headers
+    .get("referer")
+    ?.match(/\/(cs|en|uk)(?:\/|$)/)?.[1];
+  const locale = localeFromNext ?? localeFromReferer ?? "cs";
 
-  if (code) {
+  const normalizeNext = (raw: string) => {
+    if (!raw) return `/${locale}/accounts`;
+    let path = raw;
+
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const parsed = new URL(raw);
+        if (parsed.origin !== requestUrl.origin) return `/${locale}/accounts`;
+        path = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      } catch {
+        return `/${locale}/accounts`;
+      }
+    }
+
+    if (!path.startsWith("/")) return `/${locale}/accounts`;
+    if (path === "/") return `/${locale}`;
+    if (path.startsWith("/auth/callback")) return `/${locale}/accounts`;
+
+    const hasLocale = /^\/(cs|en|uk)(?:\/|$)/.test(path);
+    if (hasLocale) return path;
+    return `/${locale}${path}`;
+  };
+
+  const next = normalizeNext(nextParam);
+
+  if (!code) {
+    return NextResponse.redirect(new URL(next, request.url));
+  }
+
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  let response = NextResponse.next({ request: { headers: request.headers } });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    key!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  const { data: authData, error: authError } =
+    await supabase.auth.exchangeCodeForSession(code);
+
+  if (authError) {
+    const errorResponse = NextResponse.redirect(
+      new URL(`/${locale}/login?error=${encodeURIComponent(authError.message)}`, request.url)
+    );
+    response.cookies.getAll().forEach((cookie) => {
+      errorResponse.cookies.set(cookie);
+    });
+    return errorResponse;
+  }
+
+  const session = authData?.session;
+  const user = session?.user;
+
+  if (session?.provider_token && user) {
+    const facebookUserToken = session.provider_token;
+
     try {
-      const localeMatch = request.headers
-        .get("referer")
-        ?.match(/\/(cs|en|uk)\//);
-      const locale = localeMatch ? localeMatch[1] : "cs";
+      const pagesFields =
+        "id,name,access_token,instagram_business_account,picture{url}";
 
-      const key =
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-      const finalRedirectPath = localeMatch
-        ? `/${locale}${nextPath.startsWith(`/${locale}`) ? nextPath.slice(locale.length + 1) : nextPath.replace(/^\//, "/")}`
-        : nextPath;
-
-      const redirectResponse = NextResponse.redirect(
-        `${requestUrl.origin}${finalRedirectPath}`
+      const pages = await graphFetch<FacebookPagesResponse>(
+        "/me/accounts",
+        facebookUserToken,
+        { fields: pagesFields }
       );
 
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        key!,
-        {
-          cookies: {
-            getAll() {
-              return request.cookies.getAll();
-            },
-            setAll(cookiesToSet) {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                redirectResponse.cookies.set(name, value, options);
-              });
-            },
-          },
-        }
-      );
+      const rowsToUpsert: Array<{
+        user_id: string;
+        platform: "facebook" | "instagram";
+        account_name: string;
+        access_token: string;
+        platform_id: string | null;
+        avatar_url?: string | null;
+        is_active: boolean;
+      }> = [];
 
-      const { data: authData, error: authError } =
-        await supabase.auth.exchangeCodeForSession(code);
-      const session = authData?.session;
-      console.log("SESSION DATA:", session);
-      console.log("PROVIDER TOKEN PRESENT:", !!session?.provider_token);
+      for (const page of pages.data ?? []) {
+        if (!page.id || !page.access_token) continue;
 
-      if (authError) {
-        return NextResponse.redirect(
-          `${requestUrl.origin}/${locale}/accounts?error=${encodeURIComponent(authError.message)}`
-        );
-      }
+        const pageName = page.name || "Facebook Page";
+        const pageAvatarUrl = page.picture?.data?.url ?? null;
+        const pageAccessToken = page.access_token;
 
-      const user = session?.user;
+        rowsToUpsert.push({
+          user_id: user.id,
+          platform: "facebook",
+          account_name: pageName,
+          access_token: pageAccessToken,
+          platform_id: page.id,
+          avatar_url: pageAvatarUrl,
+          is_active: true,
+        });
 
-      // If this is a Facebook OAuth callback, save the provider access token
-      if (session?.provider_token && user) {
-        const facebookToken = session.provider_token;
+        const igId = page.instagram_business_account?.id;
+        if (!igId) continue;
 
+        let ig: InstagramBusinessResponse | null = null;
         try {
-          const pagesFields =
-            "id,name,access_token,instagram_business_account,picture{url}";
-          const pagesUrl = new URL(
-            "https://graph.facebook.com/v20.0/me/accounts"
+          ig = await graphFetch<InstagramBusinessResponse>(
+            `/${igId}`,
+            pageAccessToken,
+            { fields: "id,username,name,profile_picture_url" }
           );
-          pagesUrl.searchParams.set("fields", pagesFields);
-          console.log("GRAPH URL:", pagesUrl.toString());
-
-          const pages = await graphFetch<FacebookPagesResponse>(
-            "/me/accounts",
-            facebookToken,
-            {
-              fields: pagesFields,
-            }
-          );
-          console.log("META RESPONSE:", JSON.stringify(pages, null, 2));
-
-          const rowsToUpsert: Array<{
-            user_id: string;
-            platform: "facebook" | "instagram";
-            account_name: string;
-            access_token: string;
-            platform_id: string | null;
-            avatar_url?: string | null;
-            is_active: boolean;
-          }> = [];
-
-          for (const page of pages.data ?? []) {
-            if (!page.id || !page.access_token) continue;
-
-            const pageName = page.name || "Facebook Page";
-            const pageAvatarUrl = page.picture?.data?.url ?? null;
-
-            rowsToUpsert.push({
-              user_id: user.id,
-              platform: "facebook",
-              account_name: pageName,
-              access_token: page.access_token,
-              platform_id: page.id,
-              avatar_url: pageAvatarUrl,
-              is_active: true,
-            });
-
-            const igId = page.instagram_business_account?.id;
-            if (!igId) continue;
-
-            let ig: InstagramBusinessResponse | null = null;
-            try {
-              ig = await graphFetch<InstagramBusinessResponse>(
-                `/${igId}`,
-                page.access_token,
-                { fields: "id,username,name,profile_picture_url" }
-              );
-            } catch (e) {
-              console.error("Error fetching Instagram business details:", e);
-            }
-
-            const igName = ig?.username || ig?.name || pageName || "Instagram";
-            const igAvatarUrl =
-              ig?.profile_picture_url ?? pageAvatarUrl ?? null;
-
-            rowsToUpsert.push({
-              user_id: user.id,
-              platform: "instagram",
-              account_name: igName,
-              access_token: page.access_token,
-              platform_id: igId,
-              avatar_url: igAvatarUrl,
-              is_active: true,
-            });
-          }
-
-          if (rowsToUpsert.length > 0) {
-            console.log("DB UPSERT PAYLOAD:", rowsToUpsert);
-            const { error: upsertError } = await supabase
-              .from("social_accounts")
-              .upsert(rowsToUpsert, {
-                onConflict: "user_id,platform,platform_id",
-              });
-
-            if (upsertError) {
-              console.error("DB INSERT ERROR:", upsertError);
-            }
-          }
-        } catch (graphError) {
-          console.error("Error fetching Facebook pages:", graphError);
+        } catch {
+          ig = null;
         }
+
+        const igName = ig?.username || ig?.name || pageName || "Instagram";
+        const igAvatarUrl = ig?.profile_picture_url ?? pageAvatarUrl ?? null;
+
+        rowsToUpsert.push({
+          user_id: user.id,
+          platform: "instagram",
+          account_name: igName,
+          access_token: pageAccessToken,
+          platform_id: igId,
+          avatar_url: igAvatarUrl,
+          is_active: true,
+        });
       }
 
-      // Check if 2FA is enabled for this user
-      if (user) {
-        const { data: userData } = await supabase
-          .from("users")
-          .select("two_factor_enabled")
-          .eq("id", user.id)
-          .single();
-
-        if (userData?.two_factor_enabled) {
-          revalidatePath("/", "layout");
-          redirectResponse.headers.set(
-            "Location",
-            `${requestUrl.origin}/${locale}/login/verify-2fa`
-          );
-          return redirectResponse;
-        }
+      if (rowsToUpsert.length > 0) {
+        const supabaseAdmin = createAdminClient();
+        await supabaseAdmin
+          .from("social_accounts")
+          .upsert(rowsToUpsert, {
+            onConflict: "user_id,platform,platform_id",
+          });
       }
-
-      revalidatePath("/", "layout");
-      return redirectResponse;
     } catch {
-      // Fall through to redirect without session
     }
   }
 
-  return NextResponse.redirect(`${requestUrl.origin}${redirectPath}`);
+  let finalNext = next;
+  if (user) {
+    const { data: userData } = await supabase
+      .from("users")
+      .select("two_factor_enabled")
+      .eq("id", user.id)
+      .single();
+
+    if (userData?.two_factor_enabled) {
+      finalNext = `/${locale}/login/verify-2fa`;
+    }
+  }
+
+  const redirectResponse = NextResponse.redirect(new URL(finalNext, request.url));
+  response.cookies.getAll().forEach((cookie) => {
+    redirectResponse.cookies.set(cookie);
+  });
+  return redirectResponse;
 }

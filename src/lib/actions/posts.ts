@@ -30,13 +30,16 @@ export async function createPostAction(data: {
 
   if (data.status === "scheduled") {
     if (!data.scheduledAt) {
+      console.log("SCHEDULE ERROR: Chybí scheduledAt");
       return { success: false, error: "Pro naplánování vyber datum a čas publikování." };
     }
     const scheduled = new Date(data.scheduledAt);
     if (Number.isNaN(scheduled.getTime())) {
+      console.log("SCHEDULE ERROR: Neplatné datum:", data.scheduledAt);
       return { success: false, error: "Neplatné datum naplánování." };
     }
-    if (scheduled.getTime() <= Date.now()) {
+    if (scheduled.getTime() < Date.now() - 5 * 60 * 1000) {
+      console.log("SCHEDULE ERROR: Čas je v minulosti (>5 min):", data.scheduledAt, "now:", new Date().toISOString());
       return { success: false, error: "Naplánovaný čas musí být v budoucnosti." };
     }
   }
@@ -61,6 +64,10 @@ export async function createPostAction(data: {
     return { success: false, error: error.message };
   }
 
+  if (data.status === "scheduled") {
+    console.log("PŘÍSPĚVEK NAPLÁNOVÁN:", post.id, "status:", data.status, "scheduled_at:", data.scheduledAt);
+  }
+
   revalidateAllLocales("/dashboard");
   revalidateAllLocales("/calendar");
   revalidateAllLocales("/posts");
@@ -71,7 +78,7 @@ export async function updatePost(id: string, data: {
   content?: string;
   platforms?: string[];
   scheduledAt?: string | null;
-  status?: "draft" | "scheduled" | "published" | "failed";
+  status?: "draft" | "scheduled" | "publishing" | "published" | "failed";
   mediaUrls?: string[];
   location?: string;
   tags?: string[];
@@ -87,7 +94,7 @@ export async function updatePost(id: string, data: {
       if (Number.isNaN(scheduled.getTime())) {
         return { success: false, error: "Neplatné datum naplánování." };
       }
-      if (scheduled.getTime() <= Date.now()) {
+      if (scheduled.getTime() < Date.now() - 5 * 60 * 1000) {
         return { success: false, error: "Naplánovaný čas musí být v budoucnosti." };
       }
     }
@@ -129,17 +136,72 @@ export async function deletePost(id: string) {
     return { success: false, error: "You must be logged in to delete a post." };
   }
 
-  const { error } = await supabase
+  const { data: post, error: postError } = await supabase
     .from("posts")
-    .delete()
+    .select("id, platforms, external_id")
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found." };
+  }
+
+  const platforms = Array.isArray(post.platforms) ? post.platforms : [];
+  const externalId =
+    typeof post.external_id === "string" && post.external_id.trim()
+      ? post.external_id.trim()
+      : null;
+
+  if (externalId && platforms.includes("facebook")) {
+    const { data: accounts, error: accountError } = await supabase
+      .from("social_accounts")
+      .select("access_token")
+      .eq("user_id", user.id)
+      .eq("platform", "facebook")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (accountError) {
+      return { success: false, error: accountError.message };
+    }
+
+    const pageToken =
+      typeof accounts?.[0]?.access_token === "string" && accounts[0].access_token.trim()
+        ? accounts[0].access_token.trim()
+        : null;
+
+    if (!pageToken) {
+      return { success: false, error: "Chybí Page Access Token pro smazání z Facebooku." };
+    }
+
+    const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`);
+    graphUrl.searchParams.set("access_token", pageToken);
+
+    const graphRes = await fetch(graphUrl, { method: "DELETE", cache: "no-store" });
+    const graphPayload = (await graphRes.json().catch(() => null)) as
+      | { success?: boolean; error?: { message?: string } }
+      | null;
+
+    const graphErrorMessage =
+      graphPayload?.error?.message ??
+      (!graphRes.ok ? `Meta Graph API delete failed (${graphRes.status}).` : null);
+
+    if (graphErrorMessage) {
+      return { success: false, error: graphErrorMessage };
+    }
+  }
+
+  const { error } = await supabase.from("posts").delete().eq("id", id).eq("user_id", user.id);
 
   if (error) {
     console.error("Error deleting post:", error);
     return { success: false, error: error.message };
   }
 
+  revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
   revalidateAllLocales("/posts");
   return { success: true };
 }

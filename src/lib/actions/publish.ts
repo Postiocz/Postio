@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 const LOCALES = ["cs", "en", "uk"] as const;
@@ -97,6 +97,9 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
     return { success: false, error: "Unauthorized" };
   }
 
+  const supabaseAdmin = createAdminClient();
+  console.log("HLEDÁM ÚČET PRO USERA:", user.id);
+
   const { data: post, error: postError } = await supabase
     .from("posts")
     .select("id, content, platforms, media_urls")
@@ -108,24 +111,31 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  const { data: accounts, error: accountError } = await supabase
+  const { data: accounts, error: accountError } = await supabaseAdmin
     .from("social_accounts")
-    .select("access_token, platform_id")
+    .select("access_token, platform_id, platform")
     .eq("user_id", user.id)
-    .eq("platform", "facebook")
+    .ilike("platform", "facebook")
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1);
 
   if (accountError) {
+    console.error("CHYBA PŘI HLEDÁNÍ ÚČTU:", accountError.message);
+    const allAccounts = await supabaseAdmin.from("social_accounts").select("*");
+    console.log("DEBUG - Všechny účty v DB:", allAccounts.data);
     return { success: false, error: accountError.message };
   }
 
   const account = accounts?.[0];
-  const token = account?.access_token;
+  console.log("NALEZENÝ ÚČET:", account);
+  const pageToken = account?.access_token;
   const platformId = account?.platform_id;
 
-  if (!token || !platformId) {
+  if (!pageToken || !platformId) {
+    console.log("DEBUG - Údaje účtu:", { pageToken: !!pageToken, platformId: !!platformId, accounts: accounts });
+    const allAccounts = await supabaseAdmin.from("social_accounts").select("*");
+    console.log("DEBUG - Všechny účty v DB (chybí token/id):", allAccounts.data);
     return {
       success: false,
       error: "Chybí propojený Facebook účet (platform_id / access_token).",
@@ -157,10 +167,11 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
   } else {
     body.set("message", content);
   }
-  body.set("access_token", token);
+  body.set("access_token", pageToken);
 
   let responsePayload: FacebookPublishResponse | null = null;
   try {
+    console.log("ODESÍLÁM NA FACEBOOK...", { platform_id: platformId, text: content, mediaType, mediaUrl, url });
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -170,7 +181,10 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
       cache: "no-store",
     });
 
-    responsePayload = (await res.json().catch(() => null)) as FacebookPublishResponse | null;
+    responsePayload = (await res
+      .json()
+      .catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+    console.log("META RESPONSE:", responsePayload);
 
     const apiErrorMessage = getGraphErrorMessage(responsePayload) ??
       (!res.ok ? `Meta Graph API request failed (${res.status}).` : null);
@@ -204,6 +218,7 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
         status: "published",
         scheduled_at: null,
         published_at: publishedAt,
+        external_id: facebookPostId || null,
         publish_error: null,
       },
     });

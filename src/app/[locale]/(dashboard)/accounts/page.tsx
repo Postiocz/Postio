@@ -229,12 +229,13 @@ export default function AccountsPage() {
   }
 
   const handleFacebookOAuth = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const next = window.location.pathname || "/accounts";
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "facebook",
       options: {
         scopes:
           "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,ads_management,business_management",
-        redirectTo: `${window.location.origin}/auth/callback?next=/cs/accounts`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         queryParams: {
           auth_type: "rerequest",
         },
@@ -242,6 +243,10 @@ export default function AccountsPage() {
     });
     if (error) {
       setError(error.message);
+      return;
+    }
+    if (data?.url) {
+      window.location.assign(data.url);
     }
   };
 
@@ -571,12 +576,13 @@ export default function AccountsPage() {
           PlatformIcon={typeModalPlatform.icon}
           onProfessional={async () => {
             setShowTypeModal(false);
-            const { error } = await supabase.auth.signInWithOAuth({
+            const next = window.location.pathname || "/accounts";
+            const { data, error } = await supabase.auth.signInWithOAuth({
               provider: "facebook",
               options: {
                 scopes:
                   "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,ads_management,business_management",
-                redirectTo: `${window.location.origin}/auth/callback?next=/cs/accounts`,
+                redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
                 queryParams: {
                   auth_type: "rerequest",
                 },
@@ -584,6 +590,10 @@ export default function AccountsPage() {
             });
             if (error) {
               setError(error.message);
+              return;
+            }
+            if (data?.url) {
+              window.location.assign(data.url);
             }
           }}
           onPersonal={() => {

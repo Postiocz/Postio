@@ -1,3 +1,21 @@
+## 2026-05-30
+
+### Fix – Propojení Facebooku z ikonové mřížky znovu otevírá OAuth + callback zachová existující session (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – klik na Facebook (a Instagram Professional přes modal) znovu používá `supabase.auth.signInWithOAuth({ provider: 'facebook', ... })`, aby se vždy otevřelo Facebook OAuth okno/redirect.
+- `src/app/auth/callback/route.ts` – pokud už uživatel měl v prohlížeči session, callback ji po výměně `code` obnoví (`setSession`) a pouze uloží tokeny/účty do `social_accounts` pod původním `user_id` (bez „přepnutí“ na OAuth session).
+
+### Fix – Root layout: React 19 chyba se `<script>` + Supabase env proměnná (DOKONČENO)
+
+- `src/app/layout.tsx` – theme init skript přesunut z `<head>` do `<body>` a použit `dangerouslySetInnerHTML`, aby se eliminovala runtime chyba Reactu 19 „script tag while rendering React component“ a skript se vykonal před hydratací.
+
+## 2026-05-29
+
+### Fix – Propojování Facebooku necreateuje nové auth.users (account linking místo OAuth login) (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – pro „Propojit Facebook“ a Instagram Professional se používá `supabase.auth.linkIdentity` (ne `signInWithOAuth`), takže se nemění primární session e-mailového uživatele a nevznikají nové řádky v `auth.users`.
+- `src/app/auth/callback/route.ts` – callback nejdřív načte existujícího uživatele ze session; při uložení `provider_token` ukládá data do `social_accounts` pod původním `user_id` a při již existující session nespouští 2FA redirect.
+
 ## 2026-05-28
 
 ### Fix – Edge Function: anti-duplikace příspěvků (scheduled → publishing lock) (DOKONČENO)

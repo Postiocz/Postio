@@ -59,6 +59,7 @@ Překlady v: /messages/cs.json, en.json, uk.json
 - users, social_accounts, posts, templates, analytics, cookie_consents
 - RLS politiky na všech tabulkách
 - `posts.status` CHECK constraint: `('draft', 'scheduled', 'publishing', 'published', 'failed')`
+- `auth.users` slouží pouze pro primární identitu (E-mail/Heslo). Sociální integrace jsou uloženy výhradně v `public.social_accounts`.
 
 ## Struktura projektu
 

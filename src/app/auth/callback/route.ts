@@ -109,24 +109,33 @@ export async function GET(request: NextRequest) {
     }
   );
 
+  const { data: existingAuthData } = await supabase.auth.getUser();
+  const existingUser = existingAuthData.user;
+  const { data: existingSessionData } = await supabase.auth.getSession();
+  const existingSession = existingSessionData.session;
+  const hadExistingSession = Boolean(existingSession?.user?.id);
+
   const { data: authData, error: authError } =
     await supabase.auth.exchangeCodeForSession(code);
 
   if (authError) {
-    const errorResponse = NextResponse.redirect(
-      new URL(`/${locale}/login?error=${encodeURIComponent(authError.message)}`, request.url)
-    );
+    const errorRedirectUrl = existingUser
+      ? new URL(`${next}${next.includes("?") ? "&" : "?"}error=${encodeURIComponent(authError.message)}`, request.url)
+      : new URL(`/${locale}/login?error=${encodeURIComponent(authError.message)}`, request.url);
+    const errorResponse = NextResponse.redirect(errorRedirectUrl);
     response.cookies.getAll().forEach((cookie) => {
       errorResponse.cookies.set(cookie);
     });
     return errorResponse;
   }
 
-  const session = authData?.session;
-  const user = session?.user;
+  const oauthSession = authData?.session;
+  const oauthUser = oauthSession?.user;
+  const targetUserId =
+    existingSession?.user?.id ?? existingUser?.id ?? oauthUser?.id ?? null;
 
-  if (session?.provider_token && user) {
-    const facebookUserToken = session.provider_token;
+  if (oauthSession?.provider_token && targetUserId) {
+    const facebookUserToken = oauthSession.provider_token;
 
     try {
       const pagesFields =
@@ -156,7 +165,7 @@ export async function GET(request: NextRequest) {
         const pageAccessToken = page.access_token;
 
         rowsToUpsert.push({
-          user_id: user.id,
+          user_id: targetUserId,
           platform: "facebook",
           account_name: pageName,
           access_token: pageAccessToken,
@@ -183,7 +192,7 @@ export async function GET(request: NextRequest) {
         const igAvatarUrl = ig?.profile_picture_url ?? pageAvatarUrl ?? null;
 
         rowsToUpsert.push({
-          user_id: user.id,
+          user_id: targetUserId,
           platform: "instagram",
           account_name: igName,
           access_token: pageAccessToken,
@@ -206,14 +215,19 @@ export async function GET(request: NextRequest) {
   }
 
   let finalNext = next;
-  if (user) {
+  if (hadExistingSession && existingSession) {
+    await supabase.auth.setSession({
+      access_token: existingSession.access_token,
+      refresh_token: existingSession.refresh_token,
+    });
+  } else if (oauthUser) {
     const { data: userData } = await supabase
       .from("users")
       .select("two_factor_enabled")
-      .eq("id", user.id)
+      .eq("id", oauthUser.id)
       .single();
 
-    if (userData?.two_factor_enabled) {
+    if (!existingUser && userData?.two_factor_enabled) {
       finalNext = `/${locale}/login/verify-2fa`;
     }
   }

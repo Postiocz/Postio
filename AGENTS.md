@@ -12,6 +12,7 @@
 2. **Supabase pravidla:** 
    - Klientské a serverové dotazy dělej přes `@supabase/ssr`. 
    - Nepoužívej staré verze Supabase knihoven.
+   - `auth.users` slouží pouze pro primární identitu (E-mail/Heslo). Sociální integrace ukládej výhradně do `public.social_accounts`.
 3. **Pracovní postup:**
    - Než vytvoříš velké množství kódu, nejprve mi napiš krátký plán, co přesně půjdeš udělat.
    - Po úspěšném vyřešení složitého problému si zapiš ponaučení sem dolů do sekce "Ponaučení z chyb".

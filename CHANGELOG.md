@@ -1,3 +1,18 @@
+### Feature – Posts List: Media previews, flex layout, Premium Glass redesign (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – kompletní redesign karty příspěvku pro profesionální galerii obsahu:
+  - **Flex layout**: Na desktopu obrázek vlevo + text vpravo (`sm:flex-row`), na mobilu obrázek nahoře + text dole (`flex-col`).
+  - **Náhled média**: Pokud příspěvek má `media_urls`, zobrazí se první prvek jako miniatura. Desktop: `w-48 aspect-square`, mobil: plná šířka `aspect-video`. Styl: `object-cover rounded-xl border border-white/10`.
+  - **Video detekce**: Soubory `.mp4`/`.mov` se renderují jako `<video>` s Play ikonou overlay (`bg-black/30` + kulaté glass tlačítko s Play šipkou).
+  - **Multi-media badge**: Pokud příspěvek má více než 1 médium, v rohu náhledu se zobrazuje `+N` badge (glassmorphism).
+  - **Text vylepšení**: Obsah příspěvku je `text-base` (dříve `text-lg`) s `line-clamp-3` aby karty nebyly extrémně dlouhé.
+  - **Action tlačítka**: Upravit + Smazat přesunuta do pravého horního rohu (`absolute top-5 right-5`). Na desktopu se zobrazují při hoveru (`sm:opacity-0 group-hover:sm:opacity-100`), na mobilech vždy viditelná.
+  - **Premium Glass styl**: Karta má `relative group`, `bg-white/80 dark:bg-card/40`, `backdrop-blur-md`, `rounded-[24px]`, `shadow-[0_8px_30px_rgba(0,0,0,0.06)]`. Action tlačítka mají vlastní glass efekt (`bg-white/60 dark:bg-white/5 backdrop-blur-sm`).
+  - **Status + platform icon**: Zarovnány v horní části textového bloku vedle sebe.
+  - **Footer**: Datum + naplánovaný čas zarovnány dole s `mt-auto` a `border-t`.
+  - **Light/dark mode**: Karty čitelné v obou režimech (mléčné sklo v light, tmavý glass v dark).
+  - Build: `npm run build` ✅ 0 chyb
+
 ### Fix – AI Backend: Gemini 3.1 Flash-Lite + AQ klíč + edge runtime (DOKONČENO)
 
 - `src/app/api/ai/generate/route.ts` – kompletní aktualizace AI backendu pro Gemini 3.1 Flash-Lite a klíče typu 'AQ':

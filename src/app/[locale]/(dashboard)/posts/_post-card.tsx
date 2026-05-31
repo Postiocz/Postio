@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Edit, Clock, FileText } from "lucide-react";
+import { Trash2, Edit, Clock, FileText, Play } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -171,6 +171,10 @@ export function PostCard({
     ? new Date(post.scheduled_at).toLocaleTimeString(localeTag, { hour: "2-digit", minute: "2-digit" })
     : "—";
 
+  const hasMedia = post.media_urls && post.media_urls.length > 0;
+  const primaryMedia = hasMedia ? post.media_urls[0] : null;
+  const isVideo = primaryMedia ? /\.(mp4|mov)(\?.*)?$/i.test(primaryMedia) : false;
+
   return (
     <>
     <motion.article
@@ -179,51 +183,95 @@ export function PostCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.26, ease: "easeOut", delay: animationDelay }}
-      className="bg-white/80 dark:bg-card/40 backdrop-blur-md border border-black/[0.08] dark:border-white/[0.06] rounded-[24px] p-6 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl"
+      className="relative group bg-white/80 dark:bg-card/40 backdrop-blur-md border border-black/[0.08] dark:border-white/[0.06] rounded-[24px] p-5 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.03] border border-gray-200 dark:border-white/5">
-            <PlatformIcon className="h-5 w-5 text-foreground/80" />
+      {/* Action buttons – top right */}
+      <div className="absolute top-5 right-5 flex gap-1 sm:opacity-0 group-hover:sm:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="h-8 w-8 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10"
+          title={tEditPost}
+          onClick={() => setEditOpen(true)}
+        >
+          <Edit className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="h-8 w-8 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => setDeleteOpen(true)}
+          disabled={isDeleting}
+          title={tDeleteConfirmTitle}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-5">
+        {/* Media Preview – left on desktop, top on mobile */}
+        {hasMedia && primaryMedia && (
+          <div className="relative sm:w-48 sm:min-w-48 sm:max-w-48 w-full shrink-0">
+            <div className="relative overflow-hidden rounded-xl border border-white/10 dark:border-white/10 aspect-video sm:aspect-square sm:sticky sm:top-0">
+              {isVideo ? (
+                <video
+                  src={primaryMedia}
+                  className="w-full h-full object-cover"
+                  preload="metadata"
+                  muted
+                />
+              ) : (
+                <img
+                  src={primaryMedia}
+                  alt="Post media preview"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              )}
+              {isVideo && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm border border-white/20">
+                    <Play className="h-5 w-5 text-white ml-0.5" />
+                  </div>
+                </div>
+              )}
+            </div>
+            {post.media_urls.length > 1 && (
+              <div className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-[10px] font-medium text-white border border-white/10">
+                +{post.media_urls.length - 1}
+              </div>
+            )}
           </div>
-          <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs ${statusStyle}`}>
-            {statusLabel}
-          </Badge>
+        )}
+
+        {/* Content – right on desktop, bottom on mobile */}
+        <div className="flex flex-col flex-1 min-w-0 relative">
+          {/* Header: platform icon + status */}
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.03] border border-gray-200 dark:border-white/5 shrink-0">
+              <PlatformIcon className="h-5 w-5 text-foreground/80" />
+            </div>
+            <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs ${statusStyle}`}>
+              {statusLabel}
+            </Badge>
+          </div>
+
+          {/* Post content – text with line clamp */}
+          <div className="text-base text-foreground/90 whitespace-pre-line leading-relaxed line-clamp-3 mb-3">
+            {post.content}
+          </div>
+
+          {/* Footer: date + scheduled time */}
+          <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground/50 border-t border-gray-200 dark:border-white/5 pt-3">
+            <span>{createdDate}</span>
+            {post.scheduled_at && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {tScheduledAt}: {scheduledTime}
+              </span>
+            )}
+          </div>
         </div>
-
-        <div className="flex gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-8 w-8"
-            title={tEditPost}
-            onClick={() => setEditOpen(true)}
-          >
-            <Edit className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => setDeleteOpen(true)}
-            disabled={isDeleting}
-            title={tDeleteConfirmTitle}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="text-lg text-foreground/90 py-4 whitespace-pre-line leading-relaxed">
-        {post.content}
-      </div>
-
-      <div className="flex justify-between items-center text-xs text-muted-foreground/50 border-t border-gray-200 dark:border-white/5 pt-4">
-        <span>{createdDate}</span>
-        <span className="flex items-center gap-1">
-          <Clock className="h-3.5 w-3.5" />
-          {tScheduledAt}: {scheduledTime}
-        </span>
       </div>
     </motion.article>
 

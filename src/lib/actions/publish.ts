@@ -172,6 +172,7 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
 
     } else if (mediaType === "photo" && photoUrls.length > 1) {
       // Multi-photo: upload each as unpublished, then publish via /feed with attached_media
+      console.log("Nahrávám galerii s počtem fotek:", photoUrls.length);
       console.log("ODESÍLÁM GALERII FOTEK NA FACEBOOK...", { platform_id: platformId, count: photoUrls.length });
 
       const mediaIds: string[] = [];
@@ -199,13 +200,13 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
         mediaIds.push(photoId);
       }
 
-      // Publish feed post with attached_media
+      // Publish feed post with attached_media (correct format: [{media_fbid: id}, ...])
       const feedBody = new URLSearchParams();
       feedBody.set("message", content);
-      feedBody.set("attached_media", JSON.stringify(mediaIds));
+      feedBody.set("attached_media", JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))));
       feedBody.set("access_token", pageToken);
 
-      console.log("PUBLIKUJI GALERII...", { mediaIds });
+      console.log("PUBLIKUJI GALERII...", { mediaIds, attached_media: JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))) });
       const feedRes = await fetch(`${base}/feed`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },

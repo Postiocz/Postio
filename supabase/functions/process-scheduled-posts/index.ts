@@ -91,66 +91,133 @@ async function publishToFacebook(
   platformId: string,
   content: string,
   mediaType: "text" | "photo" | "video",
-  mediaUrl: string | null
+  mediaUrls: string[]
 ): Promise<{ success: boolean; externalId?: string; error?: string }> {
   const base = `https://graph.facebook.com/v20.0/${encodeURIComponent(platformId)}`;
 
-  const endpoint =
-    mediaType === "video"
-      ? `${base}/videos`
-      : mediaType === "photo"
-        ? `${base}/photos`
-        : `${base}/feed`;
-
-  const body = new URLSearchParams();
-
-  if (mediaType === "video") {
-    body.set("file_url", mediaUrl ?? "");
-    body.set("description", content);
-  } else if (mediaType === "photo") {
-    body.set("url", mediaUrl ?? "");
-    body.set("caption", content);
-  } else {
-    body.set("message", content);
-  }
-
-  body.set("access_token", accessToken);
-
-  console.log(`>>> Publishing to Facebook [${mediaType}]`, {
-    endpoint,
-    platformId,
-    hasMediaUrl: !!mediaUrl,
-    contentLength: content.length,
-  });
-
   try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
+    if (mediaType === "video") {
+      // Single video publish
+      const mediaUrl = mediaUrls[0] ?? "";
+      const body = new URLSearchParams();
+      body.set("file_url", mediaUrl);
+      body.set("description", content);
+      body.set("access_token", accessToken);
 
-    const payload = await res.json().catch(() => ({}));
-    console.log(`>>> Facebook Graph API response [${mediaType}]`, {
-      status: res.status,
-      payload,
-    });
+      console.log(`>>> Publishing to Facebook [video]`, { platformId, mediaUrl });
+      const res = await fetch(`${base}/videos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      const payload = await res.json().catch(() => ({}));
+      console.log(`>>> Facebook Graph API response [video]`, { status: res.status, payload });
 
-    if (!res.ok) {
-      const errorMessage =
-        typeof payload?.error?.message === "string"
-          ? payload.error.message
-          : `Facebook API error (${res.status})`;
-      return { success: false, error: errorMessage };
+      if (!res.ok) {
+        const errorMessage = typeof payload?.error?.message === "string" ? payload.error.message : `Facebook API error (${res.status})`;
+        return { success: false, error: errorMessage };
+      }
+      const externalId = typeof payload?.id === "string" ? payload.id : undefined;
+      return { success: true, externalId };
+
+    } else if (mediaType === "photo" && mediaUrls.length > 1) {
+      // Multi-photo gallery: upload each as unpublished, then publish via /feed with attached_media
+      console.log(">>> Nahrávám galerii s počtem fotek:", mediaUrls.length);
+
+      const mediaIds: string[] = [];
+      for (let i = 0; i < mediaUrls.length; i++) {
+        const uploadBody = new URLSearchParams();
+        uploadBody.set("url", mediaUrls[i]);
+        uploadBody.set("published", "false");
+        uploadBody.set("access_token", accessToken);
+
+        const uploadRes = await fetch(`${base}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: uploadBody,
+        });
+        const uploadPayload = await uploadRes.json().catch(() => ({}));
+        console.log(`>>> Upload photo ${i + 1}:`, { status: uploadRes.status, payload: uploadPayload });
+
+        if (!uploadRes.ok) {
+          const uploadErr = typeof uploadPayload?.error?.message === "string" ? uploadPayload.error.message : `Upload failed (${uploadRes.status})`;
+          return { success: false, error: `Upload photo ${i + 1} failed: ${uploadErr}` };
+        }
+
+        const photoId = typeof uploadPayload?.id === "string" ? uploadPayload.id : undefined;
+        if (!photoId) return { success: false, error: `Upload photo ${i + 1} returned no ID.` };
+        mediaIds.push(photoId);
+      }
+
+      // Publish feed with attached_media
+      const feedBody = new URLSearchParams();
+      feedBody.set("message", content);
+      feedBody.set("attached_media", JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))));
+      feedBody.set("access_token", accessToken);
+
+      console.log(">>> PUBLIKUJI GALERII...", { mediaIds });
+      const feedRes = await fetch(`${base}/feed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: feedBody,
+      });
+      const feedPayload = await feedRes.json().catch(() => ({}));
+      console.log(`>>> Facebook Graph API response [gallery]`, { status: feedRes.status, payload: feedPayload });
+
+      if (!feedRes.ok) {
+        const feedErr = typeof feedPayload?.error?.message === "string" ? feedPayload.error.message : `Feed publish failed (${feedRes.status})`;
+        return { success: false, error: feedErr };
+      }
+      const externalId = typeof feedPayload?.id === "string" ? feedPayload.id : undefined;
+      return { success: true, externalId };
+
+    } else if (mediaType === "photo" && mediaUrls.length === 1) {
+      // Single photo (fast path)
+      const body = new URLSearchParams();
+      body.set("url", mediaUrls[0]);
+      body.set("caption", content);
+      body.set("access_token", accessToken);
+
+      console.log(`>>> Publishing to Facebook [photo]`, { platformId, mediaUrl: mediaUrls[0] });
+      const res = await fetch(`${base}/photos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      const payload = await res.json().catch(() => ({}));
+      console.log(`>>> Facebook Graph API response [photo]`, { status: res.status, payload });
+
+      if (!res.ok) {
+        const errorMessage = typeof payload?.error?.message === "string" ? payload.error.message : `Facebook API error (${res.status})`;
+        return { success: false, error: errorMessage };
+      }
+      const externalId = typeof payload?.id === "string" ? payload.id : undefined;
+      return { success: true, externalId };
+
+    } else {
+      // Text-only publish
+      const body = new URLSearchParams();
+      body.set("message", content);
+      body.set("access_token", accessToken);
+
+      console.log(`>>> Publishing to Facebook [text]`, { platformId, contentLength: content.length });
+      const res = await fetch(`${base}/feed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      const payload = await res.json().catch(() => ({}));
+      console.log(`>>> Facebook Graph API response [text]`, { status: res.status, payload });
+
+      if (!res.ok) {
+        const errorMessage = typeof payload?.error?.message === "string" ? payload.error.message : `Facebook API error (${res.status})`;
+        return { success: false, error: errorMessage };
+      }
+      const externalId = typeof payload?.id === "string" ? payload.id : undefined;
+      return { success: true, externalId };
     }
-
-    const externalId =
-      typeof payload?.id === "string" ? payload.id : undefined;
-
-    return { success: true, externalId };
   } catch (e) {
-    const errorMessage =
-      e instanceof Error ? e.message : "Unknown Facebook publish error";
+    const errorMessage = e instanceof Error ? e.message : "Unknown Facebook publish error";
     console.log(`>>> Facebook publish failed [${mediaType}]`, { error: errorMessage });
     return { success: false, error: errorMessage };
   }
@@ -351,14 +418,14 @@ Deno.serve(async (request: Request) => {
         } else {
           const account = accounts[0];
           const mediaType = detectMediaType(mediaUrls);
-          const mediaUrl = mediaType === "text" ? null : (mediaUrls[0] ?? null);
+          const filteredUrls = mediaType === "text" ? [] : mediaUrls;
 
           const result = await publishToFacebook(
             account.access_token,
             account.platform_id,
             content,
             mediaType,
-            mediaUrl
+            filteredUrls
           );
 
           if (!result.success) {

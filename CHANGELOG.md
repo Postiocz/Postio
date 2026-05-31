@@ -1,3 +1,18 @@
+### Fix – Multi-photo Facebook gallery: attached_media format + Edge function sync (DOKONČENO)
+
+- `src/lib/actions/publish.ts` – oprava `attached_media` formátu pro Facebook Multi-photo API:
+  - **Před**: `JSON.stringify(mediaIds)` → `["id1","id2"]` (špatný formát, Facebook přijal jen první fotku)
+  - **Nyní**: `JSON.stringify(mediaIds.map(id => ({media_fbid: id})))` → `[{"media_fbid":"id1"},{"media_fbid":"id2"}]` (správný formát)
+  - Přidán log: `console.log("Nahrávám galerii s počtem fotek:", photoUrls.length)`
+  - Log feed request ukazuje finální `attached_media` payload pro debug
+- `supabase/functions/process-scheduled-posts/index.ts` – synchronizace multi-photo logiky do Edge funkce:
+  - **Funkce `publishToFacebook`**: Signatura změněna z `mediaUrl: string | null` na `mediaUrls: string[]`
+  - **4 větve**: video (1), galerie (2+ fotky), single photo (1), text-only
+  - **Galerie**: Každá fotka uploadnuta jako `published=false` → shromáždění ID → `attached_media` s `{media_fbid}` formátem → POST na `/{pageId}/feed`
+  - **Volání v loopu**: `mediaUrl` → `filteredUrls` (pole všech URL)
+  - **Deploy příkaz**: `npx supabase functions deploy process-scheduled-posts --project-ref=TVOJ_PROJECT_REF`
+- Build: `npm run build` ✅ 0 chyb
+
 ### Fix – Post buttons click, multi-photo Facebook gallery, robust publish, NextImage warnings (DOKONČENO)
 
 - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – oprava nereagujících tlačítek Upravit/Smazat:

@@ -29,6 +29,7 @@ export function PostsContainer({
   tDeleteConfirmAction,
   tDeleteCancel,
   tLabels,
+  tAi,
 }: {
   initialPosts: PostListItem[];
   locale: string;
@@ -81,6 +82,16 @@ export function PostsContainer({
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+  };
+  tAi?: {
+    aiAssistant: string;
+    improveText: string;
+    shortenText: string;
+    generateTags: string;
+    aiThinking: string;
+    aiSuccess: string;
+    aiError: string;
+    aiEmptyContent: string;
   };
 }) {
   const [posts, setPosts] = useState(initialPosts);
@@ -198,6 +209,7 @@ export function PostsContainer({
               tDeleteConfirmAction={tDeleteConfirmAction}
               tDeleteCancel={tDeleteCancel}
               tLabels={tLabels}
+              tAi={tAi}
               onDeleted={handleDeleted}
             />
           </div>

@@ -11,6 +11,7 @@ export default async function CalendarPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "calendar" });
+  const tAi = await getTranslations({ locale, namespace: "ai" });
   const sp = await searchParams;
 
   const supabase = await createClient();
@@ -99,6 +100,16 @@ export default async function CalendarPage({
           fileTooLargeVideo: t("fileTooLargeVideo"),
           fileDeleted: t("fileDeleted"),
           invalidFileType: t("invalidFileType"),
+        }}
+        tAi={{
+          aiAssistant: tAi("aiAssistant"),
+          improveText: tAi("improveText"),
+          shortenText: tAi("shortenText"),
+          generateTags: tAi("generateTags"),
+          aiThinking: tAi("aiThinking"),
+          aiSuccess: tAi("aiSuccess"),
+          aiError: tAi("aiError"),
+          aiEmptyContent: tAi("aiEmptyContent"),
         }}
       />
     </div>

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import NextImage from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useMediaUpload } from "@/hooks/use-media-upload";
+import { AIAssistantButton } from "@/components/ai-assistant-button";
 
 const PLATFORMS = [
   { id: "instagram", labelCs: "Instagram", labelEn: "Instagram", labelUk: "Instagram" },
@@ -29,6 +30,7 @@ const MAX_MEDIA_FILES = 10;
 
 export default function NewPostPage() {
   const t = useTranslations("posts");
+  const tAi = useTranslations("ai");
   const router = useRouter();
   const { locale } = useParams();
   const [content, setContent] = useState("");
@@ -262,9 +264,32 @@ export default function NewPostPage() {
 
           {/* Content */}
           <div className="space-y-2">
-            <Label htmlFor="content" className="text-sm font-medium text-muted-foreground/80">
-              {t("content")}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="content" className="text-sm font-medium text-muted-foreground/80">
+                {t("content")}
+              </Label>
+              <AIAssistantButton
+                content={content}
+                onContentReplace={(text) => setContent(text)}
+                onTagsAdd={(newTags) => {
+                  setTags((prev) => {
+                    const existing = new Set(prev.map((tag) => tag.toLowerCase()));
+                    const added = newTags.filter((tag) => !existing.has(tag.toLowerCase()));
+                    return added.length > 0 ? [...prev, ...added] : prev;
+                  });
+                }}
+                t={{
+                  aiAssistant: tAi("aiAssistant"),
+                  improveText: tAi("improveText"),
+                  shortenText: tAi("shortenText"),
+                  generateTags: tAi("generateTags"),
+                  aiThinking: tAi("aiThinking"),
+                  aiSuccess: tAi("aiSuccess"),
+                  aiError: tAi("aiError"),
+                  aiEmptyContent: tAi("aiEmptyContent"),
+                }}
+              />
+            </div>
             <Textarea
               id="content"
               placeholder={t("contentPlaceholder")}

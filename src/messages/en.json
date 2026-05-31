@@ -538,5 +538,15 @@
     "deleteTag": "Delete tag",
     "usedInPosts": "Used in {count} posts",
     "usedInPostsZero": "Not used in any post"
+  },
+  "ai": {
+    "aiAssistant": "AI Assistant",
+    "improveText": "Improve text",
+    "shortenText": "Shorten text",
+    "generateTags": "Generate hashtags",
+    "aiThinking": "AI is thinking...",
+    "aiSuccess": "AI successfully processed the text!",
+    "aiError": "Error generating AI content.",
+    "aiEmptyContent": "Write some text first."
   }
 }

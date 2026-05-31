@@ -538,5 +538,15 @@
     "deleteTag": "Smazat štítek",
     "usedInPosts": "Použito v {count} příspěvcích",
     "usedInPostsZero": "Nepoužito v žádném příspěvku"
+  },
+  "ai": {
+    "aiAssistant": "AI Pomocník",
+    "improveText": "Vylepšit text",
+    "shortenText": "Zkrátit text",
+    "generateTags": "Generovat hashtagy",
+    "aiThinking": "AI přemýšlí...",
+    "aiSuccess": "AI úspěšně zpracoval text!",
+    "aiError": "Chyba při generování AI obsahu.",
+    "aiEmptyContent": "Nejprve napište nějaký text."
   }
 }

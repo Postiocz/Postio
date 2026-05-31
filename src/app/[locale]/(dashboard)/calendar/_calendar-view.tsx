@@ -34,6 +34,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { toast } from "sonner";
 import NextImage from "next/image";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
+import { AIAssistantButton } from "@/components/ai-assistant-button";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -121,6 +122,16 @@ interface CalendarViewProps {
     invalidFileType?: string;
     dropMedia?: string;
   };
+  tAi?: {
+    aiAssistant: string;
+    improveText: string;
+    shortenText: string;
+    generateTags: string;
+    aiThinking: string;
+    aiSuccess: string;
+    aiError: string;
+    aiEmptyContent: string;
+  };
 }
 
 export function CalendarView({
@@ -132,6 +143,7 @@ export function CalendarView({
   months,
   locale,
   tCalendar,
+  tAi,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week">("month");
@@ -766,9 +778,25 @@ export function CalendarView({
 
             {/* Content */}
             <div className="space-y-2">
-              <Label htmlFor="modal-content" className="text-sm font-medium text-muted-foreground/80">
-                {tCalendar.content || "Obsah"}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="modal-content" className="text-sm font-medium text-muted-foreground/80">
+                  {tCalendar.content || "Obsah"}
+                </Label>
+                {tAi && (
+                  <AIAssistantButton
+                    content={formContent}
+                    onContentReplace={(text) => setFormContent(text)}
+                    onTagsAdd={(newTags) => {
+                      setFormTags((prev) => {
+                        const existing = new Set(prev.map((tag) => tag.toLowerCase()));
+                        const added = newTags.filter((tag) => !existing.has(tag.toLowerCase()));
+                        return added.length > 0 ? [...prev, ...added] : prev;
+                      });
+                    }}
+                    t={tAi}
+                  />
+                )}
+              </div>
               <Textarea
                 id="modal-content"
                 placeholder={tCalendar.contentPlaceholder || "Napište příspěvek..."}
@@ -956,6 +984,7 @@ export function CalendarView({
           statusPublished: tCalendar.statusPublished || "Publikované",
           statusFailed: tCalendar.statusFailed || "Neúspěšné",
         }}
+        tAi={tAi}
       />
 
       {/* Hover Preview – Desktop Only */}

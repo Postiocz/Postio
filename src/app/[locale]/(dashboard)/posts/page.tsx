@@ -9,6 +9,7 @@ export default async function PostsPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "posts" });
+  const tAi = await getTranslations({ locale, namespace: "ai" });
   const supabase = await createClient();
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -96,6 +97,16 @@ export default async function PostsPage({
             statusScheduled: t("statusScheduled"),
             statusPublished: t("statusPublished"),
             statusFailed: t("statusFailed"),
+          }}
+          tAi={{
+            aiAssistant: tAi("aiAssistant"),
+            improveText: tAi("improveText"),
+            shortenText: tAi("shortenText"),
+            generateTags: tAi("generateTags"),
+            aiThinking: tAi("aiThinking"),
+            aiSuccess: tAi("aiSuccess"),
+            aiError: tAi("aiError"),
+            aiEmptyContent: tAi("aiEmptyContent"),
           }}
         />
       </div>

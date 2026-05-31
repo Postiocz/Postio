@@ -78,6 +78,7 @@ export function PostCard({
   onDeleted,
   animationDelay = 0,
   tLabels,
+  tAi,
 }: {
   post: PostListItem;
   locale: string;
@@ -125,6 +126,16 @@ export function PostCard({
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+  };
+  tAi?: {
+    aiAssistant: string;
+    improveText: string;
+    shortenText: string;
+    generateTags: string;
+    aiThinking: string;
+    aiSuccess: string;
+    aiError: string;
+    aiEmptyContent: string;
   };
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -219,6 +230,7 @@ export function PostCard({
     <EditPostDialog
       open={editOpen}
       onOpenChange={setEditOpen}
+      tAi={tAi}
       post={{
         id: post.id,
         content: post.content,
@@ -283,6 +295,7 @@ export function PostsList({
   tDeleteConfirmAction,
   tDeleteCancel,
   tLabels,
+  tAi,
   onDeleted,
 }: {
   posts: PostListItem[];
@@ -330,6 +343,16 @@ export function PostsList({
     statusPublished: string;
     statusFailed: string;
   };
+  tAi?: {
+    aiAssistant: string;
+    improveText: string;
+    shortenText: string;
+    generateTags: string;
+    aiThinking: string;
+    aiSuccess: string;
+    aiError: string;
+    aiEmptyContent: string;
+  };
   onDeleted?: (id: string) => void;
 }) {
   return (
@@ -353,6 +376,7 @@ export function PostsList({
             animationDelay={Math.min(index * 0.04, 0.2)}
             onDeleted={onDeleted}
             tLabels={tLabels}
+            tAi={tAi}
           />
         ))}
       </AnimatePresence>

@@ -1,4 +1,46 @@
-## 2026-05-30
+### Fix – AI Backend: Gemini 3.1 Flash-Lite + AQ klíč + edge runtime (DOKONČENO)
+
+- `src/app/api/ai/generate/route.ts` – kompletní aktualizace AI backendu pro Gemini 3.1 Flash-Lite a klíče typu 'AQ':
+  - **Odstraněna AIza validace** – smazán `apiKey.startsWith("AIza")` check + regex validace. Klíče 'AQ' (Bound Keys/Service Account) jsou nyní plně podporovány bez formátové kontroly.
+  - **Model změněn**: `gemini-2.0-flash-lite` → `gemini-3.1-flash-lite` (nejnovější verze pro rok 2026).
+  - **Edge runtime**: přidán `export const runtime = "edge"` pro minimální latenci.
+  - **Nové system prompty (čeština)**:
+    - `improve`: "Vylepši text příspěvku pro sociální sítě. Zachovej tón, oprav chyby, buď úderný. Vrať pouze čistý text bez uvozovek."
+    - `shorten`: "Zkrať tento text na maximum pro Twitter/X při zachování smyslu."
+    - `hashtags`: "Na základě textu vygeneruj 5-10 relevantních hashtagů. Vrať je jako řetězec oddělený mezerami, bez čárek."
+  - **Error handling pro AQ klíče**: Při 401/403 chybě se do console vypíše `"AI AUTH ERROR: Prověř vazbu klíče na Service Account."`
+  - **Demo fallback** zachován – pokud klíč chybí, API vrací demo response bez pádu.
+  - Žádné změny v UI/designu. Pouze funkční změny v API route.
+  - Build: `npm run build` ✅ 0 chyb
+
+### Fix – AI Asistent: debug logování, API key validation, demo fallback, model update (DOKONČENO)
+
+- `src/app/api/ai/generate/route.ts` – rozsáhlé debug logování pro diagnostiku chyb AI generování:
+  - **Logování na vstupu**: `console.log("AI REQUEST RECEIVED, ACTION:", action)` – vidíme jakou akci uživatel zvolil
+  - **Kontrola API klíče**: `console.log("API KEY PRESENT:", !!apiKey)` – ověření zda klíč existuje v env
+  - **Validace formátu klíče**: Kontrola `apiKey.startsWith("AIza")` – reálné Gemini klíče začínají `AIza...`. Pokud ne, error log s prvních 10 znaky klíče + jasná chybová zpráva pro frontend
+  - **Error detaily v catch**: `console.error("AI GENERATION ERROR:", error)` + `error.message`, `error.name`, `error.stack`
+  - **Logy před/po Gemini volání**: "Sending prompt to Gemini..." + "Gemini response received, length: N"
+- **Demo fallback**: Pokud `GOOGLE_GEMINI_API_KEY` chybí nebo je prázdný, API vrátí `isDemo: true` + statický text pro danou akci (`improve`/`shorten`/`hashtags`). UI se nerozhodí a uživatel vidí že tlačítko funguje.
+- **Model změněn**: `gemini-1.5-flash` → `gemini-2.0-flash-lite` (free tier). Původní model `gemini-1.5-flash` byl vyřazen z API v1beta a vracel 404 Not Found.
+- **Frontend logování**: `src/components/ai-assistant-button.tsx` – přidán `console.log("AI API Response:")` pro debug response z API v prohlížeči
+- **Root cause**: `gemini-1.5-flash` není dostupný pro free tier API klíče. Řešení: `gemini-2.0-flash-lite` je free a funguje.
+
+### Feature – AI Asistent (Gemini 1.5 Flash) – kompletní implementace (DOKONČENO)
+
+- `src/app/api/ai/generate/route.ts` – nový POST endpoint pro AI generování obsahu přes Gemini 1.5 Flash. Podporuje 3 akce: `improve` (vylepšení stylu/gramatiky), `shorten` (zkrácení pro Twitter/X 280 znaků), `hashtags` (generování 5-10 relevantních hashtagů). API klíč z `process.env.GOOGLE_GEMINI_API_KEY`.
+- `src/components/ai-assistant-button.tsx` – reusable komponenta: skleněné tlačítko s ikonou Sparkles + DropdownMenu pro výběr 3 akcí. Design: `bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg`. Loading stav s animovaným Loader2 + "AI přemýšlí...". Výsledek `improve`/`shorten` nahradí text, `hashtags` se přidá do tagů. Toast notifikace (sonner) pro success/error.
+- `src/messages/cs.json`, `en.json`, `uk.json` – doplněna sekce `ai` s klíči: `aiAssistant`, `improveText`, `shortenText`, `generateTags`, `aiThinking`, `aiSuccess`, `aiError`, `aiEmptyContent`.
+- **Integrace do všech 3 míst tvorby příspěvků:**
+  - `src/app/[locale]/(dashboard)/posts/new/page.tsx` – AI tlačítko vedle Content textarea (přes `useTranslations("ai")`)
+  - `src/components/edit-post-dialog.tsx` – AI tlačítko v edit modalu (přes `tAi` props, kondiční render)
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – AI tlačítko v inline formuláři kalendáře + v EditPostDialog
+- **Props chain pro tAi:**
+  - `calendar/page.tsx` → `CalendarClient` → `CalendarView` (server `getTranslations` pro "ai" namespace)
+  - `posts/page.tsx` → `PostsContainer` → `PostsList` → `PostCard` → `EditPostDialog`
+  - `calendar/_calendar-view.tsx` → `EditPostDialog` (přes `tAi` props)
+- Knihovna `@google/generative-ai` již nainstalovaná v package.json
+- Build: `npm run build` ✅ 0 chyb
 
 ### Fix – Propojení Facebooku z ikonové mřížky znovu otevírá OAuth + callback zachová existující session (DOKONČENO)
 

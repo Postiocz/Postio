@@ -23,6 +23,7 @@ import {
   Youtube,
   TikTok,
 } from "@/components/ui/social-icons";
+import { AIAssistantButton } from "@/components/ai-assistant-button";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -93,6 +94,16 @@ interface EditPostDialogProps {
     statusPublished: string;
     statusFailed: string;
   };
+  tAi?: {
+    aiAssistant: string;
+    improveText: string;
+    shortenText: string;
+    generateTags: string;
+    aiThinking: string;
+    aiSuccess: string;
+    aiError: string;
+    aiEmptyContent: string;
+  };
 }
 
 export function EditPostDialog({
@@ -101,6 +112,7 @@ export function EditPostDialog({
   post,
   locale,
   tLabels,
+  tAi,
 }: EditPostDialogProps) {
   const isEdit = !!post?.id;
 
@@ -420,9 +432,25 @@ export function EditPostDialog({
 
           {/* Content */}
           <div className="space-y-2">
-            <Label htmlFor="edit-content" className="text-sm font-medium text-muted-foreground/80">
-              {tLabels.content}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit-content" className="text-sm font-medium text-muted-foreground/80">
+                {tLabels.content}
+              </Label>
+              {tAi && (
+                <AIAssistantButton
+                  content={content}
+                  onContentReplace={(text) => setContent(text)}
+                  onTagsAdd={(newTags) => {
+                    setTags((prev) => {
+                      const existing = new Set(prev.map((tag) => tag.toLowerCase()));
+                      const added = newTags.filter((tag) => !existing.has(tag.toLowerCase()));
+                      return added.length > 0 ? [...prev, ...added] : prev;
+                    });
+                  }}
+                  t={tAi}
+                />
+              )}
+            </div>
             <Textarea
               id="edit-content"
               placeholder={tLabels.contentPlaceholder}

@@ -1,3 +1,22 @@
+### Fix – Post buttons click, multi-photo Facebook gallery, robust publish, NextImage warnings (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – oprava nereagujících tlačítek Upravit/Smazat:
+  - Kontejner tlačítek: přidán `z-20` pro správný stacking context
+  - Oba Buttony: přidán `relative z-20` pro zajištění interaktivity
+  - Media preview container: přidán `pointer-events-none` aby obrázek neblokoval kliknutí na tlačítka v rohu
+- `src/lib/actions/publish.ts` – kompletní přepis `publishToFacebook` s podporou více fotek:
+  - **Více fotek (galerie)**: Každá fotka se nejprve uploadne jako `published=false` na `/{pageId}/photos`. Poté se všechny ID shromáždí do `attached_media` pole a pošle se jeden POST na `/{pageId}/feed` s `message` + `attached_media`. Výsledek: galerie na Facebooku.
+  - **Jedna fotka**: Původní rychlý postup přes `/{pageId}/photos` s `caption`.
+  - **Video**: `/{pageId}/videos` s `file_url` + `description`.
+  - **Text**: `/{pageId}/feed` s `message`.
+  - **Robustní error handling**: Status se změní na `published` POUZE pokud Meta API vrátí platné `id`. Pokud API vrátí chybu nebo žádné ID, status je `failed` s chybovým textem.
+  - **Debug logy**: Specifické logy pro každý typ média ("ODESÍLÁM GALERII FOTEK", "PUBLIKUJI GALERII", atd.)
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` – oprava NextImage varování:
+  - `width={0} height={0}` + `sizes="100vw"` + `style={{ width: "100%", height: "auto" }}` místo pevných `width={240} height={96}`
+  - Eliminuje aspect-ratio mismatch varování v terminálu
+  - `unoptimized` zachováno pro externí URL z Supabase storage
+- Build: `npm run build` ✅ 0 chyb
+
 ### Feature – Posts List: Media previews, flex layout, Premium Glass redesign (DOKONČENO)
 
 - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – kompletní redesign karty příspěvku pro profesionální galerii obsahu:

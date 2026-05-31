@@ -143,72 +143,121 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
   }
 
   const content = String(post.content ?? "");
-  const mediaType = getFacebookMediaType((post as { media_urls?: unknown }).media_urls);
-  const mediaUrl =
-    mediaType === "text"
-      ? null
-      : String(((post as { media_urls?: unknown }).media_urls as unknown[] | undefined)?.[0] ?? "");
+  const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
+  const mediaType = getFacebookMediaType(rawUrls);
+  const photoUrls = mediaType === "photo" ? rawUrls.filter((u) => typeof u === "string" && u.trim()) : [];
 
   const base = `https://graph.facebook.com/v20.0/${encodeURIComponent(platformId)}`;
-  const url =
-    mediaType === "video"
-      ? `${base}/videos`
-      : mediaType === "photo"
-        ? `${base}/photos`
-        : `${base}/feed`;
 
-  const body = new URLSearchParams();
-  if (mediaType === "video") {
-    body.set("file_url", String(mediaUrl ?? ""));
-    body.set("description", content);
-  } else if (mediaType === "photo") {
-    body.set("url", String(mediaUrl ?? ""));
-    body.set("caption", content);
-  } else {
-    body.set("message", content);
-  }
-  body.set("access_token", pageToken);
+  let facebookPostId: string | null = null;
 
-  let responsePayload: FacebookPublishResponse | null = null;
   try {
-    console.log("ODESÍLÁM NA FACEBOOK...", { platform_id: platformId, text: content, mediaType, mediaUrl, url });
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
-      cache: "no-store",
-    });
+    if (mediaType === "video") {
+      // Single video publish
+      const mediaUrl = String(rawUrls[0] ?? "");
+      const url = `${base}/videos`;
+      const body = new URLSearchParams();
+      body.set("file_url", mediaUrl);
+      body.set("description", content);
+      body.set("access_token", pageToken);
 
-    responsePayload = (await res
-      .json()
-      .catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
-    console.log("META RESPONSE:", responsePayload);
+      console.log("ODESÍLÁM VIDEO NA FACEBOOK...", { platform_id: platformId, mediaUrl, url });
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (video):", payload);
 
-    const apiErrorMessage = getGraphErrorMessage(responsePayload) ??
-      (!res.ok ? `Meta Graph API request failed (${res.status}).` : null);
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
 
-    if (apiErrorMessage) {
-      const errorMessage = String(apiErrorMessage);
-      await updatePostPublishState(supabase, {
-        userId: user.id,
-        postId: post.id,
-        values: {
-          status: "failed",
-          publish_error: errorMessage,
-          published_at: null,
-        },
+    } else if (mediaType === "photo" && photoUrls.length > 1) {
+      // Multi-photo: upload each as unpublished, then publish via /feed with attached_media
+      console.log("ODESÍLÁM GALERII FOTEK NA FACEBOOK...", { platform_id: platformId, count: photoUrls.length });
+
+      const mediaIds: string[] = [];
+      for (let i = 0; i < photoUrls.length; i++) {
+        const uploadBody = new URLSearchParams();
+        uploadBody.set("url", photoUrls[i]);
+        uploadBody.set("published", "false");
+        uploadBody.set("access_token", pageToken);
+
+        const uploadRes = await fetch(`${base}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: uploadBody,
+          cache: "no-store",
+        });
+
+        const uploadPayload = (await uploadRes.json().catch(async () => ({ raw: await uploadRes.text().catch(() => "") }))) as FacebookPublishResponse;
+        console.log(`META UPLOAD photo ${i + 1}:`, uploadPayload);
+
+        const uploadErr = getGraphErrorMessage(uploadPayload);
+        if (uploadErr) throw new Error(`Upload photo ${i + 1} failed: ${uploadErr}`);
+
+        const photoId = getGraphResponseId(uploadPayload);
+        if (!photoId) throw new Error(`Upload photo ${i + 1} returned no ID.`);
+        mediaIds.push(photoId);
+      }
+
+      // Publish feed post with attached_media
+      const feedBody = new URLSearchParams();
+      feedBody.set("message", content);
+      feedBody.set("attached_media", JSON.stringify(mediaIds));
+      feedBody.set("access_token", pageToken);
+
+      console.log("PUBLIKUJI GALERII...", { mediaIds });
+      const feedRes = await fetch(`${base}/feed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: feedBody,
+        cache: "no-store",
       });
 
-      revalidateAllLocales("/calendar");
-      revalidateAllLocales("/posts");
-      revalidateAllLocales("/dashboard");
+      const feedPayload = (await feedRes.json().catch(async () => ({ raw: await feedRes.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (gallery feed):", feedPayload);
 
-      return { success: false, error: errorMessage };
+      const feedErr = getGraphErrorMessage(feedPayload);
+      if (feedErr) throw new Error(feedErr);
+      facebookPostId = getGraphResponseId(feedPayload);
+
+    } else if (mediaType === "photo" && photoUrls.length === 1) {
+      // Single photo publish (fast path)
+      const url = `${base}/photos`;
+      const body = new URLSearchParams();
+      body.set("url", photoUrls[0]);
+      body.set("caption", content);
+      body.set("access_token", pageToken);
+
+      console.log("ODESÍLÁM FOTO NA FACEBOOK...", { platform_id: platformId, mediaUrl: photoUrls[0], url });
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (photo):", payload);
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
+
+    } else {
+      // Text-only publish
+      const feedUrl = `${base}/feed`;
+      const body = new URLSearchParams();
+      body.set("message", content);
+      body.set("access_token", pageToken);
+
+      console.log("ODESÍLÁM TEXT NA FACEBOOK...", { platform_id: platformId, text: content, url: feedUrl });
+      const res = await fetch(feedUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (text):", payload);
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
     }
 
-    const facebookPostId = getGraphResponseId(responsePayload) ?? "";
+    // Only mark as published if we got a valid post ID
+    if (!facebookPostId) {
+      throw new Error("Meta Graph API returned no post ID.");
+    }
 
     const publishedAt = new Date().toISOString();
     await updatePostPublishState(supabase, {
@@ -218,7 +267,7 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
         status: "published",
         scheduled_at: null,
         published_at: publishedAt,
-        external_id: facebookPostId || null,
+        external_id: facebookPostId,
         publish_error: null,
       },
     });
@@ -229,11 +278,13 @@ export async function publishToFacebook(input: { postId: string }): Promise<{
 
     return {
       success: true,
-      data: { facebookPostId: facebookPostId || undefined },
+      data: { facebookPostId },
     };
   } catch (e) {
     const errorMessage =
       e instanceof Error ? e.message : "Unknown error while publishing to Facebook.";
+
+    console.error("FACEBOOK PUBLISH ERROR:", errorMessage);
 
     await updatePostPublishState(supabase, {
       userId: user.id,

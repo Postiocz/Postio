@@ -406,8 +406,10 @@ export default function NewPostPage() {
                       <NextImage
                         src={item.previewUrl}
                         alt="Media preview"
-                        width={240}
-                        height={96}
+                        width={0}
+                        height={0}
+                        sizes="100vw"
+                        style={{ width: "100%", height: "auto" }}
                         className="h-24 w-full object-cover"
                         unoptimized
                       />

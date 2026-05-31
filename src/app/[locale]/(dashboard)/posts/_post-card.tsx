@@ -186,11 +186,11 @@ export function PostCard({
       className="relative group bg-white/80 dark:bg-card/40 backdrop-blur-md border border-black/[0.08] dark:border-white/[0.06] rounded-[24px] p-5 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl"
     >
       {/* Action buttons – top right */}
-      <div className="absolute top-5 right-5 flex gap-1 sm:opacity-0 group-hover:sm:opacity-100 transition-opacity">
+      <div className="absolute top-5 right-5 flex gap-1 z-20 sm:opacity-0 group-hover:sm:opacity-100 transition-opacity">
         <Button
           variant="ghost"
           size="icon-sm"
-          className="h-8 w-8 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10"
+          className="h-8 w-8 relative z-20 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10"
           title={tEditPost}
           onClick={() => setEditOpen(true)}
         >
@@ -199,7 +199,7 @@ export function PostCard({
         <Button
           variant="ghost"
           size="icon-sm"
-          className="h-8 w-8 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="h-8 w-8 relative z-20 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={() => setDeleteOpen(true)}
           disabled={isDeleting}
           title={tDeleteConfirmTitle}
@@ -211,7 +211,7 @@ export function PostCard({
       <div className="flex flex-col sm:flex-row gap-5">
         {/* Media Preview – left on desktop, top on mobile */}
         {hasMedia && primaryMedia && (
-          <div className="relative sm:w-48 sm:min-w-48 sm:max-w-48 w-full shrink-0">
+          <div className="relative pointer-events-none sm:w-48 sm:min-w-48 sm:max-w-48 w-full shrink-0">
             <div className="relative overflow-hidden rounded-xl border border-white/10 dark:border-white/10 aspect-video sm:aspect-square sm:sticky sm:top-0">
               {isVideo ? (
                 <video

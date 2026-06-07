@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Loader2, Film, Image as ImageIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction, updatePost } from "@/lib/actions/posts";
-import { publishToFacebook } from "@/lib/actions/publish";
+import { publishPost, updateRemotePostAction, publishAdditionalPlatforms } from "@/lib/actions/publish";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -54,6 +55,8 @@ export interface EditPostData {
   location: string | null;
   tags: string[];
   media_urls: string[];
+  published_platforms?: string[];
+  external_id?: string | null;
 }
 
 interface EditPostDialogProps {
@@ -93,6 +96,14 @@ interface EditPostDialogProps {
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+    remoteEditSuccess?: string;
+    photoChangeNotAllowed?: string;
+    updateOnSocials?: string;
+    onlyTextUpdatePossible?: string;
+    igEditNotSupported?: string;
+    cancel?: string;
+    publishToSelected?: string;
+    additionalPublishSuccess?: string;
   };
   tAi?: {
     aiAssistant: string;
@@ -115,6 +126,7 @@ export function EditPostDialog({
   tAi,
 }: EditPostDialogProps) {
   const isEdit = !!post?.id;
+  const router = useRouter();
 
   const [content, setContent] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
@@ -125,6 +137,8 @@ export function EditPostDialog({
   const [tagDraft, setTagDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isPublishingAdditional, setIsPublishingAdditional] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
@@ -163,12 +177,42 @@ export function EditPostDialog({
     hasUploading,
   } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
+  // Detect if the published post is on Instagram
+  const isInstagramPublished = useMemo(() => {
+    if (!isEdit || post?.status !== "published") return false;
+    return (post?.published_platforms ?? []).includes("instagram");
+  }, [isEdit, post?.status, post?.published_platforms]);
+
+  // Detect if media was changed for published posts
+  const mediaChanged = useMemo(() => {
+    if (!isEdit || post?.status !== "published") return false;
+    const originalMedia = post.media_urls ?? [];
+    const currentMedia = getMediaUrls();
+    return (
+      originalMedia.length !== currentMedia.length ||
+      originalMedia.some((url, i) => url !== currentMedia[i])
+    );
+  }, [isEdit, post?.status, post?.media_urls, mediaItems]);
+
+  // Determine which selected platforms are not yet published
+  const unpublishedSelectedPlatforms = useMemo(() => {
+    const published = post?.published_platforms ?? [];
+    return platforms.filter((p) => !published.includes(p));
+  }, [platforms, post?.published_platforms]);
+
+  // If any selected platform is unpublished → show "Publish to selected" button
+  const canPublishAdditional = unpublishedSelectedPlatforms.length > 0;
+
   useEffect(() => {
     if (!open) return;
     Promise.resolve().then(() => {
       if (isEdit && post) {
         setContent(post.content);
-        setPlatforms(post.platforms ?? []);
+        // Auto-remove already published platforms from selection state
+        // Published platforms are visually locked and should not be in the active selection
+        const published = post.published_platforms ?? [];
+        const cleanPlatforms = (post.platforms ?? []).filter((p) => !published.includes(p));
+        setPlatforms(cleanPlatforms);
         setStatus(post.status);
         setLocation(post.location ?? "");
         setTags(post.tags ?? []);
@@ -252,6 +296,48 @@ export function EditPostDialog({
 
       try {
         let result;
+
+        // Remote Edit: if editing a published post, sync text changes to social network
+        if (isEdit && post?.id && status === "published") {
+          // Instagram does not support editing captions of published posts
+          if (isInstagramPublished) {
+            const msg = tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu.";
+            setError(msg);
+            toast.error(msg);
+            setLoading(false);
+            return;
+          }
+          // Check if media was changed — photo/video changes are not allowed for published posts
+          const originalMedia = post.media_urls ?? [];
+          const currentMedia = mediaUrls;
+          const mediaChanged =
+            originalMedia.length !== currentMedia.length ||
+            originalMedia.some((url, i) => url !== currentMedia[i]);
+
+          if (mediaChanged) {
+            toast.error(tLabels.photoChangeNotAllowed ?? "Změna fotky u publikovaného postu není možná. Pro změnu fotky musíte příspěvek publikovat znovu.");
+            setLoading(false);
+            return;
+          }
+
+          result = await updateRemotePostAction({
+            postId: post.id,
+            newContent: content.trim(),
+          });
+
+          if (result.success) {
+            toast.success(tLabels.remoteEditSuccess ?? "Text byl upraven v Postio i na sociální síti.");
+            onOpenChange(false);
+            router.refresh();
+            return;
+          }
+
+          setError(result.error ?? tLabels.errorSaving);
+          toast.error(result.error ?? tLabels.errorSaving);
+          setLoading(false);
+          return;
+        }
+
         if (isEdit && post?.id) {
           result = await updatePost(post.id, {
             content: content.trim(),
@@ -276,8 +362,8 @@ export function EditPostDialog({
 
         if (result.success) {
           toast.success(isEdit ? tLabels.postUpdated : tLabels.postCreated);
+          await router.refresh();
           onOpenChange(false);
-          window.location.reload();
         } else {
           setError(result.error ?? tLabels.errorSaving);
           toast.error(result.error ?? tLabels.errorSaving);
@@ -292,19 +378,85 @@ export function EditPostDialog({
     [
       content, platforms, scheduledAt, status, location, tags, tagDraft,
       isEdit, post, hasUploading, getMediaUrls, handleCommitRemainingTag,
-      normalizeScheduledAt, onOpenChange, tLabels,
+      normalizeScheduledAt, onOpenChange, tLabels, isInstagramPublished,
     ]
   );
 
-  const handlePublishNow = async () => {
-    if (!content.trim()) return;
+  const handleUpdateOnSocials = async () => {
+    if (!content.trim() || !isEdit || !post?.id) return;
+    if (hasUploading()) {
+      toast.info(tLabels.uploading);
+      return;
+    }
+    if (mediaChanged) {
+      toast.error(tLabels.onlyTextUpdatePossible ?? tLabels.photoChangeNotAllowed ?? "U publikovaného postu lze měnit pouze text.");
+      return;
+    }
+
+    setIsUpdating(true);
+    setError(null);
+
+    try {
+      const result = await updateRemotePostAction({
+        postId: post.id,
+        newContent: content.trim(),
+      });
+
+      if (result.success) {
+        toast.success(tLabels.remoteEditSuccess ?? "Text byl upraven v Postio i na sociální síti.");
+        await router.refresh();
+        onOpenChange(false);
+        return;
+      }
+
+      setError(result.error ?? tLabels.errorSaving);
+      toast.error(result.error ?? tLabels.errorSaving);
+    } catch {
+      setError(tLabels.errorSaving);
+      toast.error(tLabels.errorSaving);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handlePublishAdditional = async (targetPlatform: string) => {
+    if (!isEdit || !post?.id) return;
     if (hasUploading()) {
       toast.info(tLabels.uploading);
       return;
     }
 
-    if (platforms.length === 0 || !platforms.includes("facebook")) {
-      toast.error("Pro publikování vyber Facebook.");
+    setIsPublishingAdditional(true);
+    setError(null);
+
+    try {
+      const result = await publishAdditionalPlatforms({
+        postId: post.id,
+        platform: targetPlatform,
+      });
+
+      if (result.success) {
+        console.log("handlePublishAdditional: úspěšně publikováno na", targetPlatform);
+        toast.success(tLabels.additionalPublishSuccess ?? `Příspěvek byl publikován na ${targetPlatform}!`);
+        await router.refresh();
+        onOpenChange(false);
+        return;
+      }
+
+      setError(result.error ?? tLabels.errorSaving);
+      toast.error(result.error ?? tLabels.errorSaving);
+    } catch {
+      setError(tLabels.errorSaving);
+      toast.error(tLabels.errorSaving);
+    } finally {
+      setIsPublishingAdditional(false);
+    }
+  };
+
+  const handlePublishNow = async () => {
+    if (!content.trim()) return;
+    if (hasUploading()) {
+      toast.info(tLabels.uploading);
       return;
     }
 
@@ -315,59 +467,66 @@ export function EditPostDialog({
     const mediaUrls = getMediaUrls();
 
     try {
-      let postId = post?.id;
+        let postId: string | undefined;
 
-      if (isEdit && postId) {
-        const saveResult = await updatePost(postId, {
-          content: content.trim(),
-          platforms,
-          scheduledAt: null,
-          location: location.trim() || "",
-          tags: finalTags,
-          mediaUrls,
-        });
+        // EDIT FLOW: Save content/media changes to DB before publishing.
+        // updatePost strips published_platforms internally – it NEVER touches publish state.
+        if (isEdit && post?.id) {
+          const saveResult = await updatePost(postId, {
+            content: content.trim(),
+            platforms,
+            scheduledAt: null,
+            location: location.trim() || "",
+            tags: finalTags,
+            mediaUrls,
+          });
 
-        if (!saveResult.success) {
-          const msg = saveResult.error ?? tLabels.errorSaving;
-          setError(msg);
-          toast.error(msg);
-          return;
+          if (!saveResult.success) {
+            const msg = saveResult.error ?? tLabels.errorSaving;
+            setError(msg);
+            toast.error(msg);
+            return;
+          }
+          postId = post.id;
+        } else {
+          // NEW POST FLOW: Create draft, then publish.
+          const createResult = await createPostAction({
+            content: content.trim(),
+            platforms,
+            scheduledAt: null,
+            status: "draft",
+            location: location.trim() || undefined,
+            tags: finalTags.length > 0 ? finalTags : undefined,
+            mediaUrls,
+          });
+
+          if (!createResult.success || !createResult.data?.id) {
+            const msg = createResult.error ?? tLabels.errorSaving;
+            setError(msg);
+            toast.error(msg);
+            return;
+          }
+          postId = createResult.data.id as string;
         }
-      } else {
-        const createResult = await createPostAction({
-          content: content.trim(),
-          platforms,
-          scheduledAt: null,
-          status: "draft",
-          location: location.trim() || undefined,
-          tags: finalTags.length > 0 ? finalTags : undefined,
-          mediaUrls,
-        });
 
-        if (!createResult.success || !createResult.data?.id) {
-          const msg = createResult.error ?? tLabels.errorSaving;
-          setError(msg);
-          toast.error(msg);
-          return;
-        }
-        postId = createResult.data.id as string;
-      }
-
-      const publishResult = await publishToFacebook({ postId: postId as string });
+        // PUBLISH FLOW: publishPost calls handlePublishSuccess which uses RPC append_published_platform.
+        // This is the ONLY place where published_platforms gets modified.
+        const publishResult = await publishPost({ postId });
 
       if (publishResult.success) {
-        toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+        console.log("handlePublishNow: úspěšně publikováno, publishResult:", publishResult);
+        toast.success("Příspěvek byl úspěšně publikován!");
+        await router.refresh();
         onOpenChange(false);
-        window.location.reload();
         return;
       }
 
-      const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+      const msg = publishResult.error ?? "Publikování selhalo.";
       setError(msg);
       toast.error(msg);
     } catch {
-      setError("Publikování na Facebook selhalo.");
-      toast.error("Publikování na Facebook selhalo.");
+      setError("Publikování selhalo.");
+      toast.error("Publikování selhalo.");
     } finally {
       setPublishing(false);
     }
@@ -593,6 +752,14 @@ export function EditPostDialog({
             )}
           </div>
 
+          {/* Warning: media changed for published post */}
+          {isEdit && status === "published" && mediaChanged && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <span>{tLabels.onlyTextUpdatePossible ?? "U publikovaného postu lze měnit pouze text. Pro změnu fotky musíte příspěvek smazat a vytvořit znovu."}</span>
+            </div>
+          )}
+
           {/* Platforms */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
@@ -601,6 +768,7 @@ export function EditPostDialog({
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((platform) => {
                 const isSelected = platforms.includes(platform.id);
+                const isPublished = (post?.published_platforms ?? []).includes(platform.id);
                 const Icon = PlatformIconMap[platform.id];
                 const platformColor = {
                   instagram: "text-[#E1306C]",
@@ -614,19 +782,22 @@ export function EditPostDialog({
                   <button
                     key={platform.id}
                     type="button"
-                    onClick={() => togglePlatform(platform.id)}
+                    onClick={() => !isPublished && togglePlatform(platform.id)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                      isSelected
-                        ? "border-indigo-500/30 dark:border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
-                        : cn(
-                          "border-black/5 dark:border-white/5 bg-white/60 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground hover:bg-white dark:hover:bg-white/[0.06]",
-                          "dark:text-muted-foreground",
-                        )
+                      isPublished
+                        ? "border-green-500/30 bg-green-500/10 text-green-400 opacity-60 pointer-events-none"
+                        : isSelected
+                          ? "border-indigo-500/30 dark:border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
+                          : cn(
+                              "border-black/5 dark:border-white/5 bg-white/60 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground hover:bg-white dark:hover:bg-white/[0.06]",
+                              "dark:text-muted-foreground",
+                            )
                     )}
                   >
-                    {Icon && <Icon className={cn("h-3.5 w-3.5", isSelected ? "" : platformColor)} />}
+                    {Icon && <Icon className={cn("h-3.5 w-3.5", isPublished ? "" : (isSelected ? "" : platformColor))} />}
                     {platform.label}
+                    {isPublished && <Check className="h-3 w-3 text-green-500" />}
                   </button>
                 );
               })}
@@ -705,35 +876,89 @@ export function EditPostDialog({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3 px-6 pb-6 pt-4 border-t border-white/5">
-          <Button
-            type="button"
-            onClick={() => handleSubmit("draft")}
-            disabled={!content.trim() || loading || publishing}
-            variant="outline"
-            className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-          >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? tLabels.saving : tLabels.saveDraft}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => handleSubmit("scheduled")}
-            disabled={!content.trim() || !scheduledAt || loading || publishing}
-            className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-          >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? tLabels.saving : tLabels.schedule}
-          </Button>
-          <Button
-            type="button"
-            onClick={handlePublishNow}
-            disabled={!content.trim() || platforms.length === 0 || loading || publishing}
-            className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-          >
-            {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {publishing ? tLabels.saving : tLabels.publishNow}
-          </Button>
+        <div className="px-6 pb-6 pt-4 border-t border-white/5 space-y-3">
+          {isEdit && status === "published" ? (
+            <>
+              {/* Additional publish buttons – publish to platforms not yet published */}
+              {canPublishAdditional && unpublishedSelectedPlatforms.map((p) => {
+                const Icon = PlatformIconMap[p];
+                const platformLabel = PLATFORMS.find((pl) => pl.id === p)?.label ?? p;
+                return (
+                  <Button
+                    key={p}
+                    type="button"
+                    onClick={() => handlePublishAdditional(p)}
+                    disabled={isPublishingAdditional || hasUploading()}
+                    className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isPublishingAdditional && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {Icon && <Icon className="mr-2 h-4 w-4" />}
+                    {tLabels.publishToSelected ?? "Publikovat"} na {platformLabel}
+                  </Button>
+                );
+              })}
+
+              {/* Instagram edit not supported banner */}
+              {isInstagramPublished && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <span>{tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu."}</span>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => handleClose()}
+                  variant="outline"
+                  className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                >
+                  {tLabels.cancel ?? "Zrušit"}
+                </Button>
+                {!isInstagramPublished && (
+                  <Button
+                    type="button"
+                    onClick={handleUpdateOnSocials}
+                    disabled={!content.trim() || isUpdating || mediaChanged || hasUploading()}
+                    className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isUpdating ? tLabels.saving : (tLabels.updateOnSocials ?? "Aktualizovat na sítích")}
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                onClick={() => handleSubmit("draft")}
+                disabled={!content.trim() || loading || publishing}
+                variant="outline"
+                className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? tLabels.saving : tLabels.saveDraft}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleSubmit("scheduled")}
+                disabled={!content.trim() || !scheduledAt || platforms.length === 0 || loading || publishing}
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? tLabels.saving : tLabels.schedule}
+              </Button>
+              <Button
+                type="button"
+                onClick={handlePublishNow}
+                disabled={!content.trim() || platforms.length === 0 || loading || publishing}
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+              >
+                {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {publishing ? tLabels.saving : tLabels.publishNow}
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

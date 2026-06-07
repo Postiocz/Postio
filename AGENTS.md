@@ -27,5 +27,26 @@
 - **Fonty**: Geist/Inter pro texty, stylizované Logo pro branding.
 - **Design System Standard**: Pozadí #000, Radius 20px, Glassmorphism, Grid, Barevné logo.
 
+## 📱 Sociální sítě – UI/UX & API pravidla (Bibla pravidel)
+
+STRIKTNÍ PRAVIDLA – musí být dodržována vždy při práci s publishing a post management features.
+
+### 1. Editace po publikování
+- **Facebook:** Jediná platforma s editací textu. UI: tlačítko "Aktualizovat na sítích".
+- **Instagram & LinkedIn:** Zákaz editace textu. Místo tlačítka zobraz banner "Editace není platformou podporována".
+- **TikTok:** Úplné uzamření po publikování. Žádná editace, žádné smazání. Zobraz ikonu zámku.
+- **YouTube:** Plná podpora editace i smazání.
+- **X (Twitter):** Free tier jen publikování. Žádná sync smazání.
+
+### 2. Validace médií
+- **Instagram:** Pouze JPEG. Poměr stran 4:5 až 1.91:1. Varování předem při nesedícím poměru.
+
+### 3. Tokeny
+- Pole `token_expires_at` v `social_accounts`. Monitoruj expiraci (LinkedIn = 60 dní).
+
+### 4. Specifika
+- **LinkedIn:** Žádné PDF karusely. `@mention` = prostý text.
+- **X (Twitter):** Free tier = jen publish, žádná sync status.
+
 ## 🧠 Ponaučení z chyb (Paměť)
 - *Zde bude Claude přidávat věci, které jsme už jednou pokazili a opravili, aby se neopakovaly.*

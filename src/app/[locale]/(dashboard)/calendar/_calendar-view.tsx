@@ -29,7 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
-import { publishToFacebook } from "@/lib/actions/publish";
+import { publishPost } from "@/lib/actions/publish";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { toast } from "sonner";
 import NextImage from "next/image";
@@ -72,6 +72,8 @@ interface Post {
   location: string | null;
   tags: string[];
   media_urls: string[];
+  published_platforms?: string[];
+  external_id?: string | null;
 }
 
 interface CalendarViewProps {
@@ -288,8 +290,8 @@ export function CalendarView({
       const normalizedScheduledAt = normalizeScheduledAt(formScheduledAt);
 
       if (status === "published") {
-        if (formPlatforms.length === 0 || !formPlatforms.includes("facebook")) {
-          const msg = "Pro publikování vyber Facebook.";
+        if (formPlatforms.length === 0) {
+          const msg = "Pro publikování vyber alespoň jednu platformu.";
           setFormError(msg);
           toast.error(msg);
           return;
@@ -312,15 +314,15 @@ export function CalendarView({
           return;
         }
 
-        const publishResult = await publishToFacebook({ postId: String(createResult.data.id) });
+        const publishResult = await publishPost({ postId: String(createResult.data.id) });
         if (publishResult.success) {
-          toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+          toast.success("Příspěvek byl úspěšně publikován!");
           handleCloseModal();
           window.location.reload();
           return;
         }
 
-        const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+        const msg = publishResult.error ?? "Publikování selhalo.";
         setFormError(msg);
         toast.error(msg);
         return;
@@ -364,6 +366,8 @@ export function CalendarView({
       location: post.location ?? null,
       tags: post.tags ?? [],
       media_urls: post.media_urls ?? [],
+      published_platforms: post.published_platforms ?? [],
+      external_id: post.external_id ?? null,
     });
     setEditPostOpen(true);
   }, []);
@@ -598,6 +602,8 @@ export function CalendarView({
                             ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/20"
                             : post.status === "draft"
                             ? "bg-gray-50 text-muted-foreground border border-gray-200 opacity-70 dark:bg-white/[0.02] dark:text-muted-foreground/50 dark:border-white/5 dark:opacity-60"
+                            : post.status === "removed_externally"
+                            ? "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/20"
                             : "bg-gray-50 text-muted-foreground border border-gray-200 dark:bg-white/5 dark:text-muted-foreground dark:border-white/5"
                         )}
                         title={post.content?.substring(0, 60)}
@@ -983,6 +989,10 @@ export function CalendarView({
           statusScheduled: tCalendar.statusScheduled || "Naplánované",
           statusPublished: tCalendar.statusPublished || "Publikované",
           statusFailed: tCalendar.statusFailed || "Neúspěšné",
+          remoteEditSuccess: "Text byl upraven v Postio i na sociální síti.",
+          photoChangeNotAllowed: "Změna fotky u publikovaného postu není možná.",
+          updateOnSocials: "Aktualizovat na sítích",
+          onlyTextUpdatePossible: "U publikovaného postu lze měnit pouze text.",
         }}
         tAi={tAi}
       />

@@ -13,6 +13,8 @@ type Post = {
   location: string | null;
   tags: string[];
   media_urls: string[];
+  published_platforms?: string[];
+  external_id?: string | null;
 };
 
 export function CalendarClient({

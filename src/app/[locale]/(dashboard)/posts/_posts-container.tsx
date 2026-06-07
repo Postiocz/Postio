@@ -20,6 +20,7 @@ export function PostsContainer({
   tStatusScheduled,
   tStatusPublished,
   tStatusFailed,
+  tStatusRemovedExternally,
   tNoPosts,
   tNoPostsSubtitle,
   tScheduledAt,
@@ -28,6 +29,8 @@ export function PostsContainer({
   tDeleteConfirmDesc,
   tDeleteConfirmAction,
   tDeleteCancel,
+  tRepublish,
+  tRemovedExternallyMsg,
   tLabels,
   tAi,
 }: {
@@ -42,6 +45,7 @@ export function PostsContainer({
   tStatusScheduled: string;
   tStatusPublished: string;
   tStatusFailed: string;
+  tStatusRemovedExternally: string;
   tNoPosts: string;
   tNoPostsSubtitle: string;
   tScheduledAt: string;
@@ -50,6 +54,8 @@ export function PostsContainer({
   tDeleteConfirmDesc: string;
   tDeleteConfirmAction: string;
   tDeleteCancel: string;
+  tRepublish: string;
+  tRemovedExternallyMsg: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -82,6 +88,10 @@ export function PostsContainer({
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+    remoteEditSuccess?: string;
+    photoChangeNotAllowed?: string;
+    updateOnSocials?: string;
+    onlyTextUpdatePossible?: string;
   };
   tAi?: {
     aiAssistant: string;
@@ -157,6 +167,7 @@ export function PostsContainer({
           statusScheduledLabel={tStatusScheduled}
           statusPublishedLabel={tStatusPublished}
           statusFailedLabel={tStatusFailed}
+          statusRemovedExternallyLabel={tStatusRemovedExternally}
         />
       </div>
 
@@ -202,12 +213,15 @@ export function PostsContainer({
               tStatusScheduled={tStatusScheduled}
               tStatusPublished={tStatusPublished}
               tStatusFailed={tStatusFailed}
+              tStatusRemovedExternally={tStatusRemovedExternally}
               tScheduledAt={tScheduledAt}
               tEditPost={tEditPost}
               tDeleteConfirmTitle={tDeleteConfirmTitle}
               tDeleteConfirmDesc={tDeleteConfirmDesc}
               tDeleteConfirmAction={tDeleteConfirmAction}
               tDeleteCancel={tDeleteCancel}
+              tRepublish={tRepublish}
+              tRemovedExternallyMsg={tRemovedExternallyMsg}
               tLabels={tLabels}
               tAi={tAi}
               onDeleted={handleDeleted}

@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
-import { publishToFacebook } from "@/lib/actions/publish";
+import { publishPost } from "@/lib/actions/publish";
 import { ArrowLeft, Calendar, CheckCircle2, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
@@ -158,8 +158,8 @@ export default function NewPostPage() {
       return;
     }
 
-    if (selectedPlatforms.length === 0 || !selectedPlatforms.includes("facebook")) {
-      toast.error("Pro publikování vyber Facebook.");
+    if (selectedPlatforms.length === 0) {
+      toast.error("Pro publikování vyber alespoň jednu platformu.");
       return;
     }
 
@@ -199,20 +199,20 @@ export default function NewPostPage() {
       }
 
       const postId = createResult.data.id as string;
-      const publishResult = await publishToFacebook({ postId });
+      const publishResult = await publishPost({ postId });
 
       if (publishResult.success) {
-        toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+        toast.success("Příspěvek byl úspěšně publikován!");
         router.push(`/${locale}/posts`);
         return;
       }
 
-      const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+      const msg = publishResult.error ?? "Publikování selhalo.";
       setError(msg);
       toast.error(msg);
     } catch {
-      setError("Publikování na Facebook selhalo.");
-      toast.error("Publikování na Facebook selhalo.");
+      setError("Publikování selhalo.");
+      toast.error("Publikování selhalo.");
     } finally {
       setPublishing(false);
     }

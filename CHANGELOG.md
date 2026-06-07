@@ -1,3 +1,384 @@
+### Striktní Oddělení Editace od Publikování (DOKONČENO)
+
+- **Cíl**: Zajišťovat že `updatePost` a `publishPost` jsou naprosto oddělené světy. `published_platforms` smí měnit pouze publikační flow přes RPC.
+- **Řešení**:
+  - `posts.ts` – `updatePost` má explicitní komentář "STRICT SEPARATION" – `published_platforms`, `published_at`, `external_id` se extrahují a zahazují. `status` je omezen na `draft`/`scheduled`.
+  - `edit-post-dialog.tsx` – `handlePublishNow` přepracován: edit flow (`updatePost`) ukládá pouze content/media/platforms, publish flow (`publishPost`) volá RPC `append_published_platform`. Komentáře jasně oddělují EDIT FLOW od PUBLISH FLOW.
+  - `edit-post-dialog.tsx` – `handlePublishAdditional` volá pouze `publishAdditionalPlatforms` → RPC. Žádný `updatePost`. `router.refresh()` pro okamžitý update fajfek.
+  - `edit-post-dialog.tsx` – `handleUpdateOnSocials` volá pouze `updateRemotePostAction` (text na Meta API + content v DB). Žádné publikování platforem.
+  - `publish.ts` – `handlePublishSuccess` používá RPC `append_published_platform` pro atomický zápis platformy. `handlePublishError` nikdy nemodifikuje `published_platforms`.
+  - SQL migrace `021_add_remove_published_platform.sql` – nová funkce `remove_published_platform` pro budoucí selektivní mazání.
+
+- Změněné soubory:
+  - `src/lib/actions/posts.ts` – STRICT SEPARATION comment
+  - `src/lib/actions/publish.ts` – audit (RPC již funguje správně)
+  - `src/components/edit-post-dialog.tsx` – handlePublishNow refaktor, jasné oddělení edit/publish flow
+  - `supabase/migrations/021_add_remove_published_platform.sql` – nová migrace (append + remove RPC)
+
+### Stabilizační Balíček – Robustní Publishing & UI (DOKONČENO)
+
+- **Cíle**: Zajistit stálost zelených fajfek u publikovaných platforem, blokovat odeslání bez výběru sítě a vylepšit vizualizaci v seznamu.
+- **Řešení**:
+  - `posts.ts` – Server Action `createPostAction` a `updatePost` nyní natvrdo filtrují `published_platforms` z inputu. Tím je znemožněno, aby formulář náhodou přemazal stav publikování v DB.
+  - `publish.ts` – `handlePublishSuccess` volá `revalidatePath("/", "layout")` IHNED po úspěšném zápisu přes RPC pro maximální čerstvost dat.
+  - `edit-post-dialog.tsx` – Tlačítka "Naplánovat" a "Publikovat nyní" jsou `disabled`, pokud není vybrána žádná platforma (`platforms.length === 0`).
+  - `edit-post-dialog.tsx` – Ikony již publikovaných platforem v modalu mají `opacity-60` a `pointer-events-none`, ale zelená fajfka zůstává viditelná.
+  - `_post-card.tsx` – Karta příspěvku v seznamu nyní zobrazuje ikony VŠECH platforem z pole `published_platforms` vedle sebe. Pokud post ještě není publikován, zobrazují se ikony z `platforms` se sníženou opacitou.
+  - `edit-post-dialog.tsx` – Všechny klíčové akce (uložení, publikování) důsledně volají `router.refresh()` pro synchronizaci UI s DB.
+  - **SQL (RPC)** – Nová migrace `020_update_append_published_platform.sql` aktualizuje RPC funkci tak, aby atomicky nastavovala i `status = 'published'` a `published_at = now()`, a vracela celý řádek příspěvku.
+
+- Změněné soubory:
+  - `src/lib/actions/posts.ts` – hard-sanitize `published_platforms`
+  - `src/lib/actions/publish.ts` – immediate `revalidatePath`
+  - `src/components/edit-post-dialog.tsx` – button validation, icon styling, router refresh
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – multi-platform icons display
+  - `supabase/migrations/020_update_append_published_platform.sql` – vylepšená RPC funkce
+
+### Fix – Published Platforms UI Lock + Server Action Hard Sanitize (DOKONČENO)
+
+- **Problém**: Publikovaná platforma (Instagram) zůstávala v UI označena modře, což mátlo uživatele i kód a způsobovalo mizení fajfek.
+- **Řešení**:
+  - `edit-post-dialog.tsx` – ikony publikovaných platforem jsou vizuálně deaktivovány: zelený border + `opacity-50` + `pointer-events-none`. Modré podsvícení (selected stav) je u published platforem odstraněno. Zelená fajfka zůstává.
+  - `edit-post-dialog.tsx` – `useEffect` při načtení modalu automaticky odebírá `published_platforms` ze stavu `platforms` (cleanPlatforms filter). Publikované sítě už nejsou v aktivním výběru.
+  - `edit-post-dialog.tsx` – `handlePublishNow` kontroluje `platformsToPublish` (filtruje published) místo `platforms.length`. Disabled stav tlačítka používá `unpublishedSelectedPlatforms.length === 0`.
+  - `posts.ts` – `createPostAction` a `updatePost` striktně čistí `published_platforms`, `published_at`, `external_id` z inputu. Status projde pouze jako `draft` nebo `scheduled` – `published`, `publishing`, `failed` jsou zablokovány. Formulář nemůže přepsat stav publikování.
+  - `posts.ts` – přidáno `revalidatePath("/", "layout")` do `createPostAction` i `updatePost` pro kompletní revalidaci cache.
+
+- Změněné soubory:
+  - `src/components/edit-post-dialog.tsx` – UI lock published platforem, auto-clean platforms, publish button logic
+  - `src/lib/actions/posts.ts` – hard sanitize publishing fields, safeStatus guard, revalidatePath("/", "layout")
+
+- Build: `npm run build` ✅ 0 chyb
+
+### Fix – published_platforms Hard Lock + UI Refresh (DOKONČENO)
+
+- **Problém**: Fajfky u publikovaných platforem se přemazávaly při doposílání na další platformu.
+- **Řešení**:
+  - `updatePost` v `posts.ts` – zakázána jakákoliv úprava `published_platforms`. Pole `published_platforms` se smaže z `updateData` před odesláním do DB. Tento sloupec smí měnit VÝHRADNě publikační logika přes RPC volání `append_published_platform`.
+  - `handlePublishSuccess` v `publish.ts` – po RPC volání se čtou čerstvá data z DB (`select published_platforms`) a logují (`console.log("AKTUALIZOVANÉ PLATFORMY V DB:", ...)`). Tím lze ověřit že RPC funguje správně.
+  - `edit-post-dialog.tsx` – všech 5 výskytů `window.location.reload()` nahrazeno `router.refresh()` pro Next.js friendly revalidaci. Přidán `useRouter` hook. Přidány debug logy u `handlePublishNow` a `handlePublishAdditional`.
+  - RPC funkce `append_published_platform` v migraci 019 je v pořádku (deduplikace + atomický zápis).
+
+- Změněné soubory:
+  - `src/lib/actions/posts.ts` – `delete updateData.published_platforms` v updatePost
+  - `src/lib/actions/publish.ts` – logging + fetch fresh data v handlePublishSuccess
+  - `src/components/edit-post-dialog.tsx` – router.refresh() místo window.location.reload(), debug logy
+
+### Fix – published_platforms Atomic Append via PostgreSQL RPC (DOKONČENO - SUPERSEDED)
+
+- **Problém**: Druhé publikování přemazávalo první v poli `published_platforms`. JavaScript read-modify-write pattern selhával při race conditions.
+- **Řešení**: Přechod na atomický zápis přímo v databázi (PostgreSQL).
+  - Nová SQL migrace `019_add_append_published_platform_rpc.sql` – vytvořila RPC funkci `append_published_platform(p_post_id UUID, p_platform TEXT)`, která dělá `published_platforms = published_platforms || ARRAY[p_platform]` s deduplikací přímo v PostgreSQL. Žádný read-modify-write v JavaScriptu.
+  - `handlePublishSuccess` v `publish.ts` – odstraněn read-modify-write. Nyní volá `supabase.rpc("append_published_platform", {...})` pro atomické přidání platformy do pole. Ostatní pole (status, external_id, published_at) se aktualizují samostatně bez dotyku `published_platforms`.
+  - Přidán debug log: `console.log("DB UPDATE - Přidávám do pole:", platform)`.
+  - Přidána `revalidatePath("/", "layout")` pro hard refresh celé Next.js cache po každém publikování.
+  - UI (`edit-post-dialog.tsx`) – bez změn. `window.location.reload()` po úspěšném publikování zajistí čerstvá data z DB. `effectivePublishedPlatforms` useMemo funguje správně s novými daty.
+
+- Změněné soubory:
+  - `supabase/migrations/019_add_append_published_platform_rpc.sql` – nová RPC funkce
+  - `src/lib/actions/publish.ts` – `handlePublishSuccess` (RPC + revalidatePath + debug log)
+
+### Fix – published_platforms Append Logic + Error Handler Safety (DOKONČENO - SUPERSEDED)
+
+- **Problém**: Při dodatečném publikování na druhou síť se první platforma z `published_platforms` mazala místo aby se k ní nová přidala.
+- **Příčina**: `handlePublishSuccess` používal read-then-write pattern, který mohl ztratit data při race condition. `handlePublishError` při selhání doposílání na další síť resetoval `status` na `"failed"` a `published_at` na `null` – čímž ničil stav původního publikování.
+- **Řešení**:
+  - `handlePublishSuccess` – přepsán na read-append-write s `Array.from(new Set([...currentPlatforms, platform]))` pro deduplikaci. Přidáno `console.log` pro debugování. Platformy se nyní spolehlivě akumulují.
+  - `handlePublishError` – nyní čte `published_platforms` před update. Pokud je post už publikován na jiné platformě (`currentPlatforms.length > 0`), uloží pouze `publish_error` bez resetu `status` a `published_at`. Reset `status: "failed"` + `published_at: null` proběhne pouze u prvního selhaného pokusu.
+  - Revalidace (`revalidateAllLocales`) zůstává nezměněná – volá se po každém úspěchu i chybě.
+  - Modal (`edit-post-dialog.tsx`) – žádná změna potřeba. `effectivePublishedPlatforms` již správně prochází celé pole a zelené fajfky svítí u všech publikovaných platforem.
+
+- Změněné soubory:
+  - `src/lib/actions/publish.ts` – `handlePublishSuccess` (append + dedup), `handlePublishError` (safe partial update)
+
+### Fix – Delete Button Unresponsive + Legacy published_platforms Fallback (DOKONČENO)
+
+- **Problém 1**: Tlačítko koše (smazat) v seznamu příspěvků nereagovalo na kliknutí – bylo pod neviditelnou z-vrstvou karty.
+- **Problém 2**: U starých publikovaných postů je `published_platforms` prázdné (migrace 017 byla dodatečná). Modal ukazoval tlačítko "Publikovat na Instagram" i když post už na IG je. Mohlo dojít k duplikátu.
+- **Řešení**:
+  - Z-index akčních tlačítek zvýšen z `z-20` na `z-30` v `_post-card.tsx`
+  - `handleDelete` v `_post-card.tsx` obalen try-catch-finally pro robustnost
+  - `deletePost` v `posts.ts` – celý blok Meta API obalen dalším try-catch (outer wrapper)
+  - `edit-post-dialog.tsx` – nový `effectivePublishedPlatforms` useMemo: pokud `status === 'published'` a `published_platforms` je prázdné ale `external_id` existuje, považ `platforms` za `published_platforms` (fallback pro legacy data)
+  - `isInstagramPublished` nyní používá `effectivePublishedPlatforms` místo `post?.platforms`
+  - `unpublishedSelectedPlatforms` a zelená fajfka u platforem také používají `effectivePublishedPlatforms`
+  - `EditPostData` interface rozšířen o `external_id?: string | null`
+  - Propagace `external_id` v `_post-card.tsx`, `posts/page.tsx`, `calendar/_calendar-view.tsx`, `calendar/_calendar-client.tsx`
+  - SQL migrace `018_backfill_published_platforms.sql` – backfill `published_platforms = platforms` pro všechny existující published posty s prázdným polem
+
+- Změněné soubory:
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – z-30, try-catch, external_id
+  - `src/lib/actions/posts.ts` – outer try-catch wrapper v deletePost
+  - `src/components/edit-post-dialog.tsx` – effectivePublishedPlatforms fallback
+  - `src/app/[locale]/(dashboard)/posts/page.tsx` – external_id mapping
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – external_id v Post + handlePostClick
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-client.tsx` – external_id v Post typu
+  - `supabase/migrations/018_backfill_published_platforms.sql` – backfill starých dat
+
+- Build: `npm run build` ✅ 0 chyb
+
+### Feature – Additional Publishing (Publish to More Platforms Later) (DOKONČENO)
+
+- **Problém**: Stav `published` blokoval celý příspěvek, i když uživatel chtěl přidat další platformu.
+- **Řešení**: Nový sloupec `published_platforms` (TEXT[]) v tabulce `posts` – ukládá názvy sítí, kde už odeslání proběhlo. Uživatel může vzít publikovaný post a dodatečně ho "doposlat" na další platformu.
+
+- `supabase/migrations/017_add_published_platforms_to_posts.sql` – nová migrace:
+  - `ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS published_platforms TEXT[] DEFAULT '{}';`
+
+- `src/lib/actions/publish.ts` – úpravy:
+  - `handlePublishSuccess`: po úspěšném odeslání čte `published_platforms`, přidá platformu a zapisuje zpět
+  - Nový server action `publishAdditionalPlatforms({ postId, platform })` – publikuje post na jednu novou platformu, která ještě není v `published_platforms`. Stejná publish logika (Instagram 2-phase + Facebook media types), ale jen pro jednu cílovou platformu.
+
+- `src/components/edit-post-dialog.tsx` – dynamické UI:
+  - `EditPostData` rozšířen o `published_platforms` (volitelné)
+  - Import `publishAdditionalPlatforms` + `Check` z lucide-react
+  - Nový state `isPublishingAdditional`
+  - `useMemo` `unpublishedSelectedPlatforms` – vybrané platformy které nejsou v `published_platforms`
+  - `useMemo` `canPublishAdditional` – true pokud je alespoň jedna nová platforma zaškrtnutá
+  - Handler `handlePublishAdditional` – volá `publishAdditionalPlatforms` pro jednu platformu
+  - Zelená fajfka (`Check` ikona) u platforem v `published_platforms`
+  - Action buttons u published postů: pokud `canPublishAdditional` → tlačítko "Publikovat na {Platforma}" pro každou novou zaškrtnutou platformu (s ikonou + loader). Původní tlačítka "Zrušit" + "Aktualizovat na sítích" zůstávají.
+
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové klíče (v calendar i posts):
+  - `publishToSelected`: "Publikovat" / "Publish" / "Опублікувати"
+  - `additionalPublishSuccess`: "Příspěvek byl publikován" / "Post has been published" / "Публікацію опубліковано"
+
+- Propagace `published_platforms` v datech:
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – `PostListItem` typ + mapování do `EditPostDialog`
+  - `src/app/[locale]/(dashboard)/posts/page.tsx` – mapování z DB do `PostsList`
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – `Post` interface + `handlePostClick` mapování
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-client.tsx` – `Post` typ
+
+- Build: `npm run build` ✅ 0 chyb
+
+### Fix – Published Post UI: No Duplicate Publish + Update on Socials (DOKONČENO)
+
+- **Problém**: Uživatel viděl u publikovaného postu tlačítko "Publikovat nyní", což mohlo vytvořit duplikát.
+- **Řešení**: Při `status === 'published'` se tlačítka "Uložit koncept", "Naplánovat" a "Publikovat nyní" skryjí a nahradí je:
+  - "Aktualizovat na sítích" – volá `updateRemotePostAction`, pošle nový text na `external_id`.
+  - "Zrušit" – zavře modal.
+- `src/components/edit-post-dialog.tsx`:
+  - Nový `useMemo` `mediaChanged` – detekuje změnu médií u publikovaných postů.
+  - Nový handler `handleUpdateOnSocials` – volá `updateRemotePostAction` s `content.trim()`.
+  - Action buttons: conditionální render. Published → "Zrušit" + "Aktualizovat na sítích". Ostatní stavy → původní tlačítka.
+  - Tlačítko "Aktualizovat na sítích" je `disabled` pokud `mediaChanged === true`.
+  - Varovný banner (`AlertTriangle`) pod médii: "U publikovaného postu lze měnit pouze text..."
+  - Interface rozšířen o `updateOnSocials`, `onlyTextUpdatePossible`, `cancel`.
+- `src/messages/cs.json`, `en.json`, `uk.json` – nové klíče v `calendar` i `posts`:
+  - `updateOnSocials`: "Aktualizovat na sítích" / "Update on Socials" / "Оновити в соцмережах"
+  - `onlyTextUpdatePossible`: "U publikovaného postu lze měnit pouze text..." / "For published posts, only text can be changed..." / "Для опублікованих публікацій можна змінювати лише текст..."
+- Propagace props: `posts/page.tsx`, `calendar/_calendar-view.tsx`, `_posts-container.tsx`, `_post-card.tsx` – přidány `updateOnSocials`, `onlyTextUpdatePossible`.
+- `updateRemotePostAction` v `publish.ts` zůstává beze změny – již správně posílá pouze text na Meta API.
+- Build: `npm run build` ✅ 0 chyb
+
+### Feature – Remote Edit (DOKONČENO)
+
+- `src/lib/actions/publish.ts` – nový server action `updateRemotePostAction(postId, newContent)`:
+  - Najde v DB příspěvek, získá `external_id` a `access_token` (z `social_accounts`)
+  - Facebook: POST na `https://graph.facebook.com/v20.0/{external_id}` s `{ message: newContent, access_token }`
+  - Instagram: POST na `https://graph.facebook.com/v20.0/{external_id}` s `{ caption: newContent, access_token }`
+  - Aktualizuje pouze `content` v lokální DB
+  - Revaliduje `/calendar`, `/posts`, `/dashboard`
+- `src/components/edit-post-dialog.tsx` – integrace Remote Editu:
+  - Import `updateRemotePostAction` místo `updatePublishedPost`
+  - V `handleSubmit`: když `status === "published"` → volá `updateRemotePostAction`
+  - Kontrola změny media: pokud se media liší od originálu → toast error "Změna fotky u publikovaného postu není možná. Pro změnu fotky musíte příspěvek publikovat znovu."
+  - Toast úspěch: "Text byl upraven v Postio i na sociální síti."
+  - Nové volitelné labely v interface: `remoteEditSuccess`, `photoChangeNotAllowed`
+- `src/messages/cs.json`, `en.json`, `uk.json` – překlady:
+  - `remoteEditSuccess`: "Text byl upraven v Postio i na sociální síti." / "Text has been updated in Postio and on the social network." / "Текст оновлено в Postio та в соціальній мережі."
+  - `photoChangeNotAllowed`: "Změna fotky u publikovaného postu není možná..." / "Changing a photo on a published post is not possible..." / "Зміна фото в опублікованій публікації неможлива..."
+- Interface updates v `_post-card.tsx` (×2), `_posts-container.tsx` – přidány volitelné labely
+- `posts/page.tsx` – propagace `remoteEditSuccess`, `photoChangeNotAllowed` z translations
+- `calendar/_calendar-view.tsx` – fallback hodnoty pro nové labely
+- Build: `npm run build` ✅ 0 chyb
+
+### Fix – Instagram-Only Publishing (DOKONČENO)
+
+- Validace "Pro publikování vyber Facebook" odstraněna ze všech 4 míst:
+  - `src/app/[locale]/(dashboard)/posts/new/page.tsx`
+  - `src/app/[locale]/(dashboard)/posts/[id]/page.tsx`
+  - `src/components/edit-post-dialog.tsx`
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`
+- Podmínka změněna z `!platforms.includes("facebook")` na `platforms.length === 0` — nyní stačí jakákoliv platforma (instagram NEBO facebook)
+- Všechna volání `publishToFacebook()` nahrazena za `publishPost()` — router v `publishPost()` automaticky rozliší platformu z DB a zavole `publishToInstagram()` nebo Facebook publish logiku
+- Toast messages obecné: "Příspěvek byl úspěšně publikován!" místo "na Facebooku"
+- `resetPostStatus` ("Publikovat znovu") potvrzeno — funguje správně: `removed_externally` → `draft`
+- Build: `npm run build` ✅ 0 chyb
+
+### Feature – Auto Sync Trigger for External Removal Detection (Krok 34) (DOKONČENO)
+
+- `supabase/migrations/016_add_last_sync_at_to_posts.sql` – nová migrace:
+  - Nový sloupec `last_sync_at` (TIMESTAMPTZ) pro throttling synchronizace
+- `src/lib/actions/posts.ts` – nový server action `syncPublishedPosts`:
+  - Najde všechny posty se statusem `published` + `external_id`, kde `last_sync_at` je starší než 30 minut (nebo NULL)
+  - Pro každý post GET na Meta Graph API (`/v20.0/{external_id}?fields=id`)
+  - Pokud API vrátí 404/400 → post označí jako `removed_externally` (status, `removed_at`, `removed_from_platform`, `last_sync_at`)
+  - Pokud post existuje → jen update `last_sync_at`
+  - Revaliduje `/posts`, `/calendar`, `/dashboard` pokud došlo ke změnám
+- `src/app/[locale]/(dashboard)/posts/page.tsx` – při načtení stránky:
+  - Zavolá `syncPublishedPosts()` **před** načtením seznamu postů
+  - Díky tomu se DB aktualizuje a následný select vrátí posty se správným statusem
+  - UI se „přebarví" automaticky – oranžový badge + červené upozornění
+- Ochrana API limitů: 30min cooldown mezi synchronizacemi (last_sync_at)
+- Tlačítko "Publikovat znovu" (`resetPostStatus`) již fungovalo – resetuje `removed_externally` → `draft`
+- Build: `npm run build` ✅ 0 chyb
+
+### Feature – Robust Delete + External Removal Detection (Krok 33) (DOKONČENO)
+
+- `supabase/migrations/015_add_removed_externally_status.sql` – nová migrace:
+  - Rozšíření CHECK constraintu na `posts.status` o hodnotu `removed_externally`
+  - Nové sloupce `removed_at` (TIMESTAMPTZ) a `removed_from_platform` (TEXT)
+  - Index `posts_removed_at_idx` pro efektivní filtrování
+- `src/lib/actions/posts.ts` – robustní mazání + nové akce:
+  - **`deletePost`**: try-catch kolem Meta API volání. Pokud API vrátí 404/400 nebo error code 190/1 (Object not found/deleted), NEHÁŽÍ chybu – místo toho označí post jako `removed_externally` s `removed_at` a `removed_from_platform`. Uživatel se nikdy "nezasekne".
+  - **`syncPostStatus`** (nový): GET na Meta API pro zjištění, zda `external_id` stále existuje. Pokud ne, nastaví `status = 'removed_externally'`.
+  - **`resetPostStatus`** (nový): Resetuje `removed_externally` post zpět na `draft` (maže `external_id`, `removed_at`, `removed_from_platform`). Umožňuje "Publikovat znovu".
+  - **`updatePost`**: typ `status` rozšířen o `removed_externally`
+- `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – UI změny:
+  - Nový status styl `removed_externally` (oranžový badge)
+  - Červené upozornění s ikonou `AlertTriangle`: "Odstraněno přímo na [Platforma] dne [Datum]"
+  - Tlačítko "Publikovat znovu" (`RotateCcw` ikona) – volá `resetPostStatus`
+  - `PostListItem` rozšířen o `removed_at` a `removed_from_platform`
+  - `deletePost` handler rozliší `removedExternally: true` → `router.refresh()` místo `onDeleted`
+- `src/app/[locale]/(dashboard)/posts/page.tsx` – mapování `removed_at`, `removed_from_platform` z DB
+- `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` – propagace nových props
+- `src/components/post-filters-row.tsx` – volitelný filtr `removed_externally` (přidán pokud je label k dispozici)
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – oranžový styl pro `removed_externally` v kalendáři
+- `src/messages/cs.json`, `en.json`, `uk.json` – překlady:
+  - `statusRemovedExternally`: "Odstraněno externě" / "Removed Externally" / "Видалено зовні"
+  - `republish`: "Publikovat znovu" / "Republish" / "Опублікувати знову"
+  - `removedExternallyMsg`: "Odstraněno přímo na {platform}" / "Removed directly from {platform}" / "Видалено безпосередньо з {platform}"
+- Build: `npm run build` ✅ 0 chyb
+
+### Feature – Full Post Control: Caption Builder, Meta Delete, Published Post Editing (Krok 32) (DOKONČENO)
+
+- `src/lib/caption.ts` – nový utility soubor s funkcí `buildFinalCaption()`:
+  - Sestaví finální popisek: `content` + `\n📍 location` + `\n#tag1 #tag2 #tag3`
+  - Location se přidá pouze pokud existuje (ve formátu "📍 [místo]")
+  - Tags se normalizují (pokud nemají `#`, přidá se) a spojí s mezerou
+  - Exportován jako čistá funkce (ne Server Action) pro použití v publish.ts i UI
+- `src/lib/actions/publish.ts` – integrace caption builderu do všech publish cest:
+  - **`publishPost`**: select query nyní includuje `location, tags`. Všechna volání Meta API používají `finalCaption` místo raw `content`.
+  - **Facebook video**: `description` → `finalCaption`
+  - **Facebook gallery**: `message` → `finalCaption`
+  - **Facebook single photo**: `caption` → `finalCaption`
+  - **Facebook text-only**: `message` → `finalCaption`
+  - **Instagram**: `caption` → `finalCaption` (v Phase 1 container creation)
+  - **Nový Server Action `updatePublishedPost`**: Editace již publikovaných příspěvků na sociálních sítích:
+    - Kontroluje `status === 'published'` a `external_id`
+    - Rozliší platformu: Instagram → param `caption`, Facebook → param `message`
+    - POST na `https://graph.facebook.com/v20.0/{external_id}` s novým caption
+    - Aktualizuje lokální DB (content, location, tags)
+    - Revaliduje `/calendar`, `/posts`, `/dashboard`
+- `src/lib/actions/posts.ts` – oprava mazání z Instagramu:
+  - **`deletePost`**: Nyní mazá z obou Meta platfor (Facebook i Instagram)
+  - Podmínka změněna z `platforms.includes("facebook")` na `post.status === "published"`
+  - Hledá access_token pro `targetPlatform` (první platformu v poli) přes `.ilike()`
+  - Obě platformy používají stejný endpoint: `DELETE https://graph.facebook.com/v20.0/{external_id}?access_token={token}`
+  - Přidáno logování: mazání, odpověď API, úspěch/ selhání
+- `src/components/edit-post-dialog.tsx` – integrace editace publikovaných postů:
+  - Import `updatePublishedPost` z publish.ts
+  - V `handleSubmit`: když `status === "published"`, volá `updatePublishedPost` místo `updatePost`
+  - Po úspěšné editaci na sociální síti: toast + close dialog + reload
+- `supabase/functions/process-scheduled-posts/index.ts` – synchronizace caption builderu do Edge funkce:
+  - **`buildFinalCaption()`**: Stejná logika jako v `src/lib/caption.ts` (standalone pro Edge runtime)
+  - **Select query**: přidáno `location, tags`
+  - **Publish loop**: `finalCaption` použit pro obě platformy (Instagram i Facebook)
+- Build: `npm run build` ✅ 0 chyb
+
+### Fix – Instagram OAuth config_id + Verified Publishing (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – přidán `config_id` do Instagram OAuth queryParams:
+  - `config_id: '891876470597727'` – při propojování se otevře růžové Meta okno s brandingem z Meta portálu
+- `src/lib/actions/publish.ts` – potvrzeno: Instagram publishing engine funguje (dvoufázový container process):
+  - Fáze 1: POST `/{ig_user_id}/media` s `image_url`/`video_url` + `caption` → `creation_id`
+  - Fáze 2: (3s/10s delay) POST `/{ig_user_id}/media_publish` s `creation_id` → publikováno
+  - Rozlišení FOTO (`image_url` + `media_type: IMAGE`) a VIDEO (`video_url` + `media_type: REELS`)
+- `supabase/functions/process-scheduled-posts/index.ts` – potvrzeno: Edge funkce má stejnou Instagram logiku syncnutou
+- Build: `npm run build` ✅ 0 chyb
+
+### Feature – Direct Instagram Login (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – OAuth logika v modalu nyní rozlišuje Instagram od Facebooku:
+  - **PRO INSTAGRAM**: OAuth scopes `public_profile,email,instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_insights,business_management` (bez pages_* scopeů). Callback URL obsahuje `&platform=instagram`.
+  - **PRO FACEBOOK**: Původní scopes s `pages_show_list,pages_read_engagement,pages_manage_posts` zůstávají nezměněny.
+  - Warning text v modalu se liší: pro Instagram pouze "Profesionální účet (Business/Creator)" – zmínka o "Facebook Stránce" odstraněna.
+  - Žádný demo/mock režim – po kliknutí se vždy otevře reálné OAuth okno.
+- `src/app/auth/callback/route.ts` – nová logika pro Instagram Direct Login:
+  - **Platform hint**: `next` parametr se parsuje pro `platform=instagram` query param.
+  - **Instagram Direct flow**: Když `requestedPlatform === "instagram"`, callback nejprve volá `/me` + `/me?fields=instagram_business_account` pro získání vlastního IG účtu uživatele (bez nutnosti FB Page).
+  - **Fallback**: Pokud `/me` vrátí ID, uloží se jako Instagram účet s `platform: 'instagram'`.
+  - **FB Pages**: Stále se načítají, ale při Instagram Direct Login se FB Pages přeskočí (pokud již byl nalezen přímý IG účet). IG účty propojené s Pages se stále přidávají jako duplicitní ochrana.
+  - **Logy**: `[Postio] Instagram Direct Login – hledám vlastní IG účet uživatele`, `[Postio] NALEZEN PŘÍMÝ INSTAGRAM: ...`
+- `src/messages/cs.json`, `en.json`, `uk.json` – přidán `connectModal.warningDescInstagram` klíč:
+  - CS: "Tato funkce vyžaduje Profesionální účet (Business/Creator)."
+  - EN: "This feature requires a Professional account (Business/Creator)."
+  - UK: "Ця функція вимагає Професійний акаунт (Business/Creator)."
+- Build: `npm run build` ✅ 0 chyb
+
+### Feature – Unified Connect Account Modal (Krok 22) (DOKONČENO)
+
+- `src/components/connect-account-modal.tsx` – nový univerzální informační modal pro Facebook i Instagram:
+  - **Design**: 'Premium Glass' styl (`bg-white/10 dark:bg-black/40`, `backdrop-blur-xl`, `rounded-[24px]`).
+  - **Šířka**: `max-w-xl` (cca 500-600px) – texty na tlačítkách se už neusekávají.
+  - **Hlavička**: Logo sítě (FB/IG) v gradient boxu + nadpis "Propojit [Název sítě]".
+  - **Seznam funkcí (checkmarks)**: Automatické publikování, analytika, AI asistent.
+  - **Upozornění**: Amber warning box – "Tato funkce vyžaduje Profesionální účet (Business/Creator) nebo Facebook Stránku."
+  - **Hlavní tlačítko**: `w-full py-4 text-base font-semibold` s indigo/purple gradientem.
+  - **Odkaz dole**: "Máte osobní účet? Zjistěte, jak jej přepnout." → odkaz na Facebook Business Help.
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – logika kliknutí na Facebook i Instagram nyní otevírá informační modal před OAuth přesměrováním:
+  - Starý `AccountTypeModal` (dvousloupcový Professional | Personal) nahrazen jedním `ConnectAccountModal`.
+  - Facebook kliknutí už NEPŘESMĚRUJE rovnou na FB – nejprve zobrazí modal s informacemi.
+  - Instagram kliknutí rovněž používá stejný unifikovaný modal.
+  - OAuth scopes zůstávají: `public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts`.
+- `src/messages/cs.json`, `en.json`, `uk.json` – přidána `connectModal` sekce s 8 klíči:
+  - `title`, `autoPublishing`, `analytics`, `aiAssistant`, `warningTitle`, `warningDesc`, `connectButton`, `learnMore`
+  - Žádná MISSING_MESSAGE chyba.
+- Build: `npm run build` ✅ 0 chyb
+
+### Fix – Real Instagram via Meta Graph API + Logging (DOKONČENO)
+
+- `src/app/auth/callback/route.ts` – přidáno detailní logování pro debug Instagram integrace:
+  - **Log při hledání IG**: `"Hledám Instagram pro stránku: [název stránky]"`
+  - **Log při nalezení IG**: `"NALEZEN REÁLNÝ INSTAGRAM: [username]"`
+  - **Log při chybě API**: vypíše chybu z Meta Graph API
+  - **Log při upsertu**: ukazuje kolik účtů se ukládá + platformy + platform_id
+  - **Log chyb upsertu**: pokud Supabase vrátí chybu při ukládání
+  - Instagram se ukládá DO teprve pokud API vrátí platné `ig.id` – žádné prázdné/demo záznamy
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – potvrzeno: žádný demo/falešný Instagram kód. Data pouze z `social_accounts`.
+- `supabase/migrations/012_social_accounts_avatar_url_and_constraints.sql` – potvrzeno: unikátní index `(user_id, platform, platform_id)` existuje. Upsert zabraňuje duplikátům.
+
+### Fix – Instagram OAuth Connection (Krok 31.0) (DOKONČENO)
+
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` – OAuth scopes upraveny na přesný požadovaný seznam:
+  - **Před**: `public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,ads_management,business_management`
+  - **Nyní**: `public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts`
+  - Odstraněna nepotřebná práva `ads_management` a `business_management`
+  - Upraveno na obou místech: `handleFacebookOAuth()` + `onProfessional` (AccountTypeModal)
+- `src/app/auth/callback/route.ts` – callback již obsahuje plnou podporu Instagram Business Account:
+  - Pro každou Facebook Page se ptá na `instagram_business_account`
+  - Pokud stránka má propojený Instagram, uloží jej jako samostatný řádek (`platform: 'instagram'`) s tokenem Facebook stránky
+  - Upsert s `onConflict: "user_id,platform,platform_id"` zabraňuje duplikátům
+- Zobrazení na `/accounts` – karty se již správně renderují podle `platform` v DB (Facebook i Instagram jako samostatné karty se správnými ikonami)
+
+### Feature – Instagram Publishing (Single Media, Two-Phase Container) (DOKONČENO)
+
+- `src/lib/actions/publish.ts` – přidána podpora publikování na Instagram:
+  - **Nová funkce `publishToInstagram`**: Dvoufázový IG Container proces přes Meta Graph API:
+    - **Fáze 1 (Vytvoření kontejneru)**: POST `https://graph.facebook.com/v20.0/{ig_user_id}/media` s `image_url`/`video_url` + `caption` + `access_token`. Z odpovědi získáme `creation_id`.
+    - **Fáze 2 (Zveřejnění)**: Počkáme 3s (foto) nebo 10s (video) a pošleme POST `https://graph.facebook.com/v20.0/{ig_user_id}/media_publish` s `creation_id` + `access_token`.
+  - **Nová funkce `publishPost`**: Unifikovaný router, který podle `platforms[0]` v DB rozhodne zda volat Facebook nebo Instagram logiku.
+  - **`publishToFacebook` zůstává jako backward-compatible alias** – všechna stávající volání fungují dále bez změn.
+  - **Instagram text-only validation**: Pokud `mediaUrls` je prázdné, vrátí chybu `"Instagram vyžaduje alespoň jeden obrázek nebo video."`
+  - **Shared helpers**: `handlePublishSuccess` / `handlePublishError` pro sdílené DB update + revalidaci.
+  - **Logy**: `"Vytvářím IG kontejner..."`, `"IG kontejner vytvořen, creation_id: ..."`, `"Publikuji IG kontejner..."`, `"IG publikováno úspěšně, id: ..."`
+- `supabase/functions/process-scheduled-posts/index.ts` – synchronizace Instagram logiky do Edge funkce:
+  - **Funkce `publishToInstagram`**: Stejná dvoufázová logika jako v server action (container → publish).
+  - **Publish loop rozšířen**: `if (targetPlatform === "instagram")` větev hledá Instagram účet v `social_accounts` a volá `publishToInstagram`. Facebook větev zůstává `else if`.
+  - **Deploy příkaz**: `npx supabase functions deploy process-scheduled-posts --project-ref=TVOJ_PROJECT_REF`
+- Build: `npm run build` ✅ 0 chyb
+
 ### Fix – Multi-photo Facebook gallery: attached_media format + Edge function sync (DOKONČENO)
 
 - `src/lib/actions/publish.ts` – oprava `attached_media` formátu pro Facebook Multi-photo API:

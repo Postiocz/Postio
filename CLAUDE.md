@@ -86,6 +86,39 @@ NEXTAUTH_SECRET=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+## 📱 Sociální sítě – UI/UX & API pravidla (Bibla pravidel)
+
+Tato pravidla mají striktní prioritu při implementaci features spojených s publikováním a správou postů.
+
+### 1. UI Pravidla pro Editaci postů po publikování
+
+| Platforma | Editace textu | Smazání | UI Chování |
+|---|---|---|---|
+| **Facebook** | ✅ Ano | ✅ Ano | Zdůrazni tlačítko "Aktualizovat na sítích" |
+| **Instagram** | ❌ Ne | ❌ Ne | Info banner: "Editace není platformou podporována" |
+| **LinkedIn** | ❌ Ne | ✅ Ano | Info banner: "Editace není platformou podporována" |
+| **TikTok** | ❌ Ne | ❌ Ne | Ikona zámku 🔒 – úplné uzamření po publikování |
+| **YouTube** | ✅ Ano | ✅ Ano | Plná podpora editace i smazání |
+| **X (Twitter)** | ❌ Free tier jen publikování | ❌ Free tier | Nesnaž se o synchronizaci smazání (Sync status) u Free plánu |
+
+### 2. Validace médií (před odesláním)
+
+- **Instagram:**
+  - Povol pouze **JPEG** formát.
+  - Validuj poměr stran v rozmezí **4:5 až 1.91:1**.
+  - Pokud poměr nesedí, zobraz **varování předem** (před odesláním).
+
+### 3. Logika tokenů
+
+- Připrav pole `token_expires_at` v tabulce `social_accounts`.
+- Monitoruj datum expirace – zejména **LinkedIn (60 dní)**.
+- Před publikováním kontroluj, zda token nevypršel.
+
+### 4. Specifika sítí
+
+- **LinkedIn:** Žádné PDF karusely. Tagování lidí (`@mention`) je jen prostý text – API ho neřeší jako entity.
+- **X (Twitter):** Free tier – jen publikování. Nesnaž se o synchronizaci smazání (Sync status).
+
 ## Pravidla pro psaní kódu
 
 - TypeScript strict mode

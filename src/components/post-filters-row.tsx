@@ -191,6 +191,7 @@ export function PostFiltersRow({
   statusScheduledLabel,
   statusPublishedLabel,
   statusFailedLabel,
+  statusRemovedExternallyLabel,
   platformLabel = "Platforma",
   statusLabel = "Stav",
 }: {
@@ -203,6 +204,7 @@ export function PostFiltersRow({
   statusScheduledLabel: string;
   statusPublishedLabel: string;
   statusFailedLabel: string;
+  statusRemovedExternallyLabel?: string;
   platformLabel?: string;
   statusLabel?: string;
 }) {
@@ -222,6 +224,9 @@ export function PostFiltersRow({
     { value: "scheduled", label: statusScheduledLabel || "Naplánované" },
     { value: "published", label: statusPublishedLabel || "Publikované" },
     { value: "failed", label: statusFailedLabel || "Neúspěšné" },
+    ...(statusRemovedExternallyLabel
+      ? [{ value: "removed_externally", label: statusRemovedExternallyLabel }]
+      : []),
   ];
 
   return (

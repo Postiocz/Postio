@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { syncPublishedPosts } from "@/lib/actions/posts";
 import { PostsContainer } from "./_posts-container";
 
 export default async function PostsPage({
@@ -17,6 +18,9 @@ export default async function PostsPage({
   if (authError || !user) {
     return <div className="text-muted-foreground">{t("errorDeleting")}</div>;
   }
+
+  // Sync published posts with external platforms (throttled: 30 min cooldown via last_sync_at)
+  await syncPublishedPosts();
 
   const { data: posts, error: postsError } = await supabase
     .from("posts")
@@ -46,6 +50,10 @@ export default async function PostsPage({
             location: post.location ?? null,
             tags: post.tags ?? [],
             media_urls: post.media_urls ?? [],
+            published_platforms: post.published_platforms ?? [],
+            external_id: post.external_id ?? null,
+            removed_at: post.removed_at ?? null,
+            removed_from_platform: post.removed_from_platform ?? null,
           }))}
           locale={locale}
           postsCount={posts.length}
@@ -57,6 +65,7 @@ export default async function PostsPage({
           tStatusScheduled={t("statusScheduled")}
           tStatusPublished={t("statusPublished")}
           tStatusFailed={t("statusFailed")}
+          tStatusRemovedExternally={t("statusRemovedExternally")}
           tNoPosts={t("noPosts")}
           tNoPostsSubtitle={t("noPostsSubtitle")}
           tScheduledAt={t("scheduledAt")}
@@ -65,6 +74,8 @@ export default async function PostsPage({
           tDeleteConfirmDesc={t("deleteConfirmDesc")}
           tDeleteConfirmAction={t("deleteConfirmAction")}
           tDeleteCancel={t("deleteCancel")}
+          tRepublish={t("republish")}
+          tRemovedExternallyMsg={t("removedExternallyMsg")}
           tLabels={{
             newPost: t("newPost"),
             editPost: t("editPost"),
@@ -97,6 +108,10 @@ export default async function PostsPage({
             statusScheduled: t("statusScheduled"),
             statusPublished: t("statusPublished"),
             statusFailed: t("statusFailed"),
+            remoteEditSuccess: t("remoteEditSuccess"),
+            photoChangeNotAllowed: t("photoChangeNotAllowed"),
+            updateOnSocials: t("updateOnSocials"),
+            onlyTextUpdatePossible: t("onlyTextUpdatePossible"),
           }}
           tAi={{
             aiAssistant: tAi("aiAssistant"),

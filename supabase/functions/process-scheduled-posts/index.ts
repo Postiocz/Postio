@@ -86,6 +86,34 @@ function detectMediaType(mediaUrls: unknown): "text" | "photo" | "video" {
   return "text";
 }
 
+/**
+ * Build the final caption: content + location + hashtags
+ */
+function buildFinalCaption(params: {
+  content: string;
+  location?: string | null;
+  tags?: string[];
+}): string {
+  const parts: string[] = [params.content.trim()];
+
+  if (params.location?.trim()) {
+    parts.push(`📍 ${params.location.trim()}`);
+  }
+
+  const normalizedTags = Array.isArray(params.tags)
+    ? params.tags.filter((t) => typeof t === "string" && t.trim())
+    : [];
+
+  if (normalizedTags.length > 0) {
+    const hashtagLine = normalizedTags
+      .map((t) => (t.startsWith("#") ? t : `#${t}`))
+      .join(" ");
+    parts.push(hashtagLine);
+  }
+
+  return parts.join("\n");
+}
+
 async function publishToFacebook(
   accessToken: string,
   platformId: string,
@@ -223,6 +251,97 @@ async function publishToFacebook(
   }
 }
 
+/**
+ * Publish a post to Instagram via the two-phase IG Container process.
+ * Phase 1: Create container (/{ig_user_id}/media)
+ * Phase 2: Publish container (/{ig_user_id}/media_publish)
+ */
+async function publishToInstagram(
+  accessToken: string,
+  igUserId: string,
+  content: string,
+  mediaUrls: string[]
+): Promise<{ success: boolean; externalId?: string; error?: string }> {
+  // Instagram requires at least one image or video
+  if (mediaUrls.length === 0) {
+    return { success: false, error: "Instagram vyžaduje alespoň jeden obrázek nebo video." };
+  }
+
+  const mediaType = detectMediaType(mediaUrls);
+  const baseUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(igUserId)}`;
+
+  // --- Phase 1: Create Media Container ---
+  console.log(">>> Vytvářím IG kontejner...", { igUserId, mediaType, mediaUrls });
+
+  const containerBody = new URLSearchParams();
+  containerBody.set("access_token", accessToken);
+  containerBody.set("caption", content);
+
+  const mediaUrl = mediaUrls[0];
+
+  if (mediaType === "video") {
+    containerBody.set("video_url", mediaUrl);
+    containerBody.set("media_type", "REELS");
+  } else {
+    containerBody.set("image_url", mediaUrl);
+    containerBody.set("media_type", "IMAGE");
+  }
+
+  const containerRes = await fetch(`${baseUrl}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: containerBody,
+  });
+
+  const containerPayload = await containerRes.json().catch(() => ({}));
+  console.log(">>> META RESPONSE (IG container):", { status: containerRes.status, payload: containerPayload });
+
+  if (!containerRes.ok) {
+    const containerErr = typeof containerPayload?.error?.message === "string" ? containerPayload.error.message : `IG container creation failed (${containerRes.status})`;
+    return { success: false, error: containerErr };
+  }
+
+  const creationId = typeof containerPayload?.id === "string" ? containerPayload.id : undefined;
+  if (!creationId) {
+    return { success: false, error: "IG container creation returned no ID." };
+  }
+
+  console.log(">>> IG kontejner vytvořen, creation_id:", creationId);
+
+  // Wait for Instagram to process the media
+  const waitMs = mediaType === "video" ? 10_000 : 3_000;
+  await new Promise((r) => setTimeout(r, waitMs));
+
+  // --- Phase 2: Publish Container ---
+  console.log(">>> Publikuji IG kontejner...", { creationId });
+
+  const publishBody = new URLSearchParams();
+  publishBody.set("creation_id", creationId);
+  publishBody.set("access_token", accessToken);
+
+  const publishRes = await fetch(`${baseUrl}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: publishBody,
+  });
+
+  const publishPayload = await publishRes.json().catch(() => ({}));
+  console.log(">>> META RESPONSE (IG publish):", { status: publishRes.status, payload: publishPayload });
+
+  if (!publishRes.ok) {
+    const publishErr = typeof publishPayload?.error?.message === "string" ? publishPayload.error.message : `IG publish failed (${publishRes.status})`;
+    return { success: false, error: publishErr };
+  }
+
+  const publishedId = typeof publishPayload?.id === "string" ? publishPayload.id : undefined;
+  if (!publishedId) {
+    return { success: false, error: "IG publish returned no ID." };
+  }
+
+  console.log(">>> IG publikováno úspěšně, id:", publishedId);
+  return { success: true, externalId: publishedId };
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -313,7 +432,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: posts, error: postsError } = await supabaseAdmin
     .from("posts")
-    .select("id, user_id, content, platforms, media_urls, status, scheduled_at")
+    .select("id, user_id, content, platforms, media_urls, status, scheduled_at, location, tags")
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", nowIso)
@@ -382,14 +501,62 @@ Deno.serve(async (request: Request) => {
 
       const platforms = Array.isArray(post.platforms) ? post.platforms : [];
       const mediaUrls = Array.isArray(post.media_urls) ? post.media_urls : [];
-      const content = String(post.content ?? "");
+      const rawContent = String(post.content ?? "");
+      const rawLocation = (post as { location?: string | null }).location ?? null;
+      const rawTags = (Array.isArray((post as { tags?: unknown }).tags) ? (post as { tags?: string[] }).tags : []) ?? [];
+
+      // Build final caption: content + location + hashtags
+      const finalCaption = buildFinalCaption({
+        content: rawContent,
+        location: rawLocation,
+        tags: rawTags,
+      });
 
       let externalId: string | null = null;
       let publishError: string | null = null;
 
       const targetPlatform = Array.isArray(post.platforms) ? post.platforms[0] : 'facebook';
 
-      if (platforms.includes("facebook")) {
+      if (targetPlatform === "instagram") {
+        // --- Instagram publish ---
+        console.log(`>>> Hledám Instagram účet pro user_id: ${post.user_id}`);
+
+        const { data: igAccounts, error: igAccountError } = await supabaseAdmin
+          .from("social_accounts")
+          .select("access_token, platform_id")
+          .eq('user_id', post.user_id)
+          .ilike('platform', 'instagram')
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        console.log(`>>> Instagram account lookup result:`, {
+          igAccountError,
+          accountsFound: igAccounts?.length ?? 0,
+        });
+
+        if (igAccountError || !igAccounts?.[0]?.access_token || !igAccounts?.[0]?.platform_id) {
+          publishError = igAccountError?.message ?? "Chybí propojený Instagram účet (platform_id / access_token).";
+          console.log(`>>> Instagram account error for post ${post.id}`, { error: publishError });
+        } else {
+          const igAccount = igAccounts[0];
+          const result = await publishToInstagram(
+            igAccount.access_token,
+            igAccount.platform_id,
+            finalCaption,
+            mediaUrls
+          );
+
+          if (!result.success) {
+            publishError = result.error ?? "Instagram publish failed";
+            console.log(`>>> Instagram publish failed for post ${post.id}`, { error: publishError });
+          } else {
+            externalId = result.externalId ?? null;
+            console.log(`>>> Instagram publish success for post ${post.id}`, { externalId });
+          }
+        }
+      } else if (platforms.includes("facebook")) {
+        // --- Facebook publish ---
         console.log(`Hledám účet pro user_id: ${post.user_id} (type: ${typeof post.user_id}) a platformu: facebook (target: ${targetPlatform})`);
 
         const { data: accounts, error: accountError } = await supabaseAdmin
@@ -423,7 +590,7 @@ Deno.serve(async (request: Request) => {
           const result = await publishToFacebook(
             account.access_token,
             account.platform_id,
-            content,
+            finalCaption,
             mediaType,
             filteredUrls
           );
@@ -449,6 +616,23 @@ Deno.serve(async (request: Request) => {
       } else {
         updateValues.scheduled_at = null;
         updateValues.publish_error = null;
+
+        // Atomic append to published_platforms via PostgreSQL RPC function.
+        const { error: rpcError } = await supabaseAdmin.rpc("append_published_platform", {
+          p_post_id: post.id,
+          p_platform: targetPlatform,
+          p_user_id: post.user_id,
+        });
+
+        if (rpcError) {
+          console.log(">>> RPC append_published_platform failed", {
+            postId: post.id,
+            platform: targetPlatform,
+            error: rpcError.message,
+          });
+        } else {
+          console.log(`>>> RPC append_published_platform ok: ${post.id} → ${targetPlatform}`);
+        }
       }
 
       const { error: updateError } = await supabaseAdmin

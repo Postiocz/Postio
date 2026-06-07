@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { updatePost } from "@/lib/actions/posts";
-import { publishToFacebook } from "@/lib/actions/publish";
+import { publishPost } from "@/lib/actions/publish";
 import { ArrowLeft, CheckCircle2, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
@@ -156,8 +156,8 @@ export default function EditPostPage() {
       const mediaUrls = getMediaUrls();
       const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
       if (status === "published") {
-        if (selectedPlatforms.length === 0 || !selectedPlatforms.includes("facebook")) {
-          toast.error("Pro publikování vyber Facebook.");
+        if (selectedPlatforms.length === 0) {
+          toast.error("Pro publikování vyber alespoň jednu platformu.");
           return;
         }
 
@@ -176,15 +176,15 @@ export default function EditPostPage() {
         }
 
         setPublishing(true);
-        const publishResult = await publishToFacebook({ postId: id });
+        const publishResult = await publishPost({ postId: id });
 
         if (publishResult.success) {
-          toast.success("Příspěvek byl úspěšně publikován na Facebooku!");
+          toast.success("Příspěvek byl úspěšně publikován!");
           router.push(`/${locale}/posts`);
           return;
         }
 
-        const msg = publishResult.error ?? "Publikování na Facebook selhalo.";
+        const msg = publishResult.error ?? "Publikování selhalo.";
         setError(msg);
         toast.error(msg);
         return;

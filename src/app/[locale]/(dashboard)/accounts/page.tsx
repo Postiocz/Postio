@@ -29,7 +29,7 @@ import {
   TikTok,
 } from "@/components/ui/social-icons";
 import { Reorder } from "framer-motion";
-import { AccountTypeModal } from "@/components/account-type-modal";
+import { ConnectAccountModal } from "@/components/connect-account-modal";
 
 type PlatformId =
   | "instagram"
@@ -129,8 +129,8 @@ export default function AccountsPage() {
     null
   );
   const [deleting, setDeleting] = useState(false);
-  const [showTypeModal, setShowTypeModal] = useState(false);
-  const [typeModalPlatform, setTypeModalPlatform] = useState<{
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [connectModalPlatform, setConnectModalPlatform] = useState<{
     id: PlatformId;
     name: string;
     icon: ComponentType<{ className?: string }>;
@@ -234,7 +234,7 @@ export default function AccountsPage() {
       provider: "facebook",
       options: {
         scopes:
-          "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,ads_management,business_management",
+          "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts",
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         queryParams: {
           auth_type: "rerequest",
@@ -255,24 +255,10 @@ export default function AccountsPage() {
   const hasConnectedAccounts = accounts.some((a) => a.is_active);
 
   return (
-    <div className="relative space-y-8">
-      {/* Background grid & glow effects */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.03]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M24 0v24H0' fill='none' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E")`,
-          backgroundSize: "24px 24px",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M24 0v24H0' fill='none' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E")`,
-          backgroundSize: "24px 24px",
-        }}
-      />
-      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-indigo-500/10 blur-[120px]" />
-      <div className="pointer-events-none absolute -right-32 -bottom-32 h-96 w-96 rounded-full bg-purple-500/10 blur-[120px]" />
+    <div className="relative space-y-8 max-w-3xl mx-auto">
+      {/* Background glow effects */}
+      <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-[100px]" />
+      <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-purple-500/10 blur-[100px]" />
 
       {/* Top bar */}
       <div className="relative flex items-end justify-between">
@@ -314,15 +300,13 @@ export default function AccountsPage() {
                   }}
                   onClick={() => {
                     if (isDraggingRef.current) return;
-                    if (platform.id === "instagram") {
-                      setTypeModalPlatform({
+                    if (platform.id === "instagram" || platform.id === "facebook") {
+                      setConnectModalPlatform({
                         id: platform.id,
                         name: getPlatformLabel(platform.id),
                         icon: platform.icon,
                       });
-                      setShowTypeModal(true);
-                    } else if (platform.id === "facebook") {
-                      handleFacebookOAuth();
+                      setShowConnectModal(true);
                     } else {
                       setSelectedPlatform(platform.id);
                     }
@@ -562,62 +546,77 @@ export default function AccountsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Account Type Selection Modal (Buffer-style) */}
-      {typeModalPlatform && (
-        <AccountTypeModal
-          open={showTypeModal}
+      {/* Universal Connect Account Info Modal */}
+      {connectModalPlatform && (
+        <ConnectAccountModal
+          open={showConnectModal}
           onOpenChange={(open) => {
-            setShowTypeModal(open);
+            setShowConnectModal(open);
             if (!open) {
-              setTypeModalPlatform(null);
+              setConnectModalPlatform(null);
             }
           }}
-          platformName={typeModalPlatform.name}
-          PlatformIcon={typeModalPlatform.icon}
-          onProfessional={async () => {
-            setShowTypeModal(false);
+          platformName={connectModalPlatform.name}
+          PlatformIcon={connectModalPlatform.icon}
+          onConnect={async () => {
+            setShowConnectModal(false);
             const next = window.location.pathname || "/accounts";
-            const { data, error } = await supabase.auth.signInWithOAuth({
-              provider: "facebook",
-              options: {
-                scopes:
-                  "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,ads_management,business_management",
-                redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-                queryParams: {
-                  auth_type: "rerequest",
+
+            if (connectModalPlatform.id === "instagram") {
+              // Instagram Direct Login – no Facebook Page required
+              const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: "facebook",
+                options: {
+                  scopes:
+                    "public_profile,email,instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_insights,business_management",
+                  redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&platform=instagram`,
+                  queryParams: {
+                    auth_type: "rerequest",
+                    config_id: "891876470597727",
+                  },
                 },
-              },
-            });
-            if (error) {
-              setError(error.message);
-              return;
+              });
+              if (error) {
+                setError(error.message);
+                return;
+              }
+              if (data?.url) {
+                window.location.assign(data.url);
+              }
+            } else {
+              // Facebook Page connection
+              const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: "facebook",
+                options: {
+                  scopes:
+                    "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts",
+                  redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+                  queryParams: {
+                    auth_type: "rerequest",
+                  },
+                },
+              });
+              if (error) {
+                setError(error.message);
+                return;
+              }
+              if (data?.url) {
+                window.location.assign(data.url);
+              }
             }
-            if (data?.url) {
-              window.location.assign(data.url);
-            }
-          }}
-          onPersonal={() => {
-            setShowTypeModal(false);
-            setSelectedPlatform(typeModalPlatform.id);
           }}
           t={{
-            subtitle: t("selectTypeSubtitle"),
-            autoPostingBadge: t("autoPostingBadge"),
-            notificationsBadge: t("notificationsBadge"),
-            professional: t("professional"),
-            professionalDesc: t("professionalDesc"),
-            personal: t("personal"),
-            personalDesc: t("personalDesc"),
-            autoPublishing: t("autoPublishing"),
-            autoPublishingDesc: t("autoPublishingDesc"),
-            communityReplies: t("communityReplies"),
-            communityRepliesDesc: t("communityRepliesDesc"),
-            postMetrics: t("postMetrics"),
-            postMetricsDesc: t("postMetricsDesc"),
-            onlyNotifications: t("onlyNotifications"),
-            onlyNotificationsDesc: t("onlyNotificationsDesc"),
-            connectProfessional: t("connectProfessional"),
-            setupPersonal: t("setupPersonal"),
+            title: t("connectModal.title"),
+            autoPublishing: t("connectModal.autoPublishing"),
+            analytics: t("connectModal.analytics"),
+            aiAssistant: t("connectModal.aiAssistant"),
+            warningTitle: t("connectModal.warningTitle"),
+            warningDesc:
+              connectModalPlatform.id === "instagram"
+                ? t("connectModal.warningDescInstagram")
+                : t("connectModal.warningDesc"),
+            connectButton: t("connectModal.connectButton"),
+            learnMore: t("connectModal.learnMore"),
           }}
         />
       )}

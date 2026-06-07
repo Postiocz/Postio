@@ -1,3 +1,7 @@
+### Fixed – TypeScript Build Error (DOKONČENO)
+
+- Opraven TypeScript build error ve funkci `handlePublishNow` (`edit-post-dialog.tsx`): volání `updatePost` používalo proměnnou `postId`, která byla v daném místě `undefined`. Nahrazeno za `post.id`. Tím prochází produkční build na Vercelu.
+
 ### Striktní Oddělení Editace od Publikování (DOKONČENO)
 
 - **Cíl**: Zajišťovat že `updatePost` a `publishPost` jsou naprosto oddělené světy. `published_platforms` smí měnit pouze publikační flow přes RPC.

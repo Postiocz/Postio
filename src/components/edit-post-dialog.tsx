@@ -472,7 +472,7 @@ export function EditPostDialog({
         // EDIT FLOW: Save content/media changes to DB before publishing.
         // updatePost strips published_platforms internally – it NEVER touches publish state.
         if (isEdit && post?.id) {
-          const saveResult = await updatePost(postId, {
+          const saveResult = await updatePost(post.id, {
             content: content.trim(),
             platforms,
             scheduledAt: null,

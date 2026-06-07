@@ -183,6 +183,12 @@ export function EditPostDialog({
     return (post?.published_platforms ?? []).includes("instagram");
   }, [isEdit, post?.status, post?.published_platforms]);
 
+  // Detect if the published post is on Facebook (supports remote text editing)
+  const isFacebookPublished = useMemo(() => {
+    if (!isEdit || post?.status !== "published") return false;
+    return (post?.published_platforms ?? []).includes("facebook");
+  }, [isEdit, post?.status, post?.published_platforms]);
+
   // Detect if media was changed for published posts
   const mediaChanged = useMemo(() => {
     if (!isEdit || post?.status !== "published") return false;
@@ -914,7 +920,7 @@ export function EditPostDialog({
                 >
                   {tLabels.cancel ?? "Zrušit"}
                 </Button>
-                {!isInstagramPublished && (
+                {isFacebookPublished && (
                   <Button
                     type="button"
                     onClick={handleUpdateOnSocials}

@@ -1,3 +1,28 @@
+### Feature – Selective Delete UI (Chytrý koš) (DOKONČENO)
+
+- **Problém**: Chybělo uživatelské rozhraní pro selektivní mazání příspěvků z Meta platforem (příprava z backendu byla hotová v minulé session).
+- **Řešení**:
+  - `src/components/dashboard/delete-post-dialog.tsx` – nová UI komponenta pro smazání. 'Premium Glass' design. Pokud je post na více platformách, zobrazí výběr pomocí checkmarků. Možnost smazat i kompletně z aplikace. Pro jedinou platformu klasické varování.
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – nahrazen nativní Shadcn `Dialog` za náš nový `DeletePostDialog`. Propojeno s existujícím košem.
+  - V `handleDeleteConfirm` voláme v cyklu novou funkci `deleteFromMeta` pro vybrané sítě a na závěr (pokud uživatel zaškrtl) voláme `deletePost` pro smazání z lokální databáze.
+  - Přidána robustní zpětná vazba: úspěšné smazání/odstranění s přesným popisem + `toast.success`, automatický `router.refresh()` pro okamžitou aktualizaci UI.
+
+- Změněné soubory:
+  - `src/components/dashboard/delete-post-dialog.tsx` (nový)
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`
+
+### Meta Capability Error #3 Handling + Selective Delete Preparation (DOKONČENO)
+
+- **Problém**: Meta Graph API vrací Capability Error (#3) při vzdálené editaci publikovaných příspěvků na Facebooku. App Review je vyžadován, ale zatím neproběhl.
+- **Řešení**:
+  - `publish.ts` – `updateRemotePostAction` nyní detekuje capability error (kontrola `"capability"`, `#3`, `"code":3`, `"error_code":3` v odpovědi Meta API) a vrací přátelskou českou chybu: "Úprava publikovaného příspěvku na Facebooku momentálně vyžaduje dodatečné schválení aplikace ze strany Meta (App Review). V tuto chvíli nelze text na dálku změnit."
+  - `publish.ts` – nová funkce `deleteFromMeta(postId, platform)` pro selektivní mazání z konkrétní platformy. Volá Meta Graph API DELETE endpoint, odebírá platformu z `published_platforms` přes RPC `remove_published_platform`, a pokud nezbyde žádná platforma, vrací status na `draft`.
+  - `publish.ts` – všechny chybové cesty u editace i mazání volají `revalidatePath("/", "layout")` + `revalidateAllLocales()` pro prevenci zamrznutí UI.
+  - `publish.ts` – `updateRemotePostAction` má revalidaci i v úspěšné cestě a při DB update chybě.
+
+- Změněné soubory:
+  - `src/lib/actions/publish.ts` – capability error handling, deleteFromMeta(), revalidace na všech cestách
+
 ### Fixed – TypeScript Build Error (DOKONČENO)
 
 - Opraven TypeScript build error ve funkci `handlePublishNow` (`edit-post-dialog.tsx`): volání `updatePost` používalo proměnnou `postId`, která byla v daném místě `undefined`. Nahrazeno za `post.id`. Tím prochází produkční build na Vercelu.

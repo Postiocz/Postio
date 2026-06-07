@@ -549,10 +549,10 @@ export async function updateRemotePostAction(input: {
 
   const supabaseAdmin = createAdminClient();
 
-  // Fetch the post with external_id and platforms
+  // Fetch the post with external_id, platforms, and published_platforms
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, status, platforms, external_id")
+    .select("id, status, platforms, external_id, published_platforms")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -575,7 +575,15 @@ export async function updateRemotePostAction(input: {
   }
 
   const platforms = Array.isArray(post.platforms) ? post.platforms : [];
-  const targetPlatform = platforms[0] ?? "facebook";
+  const publishedPlatforms = Array.isArray(post.published_platforms) ? post.published_platforms : [];
+
+  // Platforms that support remote text editing
+  const editablePlatforms = ["facebook", "youtube"];
+
+  // Find the first platform that is both published and supports editing
+  const targetPlatform = publishedPlatforms.find((p) => editablePlatforms.includes(p))
+    ?? platforms[0]
+    ?? "facebook";
 
   // Look up the access token for the target platform
   const { data: accounts } = await supabaseAdmin
@@ -620,6 +628,33 @@ export async function updateRemotePostAction(input: {
 
   const errMsg = getGraphErrorMessage(payload);
   if (errMsg) {
+    // Check for Meta Capability Error (#3) — remote editing requires App Review
+    const isCapabilityError =
+      errMsg.includes("capability") ||
+      errMsg.includes("#3") ||
+      errMsg.includes("3") ||
+      String(payload).includes('"code":3') ||
+      String(payload).includes('"error_code":3');
+
+    if (isCapabilityError) {
+      // Revalidate to prevent UI freeze on error
+      revalidatePath("/", "layout");
+      revalidateAllLocales("/calendar");
+      revalidateAllLocales("/posts");
+      revalidateAllLocales("/dashboard");
+
+      return {
+        success: false,
+        error: "Úprava publikovaného příspěvku na Facebooku momentálně vyžaduje dodatečné schválení aplikace ze strany Meta (App Review). V tuto chvíli nelze text na dálku změnit.",
+      };
+    }
+
+    // Revalidate on any error to prevent UI freeze
+    revalidatePath("/", "layout");
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+
     return { success: false, error: `Editace na ${targetPlatform} selhala: ${errMsg}` };
   }
 
@@ -633,14 +668,171 @@ export async function updateRemotePostAction(input: {
     .eq("user_id", user.id);
 
   if (updateError) {
+    revalidatePath("/", "layout");
     return { success: false, error: updateError.message };
   }
 
+  revalidatePath("/", "layout");
   revalidateAllLocales("/calendar");
   revalidateAllLocales("/posts");
   revalidateAllLocales("/dashboard");
 
   return { success: true };
+}
+
+/**
+ * Selective Delete: remove a published post from a specific platform via Meta Graph API.
+ * Accepts postId and platform to enable per-platform deletion without affecting
+ * other published platforms. Also removes the platform from `published_platforms`
+ * via RPC `remove_published_platform`.
+ *
+ * Supports: facebook, instagram (via Meta Graph API)
+ */
+export async function deleteFromMeta(input: {
+  postId: string;
+  platform: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // Fetch the post with external_id and published_platforms
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, status, external_id, published_platforms")
+    .eq("id", input.postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  if (post.status !== "published") {
+    return { success: false, error: "Příspěvek není publikován." };
+  }
+
+  const externalId =
+    typeof post.external_id === "string" && post.external_id.trim()
+      ? post.external_id.trim()
+      : null;
+
+  if (!externalId) {
+    return { success: false, error: "Příspěvek nemá external_id – nelze smazat na sociální síti." };
+  }
+
+  const publishedPlatforms = Array.isArray(post.published_platforms) ? post.published_platforms : [];
+
+  // Verify the target platform is in published_platforms
+  if (!publishedPlatforms.includes(input.platform)) {
+    return { success: false, error: `Příspěvek není publikován na ${input.platform}.` };
+  }
+
+  // Look up the access token for the target platform
+  const { data: accounts } = await supabaseAdmin
+    .from("social_accounts")
+    .select("access_token")
+    .eq("user_id", user.id)
+    .ilike("platform", input.platform)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (!accounts?.[0]?.access_token) {
+    return {
+      success: false,
+      error: `Chybí přístupový token pro ${input.platform}.`,
+    };
+  }
+
+  const accessToken = accounts[0].access_token;
+  const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
+
+  console.log(`Deleting post on ${input.platform}:`, { externalId });
+
+  try {
+    const body = new URLSearchParams();
+    body.set("access_token", accessToken);
+
+    const res = await fetch(graphUrl, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      cache: "no-store",
+    });
+
+    const payload = (await res.json().catch(async () => ({
+      raw: await res.text().catch(() => ""),
+    }))) as FacebookPublishResponse;
+    console.log(`META RESPONSE (delete ${input.platform}):`, payload);
+
+    const errMsg = getGraphErrorMessage(payload);
+    if (errMsg) {
+      // Revalidate on error to prevent UI freeze
+      revalidatePath("/", "layout");
+      revalidateAllLocales("/calendar");
+      revalidateAllLocales("/posts");
+      revalidateAllLocales("/dashboard");
+
+      return { success: false, error: `Smazání na ${input.platform} selhalo: ${errMsg}` };
+    }
+
+    // Remove platform from published_platforms via RPC
+    const { error: rpcError } = await supabase.rpc("remove_published_platform", {
+      p_post_id: input.postId,
+      p_platform: input.platform,
+    });
+
+    if (rpcError) {
+      console.error("deleteFromMeta: RPC remove_published_platform FAILED:", rpcError.message);
+    } else {
+      console.log(`deleteFromMeta: Platforma ${input.platform} odstraněna z published_platforms`);
+    }
+
+    // If this was the last published platform, update status back to 'draft'
+    const remainingPlatforms = publishedPlatforms.filter((p) => p !== input.platform);
+    if (remainingPlatforms.length === 0) {
+      await updatePostPublishState(supabase, {
+        userId: user.id,
+        postId: input.postId,
+        values: {
+          status: "draft",
+          published_at: null,
+          external_id: null,
+        },
+      });
+    }
+
+    // Revalidate after successful deletion
+    revalidatePath("/", "layout");
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+
+    return { success: true };
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : "Chyba při mazání příspěvku.";
+
+    // Revalidate on error to prevent UI freeze
+    revalidatePath("/", "layout");
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+
+    return { success: false, error: errorMessage };
+  }
 }
 
 /**

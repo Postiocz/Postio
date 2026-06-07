@@ -24,7 +24,10 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { deletePost, resetPostStatus } from "@/lib/actions/posts";
+import { deleteFromMeta } from "@/lib/actions/publish";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
+import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
+import { toast } from "sonner";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-gray-100 text-muted-foreground border border-gray-200 dark:bg-white/10 dark:border-white/10",
@@ -170,21 +173,62 @@ export function PostCard({
   const statusLabel = statusLabels[post.status] ?? post.status;
   const statusStyle = STATUS_STYLES[post.status] ?? STATUS_STYLES.draft;
 
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async (selectedPlatforms: string[], deleteFromApp: boolean) => {
     setIsDeleting(true);
     try {
-      const result = await deletePost(post.id);
-      if (result.success) {
-        setDeleteOpen(false);
-        if (result.removedExternally) {
-          router.refresh();
-        } else {
-          onDeleted?.(post.id);
+      const isMultiple = post.status === "published" && post.published_platforms && post.published_platforms.length > 1;
+
+      if (isMultiple) {
+        let deletedCount = 0;
+        // Smazat z vybraných Meta platforem
+        for (const platform of selectedPlatforms) {
+          const result = await deleteFromMeta({ postId: post.id, platform });
+          if (result.success) {
+            deletedCount++;
+          } else {
+            toast.error(`Smazání z ${platform} selhalo: ${result.error}`);
+          }
         }
-        return;
+        
+        // Smazat i z aplikace Postio, pokud si to uživatel přeje
+        if (deleteFromApp) {
+          const result = await deletePost(post.id);
+          if (result.success) {
+            setDeleteOpen(false);
+            if (result.removedExternally) {
+              router.refresh();
+            } else {
+              onDeleted?.(post.id);
+            }
+            toast.success("Příspěvek byl úspěšně smazán.");
+            return;
+          } else {
+            toast.error(`Smazání z aplikace selhalo: ${result.error}`);
+          }
+        } else if (deletedCount > 0) {
+           toast.success(`Příspěvek byl odstraněn z ${deletedCount} platformy/platforem.`);
+           router.refresh();
+           setDeleteOpen(false);
+        }
+      } else {
+        // Klasické smazání (draft, scheduled, failed, nebo single published platform)
+        const result = await deletePost(post.id);
+        if (result.success) {
+          setDeleteOpen(false);
+          if (result.removedExternally) {
+            router.refresh();
+          } else {
+            onDeleted?.(post.id);
+          }
+          toast.success("Příspěvek byl úspěšně smazán.");
+          return;
+        } else {
+          toast.error(result.error || "Nepodařilo se smazat příspěvek.");
+        }
       }
     } catch (e) {
       console.error("Error deleting post:", e);
+      toast.error("Nastala neočekávaná chyba při mazání.");
     } finally {
       setIsDeleting(false);
     }
@@ -389,38 +433,17 @@ export function PostCard({
       tLabels={tLabels}
     />
 
-    <Dialog
+    <DeletePostDialog
       open={deleteOpen}
-      onOpenChange={(open) => {
-        if (!open && !isDeleting) setDeleteOpen(false);
-        if (open) setDeleteOpen(true);
+      onOpenChange={setDeleteOpen}
+      post={{
+        id: post.id,
+        status: post.status,
+        published_platforms: post.published_platforms ?? [],
       }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{tDeleteConfirmTitle}</DialogTitle>
-          <DialogDescription>{tDeleteConfirmDesc}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setDeleteOpen(false)}
-            disabled={isDeleting}
-          >
-            {tDeleteCancel}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={isDeleting}
-          >
-            {tDeleteConfirmAction}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      onConfirm={handleDeleteConfirm}
+      isDeleting={isDeleting}
+    />
     </>
   );
 }

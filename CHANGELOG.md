@@ -1,3 +1,80 @@
+## 2026-06-08
+
+### Fix – Chybějící config_id při propojování Facebooku (DOKONČENO)
+
+- **Problém**: Při pokusu o propojení Facebook stránky v modálu vrátil Facebook chybu "Neplatný parametr: je potřeba config_id" a propojení se nedokončilo. Důvodem bylo, že při spuštění OAuth flow pro Facebook chyběl parametr `config_id`, který Facebook Login for Business nově vyžaduje.
+- **Řešení**: 
+  - `src/app/[locale]/(dashboard)/accounts/page.tsx`: Do `queryParams` pro Facebook připojení byl doplněn chybějící parametr `config_id: "891876470597727"`.
+  - Odstraněna stará, nepoužívaná funkce `handleFacebookOAuth`, která obsahovala duplicitní (a neaktivní) kód s chybným config_id s překlepem.
+- Změněné soubory:
+  - `src/app/[locale]/(dashboard)/accounts/page.tsx`
+
+### Fix – Instagram smazání zůstávalo na síti + debug logy + RPC s user_id (DOKONČENO)
+
+- **Problém**: Facebook se smazal fyzicky v pořádku, ale Instagram na síti ZŮSTÁVAL i když Postio hlásilo úspěch. Důvody:
+  1. `deleteFromMeta` ignoroval chyby z Meta API a stejně pokračoval v odebírání platformy z DB.
+  2. RPC `remove_published_platform` používala `auth.uid()` což v server-side kontextu vrací `NULL` – update se neprovedl.
+- **Řešení**:
+  - `src/lib/actions/publish.ts` (`deleteFromMeta`):
+    - Přidány debug logy: `>>> START MAZÁNÍ Z PLATFORMY`, `>>> POUŽITÉ ID`, `>>> META RESPONSE`.
+    - Pokud `resData.error` existuje, funkce NERÁZUJE platformu z DB a vrací `{ success: false, error: "..." }` – uživatel uvidí chybu.
+    - Stejně při síťové výjimce (catch) – vrací chybu místo pokračování.
+    - RPC volání `remove_published_platform` teď předává `p_user_id: user.id` jako třetí parametr.
+  - `supabase/migrations/022_add_user_id_to_remove_published_platform.sql`: Nová migrace která přidá parametr `p_user_id UUID` do funkce a nahradí `auth.uid()` explicitním ID.
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`: `handleDeleteConfirm` už používá `for (const platform of selectedPlatforms) { await deleteFromMeta(...) }` – správně čeká na každé smazání sériově.
+
+- Změněné soubory:
+  - `src/lib/actions/publish.ts`
+  - `supabase/migrations/022_add_user_id_to_remove_published_platform.sql` (nový)
+
+### Fix – DeletePostDialog selektivní mazání + refresh dat (DOKONČENO)
+
+- **Problém**: I když byl příspěvek na Instagramu publikován a měl v DB uložené `external_ids`, modal pro smazání nenabízel selektivní mazání (checkboxy). Zobrazil jen prosté potvrzení. Důvod: podmínka `isPublishedMultiple` vyžadovala `status === "published"` A `published_platforms.length > 1`. Navíc `DeletePostDialog` nedostával `external_ids` z parent komponenty.
+- **Řešení**:
+  - `src/components/dashboard/delete-post-dialog.tsx`:
+    - **Oprava logiky**: `showSelectiveDelete` se teď aktivuje pokud `effectivePlatforms.length > 0` – tedy pokud má post cokoli v `published_platforms` NEBO v klíčích `external_ids`. Už nezávisí na `status === "published"`.
+    - **Refresh při otevření**: Přidán `useEffect` + `useCallback` který při otevření dialogu provede fetch z Supabase (`published_platforms, external_ids`) a aktualizuje stav. Během načítání se zobrazuje spinner "Načítám aktuální stav…".
+    - **Vylepšené UI**: Každá platforma v seznamu má svou ikonu (Instagram, Facebook, LinkedIn atd.). Položka "Smazat také z aplikace Postio" má výraznější červené zvýraznění (`text-red-600`, `bg-red-50/50`, `border-red-500/25`, `font-semibold`). Pokud uživatel odškrtne mazání z aplikace, zobrazí se info text.
+    - **Interface**: Přidán `external_ids?: Record<string, string> | null` do props.
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`: Předává se `external_ids` do `DeletePostDialog`.
+
+- Změněné soubory:
+  - `src/components/dashboard/delete-post-dialog.tsx`
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`
+
+### Fix – Instagram `external_id` fallback + logging (DOKONČENO)
+
+- **Problém**: Při publikování na Instagram se v některých případech neukládalo `external_id` do DB (pokud Meta API `media_publish` vrátilo OK bez `id`), takže mazání selhávalo s chybou "externalId chybí".
+- **Řešení**:
+  - `src/lib/actions/publish.ts`: `publishToInstagram` – pokud `media_publish` nevrátí `id`, použije se `creation_id` jako fallback (je stále použitelný pro mazání přes Graph API). Přidán explicitní logging (`🔥 IG PUBLISH SUCCESS, final external_id`).
+  - `src/lib/actions/publish.ts`: `handlePublishSuccess` – přidán logging před zápisem `external_ids` do DB.
+  - `supabase/functions/process-scheduled-posts/index.ts`: Stejná oprava fallbacku na `creation_id` a vylepšený logging v edge funkci plánovače.
+  - Oba soubory teď zaručují, že se `external_id` pro Instagram VŽDY uloží do `external_ids` (JSONB) ve formátu `{ instagram: "..." }`.
+
+- Změněné soubory:
+  - `src/lib/actions/publish.ts`
+  - `supabase/functions/process-scheduled-posts/index.ts`
+
+### Fix – Přechod na `external_ids` pro správné ukládání ID u více platforem (DOKONČENO)
+
+- **Problém**: Sloupec `external_id` typu TEXT přepisoval ID první sítě při publikování na další síť, takže mazání u první sítě selhávalo (ID bylo ztraceno).
+- **Řešení**:
+  - `src/lib/actions/publish.ts`: Aktualizovány funkce `publishPost`, `handlePublishSuccess`, `updateRemotePostAction`, a `deleteFromMeta`, aby používaly nový JSONB sloupec `external_ids` namísto prostého TEXT `external_id`. Pro ukládání se staré ID zachová pomocí merge objektu `{ ...oldIds, [platform]: newId }`.
+  - `src/lib/actions/posts.ts`: Aktualizovány funkce `deletePost`, `syncPostStatus`, `resetPostStatus`, a `syncPublishedPosts` pro práci s JSONB polem a vytahování správného ID na základě dané platformy.
+  - Ošetřeno UI (`_post-card.tsx`, `delete-post-dialog.tsx`, `calendar-view.tsx`, `page.tsx`), aby pracovalo s vlastností `external_ids` napříč celou aplikací.
+  - Komponenta pro smazání z více sítí teď volá správné ID v závislosti na zvolené síti.
+
+### Fix – "Ghost" smazání z Meta API + Render error u synchronizace (DOKONČENO)
+
+- **Problém 1**: Změny v Server Component pro `syncPublishedPosts` prováděly `revalidatePath` a `revalidateAllLocales` během renderu, což způsobovalo u Next.js render error.
+- **Řešení 1**: Z funkce `syncPublishedPosts` (v `posts.ts`) byla odstraněna veškerá volání `revalidatePath` a `revalidateAllLocales`.
+- **Problém 2**: Pokud byl příspěvek z Facebooku nebo Instagramu odstraněn ručně, následný pokus o smazání z aplikace selhával s chybou z Meta API ("Unsupported delete request. Object with ID does not exist"), kvůli čemuž uživatel nemohl smazat příspěvek z databáze a vyčistit UI.
+- **Řešení 2**: Funkce `deleteFromMeta` (v `publish.ts`) byla upravena tak, že chyby a výjimky při API DELETE dotazu nyní nezastaví proces. V případě selhání se do logu vypíše informace a následně funkce pokračuje dál – provede smazání dané platformy z naší DB přes RPC a vrátí `success: true`. Cíl odstranit příspěvek ze sítě (už neexistuje) i z aplikace je tím splněn.
+
+- Změněné soubory:
+  - `src/lib/actions/posts.ts`
+  - `src/lib/actions/publish.ts`
+
 ### Feature – Selective Delete UI (Chytrý koš) (DOKONČENO)
 
 - **Problém**: Chybělo uživatelské rozhraní pro selektivní mazání příspěvků z Meta platforem (příprava z backendu byla hotová v minulé session).

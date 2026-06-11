@@ -95,11 +95,11 @@ Tato pravidla mají striktní prioritu při implementaci features spojených s p
 | Platforma | Editace textu | Smazání | UI Chování |
 |---|---|---|---|
 | **Facebook** | ✅ Ano | ✅ Ano | Zdůrazni tlačítko "Aktualizovat na sítích" |
-| **Instagram** | ❌ Ne | ❌ Ne | Info banner: "Editace není platformou podporována" |
+| **Instagram** | ❌ Ne | ✅ Ano | Info banner: "Editace není platformou podporována" |
 | **LinkedIn** | ❌ Ne | ✅ Ano | Info banner: "Editace není platformou podporována" |
 | **TikTok** | ❌ Ne | ❌ Ne | Ikona zámku 🔒 – úplné uzamření po publikování |
 | **YouTube** | ✅ Ano | ✅ Ano | Plná podpora editace i smazání |
-| **X (Twitter)** | ❌ Free tier jen publikování | ❌ Free tier | Nesnaž se o synchronizaci smazání (Sync status) u Free plánu |
+| **X (Twitter)** | ❌ Ne | ✅ Ano | Smazání funguje, editace není podporována API |
 
 ### 2. Validace médií (před odesláním)
 
@@ -117,7 +117,7 @@ Tato pravidla mají striktní prioritu při implementaci features spojených s p
 ### 4. Specifika sítí
 
 - **LinkedIn:** Žádné PDF karusely. Tagování lidí (`@mention`) je jen prostý text – API ho neřeší jako entity.
-- **X (Twitter):** Free tier – jen publikování. Nesnaž se o synchronizaci smazání (Sync status).
+- **X (Twitter):** Free tier – jen write-only (publikování a smazání). Nelze číst timeline.
 
 ## Pravidla pro psaní kódu
 

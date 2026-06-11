@@ -326,20 +326,27 @@ async function publishToInstagram(
   });
 
   const publishPayload = await publishRes.json().catch(() => ({}));
-  console.log(">>> META RESPONSE (IG publish):", { status: publishRes.status, payload: publishPayload });
+  console.log("🔥 META RESPONSE (IG publish):", { status: publishRes.status, payload: publishPayload });
 
   if (!publishRes.ok) {
     const publishErr = typeof publishPayload?.error?.message === "string" ? publishPayload.error.message : `IG publish failed (${publishRes.status})`;
     return { success: false, error: publishErr };
   }
 
+  // Instagram media_publish returns { "id": "17841405876543214" }
+  // This is the actual post ID on Instagram – we MUST store it for deletion.
   const publishedId = typeof publishPayload?.id === "string" ? publishPayload.id : undefined;
-  if (!publishedId) {
-    return { success: false, error: "IG publish returned no ID." };
+
+  if (publishedId) {
+    console.log("🔥 IG PUBLISH SUCCESS, final external_id:", publishedId);
+    return { success: true, externalId: publishedId };
   }
 
-  console.log(">>> IG publikováno úspěšně, id:", publishedId);
-  return { success: true, externalId: publishedId };
+  // Fallback: if media_publish returned OK but no 'id', use creation_id.
+  // This can happen with certain Meta API versions. creation_id is still usable
+  // for deletion via Graph API.
+  console.warn("⚠️ IG publish returned no 'id' – falling back to creation_id:", creationId);
+  return { success: true, externalId: creationId };
 }
 
 Deno.serve(async (request: Request) => {
@@ -432,7 +439,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: posts, error: postsError } = await supabaseAdmin
     .from("posts")
-    .select("id, user_id, content, platforms, media_urls, status, scheduled_at, location, tags")
+    .select("id, user_id, content, platforms, media_urls, status, scheduled_at, location, tags, external_ids")
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", nowIso)
@@ -605,10 +612,15 @@ Deno.serve(async (request: Request) => {
         }
       }
 
+      const currentExternalIds = (post.external_ids as Record<string, string>) ?? {};
+      const newExternalIds = externalId ? { ...currentExternalIds, [targetPlatform]: externalId } : currentExternalIds;
+
+      console.log("🔥 SAVING external_ids to DB:", newExternalIds, "for post:", post.id, "platform:", targetPlatform);
+
       const updateValues: Record<string, unknown> = {
         status: publishError ? "failed" : "published",
         published_at: publishError ? null : nowIso,
-        external_id: externalId,
+        external_ids: newExternalIds,
       };
 
       if (publishError) {

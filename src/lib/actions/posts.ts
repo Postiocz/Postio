@@ -21,11 +21,11 @@ export async function createPostAction(inputData: {
   tags?: string[];
   published_platforms?: string[];
   published_at?: string | null;
-  external_id?: string | null;
+  external_ids?: Record<string, string> | null;
 }) {
   // OCHRANA DAT: published_platforms nesmí být nikdy přepsáno z formuláře
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { published_platforms, published_at, external_id, ...cleanData } = inputData;
+  const { published_platforms, published_at, external_ids, ...cleanData } = inputData;
   const supabase = await createClient();
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -91,13 +91,13 @@ export async function updatePost(id: string, inputData: {
   tags?: string[];
   published_platforms?: string[];
   published_at?: string | null;
-  external_id?: string | null;
+  external_ids?: Record<string, string> | null;
 }) {
-  // STRICT SEPARATION: published_platforms, published_at, external_id are NEVER modified via updatePost.
+  // STRICT SEPARATION: published_platforms, published_at, external_ids are NEVER modified via updatePost.
   // These fields are ONLY managed by publish logic via RPC (append_published_platform / remove_published_platform).
   // Status is restricted to draft/scheduled only – publishing/published/failed are managed by publish flow.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { published_platforms, published_at, external_id, status: inputStatus, ...cleanData } = inputData;
+  const { published_platforms, published_at, external_ids, status: inputStatus, ...cleanData } = inputData;
   const safeStatus = (inputStatus === "draft" || inputStatus === "scheduled") ? inputStatus : undefined;
 
   const supabase = await createClient();
@@ -165,7 +165,7 @@ export async function deletePost(id: string) {
 
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, platforms, external_id, status")
+    .select("id, platforms, external_ids, status")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -175,10 +175,12 @@ export async function deletePost(id: string) {
   }
 
   const platforms = Array.isArray(post.platforms) ? post.platforms : [];
-  const externalId =
-    typeof post.external_id === "string" && post.external_id.trim()
-      ? post.external_id.trim()
-      : null;
+  const targetPlatform = platforms[0] ?? "facebook";
+
+  const externalIds = (post.external_ids as Record<string, string>) ?? {};
+  const externalId = externalIds[targetPlatform]
+    ? externalIds[targetPlatform].trim()
+    : null;
 
   // Try to delete from Meta (Facebook / Instagram) if the post was published
   // Wrapped in try-catch: even if Meta API fails completely, we still delete from our DB
@@ -305,7 +307,7 @@ export async function syncPostStatus(id: string): Promise<{
 
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, platforms, external_id, status")
+    .select("id, platforms, external_ids, status")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -314,13 +316,17 @@ export async function syncPostStatus(id: string): Promise<{
     return { success: false, error: postError?.message ?? "Post not found." };
   }
 
-  if (post.status !== "published" || !post.external_id) {
-    return { success: true };
-  }
-
   const platforms = Array.isArray(post.platforms) ? post.platforms : [];
   const targetPlatform = platforms[0] ?? "facebook";
-  const externalId = post.external_id.trim();
+
+  const externalIds = (post.external_ids as Record<string, string>) ?? {};
+  const externalId = externalIds[targetPlatform]
+    ? externalIds[targetPlatform].trim()
+    : null;
+
+  if (post.status !== "published" || !externalId) {
+    return { success: true };
+  }
 
   const { data: accounts } = await supabase
     .from("social_accounts")
@@ -434,7 +440,7 @@ export async function resetPostStatus(id: string): Promise<{
       status: "draft",
       removed_at: null,
       removed_from_platform: null,
-      external_id: null,
+      external_ids: {},
     })
     .eq("id", id)
     .eq("user_id", user.id);
@@ -507,13 +513,13 @@ export async function syncPublishedPosts(): Promise<{
 
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
-  // Find published posts with external_id that haven't been synced in 30 min
+  // Find published posts with external_ids that haven't been synced in 30 min
   const { data: posts, error: queryError } = await supabase
     .from("posts")
-    .select("id, platforms, external_id, status, last_sync_at")
+    .select("id, platforms, external_ids, status, last_sync_at")
     .eq("user_id", user.id)
     .eq("status", "published")
-    .not("external_id", "is", null)
+    .not("external_ids", "is", null)
     .or(`last_sync_at.is.null,last_sync_at.lt.${thirtyMinAgo}`);
 
   if (queryError || !posts) {
@@ -534,10 +540,11 @@ export async function syncPublishedPosts(): Promise<{
   for (const post of posts) {
     const platforms = Array.isArray(post.platforms) ? post.platforms : [];
     const targetPlatform = platforms[0] ?? "facebook";
-    const externalId =
-      typeof post.external_id === "string" && post.external_id.trim()
-        ? post.external_id.trim()
-        : null;
+    
+    const externalIds = (post.external_ids as Record<string, string>) ?? {};
+    const externalId = externalIds[targetPlatform]
+      ? externalIds[targetPlatform].trim()
+      : null;
 
     if (!externalId) continue;
 
@@ -600,9 +607,6 @@ export async function syncPublishedPosts(): Promise<{
 
   if (removedIds.length > 0) {
     console.log(`[syncPublishedPosts] Marked ${removedIds.length} post(s) as removed_externally`);
-    revalidateAllLocales("/dashboard");
-    revalidateAllLocales("/calendar");
-    revalidateAllLocales("/posts");
   }
 
   return { success: true, removedIds };

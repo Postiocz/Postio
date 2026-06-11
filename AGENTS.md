@@ -33,10 +33,10 @@ STRIKTNÍ PRAVIDLA – musí být dodržována vždy při práci s publishing a 
 
 ### 1. Editace po publikování
 - **Facebook:** Jediná platforma s editací textu. UI: tlačítko "Aktualizovat na sítích".
-- **Instagram & LinkedIn:** Zákaz editace textu. Místo tlačítka zobraz banner "Editace není platformou podporována".
+- **Instagram & LinkedIn:** Zákaz editace textu, ale **smazání je plně podporováno**. Místo tlačítka editace zobraz banner "Editace není platformou podporována".
 - **TikTok:** Úplné uzamření po publikování. Žádná editace, žádné smazání. Zobraz ikonu zámku.
 - **YouTube:** Plná podpora editace i smazání.
-- **X (Twitter):** Free tier jen publikování. Žádná sync smazání.
+- **X (Twitter):** Zákaz editace přes API. Smazání je plně podporováno.
 
 ### 2. Validace médií
 - **Instagram:** Pouze JPEG. Poměr stran 4:5 až 1.91:1. Varování předem při nesedícím poměru.
@@ -46,7 +46,7 @@ STRIKTNÍ PRAVIDLA – musí být dodržována vždy při práci s publishing a 
 
 ### 4. Specifika
 - **LinkedIn:** Žádné PDF karusely. `@mention` = prostý text.
-- **X (Twitter):** Free tier = jen publish, žádná sync status.
+- **X (Twitter):** Free tier = jen write-only (publish a smazání), žádné čtení timeline.
 
 ## 🧠 Ponaučení z chyb (Paměť)
 - *Zde bude Claude přidávat věci, které jsme už jednou pokazili a opravili, aby se neopakovaly.*

@@ -228,28 +228,6 @@ export default function AccountsPage() {
     setDeleting(false);
   }
 
-  const handleFacebookOAuth = async () => {
-    const next = window.location.pathname || "/accounts";
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "facebook",
-      options: {
-        scopes:
-          "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts",
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        queryParams: {
-          auth_type: "rerequest",
-        },
-      },
-    });
-    if (error) {
-      setError(error.message);
-      return;
-    }
-    if (data?.url) {
-      window.location.assign(data.url);
-    }
-  };
-
   if (loading) return <div className="text-muted-foreground">Načítání…</div>;
 
   const hasConnectedAccounts = accounts.some((a) => a.is_active);
@@ -593,6 +571,7 @@ export default function AccountsPage() {
                   redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
                   queryParams: {
                     auth_type: "rerequest",
+                    config_id: "891876470597727",
                   },
                 },
               });

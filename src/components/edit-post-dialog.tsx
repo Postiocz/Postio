@@ -56,7 +56,7 @@ export interface EditPostData {
   tags: string[];
   media_urls: string[];
   published_platforms?: string[];
-  external_id?: string | null;
+  external_ids?: Record<string, string> | null;
 }
 
 interface EditPostDialogProps {

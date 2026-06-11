@@ -59,7 +59,7 @@ export type PostListItem = {
   tags: string[];
   media_urls: string[];
   published_platforms?: string[];
-  external_id?: string | null;
+  external_ids?: Record<string, string> | null;
   removed_at?: string | null;
   removed_from_platform?: string | null;
 };
@@ -176,9 +176,9 @@ export function PostCard({
   const handleDeleteConfirm = async (selectedPlatforms: string[], deleteFromApp: boolean) => {
     setIsDeleting(true);
     try {
-      const isMultiple = post.status === "published" && post.published_platforms && post.published_platforms.length > 1;
+      const isPublished = post.status === "published" && (post.published_platforms?.length ?? 0) > 0;
 
-      if (isMultiple) {
+      if (isPublished) {
         let deletedCount = 0;
         // Smazat z vybraných Meta platforem
         for (const platform of selectedPlatforms) {
@@ -211,7 +211,7 @@ export function PostCard({
            setDeleteOpen(false);
         }
       } else {
-        // Klasické smazání (draft, scheduled, failed, nebo single published platform)
+        // Klasické smazání (draft, scheduled, failed)
         const result = await deletePost(post.id);
         if (result.success) {
           setDeleteOpen(false);
@@ -427,7 +427,7 @@ export function PostCard({
         tags: post.tags ?? [],
         media_urls: post.media_urls ?? [],
         published_platforms: post.published_platforms ?? [],
-        external_id: post.external_id ?? null,
+        external_ids: post.external_ids ?? null,
       }}
       locale={locale}
       tLabels={tLabels}
@@ -440,6 +440,7 @@ export function PostCard({
         id: post.id,
         status: post.status,
         published_platforms: post.published_platforms ?? [],
+        external_ids: post.external_ids ?? null,
       }}
       onConfirm={handleDeleteConfirm}
       isDeleting={isDeleting}

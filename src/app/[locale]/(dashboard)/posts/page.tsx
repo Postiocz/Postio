@@ -51,7 +51,7 @@ export default async function PostsPage({
             tags: post.tags ?? [],
             media_urls: post.media_urls ?? [],
             published_platforms: post.published_platforms ?? [],
-            external_id: post.external_id ?? null,
+            external_ids: post.external_ids ?? null,
             removed_at: post.removed_at ?? null,
             removed_from_platform: post.removed_from_platform ?? null,
           }))}

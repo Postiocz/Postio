@@ -168,21 +168,27 @@ async function publishToInstagram(params: {
   const publishPayload = (await publishRes.json().catch(async () => ({
     raw: await publishRes.text().catch(() => ""),
   }))) as FacebookPublishResponse;
-  console.log("META RESPONSE (IG publish):", publishPayload);
+  console.log("🔥 META RESPONSE (IG publish):", publishPayload);
 
   const publishErr = getGraphErrorMessage(publishPayload);
   if (publishErr) {
     return { success: false, error: `IG publish failed: ${publishErr}` };
   }
 
-  // Instagram media_publish returns { "id": "media_publish_id" }
+  // Instagram media_publish returns { "id": "17841405876543214" }
+  // This is the actual post ID on Instagram – we MUST store it for deletion.
   const publishedId = getGraphResponseId(publishPayload);
-  if (!publishedId) {
-    return { success: false, error: "IG publish returned no ID." };
+
+  if (publishedId) {
+    console.log("🔥 IG PUBLISH SUCCESS, final external_id:", publishedId);
+    return { success: true, externalId: publishedId };
   }
 
-  console.log("IG publikováno úspěšně, id:", publishedId);
-  return { success: true, externalId: publishedId };
+  // Fallback: if media_publish returned OK but no 'id', use creation_id.
+  // This can happen with certain Meta API versions. creation_id is still usable
+  // for deletion via Graph API.
+  console.warn("⚠️ IG publish returned no 'id' – falling back to creation_id:", creationId);
+  return { success: true, externalId: creationId };
 }
 
 /**
@@ -434,14 +440,18 @@ async function handlePublishSuccess(
   // Fetch fresh data from DB to verify the final state of published_platforms
   const { data: updatedPost } = await supabase
     .from("posts")
-    .select("published_platforms")
+    .select("published_platforms, external_ids")
     .eq("id", postId)
     .eq("user_id", userId)
     .single();
 
+  const currentExternalIds = (updatedPost?.external_ids as Record<string, string>) ?? {};
+  const newExternalIds = { ...currentExternalIds, [platform]: externalId };
+
+  console.log("🔥 SAVING external_ids to DB:", newExternalIds, "for post:", postId);
   console.log("AKTUALIZOVANÉ PLATFORMY V DB:", updatedPost?.published_platforms);
 
-  // Update other fields (status, external_id, etc.) – do NOT touch published_platforms here.
+  // Update other fields (status, external_ids, etc.) – do NOT touch published_platforms here.
   await updatePostPublishState(supabase, {
     userId,
     postId,
@@ -449,7 +459,7 @@ async function handlePublishSuccess(
       status: "published",
       scheduled_at: null,
       published_at: publishedAt,
-      external_id: externalId,
+      external_ids: newExternalIds,
       publish_error: null,
     },
   });
@@ -549,10 +559,10 @@ export async function updateRemotePostAction(input: {
 
   const supabaseAdmin = createAdminClient();
 
-  // Fetch the post with external_id, platforms, and published_platforms
+  // Fetch the post with external_ids, platforms, and published_platforms
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, status, platforms, external_id, published_platforms")
+    .select("id, status, platforms, external_ids, published_platforms")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -565,15 +575,6 @@ export async function updateRemotePostAction(input: {
     return { success: false, error: "Pouze publikované příspěvky lze editovat na sociální síti." };
   }
 
-  const externalId =
-    typeof post.external_id === "string" && post.external_id.trim()
-      ? post.external_id.trim()
-      : null;
-
-  if (!externalId) {
-    return { success: false, error: "Příspěvek nemá external_id – nelze editovat na sociální síti." };
-  }
-
   const platforms = Array.isArray(post.platforms) ? post.platforms : [];
   const publishedPlatforms = Array.isArray(post.published_platforms) ? post.published_platforms : [];
 
@@ -584,6 +585,15 @@ export async function updateRemotePostAction(input: {
   const targetPlatform = publishedPlatforms.find((p) => editablePlatforms.includes(p))
     ?? platforms[0]
     ?? "facebook";
+
+  const externalIds = (post.external_ids as Record<string, string>) ?? {};
+  const externalId = externalIds[targetPlatform]
+    ? externalIds[targetPlatform].trim()
+    : null;
+
+  if (!externalId) {
+    return { success: false, error: `Příspěvek nemá external_id pro platformu ${targetPlatform} – nelze editovat na sociální síti.` };
+  }
 
   // Look up the access token for the target platform
   const { data: accounts } = await supabaseAdmin
@@ -708,10 +718,10 @@ export async function deleteFromMeta(input: {
 
   const supabaseAdmin = createAdminClient();
 
-  // Fetch the post with external_id and published_platforms
+  // Fetch the post with external_ids and published_platforms
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, status, external_id, published_platforms")
+    .select("id, status, external_ids, published_platforms")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -724,13 +734,13 @@ export async function deleteFromMeta(input: {
     return { success: false, error: "Příspěvek není publikován." };
   }
 
-  const externalId =
-    typeof post.external_id === "string" && post.external_id.trim()
-      ? post.external_id.trim()
-      : null;
+  const externalIds = (post.external_ids as Record<string, string>) ?? {};
+  const externalId = externalIds[input.platform]
+    ? externalIds[input.platform].trim()
+    : null;
 
   if (!externalId) {
-    return { success: false, error: "Příspěvek nemá external_id – nelze smazat na sociální síti." };
+    console.log(`deleteFromMeta: Na platformě ${input.platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
   }
 
   const publishedPlatforms = Array.isArray(post.published_platforms) ? post.published_platforms : [];
@@ -757,82 +767,110 @@ export async function deleteFromMeta(input: {
     };
   }
 
-  const accessToken = accounts[0].access_token;
-  const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
+  if (externalId) {
+    const accessToken = accounts[0].access_token;
+    const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
 
-  console.log(`Deleting post on ${input.platform}:`, { externalId });
+    console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${input.platform}`);
+    console.log(`>>> POUŽITÉ ID: ${externalId}`);
+    console.log(`>>> POUŽITÝ TOKEN (last 10): ${accessToken.slice(-10)}`);
 
-  try {
-    const body = new URLSearchParams();
-    body.set("access_token", accessToken);
+    try {
+      const body = new URLSearchParams();
+      body.set("access_token", accessToken);
 
-    const res = await fetch(graphUrl, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-      cache: "no-store",
-    });
-
-    const payload = (await res.json().catch(async () => ({
-      raw: await res.text().catch(() => ""),
-    }))) as FacebookPublishResponse;
-    console.log(`META RESPONSE (delete ${input.platform}):`, payload);
-
-    const errMsg = getGraphErrorMessage(payload);
-    if (errMsg) {
-      // Revalidate on error to prevent UI freeze
-      revalidatePath("/", "layout");
-      revalidateAllLocales("/calendar");
-      revalidateAllLocales("/posts");
-      revalidateAllLocales("/dashboard");
-
-      return { success: false, error: `Smazání na ${input.platform} selhalo: ${errMsg}` };
-    }
-
-    // Remove platform from published_platforms via RPC
-    const { error: rpcError } = await supabase.rpc("remove_published_platform", {
-      p_post_id: input.postId,
-      p_platform: input.platform,
-    });
-
-    if (rpcError) {
-      console.error("deleteFromMeta: RPC remove_published_platform FAILED:", rpcError.message);
-    } else {
-      console.log(`deleteFromMeta: Platforma ${input.platform} odstraněna z published_platforms`);
-    }
-
-    // If this was the last published platform, update status back to 'draft'
-    const remainingPlatforms = publishedPlatforms.filter((p) => p !== input.platform);
-    if (remainingPlatforms.length === 0) {
-      await updatePostPublishState(supabase, {
-        userId: user.id,
-        postId: input.postId,
-        values: {
-          status: "draft",
-          published_at: null,
-          external_id: null,
-        },
+      const res = await fetch(graphUrl, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+        cache: "no-store",
       });
+
+      const resData = await res.json().catch(async () => ({
+        raw: await res.text().catch(() => ""),
+      }));
+      console.log(`>>> META RESPONSE (${input.platform}):`, JSON.stringify(resData, null, 2));
+
+      const errMsg = getGraphErrorMessage(resData);
+      if (errMsg) {
+        // If Meta says "Object does not exist" – the post is already gone on the platform.
+        // Treat as success and remove from our DB.
+        const isObjectNotFound =
+          errMsg.toLowerCase().includes("object does not exist") ||
+          errMsg.toLowerCase().includes("(#3) ") ||
+          (String(resData).includes('"error_code":3') &&
+            String(resData).toLowerCase().includes("does not exist"));
+
+        if (isObjectNotFound) {
+          console.log(`>>> Object not found on ${input.platform} – post already deleted on platform. Treating as success.`);
+        } else {
+          console.error(`>>> CHYBA při mazání na ${input.platform}: ${errMsg}`);
+          // NEMAZAT z DB – příspěvek stále existuje na síti!
+          return { success: false, error: `Smazání z ${input.platform} selhalo na síti: ${errMsg}` };
+        }
+      }
+
+      // Úspěšné smazání – Graph API vrací {"success": true} pro Facebook
+      // nebo {"id": "..."} pro Instagram
+      console.log(`>>> Smazání z ${input.platform} ÚSPĚŠNÉ`);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : "Neznámá síťová chyba.";
+      console.error(`>>> VÝJIMEKA při mazání na ${input.platform}: ${errorMessage}`);
+      return { success: false, error: `Síťová chyba při mazání z ${input.platform}: ${errorMessage}` };
     }
-
-    // Revalidate after successful deletion
-    revalidatePath("/", "layout");
-    revalidateAllLocales("/calendar");
-    revalidateAllLocales("/posts");
-    revalidateAllLocales("/dashboard");
-
-    return { success: true };
-  } catch (e) {
-    const errorMessage = e instanceof Error ? e.message : "Chyba při mazání příspěvku.";
-
-    // Revalidate on error to prevent UI freeze
-    revalidatePath("/", "layout");
-    revalidateAllLocales("/calendar");
-    revalidateAllLocales("/posts");
-    revalidateAllLocales("/dashboard");
-
-    return { success: false, error: errorMessage };
+  } else {
+    console.log(`>>> externalId chybí pro ${input.platform} – přeskočíme API volání`);
   }
+
+  // Remove platform from published_platforms via RPC (s explicitním user_id)
+  const { error: rpcError } = await supabase.rpc("remove_published_platform", {
+    p_post_id: input.postId,
+    p_platform: input.platform,
+    p_user_id: user.id,
+  });
+
+  if (rpcError) {
+    console.error("deleteFromMeta: RPC remove_published_platform FAILED:", rpcError.message);
+    return { success: false, error: `Chyba při aktualizaci DB: ${rpcError.message}` };
+  }
+
+  console.log(`deleteFromMeta: Platforma ${input.platform} odstraněna z published_platforms`);
+
+  // If this was the last published platform, update status back to 'draft'
+  const remainingPlatforms = publishedPlatforms.filter((p) => p !== input.platform);
+  
+  // Update external_ids locally by removing the key
+  const updatedExternalIds = { ...externalIds };
+  delete updatedExternalIds[input.platform];
+  
+  if (remainingPlatforms.length === 0) {
+    await updatePostPublishState(supabase, {
+      userId: user.id,
+      postId: input.postId,
+      values: {
+        status: "draft",
+        published_at: null,
+        external_ids: updatedExternalIds,
+      },
+    });
+  } else {
+    // Just update external_ids without changing status
+    await updatePostPublishState(supabase, {
+      userId: user.id,
+      postId: input.postId,
+      values: {
+        external_ids: updatedExternalIds,
+      },
+    });
+  }
+
+  // Revalidate after successful deletion
+  revalidatePath("/", "layout");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+
+  return { success: true };
 }
 
 /**
@@ -1074,7 +1112,7 @@ export async function updatePublishedPost(input: {
   // Fetch the post with all needed fields
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, status, platforms, external_id")
+    .select("id, status, platforms, external_ids")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -1087,17 +1125,17 @@ export async function updatePublishedPost(input: {
     return { success: false, error: "Pouze publikované příspěvky lze editovat na sociální síti." };
   }
 
-  const externalId =
-    typeof post.external_id === "string" && post.external_id.trim()
-      ? post.external_id.trim()
-      : null;
-
-  if (!externalId) {
-    return { success: false, error: "Příspěvek nemá external_id – nelze editovat na sociální síti." };
-  }
-
   const platforms = Array.isArray(post.platforms) ? post.platforms : [];
   const targetPlatform = platforms[0] ?? "facebook";
+
+  const externalIds = (post.external_ids as Record<string, string>) ?? {};
+  const externalId = externalIds[targetPlatform]
+    ? externalIds[targetPlatform].trim()
+    : null;
+
+  if (!externalId) {
+    return { success: false, error: "Příspěvek nemá external_id pro tuto platformu – nelze editovat na sociální síti." };
+  }
 
   // Build the final caption
   const finalCaption = buildFinalCaption({

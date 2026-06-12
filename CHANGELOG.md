@@ -1,3 +1,29 @@
+## 2026-06-12
+
+### COMPLETED: Etapa 1 – Nová architektura (Garáž) 
+- Vytvořena tabulka `post_platforms` pro nezávislou správu sítí. 
+- Implementován Dual-Write v `posts.ts` (createPostAction, updatePost). 
+- Migrována stávající data ze starého modelu do nového. 
+- Ověřen souběžný zápis do obou tabulek (všechny testy OK).
+
+## 2026-06-11
+
+### Feature – Architektonická změna: Model Post + Platform Instance (Etapa 1: DB + Dual Write)
+
+- **Cíl**: Přechod z modelu "jeden post = jeden řádek s polem platforem" na model "hlavní post + samostatné instance pro každou platformu". To umožní plně nezávislou správu stavu, plánování a chyb pro každou sociální síť zvlášť.
+- **Provedené změny (Etapa 1)**:
+  - `supabase/migrations/023_create_post_platforms.sql`: Vytvořena nová tabulka `post_platforms` s vazbou 1:N na `posts`. Obsahuje specifická data pro danou platformu (`status`, `scheduled_at`, `published_at`, `external_id`, `publish_error`, atd.). Byly nastaveny constraints (včetně `UNIQUE(post_id, platform)`), indexy a RLS politiky (JOIN přes parent tabulku `posts`).
+  - `supabase/migrations/024_migrate_to_post_platforms.sql`: Přidán idempotentní migrační skript (s využitím `ON CONFLICT DO NOTHING`), který iteruje přes existující záznamy v `posts`, rozbalí pole `platforms` i `published_platforms` a nasype existující stav (status, časy, JSONB external ID) do odpovídajících řádků v `post_platforms`.
+  - `src/lib/actions/posts.ts`: Zavedena *Dual-Write* logika do serverových akcí. 
+    - `createPostAction`: Po vytvoření `posts` záznamu rovnou vytvoří pole instancí v `post_platforms` s patřičným statusem (draft / scheduled).
+    - `updatePost`: Sleduje změnu v poli `platforms` z UI. Pokud jsou přidány nové sítě, založí pro ně instance; pokud jsou sítě zrušeny a přitom nebyly publikovány, smaže jejich instance z `post_platforms`.
+- **Stav po 1. etapě**: Databáze je připravena a začíná zrcadlit data do nové struktury. Frontend (UI), publish proces i edge funkce stále primárně čtou ze staré tabulky `posts` (nenarušuje se tak aktuální chod aplikace).
+
+- Změněné soubory:
+  - `supabase/migrations/023_create_post_platforms.sql` (nový)
+  - `supabase/migrations/024_migrate_to_post_platforms.sql` (nový)
+  - `src/lib/actions/posts.ts`
+
 ## 2026-06-08
 
 ### Fix – Chybějící config_id při propojování Facebooku (DOKONČENO)

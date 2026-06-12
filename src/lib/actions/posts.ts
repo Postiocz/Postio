@@ -70,6 +70,25 @@ export async function createPostAction(inputData: {
     return { success: false, error: error.message };
   }
 
+  // --- DUAL WRITE: Sync platforms to post_platforms ---
+  if (post && cleanData.platforms.length > 0) {
+    console.log("🔥 DUAL-WRITE START: vytvářím instance pro", cleanData.platforms);
+    const platformRows = cleanData.platforms.map(p => ({
+      post_id: post.id,
+      platform: p,
+      status: cleanData.status === 'scheduled' ? 'scheduled' : 'draft',
+      scheduled_at: cleanData.scheduledAt
+    }));
+
+    const { error: ppError } = await supabase.from('post_platforms').insert(platformRows);
+
+    if (ppError) {
+      console.error("❌ DUAL-WRITE ERROR:", ppError.message);
+    } else {
+      console.log("✅ DUAL-WRITE SUCCESS: instance zapsány.");
+    }
+  }
+
   if (cleanData.status === "scheduled") {
     console.log("PŘÍSPĚVEK NAPLÁNOVÁN:", post.id, "status:", cleanData.status, "scheduled_at:", cleanData.scheduledAt);
   }
@@ -140,6 +159,49 @@ export async function updatePost(id: string, inputData: {
   if (error) {
     console.error("Error updating post:", error);
     return { success: false, error: error.message };
+  }
+
+  // --- DUAL WRITE: Sync platforms to post_platforms ---
+  if (post && cleanData.platforms !== undefined) {
+    const { data: existingInstances } = await supabase
+      .from("post_platforms")
+      .select("platform, status")
+      .eq("post_id", id);
+
+    const existingPlatforms = (existingInstances || []).map((i) => i.platform);
+    const newPlatforms = cleanData.platforms;
+
+    const toAdd = newPlatforms.filter((p) => !existingPlatforms.includes(p));
+    if (toAdd.length > 0) {
+      await supabase.from("post_platforms").insert(
+        toAdd.map((p) => ({
+          post_id: id,
+          platform: p,
+          status: safeStatus === "scheduled" ? "scheduled" : "draft",
+          scheduled_at: safeStatus === "scheduled" ? (cleanData.scheduledAt ?? post.scheduled_at) : null,
+        }))
+      );
+    }
+
+    const toRemove = existingPlatforms.filter((p) => !newPlatforms.includes(p));
+    if (toRemove.length > 0) {
+      const safeToRemove = (existingInstances || [])
+        .filter(
+          (i) =>
+            toRemove.includes(i.platform) &&
+            i.status !== "published" &&
+            i.status !== "publishing"
+        )
+        .map((i) => i.platform);
+
+      if (safeToRemove.length > 0) {
+        await supabase
+          .from("post_platforms")
+          .delete()
+          .eq("post_id", id)
+          .in("platform", safeToRemove);
+      }
+    }
   }
 
   revalidatePath("/", "layout");

@@ -7,6 +7,7 @@ import { Check, Trash2, Loader2 } from "lucide-react";
 import { Instagram, Facebook, Linkedin, XIcon, Youtube, TikTok } from "@/components/ui/social-icons";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import type { PostPlatform } from "@/app/[locale]/(dashboard)/posts/_post-card";
 
 const PLATFORM_NAMES: Record<string, string> = {
   facebook: "Facebook",
@@ -32,8 +33,7 @@ interface DeletePostDialogProps {
   post: {
     id: string;
     status: string;
-    published_platforms: string[];
-    external_ids?: Record<string, string> | null;
+    post_platforms?: PostPlatform[];
   };
   onConfirm: (selectedPlatforms: string[], deleteFromApp: boolean) => Promise<void>;
   isDeleting: boolean;
@@ -43,8 +43,12 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [deleteFromApp, setDeleteFromApp] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [livePlatforms, setLivePlatforms] = useState<string[]>(post.published_platforms ?? []);
-  const [liveExternalIds, setLiveExternalIds] = useState<Record<string, string> | null>(post.external_ids ?? null);
+  const [livePlatforms, setLivePlatforms] = useState<string[]>([]);
+
+  // Derived initial platforms
+  const initialPublishedPlatforms = (post.post_platforms || [])
+    .filter(p => p.status === "published" && p.external_id)
+    .map(p => p.platform);
 
   // Fetch fresh post data when dialog opens
   const refreshPostData = useCallback(async (postId: string) => {
@@ -54,46 +58,37 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
       const supabase = createClient();
       const { data, error } = await supabase
         .from("posts")
-        .select("published_platforms, external_ids")
+        .select("id, post_platforms(platform, status, external_id)")
         .eq("id", postId)
         .single();
 
       if (!error && data) {
-        const platforms = data.published_platforms ?? [];
-        const extIds = data.external_ids ?? null;
+        const platforms = (data.post_platforms || [])
+          .filter((p: any) => p.status === "published" && p.external_id)
+          .map((p: any) => p.platform);
         setLivePlatforms(platforms);
-        setLiveExternalIds(extIds as Record<string, string> | null);
         setSelectedPlatforms(platforms);
       }
     } catch {
       // Silently fall back to props data
+      setLivePlatforms(initialPublishedPlatforms);
+      setSelectedPlatforms(initialPublishedPlatforms);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshing]);
+  }, [refreshing, initialPublishedPlatforms]);
 
   // Initialize state when dialog opens
   useEffect(() => {
     if (open) {
-      // Derive platforms from both published_platforms and external_ids keys
-      const platformsFromIds = liveExternalIds
-        ? Object.keys(liveExternalIds)
-        : [];
-      const allPlatforms = Array.from(new Set([...livePlatforms, ...platformsFromIds]));
-
-      setSelectedPlatforms(allPlatforms);
+      setLivePlatforms(initialPublishedPlatforms);
+      setSelectedPlatforms(initialPublishedPlatforms);
       setDeleteFromApp(true);
-
-      // Always fetch fresh data on open
       refreshPostData(post.id);
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, post.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Recompute effective published platforms from both sources
-  const externalIdKeys = liveExternalIds ? Object.keys(liveExternalIds) : [];
-  const effectivePlatforms = Array.from(new Set([...livePlatforms, ...externalIdKeys]));
-
-  const hasPublishedPlatforms = effectivePlatforms.length > 0;
+  const hasPublishedPlatforms = livePlatforms.length > 0;
   const showSelectiveDelete = hasPublishedPlatforms;
 
   const togglePlatform = (platform: string) => {
@@ -137,7 +132,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
             ) : (
               <>
                 {/* Platform checkboxes with icons */}
-                {effectivePlatforms.map(platform => {
+                {livePlatforms.map(platform => {
                   const Icon = PlatformIcon[platform] ?? null;
                   return (
                     <div

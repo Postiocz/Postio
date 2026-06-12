@@ -437,24 +437,24 @@ Deno.serve(async (request: Request) => {
 
   const nowIso = new Date().toISOString();
 
-  const { data: posts, error: postsError } = await supabaseAdmin
-    .from("posts")
-    .select("id, user_id, content, platforms, media_urls, status, scheduled_at, location, tags, external_ids")
+  const { data: platformsToPublish, error: platformsError } = await supabaseAdmin
+    .from("post_platforms")
+    .select("id, post_id, platform, status, scheduled_at, posts(id, user_id, content, media_urls, location, tags)")
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", nowIso)
     .order("scheduled_at", { ascending: true })
     .limit(100);
 
-  if (postsError) {
-    console.log("process-scheduled-posts query error", { message: postsError.message });
-    return Response.json({ error: postsError.message }, { status: 500 });
+  if (platformsError) {
+    console.log("process-scheduled-posts query error", { message: platformsError.message });
+    return Response.json({ error: platformsError.message }, { status: 500 });
   }
 
-  console.log(`>>> Found ${posts?.length ?? 0} scheduled post(s) to process`);
+  console.log(`>>> Found ${platformsToPublish?.length ?? 0} scheduled post_platforms(s) to process`);
 
-  if (!posts || posts.length === 0) {
-    console.log(">>> No scheduled posts to process, exiting early");
+  if (!platformsToPublish || platformsToPublish.length === 0) {
+    console.log(">>> No scheduled post_platforms to process, exiting early");
     return Response.json(
       {
         ok: true,
@@ -471,42 +471,46 @@ Deno.serve(async (request: Request) => {
     );
   }
 
-  // Lock all selected posts immediately to prevent duplicate processing
-  // If another instance of this function runs at the same time, it won't find these posts
-  const postIds = posts.map((p) => p.id);
-  console.log(`>>> Locking ${postIds.length} post(s): scheduled → publishing`, { postIds });
+  // Lock all selected platforms immediately to prevent duplicate processing
+  // If another instance of this function runs at the same time, it won't find these
+  const ppIds = platformsToPublish.map((p) => p.id);
+  console.log(`>>> Locking ${ppIds.length} post_platforms(s): scheduled → publishing`, { ppIds });
 
   const { error: lockError } = await supabaseAdmin
-    .from("posts")
+    .from("post_platforms")
     .update({ status: "publishing" })
-    .in("id", postIds)
+    .in("id", ppIds)
     .eq("status", "scheduled");
 
   if (lockError) {
-    console.log(">>> Failed to lock posts", { error: lockError.message });
+    console.log(">>> Failed to lock post_platforms", { error: lockError.message });
     return Response.json(
-      { error: "Failed to lock posts for processing", detail: lockError.message },
+      { error: "Failed to lock post_platforms for processing", detail: lockError.message },
       { status: 500 }
     );
   }
 
-  console.log(`>>> Posts locked successfully. Starting publish process...`);
+  console.log(`>>> post_platforms locked successfully. Starting publish process...`);
 
   let published = 0;
   let skipped = 0;
   let failed = 0;
 
-  for (const post of posts) {
+  for (const pp of platformsToPublish) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      console.log(`>>> Processing post: ${post.id}`, {
-        platforms: post.platforms,
+      const post = Array.isArray(pp.posts) ? pp.posts[0] : pp.posts;
+      if (!post) {
+        console.log(`>>> Post data missing for post_platforms ${pp.id}`);
+        continue;
+      }
+
+      console.log(`>>> Processing post_platforms: ${pp.id} (Post: ${post.id}, Platform: ${pp.platform})`, {
         hasMedia: Array.isArray(post.media_urls) && post.media_urls.length > 0,
-        scheduledAt: post.scheduled_at,
+        scheduledAt: pp.scheduled_at,
       });
 
-      const platforms = Array.isArray(post.platforms) ? post.platforms : [];
       const mediaUrls = Array.isArray(post.media_urls) ? post.media_urls : [];
       const rawContent = String(post.content ?? "");
       const rawLocation = (post as { location?: string | null }).location ?? null;
@@ -522,7 +526,7 @@ Deno.serve(async (request: Request) => {
       let externalId: string | null = null;
       let publishError: string | null = null;
 
-      const targetPlatform = Array.isArray(post.platforms) ? post.platforms[0] : 'facebook';
+      const targetPlatform = pp.platform;
 
       if (targetPlatform === "instagram") {
         // --- Instagram publish ---
@@ -562,7 +566,7 @@ Deno.serve(async (request: Request) => {
             console.log(`>>> Instagram publish success for post ${post.id}`, { externalId });
           }
         }
-      } else if (platforms.includes("facebook")) {
+      } else if (targetPlatform === "facebook") {
         // --- Facebook publish ---
         console.log(`Hledám účet pro user_id: ${post.user_id} (type: ${typeof post.user_id}) a platformu: facebook (target: ${targetPlatform})`);
 
@@ -587,7 +591,7 @@ Deno.serve(async (request: Request) => {
             console.log(`>>> ${publishError}`);
           } else {
             publishError = (accountError as { message?: string } | null)?.message ?? "Missing Facebook account (access_token/platform_id)";
-            console.log(`>>> Facebook account error for post ${post.id}`, { error: publishError });
+            console.log(`>>> Facebook account error for post_platforms ${pp.id}`, { error: publishError });
           }
         } else {
           const account = accounts[0];
@@ -604,60 +608,36 @@ Deno.serve(async (request: Request) => {
 
           if (!result.success) {
             publishError = result.error ?? "Facebook publish failed";
-            console.log(`>>> Facebook publish failed for post ${post.id}`, { error: publishError });
+            console.log(`>>> Facebook publish failed for post_platforms ${pp.id}`, { error: publishError });
           } else {
             externalId = result.externalId ?? null;
-            console.log(`>>> Facebook publish success for post ${post.id}`, { externalId });
+            console.log(`>>> Facebook publish success for post_platforms ${pp.id}`, { externalId });
           }
         }
+      } else {
+        publishError = `Unsupported platform: ${targetPlatform}`;
       }
 
-      const currentExternalIds = (post.external_ids as Record<string, string>) ?? {};
-      const newExternalIds = externalId ? { ...currentExternalIds, [targetPlatform]: externalId } : currentExternalIds;
+      console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${targetPlatform} -> ${publishError ? 'failed' : 'published'}`);
 
-      console.log("🔥 SAVING external_ids to DB:", newExternalIds, "for post:", post.id, "platform:", targetPlatform);
-
-      const updateValues: Record<string, unknown> = {
+      const ppUpdateValues: Record<string, unknown> = {
         status: publishError ? "failed" : "published",
         published_at: publishError ? null : nowIso,
-        external_ids: newExternalIds,
+        external_id: externalId,
+        publish_error: publishError ?? null,
       };
 
-      if (publishError) {
-        updateValues.publish_error = publishError;
-      } else {
-        updateValues.scheduled_at = null;
-        updateValues.publish_error = null;
-
-        // Atomic append to published_platforms via PostgreSQL RPC function.
-        const { error: rpcError } = await supabaseAdmin.rpc("append_published_platform", {
-          p_post_id: post.id,
-          p_platform: targetPlatform,
-          p_user_id: post.user_id,
-        });
-
-        if (rpcError) {
-          console.log(">>> RPC append_published_platform failed", {
-            postId: post.id,
-            platform: targetPlatform,
-            error: rpcError.message,
-          });
-        } else {
-          console.log(`>>> RPC append_published_platform ok: ${post.id} → ${targetPlatform}`);
-        }
-      }
-
-      const { error: updateError } = await supabaseAdmin
-        .from("posts")
-        .update(updateValues)
-        .eq("id", post.id)
+      const { error: ppUpdateError } = await supabaseAdmin
+        .from("post_platforms")
+        .update(ppUpdateValues)
+        .eq("id", pp.id)
         .eq("status", "publishing");
 
-      if (updateError) {
+      if (ppUpdateError) {
         failed += 1;
-        console.log("process-scheduled-posts update failed", {
-          postId: post.id,
-          message: updateError.message,
+        console.log("process-scheduled-posts update post_platforms failed", {
+          ppId: pp.id,
+          message: ppUpdateError.message,
         });
         continue;
       }
@@ -684,20 +664,20 @@ Deno.serve(async (request: Request) => {
       failed += 1;
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.log("process-scheduled-posts unexpected error", {
-        postId: post.id,
+        ppId: pp.id,
         message: errorMsg,
       });
 
       await supabaseAdmin
-        .from("posts")
+        .from("post_platforms")
         .update({ status: "failed", publish_error: errorMsg })
-        .eq("id", post.id)
+        .eq("id", pp.id)
         .eq("status", "publishing");
     }
   }
 
   console.log("process-scheduled-posts done", {
-    totalFound: posts?.length ?? 0,
+    totalFound: platformsToPublish?.length ?? 0,
     published,
     skipped,
     failed,
@@ -707,7 +687,7 @@ Deno.serve(async (request: Request) => {
     {
       ok: true,
       now: nowIso,
-      totalFound: posts?.length ?? 0,
+      totalFound: platformsToPublish?.length ?? 0,
       published,
       skipped,
       failed,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
@@ -48,11 +49,25 @@ const platformIcons: Record<string, React.ComponentType<{ className?: string }>>
   tiktok: TikTok,
 };
 
+export type PostPlatform = {
+  id: string;
+  post_id: string;
+  platform: string;
+  status: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+  external_id: string | null;
+  publish_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PostListItem = {
   id: string;
   content: string;
   status: string;
   platforms: string[];
+  post_platforms?: PostPlatform[];
   scheduled_at: string | null;
   created_at: string;
   location: string | null;
@@ -176,7 +191,7 @@ export function PostCard({
   const handleDeleteConfirm = async (selectedPlatforms: string[], deleteFromApp: boolean) => {
     setIsDeleting(true);
     try {
-      const isPublished = post.status === "published" && (post.published_platforms?.length ?? 0) > 0;
+      const isPublished = (post.post_platforms || []).some(p => p.status === 'published');
 
       if (isPublished) {
         let deletedCount = 0;
@@ -340,33 +355,26 @@ export function PostCard({
           {/* Header: platform icons + status */}
           <div className="flex items-center gap-3 mb-3">
             <div className="flex -space-x-2">
-              {/* Zobrazujeme publikované platformy */}
-              {post.status === "published" && (post.published_platforms ?? []).length > 0 ? (
-                (post.published_platforms ?? []).map((platformId) => {
-                  const Icon = platformIcons[platformId.toLowerCase()] ?? FileText;
-                  return (
-                    <div
-                      key={platformId}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-white/[0.03] border border-black/5 dark:border-white/5 shadow-sm shrink-0"
-                    >
-                      <Icon className="h-4 w-4 text-foreground/80" />
-                    </div>
-                  );
-                })
-              ) : (
-                /* Pokud není publikováno, ukaž plánované s nízkou opacitou */
-                (post.platforms ?? []).map((platformId) => {
-                  const Icon = platformIcons[platformId.toLowerCase()] ?? FileText;
-                  return (
-                    <div
-                      key={platformId}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/50 dark:bg-white/[0.02] border border-black/5 dark:border-white/5 shrink-0 opacity-40"
-                    >
-                      <Icon className="h-4 w-4 text-foreground/60" />
-                    </div>
-                  );
-                })
-              )}
+              {/* Zobrazujeme platformy z post_platforms */}
+              {(post.post_platforms || []).map((p) => {
+                const Icon = platformIcons[p.platform.toLowerCase()] ?? FileText;
+                const isPublished = p.status === "published";
+                const isFailed = p.status === "failed";
+                return (
+                  <div
+                    key={p.id || p.platform}
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-full border shadow-sm shrink-0",
+                      isPublished ? "bg-white dark:bg-white/[0.03] border-emerald-200 dark:border-emerald-500/30" :
+                      isFailed ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30" :
+                      "bg-white/50 dark:bg-white/[0.02] border-black/5 dark:border-white/5 opacity-60"
+                    )}
+                    title={`Status: ${p.status}`}
+                  >
+                    <Icon className={cn("h-4 w-4", isPublished ? "text-emerald-600 dark:text-emerald-400" : isFailed ? "text-red-600 dark:text-red-400" : "text-foreground/80")} />
+                  </div>
+                );
+              })}
             </div>
             <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs ${statusStyle}`}>
               {statusLabel}
@@ -384,11 +392,11 @@ export function PostCard({
               <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
-                  {tRemovedExternallyMsg.replace("__platform__", (post.removed_from_platform ?? "platform").charAt(0).toUpperCase() + (post.removed_from_platform ?? "platform").slice(1))}
+                  {tRemovedExternallyMsg.replace("__platform__", (post.post_platforms?.find(p => p.status === 'removed_externally')?.platform ?? "platform").charAt(0).toUpperCase() + (post.post_platforms?.find(p => p.status === 'removed_externally')?.platform ?? "platform").slice(1))}
                 </span>
-                {post.removed_at && (
+                {post.post_platforms?.find(p => p.status === 'removed_externally')?.updated_at && (
                   <span className="text-[11px] text-orange-600/70 dark:text-orange-400/70">
-                    {new Date(post.removed_at).toLocaleDateString(localeTag, {
+                    {new Date(post.post_platforms.find(p => p.status === 'removed_externally')!.updated_at).toLocaleDateString(localeTag, {
                       day: "numeric",
                       month: "long",
                       year: "numeric",
@@ -421,13 +429,12 @@ export function PostCard({
         id: post.id,
         content: post.content,
         platforms: post.platforms ?? [],
+        post_platforms: post.post_platforms ?? [],
         scheduled_at: post.scheduled_at,
         status: post.status,
         location: post.location ?? null,
         tags: post.tags ?? [],
         media_urls: post.media_urls ?? [],
-        published_platforms: post.published_platforms ?? [],
-        external_ids: post.external_ids ?? null,
       }}
       locale={locale}
       tLabels={tLabels}
@@ -439,8 +446,7 @@ export function PostCard({
       post={{
         id: post.id,
         status: post.status,
-        published_platforms: post.published_platforms ?? [],
-        external_ids: post.external_ids ?? null,
+        post_platforms: post.post_platforms ?? [],
       }}
       onConfirm={handleDeleteConfirm}
       isDeleting={isDeleting}

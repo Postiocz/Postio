@@ -52,36 +52,6 @@ function getGraphResponseId(payload: unknown): string | null {
   return typeof id === "string" && id.trim() ? id : null;
 }
 
-async function updatePostPublishState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  input: {
-    userId: string;
-    postId: string;
-    values: Record<string, unknown>;
-  }
-) {
-  const attempt = await supabase
-    .from("posts")
-    .update(input.values)
-    .eq("id", input.postId)
-    .eq("user_id", input.userId);
-
-  if (!attempt.error) return;
-
-  const msg = String(attempt.error.message || "");
-  if (!msg.toLowerCase().includes("publish_error")) return;
-
-  if (!Object.prototype.hasOwnProperty.call(input.values, "publish_error")) return;
-  const valuesWithoutPublishError = { ...input.values };
-  delete (valuesWithoutPublishError as Record<string, unknown>).publish_error;
-
-  await supabase
-    .from("posts")
-    .update(valuesWithoutPublishError)
-    .eq("id", input.postId)
-    .eq("user_id", input.userId);
-}
-
 /**
  * Publish a post to Instagram via the two-phase IG Container process.
  * Phase 1: Create container (/{ig_user_id}/media)
@@ -215,7 +185,7 @@ export async function publishPost(input: { postId: string }): Promise<{
 
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, content, platforms, media_urls, location, tags")
+    .select("id, content, post_platforms(*), media_urls, location, tags")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -224,7 +194,7 @@ export async function publishPost(input: { postId: string }): Promise<{
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  const platforms = Array.isArray(post.platforms) ? post.platforms : [];
+  const platforms = (post.post_platforms || []).map((p: any) => p.platform);
   const rawContent = String(post.content ?? "");
   const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
   const rawLocation = (post as { location?: string | null }).location ?? null;
@@ -244,15 +214,40 @@ export async function publishPost(input: { postId: string }): Promise<{
   if (targetPlatform === "instagram") {
     const { data: igAccounts } = await supabaseAdmin
       .from("social_accounts")
-      .select("access_token, platform_id")
+      .select("*")
       .eq("user_id", user.id)
       .ilike("platform", "instagram")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1);
 
-    const igAccount = igAccounts?.[0];
-    if (!igAccount?.access_token || !igAccount?.platform_id) {
+    const igAccount = igAccounts?.[0] as any;
+    let platformId = igAccount?.platform_id;
+    let accessToken = igAccount?.access_token;
+
+    if (!platformId || !accessToken) {
+      // Fallback na Facebook ucet
+      const { data: fbAccounts } = await supabaseAdmin
+        .from("social_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .ilike("platform", "facebook")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
+        
+      const fbAccount = fbAccounts?.[0] as any;
+      if (fbAccount) {
+        if (!platformId) {
+          platformId = fbAccount.metadata?.instagram_id || fbAccount.metadata?.instagram_business_account_id || fbAccount.platform_id;
+        }
+        if (!accessToken) {
+          accessToken = fbAccount.access_token;
+        }
+      }
+    }
+
+    if (!accessToken || !platformId) {
       return {
         success: false,
         error: "Chybí propojený Instagram účet (platform_id / access_token).",
@@ -260,14 +255,14 @@ export async function publishPost(input: { postId: string }): Promise<{
     }
 
     const result = await publishToInstagram({
-      igUserId: igAccount.platform_id,
-      accessToken: igAccount.access_token,
+      igUserId: platformId,
+      accessToken: accessToken,
       content: finalCaption,
       mediaUrls: rawUrls,
     });
 
     if (!result.success) {
-      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed");
+      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram");
       return { success: false, error: result.error };
     }
 
@@ -405,7 +400,7 @@ export async function publishPost(input: { postId: string }): Promise<{
     const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing to Facebook.";
     console.error("FACEBOOK PUBLISH ERROR:", errorMessage);
 
-    await handlePublishError(supabase, user.id, post.id, errorMessage);
+    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook");
     return { success: false, error: errorMessage };
   }
 }
@@ -420,49 +415,27 @@ async function handlePublishSuccess(
 ) {
   const publishedAt = new Date().toISOString();
 
-  // Atomic append to published_platforms via PostgreSQL RPC function.
-  // Pass explicit user_id because auth.uid() returns NULL in RPC context.
-  const { data: rpcResult, error: rpcError } = await supabase.rpc("append_published_platform", {
-    p_post_id: postId,
-    p_platform: platform,
-    p_user_id: userId,
-  });
+  console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> published`);
+  const { error: ppError } = await supabase
+    .from("post_platforms")
+    .update({
+      status: "published",
+      published_at: publishedAt,
+      external_id: externalId,
+      publish_error: null,
+    })
+    .eq("post_id", postId)
+    .eq("platform", platform);
 
-  if (rpcError) {
-    console.error("handlePublishSuccess: RPC append_published_platform FAILED:", rpcError.message);
-  } else {
-    console.log("handlePublishSuccess: RPC append_published_platform OK, result:", rpcResult);
-    console.log("🔥 SERVER: Úspěšně zapsána platforma do DB!");
-    // IHNED po úspěchu zavolej revalidaci
-    revalidatePath("/", "layout");
+  if (ppError) {
+    console.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
   }
 
+  // Hard revalidate – clear all Next.js cache
+  revalidatePath("/", "layout");
+
   // Fetch fresh data from DB to verify the final state of published_platforms
-  const { data: updatedPost } = await supabase
-    .from("posts")
-    .select("published_platforms, external_ids")
-    .eq("id", postId)
-    .eq("user_id", userId)
-    .single();
 
-  const currentExternalIds = (updatedPost?.external_ids as Record<string, string>) ?? {};
-  const newExternalIds = { ...currentExternalIds, [platform]: externalId };
-
-  console.log("🔥 SAVING external_ids to DB:", newExternalIds, "for post:", postId);
-  console.log("AKTUALIZOVANÉ PLATFORMY V DB:", updatedPost?.published_platforms);
-
-  // Update other fields (status, external_ids, etc.) – do NOT touch published_platforms here.
-  await updatePostPublishState(supabase, {
-    userId,
-    postId,
-    values: {
-      status: "published",
-      scheduled_at: null,
-      published_at: publishedAt,
-      external_ids: newExternalIds,
-      publish_error: null,
-    },
-  });
 
   // Hard revalidate – clear all Next.js cache
   revalidatePath("/", "layout");
@@ -475,8 +448,25 @@ async function handlePublishError(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   postId: string,
-  errorMessage: string
+  errorMessage: string,
+  platform?: string
 ) {
+  if (platform) {
+    console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> failed`);
+    const { error: ppError } = await supabase
+      .from("post_platforms")
+      .update({
+        status: "failed",
+        publish_error: errorMessage,
+      })
+      .eq("post_id", postId)
+      .eq("platform", platform);
+
+    if (ppError) {
+      console.error("handlePublishError: Failed to update post_platforms:", ppError.message);
+    }
+  }
+
   // Read current published_platforms to check if this post is already published elsewhere.
   // If so, do NOT reset status to 'failed' or clear published_at – the post is still live.
   const { data: currentPost } = await supabase
@@ -489,28 +479,7 @@ async function handlePublishError(
   const currentPlatforms = (currentPost?.published_platforms as string[] | null) ?? [];
   const isAlreadyPublished = currentPlatforms.length > 0;
 
-  if (isAlreadyPublished) {
-    // Post is already published on at least one platform – only record the error,
-    // do NOT reset status or published_at
-    await updatePostPublishState(supabase, {
-      userId,
-      postId,
-      values: {
-        publish_error: errorMessage,
-      },
-    });
-  } else {
-    // First publish attempt failed – mark as failed
-    await updatePostPublishState(supabase, {
-      userId,
-      postId,
-      values: {
-        status: "failed",
-        publish_error: errorMessage,
-        published_at: null,
-      },
-    });
-  }
+
 
   revalidateAllLocales("/calendar");
   revalidateAllLocales("/posts");
@@ -562,7 +531,7 @@ export async function updateRemotePostAction(input: {
   // Fetch the post with external_ids, platforms, and published_platforms
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, status, platforms, external_ids, published_platforms")
+    .select("id, post_platforms(*)")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -571,25 +540,23 @@ export async function updateRemotePostAction(input: {
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  if (post.status !== "published") {
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatforms = postPlatforms.filter((p: any) => p.status === 'published');
+  if (publishedPlatforms.length === 0) {
     return { success: false, error: "Pouze publikované příspěvky lze editovat na sociální síti." };
   }
-
-  const platforms = Array.isArray(post.platforms) ? post.platforms : [];
-  const publishedPlatforms = Array.isArray(post.published_platforms) ? post.published_platforms : [];
+  const publishedPlatformNames = publishedPlatforms.map((p: any) => p.platform);
 
   // Platforms that support remote text editing
   const editablePlatforms = ["facebook", "youtube"];
 
   // Find the first platform that is both published and supports editing
-  const targetPlatform = publishedPlatforms.find((p) => editablePlatforms.includes(p))
-    ?? platforms[0]
+  const targetPlatform = publishedPlatformNames.find((p: string) => editablePlatforms.includes(p))
+    ?? publishedPlatformNames[0]
     ?? "facebook";
 
-  const externalIds = (post.external_ids as Record<string, string>) ?? {};
-  const externalId = externalIds[targetPlatform]
-    ? externalIds[targetPlatform].trim()
-    : null;
+  const targetPlatformData = publishedPlatforms.find((p: any) => p.platform === targetPlatform);
+  const externalId = targetPlatformData?.external_id ?? null;
 
   if (!externalId) {
     return { success: false, error: `Příspěvek nemá external_id pro platformu ${targetPlatform} – nelze editovat na sociální síti.` };
@@ -721,7 +688,7 @@ export async function deleteFromMeta(input: {
   // Fetch the post with external_ids and published_platforms
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, status, external_ids, published_platforms")
+    .select("id, post_platforms(*)")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -730,23 +697,23 @@ export async function deleteFromMeta(input: {
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  if (post.status !== "published") {
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatforms = postPlatforms.filter((p: any) => p.status === 'published');
+  if (publishedPlatforms.length === 0) {
     return { success: false, error: "Příspěvek není publikován." };
   }
 
-  const externalIds = (post.external_ids as Record<string, string>) ?? {};
-  const externalId = externalIds[input.platform]
-    ? externalIds[input.platform].trim()
-    : null;
+  const targetPlatformData = publishedPlatforms.find((p: any) => p.platform === input.platform);
+  const externalId = targetPlatformData?.external_id ?? null;
 
   if (!externalId) {
     console.log(`deleteFromMeta: Na platformě ${input.platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
   }
 
-  const publishedPlatforms = Array.isArray(post.published_platforms) ? post.published_platforms : [];
+  const publishedPlatformNames = publishedPlatforms.map((p: any) => p.platform);
 
   // Verify the target platform is in published_platforms
-  if (!publishedPlatforms.includes(input.platform)) {
+  if (!publishedPlatformNames.includes(input.platform)) {
     return { success: false, error: `Příspěvek není publikován na ${input.platform}.` };
   }
 
@@ -822,47 +789,15 @@ export async function deleteFromMeta(input: {
     console.log(`>>> externalId chybí pro ${input.platform} – přeskočíme API volání`);
   }
 
-  // Remove platform from published_platforms via RPC (s explicitním user_id)
-  const { error: rpcError } = await supabase.rpc("remove_published_platform", {
-    p_post_id: input.postId,
-    p_platform: input.platform,
-    p_user_id: user.id,
-  });
 
-  if (rpcError) {
-    console.error("deleteFromMeta: RPC remove_published_platform FAILED:", rpcError.message);
-    return { success: false, error: `Chyba při aktualizaci DB: ${rpcError.message}` };
-  }
 
-  console.log(`deleteFromMeta: Platforma ${input.platform} odstraněna z published_platforms`);
-
-  // If this was the last published platform, update status back to 'draft'
-  const remainingPlatforms = publishedPlatforms.filter((p) => p !== input.platform);
-  
-  // Update external_ids locally by removing the key
-  const updatedExternalIds = { ...externalIds };
-  delete updatedExternalIds[input.platform];
-  
-  if (remainingPlatforms.length === 0) {
-    await updatePostPublishState(supabase, {
-      userId: user.id,
-      postId: input.postId,
-      values: {
-        status: "draft",
-        published_at: null,
-        external_ids: updatedExternalIds,
-      },
-    });
-  } else {
-    // Just update external_ids without changing status
-    await updatePostPublishState(supabase, {
-      userId: user.id,
-      postId: input.postId,
-      values: {
-        external_ids: updatedExternalIds,
-      },
-    });
-  }
+  // Status updates on post_platforms are handled by remove_published_platform RPC or locally
+  // Here we just make sure we update post_platforms status to draft
+  await supabase.from("post_platforms").update({
+      status: "draft",
+      published_at: null,
+      external_id: null
+  }).eq("post_id", input.postId).eq("platform", input.platform);
 
   // Revalidate after successful deletion
   revalidatePath("/", "layout");
@@ -901,7 +836,7 @@ export async function publishAdditionalPlatforms(input: {
   // Fetch post with published_platforms
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, content, platforms, media_urls, location, tags, published_platforms")
+    .select("id, content, post_platforms(*), media_urls, location, tags")
     .eq("id", input.postId)
     .eq("user_id", user.id)
     .single();
@@ -910,10 +845,11 @@ export async function publishAdditionalPlatforms(input: {
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  const publishedPlatforms = (post.published_platforms as string[] | null) ?? [];
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatformNames = postPlatforms.filter((p: any) => p.status === 'published').map((p: any) => p.platform);
 
   // Already published to this platform
-  if (publishedPlatforms.includes(input.platform)) {
+  if (publishedPlatformNames.includes(input.platform)) {
     return { success: false, error: `Příspěvek je již publikován na ${input.platform}.` };
   }
 
@@ -956,7 +892,7 @@ export async function publishAdditionalPlatforms(input: {
     });
 
     if (!result.success) {
-      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed");
+      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram");
       return { success: false, error: result.error };
     }
 
@@ -1078,136 +1014,8 @@ export async function publishAdditionalPlatforms(input: {
     return { success: true, data: { externalId: facebookPostId, platform: "facebook" } };
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing.";
-    await handlePublishError(supabase, user.id, post.id, errorMessage);
+    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook");
     return { success: false, error: errorMessage };
   }
 }
 
-/**
- * @deprecated Use updateRemotePostAction for text-only remote edits.
- * Full update (content + location + tags) on Meta platforms.
- */
-export async function updatePublishedPost(input: {
-  postId: string;
-  content: string;
-  location?: string;
-  tags?: string[];
-}): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { success: false, error: "Unauthorized" };
-  }
-
-  const supabaseAdmin = createAdminClient();
-
-  // Fetch the post with all needed fields
-  const { data: post, error: postError } = await supabase
-    .from("posts")
-    .select("id, status, platforms, external_ids")
-    .eq("id", input.postId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (postError || !post) {
-    return { success: false, error: postError?.message ?? "Post not found" };
-  }
-
-  if (post.status !== "published") {
-    return { success: false, error: "Pouze publikované příspěvky lze editovat na sociální síti." };
-  }
-
-  const platforms = Array.isArray(post.platforms) ? post.platforms : [];
-  const targetPlatform = platforms[0] ?? "facebook";
-
-  const externalIds = (post.external_ids as Record<string, string>) ?? {};
-  const externalId = externalIds[targetPlatform]
-    ? externalIds[targetPlatform].trim()
-    : null;
-
-  if (!externalId) {
-    return { success: false, error: "Příspěvek nemá external_id pro tuto platformu – nelze editovat na sociální síti." };
-  }
-
-  // Build the final caption
-  const finalCaption = buildFinalCaption({
-    content: input.content,
-    location: input.location,
-    tags: input.tags,
-  });
-
-  // Look up the access token for the target platform
-  const { data: accounts } = await supabaseAdmin
-    .from("social_accounts")
-    .select("access_token")
-    .eq("user_id", user.id)
-    .ilike("platform", targetPlatform)
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (!accounts?.[0]?.access_token) {
-    return {
-      success: false,
-      error: `Chybí přístupový token pro ${targetPlatform}.`,
-    };
-  }
-
-  const accessToken = accounts[0].access_token;
-  const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
-
-  // Instagram uses 'caption', Facebook uses 'message'
-  const paramName = targetPlatform === "instagram" ? "caption" : "message";
-
-  const body = new URLSearchParams();
-  body.set(paramName, finalCaption);
-  body.set("access_token", accessToken);
-
-  console.log(`Updating published post on ${targetPlatform}:`, { externalId, paramName, caption: finalCaption });
-
-  const res = await fetch(graphUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-    cache: "no-store",
-  });
-
-  const payload = (await res.json().catch(async () => ({
-    raw: await res.text().catch(() => ""),
-  }))) as FacebookPublishResponse;
-  console.log(`META RESPONSE (update ${targetPlatform}):`, payload);
-
-  const errMsg = getGraphErrorMessage(payload);
-  if (errMsg) {
-    return { success: false, error: `Editace na ${targetPlatform} selhala: ${errMsg}` };
-  }
-
-  // Update local DB with new content, location, tags
-  const { error: updateError } = await supabase
-    .from("posts")
-    .update({
-      content: input.content.trim(),
-      location: input.location?.trim() || null,
-      tags: input.tags ?? [],
-    })
-    .eq("id", input.postId)
-    .eq("user_id", user.id);
-
-  if (updateError) {
-    return { success: false, error: updateError.message };
-  }
-
-  revalidateAllLocales("/calendar");
-  revalidateAllLocales("/posts");
-  revalidateAllLocales("/dashboard");
-
-  return { success: true };
-}

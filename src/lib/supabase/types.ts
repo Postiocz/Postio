@@ -76,12 +76,8 @@ export interface Database {
           user_id: string
           content: string
           media_urls: string[]
-          platforms: string[]
-          scheduled_at: string | null
-          status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
-          published_at: string | null
-          external_ids: Json | null
-          publish_error: string | null
+          location: string | null
+          tags: string[]
           created_at: string
           updated_at: string
         }
@@ -90,12 +86,8 @@ export interface Database {
           user_id: string
           content: string
           media_urls?: string[]
-          platforms: string[]
-          scheduled_at?: string | null
-          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
-          published_at?: string | null
-          external_ids?: Json | null
-          publish_error?: string | null
+          location?: string | null
+          tags?: string[]
           created_at?: string
           updated_at?: string
         }
@@ -104,11 +96,45 @@ export interface Database {
           user_id?: string
           content?: string
           media_urls?: string[]
-          platforms?: string[]
-          scheduled_at?: string | null
+          location?: string | null
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      post_platforms: {
+        Row: {
+          id: string
+          post_id: string
+          platform: string
+          status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
+          scheduled_at: string | null
+          published_at: string | null
+          external_id: string | null
+          publish_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          platform: string
           status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
+          scheduled_at?: string | null
           published_at?: string | null
-          external_ids?: Json | null
+          external_id?: string | null
+          publish_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          platform?: string
+          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
+          scheduled_at?: string | null
+          published_at?: string | null
+          external_id?: string | null
           publish_error?: string | null
           created_at?: string
           updated_at?: string

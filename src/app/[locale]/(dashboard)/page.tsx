@@ -30,7 +30,7 @@ export default async function DashboardPage({
 
     const [postsData, scheduledData, accountsData, userData] = await Promise.all([
       supabase.from("posts").select("*", { count: "exact", head: true }),
-      supabase.from("posts").select("*", { count: "exact", head: true }).eq("status", "scheduled"),
+      supabase.from("post_platforms").select("post_id", { count: "exact", head: true }).eq("status", "scheduled"),
       supabase.from("social_accounts").select("*", { count: "exact", head: true }).eq("is_active", true),
       supabase.from("users").select("streak, plan").single(),
     ]);

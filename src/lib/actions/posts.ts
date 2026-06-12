@@ -55,9 +55,6 @@ export async function createPostAction(inputData: {
     .insert({
       user_id: user.id,
       content: cleanData.content,
-      platforms: cleanData.platforms,
-      scheduled_at: cleanData.scheduledAt,
-      status: cleanData.status,
       media_urls: cleanData.mediaUrls ?? [],
       location: cleanData.location ?? null,
       tags: cleanData.tags ?? [],
@@ -138,9 +135,7 @@ export async function updatePost(id: string, inputData: {
 
   const updateData: Record<string, unknown> = {};
   if (cleanData.content !== undefined) updateData.content = cleanData.content;
-  if (cleanData.platforms !== undefined) updateData.platforms = cleanData.platforms;
-  if (cleanData.scheduledAt !== undefined) updateData.scheduled_at = cleanData.scheduledAt;
-  if (safeStatus !== undefined) updateData.status = safeStatus;
+  
   if (cleanData.mediaUrls !== undefined) updateData.media_urls = cleanData.mediaUrls;
   if (cleanData.location !== undefined) updateData.location = cleanData.location;
   if (cleanData.tags !== undefined) updateData.tags = cleanData.tags;
@@ -227,7 +222,7 @@ export async function deletePost(id: string) {
 
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, platforms, external_ids, status")
+    .select("id, post_platforms(*)")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -236,20 +231,18 @@ export async function deletePost(id: string) {
     return { success: false, error: postError?.message ?? "Post not found." };
   }
 
-  const platforms = Array.isArray(post.platforms) ? post.platforms : [];
-  const targetPlatform = platforms[0] ?? "facebook";
-
-  const externalIds = (post.external_ids as Record<string, string>) ?? {};
-  const externalId = externalIds[targetPlatform]
-    ? externalIds[targetPlatform].trim()
-    : null;
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatform = postPlatforms.find(p => p.status === 'published' && p.external_id);
+  const targetPlatform = publishedPlatform?.platform ?? "facebook";
+  const externalId = publishedPlatform?.external_id ?? null;
+  const isPublished = postPlatforms.some(p => p.status === 'published');
 
   // Try to delete from Meta (Facebook / Instagram) if the post was published
   // Wrapped in try-catch: even if Meta API fails completely, we still delete from our DB
   let alreadyDeletedExternally = false;
   try {
-    if (externalId && post.status === "published") {
-      const targetPlatform = platforms[0] ?? "facebook";
+    if (externalId && isPublished) {
+
 
       const { data: accounts, error: accountError } = await supabase
         .from("social_accounts")
@@ -311,7 +304,7 @@ export async function deletePost(id: string) {
 
   // If the post was already deleted externally, mark it instead of hard deleting
   if (alreadyDeletedExternally) {
-    const targetPlatform = platforms[0] ?? "unknown";
+    const targetPlatform = postPlatforms[0]?.platform ?? "unknown";
     const { error: updateError } = await supabase
       .from("posts")
       .update({
@@ -369,7 +362,7 @@ export async function syncPostStatus(id: string): Promise<{
 
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id, platforms, external_ids, status")
+    .select("id, post_platforms(*)")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -378,15 +371,13 @@ export async function syncPostStatus(id: string): Promise<{
     return { success: false, error: postError?.message ?? "Post not found." };
   }
 
-  const platforms = Array.isArray(post.platforms) ? post.platforms : [];
-  const targetPlatform = platforms[0] ?? "facebook";
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatform = postPlatforms.find(p => p.status === 'published' && p.external_id);
+  const targetPlatform = publishedPlatform?.platform ?? "facebook";
+  const externalId = publishedPlatform?.external_id ?? null;
+  const isPublished = postPlatforms.some(p => p.status === 'published');
 
-  const externalIds = (post.external_ids as Record<string, string>) ?? {};
-  const externalId = externalIds[targetPlatform]
-    ? externalIds[targetPlatform].trim()
-    : null;
-
-  if (post.status !== "published" || !externalId) {
+  if (!isPublished || !externalId) {
     return { success: true };
   }
 
@@ -436,14 +427,13 @@ export async function syncPostStatus(id: string): Promise<{
       console.log(`Post ${id} no longer exists on ${targetPlatform} (status ${res.status}, code ${errCode})`);
 
       const { error: updateError } = await supabase
-        .from("posts")
+        .from("post_platforms")
         .update({
           status: "removed_externally",
           removed_at: new Date().toISOString(),
-          removed_from_platform: targetPlatform,
         })
-        .eq("id", id)
-        .eq("user_id", user.id);
+        .eq("post_id", id)
+        .eq("platform", targetPlatform);
 
       if (updateError) {
         console.error("Error marking post as removed_externally:", updateError);
@@ -483,7 +473,7 @@ export async function resetPostStatus(id: string): Promise<{
 
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("status")
+    .select("id, post_platforms(*)")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -492,20 +482,19 @@ export async function resetPostStatus(id: string): Promise<{
     return { success: false, error: postError?.message ?? "Post not found." };
   }
 
-  if (post.status !== "removed_externally") {
+  const hasRemoved = (post.post_platforms || []).some(p => p.status === "removed_externally");
+  if (!hasRemoved) {
     return { success: false, error: "Only externally removed posts can be reset." };
   }
 
   const { error: updateError } = await supabase
-    .from("posts")
+    .from("post_platforms")
     .update({
       status: "draft",
       removed_at: null,
-      removed_from_platform: null,
-      external_ids: {},
     })
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("post_id", id)
+    .eq("status", "removed_externally");
 
   if (updateError) {
     console.error("Error resetting post status:", updateError);
@@ -523,19 +512,36 @@ export async function resetPostStatus(id: string): Promise<{
 export async function getPosts(status?: string) {
   const supabase = await createClient();
 
-  let query = supabase.from("posts").select("*").order("created_at", { ascending: false });
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await supabase.from("posts").select("*, post_platforms(*)").order("created_at", { ascending: false });
 
   if (error) {
     console.error("Error fetching posts:", error);
+    console.log(error);
     return { success: false, error: error.message };
   }
 
-  return { success: true, data: data ?? [] };
+  const processedData = data?.map(post => {
+    const postPlatforms = post.post_platforms || [];
+    postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
+    
+    const statuses = postPlatforms.map((p: any) => p.status);
+    let computedStatus = "draft";
+    if (statuses.includes("failed")) computedStatus = "failed";
+    else if (statuses.includes("publishing")) computedStatus = "publishing";
+    else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
+    else if (statuses.includes("published")) computedStatus = "published";
+    else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+
+    return {
+      ...post,
+      status: computedStatus,
+      platforms: postPlatforms.map((p: any) => p.platform),
+      post_platforms: postPlatforms
+    };
+  });
+
+  const filteredData = status ? processedData?.filter(p => p.status === status) : processedData;
+  return { success: true, data: filteredData ?? [] };
 }
 
 export async function getPost(id: string) {
@@ -543,13 +549,27 @@ export async function getPost(id: string) {
 
   const { data, error } = await supabase
     .from("posts")
-    .select("*")
+    .select("*, post_platforms(*)")
     .eq("id", id)
     .single();
 
   if (error) {
     console.error("Error fetching post:", error);
     return { success: false, error: error.message };
+  }
+
+  if (data?.post_platforms && Array.isArray(data.post_platforms)) {
+    data.post_platforms.sort((a: { platform: string }, b: { platform: string }) => a.platform.localeCompare(b.platform));
+    const statuses = data.post_platforms.map((p: any) => p.status);
+    let computedStatus = "draft";
+    if (statuses.includes("failed")) computedStatus = "failed";
+    else if (statuses.includes("publishing")) computedStatus = "publishing";
+    else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
+    else if (statuses.includes("published")) computedStatus = "published";
+    else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+    
+    data.status = computedStatus;
+    data.platforms = data.post_platforms.map((p: any) => p.platform);
   }
 
   return { success: true, data };
@@ -576,13 +596,14 @@ export async function syncPublishedPosts(): Promise<{
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
   // Find published posts with external_ids that haven't been synced in 30 min
-  const { data: posts, error: queryError } = await supabase
+  const { data: postsData, error: queryError } = await supabase
     .from("posts")
-    .select("id, platforms, external_ids, status, last_sync_at")
-    .eq("user_id", user.id)
-    .eq("status", "published")
-    .not("external_ids", "is", null)
-    .or(`last_sync_at.is.null,last_sync_at.lt.${thirtyMinAgo}`);
+    .select("id, post_platforms(*)")
+    .eq("user_id", user.id);
+  // Post-filter to find published ones
+  const posts = (postsData || []).filter(p => {
+    return (p.post_platforms || []).some(pp => pp.status === 'published' && pp.external_id && (!pp.last_sync_at || new Date(pp.last_sync_at) < new Date(thirtyMinAgo)));
+  });
 
   if (queryError || !posts) {
     console.error("Error fetching posts for sync:", queryError);
@@ -600,15 +621,10 @@ export async function syncPublishedPosts(): Promise<{
 
   // Process each post – check if it still exists on the external platform
   for (const post of posts) {
-    const platforms = Array.isArray(post.platforms) ? post.platforms : [];
-    const targetPlatform = platforms[0] ?? "facebook";
-    
-    const externalIds = (post.external_ids as Record<string, string>) ?? {};
-    const externalId = externalIds[targetPlatform]
-      ? externalIds[targetPlatform].trim()
-      : null;
-
-    if (!externalId) continue;
+    const pp = post.post_platforms.find((p: any) => p.status === 'published' && p.external_id && (!p.last_sync_at || new Date(p.last_sync_at) < new Date(thirtyMinAgo)));
+    if (!pp) continue;
+    const targetPlatform = pp.platform;
+    const externalId = pp.external_id;
 
     // Get access token for the target platform
     const { data: accounts } = await supabase
@@ -643,24 +659,23 @@ export async function syncPublishedPosts(): Promise<{
         console.log(`[syncPublishedPosts] Post ${post.id} removed on ${targetPlatform}`);
 
         await supabase
-          .from("posts")
+          .from("post_platforms")
           .update({
             status: "removed_externally",
             removed_at: now,
-            removed_from_platform: targetPlatform,
             last_sync_at: now,
           })
-          .eq("id", post.id)
-          .eq("user_id", user.id);
+          .eq("post_id", post.id)
+          .eq("platform", targetPlatform);
 
         removedIds.push(post.id);
       } else {
         // Post still exists – just update last_sync_at
         await supabase
-          .from("posts")
+          .from("post_platforms")
           .update({ last_sync_at: now })
-          .eq("id", post.id)
-          .eq("user_id", user.id);
+          .eq("post_id", post.id)
+          .eq("platform", targetPlatform);
       }
     } catch (e) {
       console.error(`[syncPublishedPosts] Network error for post ${post.id}:`, e);

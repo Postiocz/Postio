@@ -63,10 +63,24 @@ type MediaItem = {
   kind: "image" | "video";
 };
 
+export type PostPlatform = {
+  id: string;
+  post_id: string;
+  platform: string;
+  status: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+  external_id: string | null;
+  publish_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 interface Post {
   id: string;
   content: string;
   platforms: string[];
+  post_platforms?: PostPlatform[];
   scheduled_at: string | null;
   status: string;
   location: string | null;
@@ -147,6 +161,8 @@ export function CalendarView({
   tCalendar,
   tAi,
 }: CalendarViewProps) {
+  if (!posts) return null;
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week">("month");
   const [modalDay, setModalDay] = useState<Date | null>(null);
@@ -361,13 +377,12 @@ export function CalendarView({
       id: post.id,
       content: post.content,
       platforms: post.platforms ?? [],
+      post_platforms: post.post_platforms ?? [],
       scheduled_at: post.scheduled_at,
       status: post.status,
       location: post.location ?? null,
       tags: post.tags ?? [],
       media_urls: post.media_urls ?? [],
-      published_platforms: post.published_platforms ?? [],
-      external_ids: post.external_ids ?? null,
     });
     setEditPostOpen(true);
   }, []);
@@ -574,8 +589,7 @@ export function CalendarView({
                 {/* Posts in this day */}
                 <div className="space-y-1">
                   {dayPosts.slice(0, 3).map((post) => {
-                    const primaryPlatform = (post.platforms || [])[0];
-                    const Icon = PlatformIconMap[primaryPlatform] || CalendarIcon;
+                    const platformsToRender = post.post_platforms || [];
                     const time = post.scheduled_at ? formatTime(post.scheduled_at) : "";
 
                     return (
@@ -608,8 +622,23 @@ export function CalendarView({
                         )}
                         title={post.content?.substring(0, 60)}
                       >
-                        <Icon className="h-3 w-3 flex-shrink-0" />
-                        <span className="flex-shrink-0">{time}</span>
+                        <div className="flex -space-x-1 shrink-0">
+                          {platformsToRender.map((p, idx) => {
+                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
+                            return (
+                              <Icon
+                                key={idx}
+                                className={cn(
+                                  "h-3 w-3 bg-transparent rounded-full",
+                                  p.status === "published" ? "text-emerald-500 dark:text-emerald-400" :
+                                  p.status === "failed" ? "text-red-500 dark:text-red-400" :
+                                  "text-inherit"
+                                )}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="flex-shrink-0 ml-0.5">{time}</span>
                         <span className="truncate">
                           {post.content?.substring(0, 20)}
                         </span>
@@ -707,8 +736,7 @@ export function CalendarView({
                 {posts.length > 0 && (
                   <div className="space-y-2 px-4 pb-3 pl-[52px]">
                     {posts.map((post) => {
-                      const primaryPlatform = (post.platforms || [])[0];
-                      const Icon = PlatformIconMap[primaryPlatform] || CalendarIcon;
+                      const platformsToRender = post.post_platforms || [];
                       const time = post.scheduled_at ? formatTime(post.scheduled_at) : "";
 
                       return (
@@ -728,18 +756,23 @@ export function CalendarView({
                               : "bg-gray-50 border-gray-200 dark:bg-white/[0.02] dark:border-white/5"
                           )}
                         >
-                          <Icon
-                            className={cn(
-                              "h-4 w-4 flex-shrink-0",
-                              post.status === "published"
-                                ? "text-emerald-400"
-                                : post.status === "scheduled"
-                                ? "text-indigo-400"
-                                : post.status === "failed"
-                                ? "text-red-400"
-                                : "text-muted-foreground"
-                            )}
-                          />
+                          <div className="flex -space-x-1 shrink-0">
+                            {platformsToRender.map((p, idx) => {
+                              const Icon = PlatformIconMap[p.platform] || CalendarIcon;
+                              return (
+                                <Icon
+                                  key={idx}
+                                  className={cn(
+                                    "h-4 w-4 bg-transparent rounded-full",
+                                    p.status === "published" ? "text-emerald-500 dark:text-emerald-400" :
+                                    p.status === "failed" ? "text-red-500 dark:text-red-400" :
+                                    p.status === "scheduled" ? "text-indigo-400" :
+                                    "text-muted-foreground"
+                                  )}
+                                />
+                              );
+                            })}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-foreground/80 truncate">
                               {post.content?.substring(0, 60)}

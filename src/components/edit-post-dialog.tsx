@@ -46,10 +46,24 @@ const PLATFORMS = [
 
 const MAX_MEDIA_FILES = 10;
 
+export type PostPlatform = {
+  id: string;
+  post_id: string;
+  platform: string;
+  status: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+  external_id: string | null;
+  publish_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export interface EditPostData {
   id?: string;
   content: string;
   platforms: string[];
+  post_platforms?: PostPlatform[];
   scheduled_at: string | null;
   status: string;
   location: string | null;
@@ -179,15 +193,15 @@ export function EditPostDialog({
 
   // Detect if the published post is on Instagram
   const isInstagramPublished = useMemo(() => {
-    if (!isEdit || post?.status !== "published") return false;
-    return (post?.published_platforms ?? []).includes("instagram");
-  }, [isEdit, post?.status, post?.published_platforms]);
+    if (!isEdit) return false;
+    return (post?.post_platforms || []).some(p => p.platform === 'instagram' && p.status === 'published');
+  }, [isEdit, post?.post_platforms]);
 
   // Detect if the published post is on Facebook (supports remote text editing)
   const isFacebookPublished = useMemo(() => {
-    if (!isEdit || post?.status !== "published") return false;
-    return (post?.published_platforms ?? []).includes("facebook");
-  }, [isEdit, post?.status, post?.published_platforms]);
+    if (!isEdit) return false;
+    return (post?.post_platforms || []).some(p => p.platform === 'facebook' && p.status === 'published');
+  }, [isEdit, post?.post_platforms]);
 
   // Detect if media was changed for published posts
   const mediaChanged = useMemo(() => {
@@ -202,9 +216,9 @@ export function EditPostDialog({
 
   // Determine which selected platforms are not yet published
   const unpublishedSelectedPlatforms = useMemo(() => {
-    const published = post?.published_platforms ?? [];
+    const published = (post?.post_platforms || []).filter(p => p.status === 'published').map(p => p.platform);
     return platforms.filter((p) => !published.includes(p));
-  }, [platforms, post?.published_platforms]);
+  }, [platforms, post?.post_platforms]);
 
   // If any selected platform is unpublished → show "Publish to selected" button
   const canPublishAdditional = unpublishedSelectedPlatforms.length > 0;
@@ -216,7 +230,7 @@ export function EditPostDialog({
         setContent(post.content);
         // Auto-remove already published platforms from selection state
         // Published platforms are visually locked and should not be in the active selection
-        const published = post.published_platforms ?? [];
+        const published = (post.post_platforms || []).filter(p => p.status === 'published').map(p => p.platform);
         const cleanPlatforms = (post.platforms ?? []).filter((p) => !published.includes(p));
         setPlatforms(cleanPlatforms);
         setStatus(post.status);
@@ -774,7 +788,7 @@ export function EditPostDialog({
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((platform) => {
                 const isSelected = platforms.includes(platform.id);
-                const isPublished = (post?.published_platforms ?? []).includes(platform.id);
+                const isPublished = (post?.post_platforms || []).some(p => p.platform === platform.id && p.status === 'published');
                 const Icon = PlatformIconMap[platform.id];
                 const platformColor = {
                   instagram: "text-[#E1306C]",

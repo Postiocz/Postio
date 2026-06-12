@@ -1,5 +1,33 @@
 ## 2026-06-12
 
+### Fix – Oprava chyb po Etapě 4 (Kalendář a Instagram)
+- **Problém**: Po odstranění starých sloupců z tabulky `posts` v Etapě 4 (Úklid) se objevil nesoulad:
+  1. Kalendář nešel načíst a hlásil `Error loading posts`.
+  2. Při publikování na Instagram aplikace padala na chybějící `platform_id`.
+- **Řešení**:
+  - `src/app/[locale]/(dashboard)/calendar/page.tsx` a `(dashboard)/page.tsx`:
+    - Změněny dotazy z `supabase.from("posts").select("*")` na `select("*, post_platforms(*)")`.
+    - Nahrazeno chybné řazení přes smazaný sloupec `scheduled_at` řazením přes `created_at` (kalendář si správné `scheduled_at` spočítá až u klienta nebo v serverové iteraci přes `post_platforms`).
+  - `src/lib/actions/posts.ts`:
+    - Přidán debug log do `getPosts`, aby bylo možné vidět chyby, pokud dotaz selže.
+  - `src/lib/actions/publish.ts`:
+    - Do `publishPost` přidán fallback mechanismus pro Instagram. Pokud se z `social_accounts` nepodaří najít pro Instagram účet `platform_id` nebo `access_token`, zkusí se tyto údaje vyhledat v propojeném Facebook účtu uživatele (který často drží metadata pro Instagram byznys účty).
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`:
+    - Přidána počáteční kontrola `if (!posts) return null;` a zajištěno, že iterace na ikony čte z `post_platforms`.
+
+### COMPLETED: Etapa 4 – Úklid (Clean up starých sloupců a fallbacků)
+- **Cíl**: Dokončit migraci na tabulku `post_platforms` smazáním starých sloupců z tabulky `posts` a odstraněním fallbacků z UI. Aplikace nyní 100% důvěřuje `post_platforms`.
+- **Provedené změny**:
+  - `supabase/migrations/025_cleanup_posts_table.sql`: Vytvořena migrace, která odstranila zastaralé RPC funkce a dropnula sloupce (`platforms`, `status`, `scheduled_at`, `published_at`, `published_platforms`, `external_id`, `external_ids`, `publish_error`, `removed_at`, `removed_from_platform`, `last_sync_at`) z tabulky `posts`.
+  - `src/lib/supabase/types.ts`: Aktualizovány TypeScript typy pro tabulku `posts` (odstraněny smazané sloupce).
+  - `src/lib/actions/posts.ts`:
+    - Odstraněn dual-write při vytváření/upravování postů (nyní se modifikuje pouze content/media/tags atd.).
+    - Přepracovány funkce `deletePost`, `syncPostStatus`, `resetPostStatus`, a `syncPublishedPosts` tak, aby četly a aktualizovaly data pouze z `post_platforms`.
+    - `getPosts` a `getPost` nyní počítají agregovaný `status` a `platforms` pole dynamicky z joinnutých `post_platforms`, aby UI komponenty mohly dál používat agregovaný stav pro filtry, ale bez potřeby fallbacků do starých sloupců.
+  - `src/lib/actions/publish.ts`: Odstraněn veškerý kód, který aktualizoval `posts` ohledně publikování. Nyní se stav a ID ukládají POUZE do `post_platforms`.
+  - `src/components/dashboard/delete-post-dialog.tsx`: Komponenta pro smazání byla přepracována tak, aby brala dostupné sítě výhradně z `post_platforms`.
+  - `src/components/edit-post-dialog.tsx` a `_post-card.tsx` a kalendář: Fallbacky z UI odstraněny; ikony, checkboxy a status bar nyní spoléhají plně na `post_platforms`.
+
 ### COMPLETED: Etapa 1 – Nová architektura (Garáž) 
 - Vytvořena tabulka `post_platforms` pro nezávislou správu sítí. 
 - Implementován Dual-Write v `posts.ts` (createPostAction, updatePost). 

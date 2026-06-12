@@ -23,15 +23,41 @@ export default async function CalendarPage({
 
   let query = supabase
     .from("posts")
-    .select("*")
+    .select("*, post_platforms(*)")
     .eq("user_id", user.id)
-    .order("scheduled_at", { ascending: true });
+    .order("created_at", { ascending: false });
 
-  const { data: posts, error: postsError } = await query;
+  const { data: rawPosts, error: postsError } = await query;
 
   if (postsError) {
+    console.log("Calendar posts error:", postsError);
     return <div className="text-muted-foreground">Error loading posts.</div>;
   }
+
+  // Process data to match Post type expected by CalendarClient
+  const posts = rawPosts?.map((post) => {
+    const postPlatforms = post.post_platforms || [];
+    postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
+    
+    const statuses = postPlatforms.map((p: any) => p.status);
+    let computedStatus = "draft";
+    if (statuses.includes("failed")) computedStatus = "failed";
+    else if (statuses.includes("publishing")) computedStatus = "publishing";
+    else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
+    else if (statuses.includes("published")) computedStatus = "published";
+    else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+
+    // Get the earliest scheduled_at from platforms, or fallback to post.created_at
+    const scheduledAt = postPlatforms.find((p: any) => p.scheduled_at)?.scheduled_at || post.created_at;
+
+    return {
+      ...post,
+      status: computedStatus,
+      platforms: postPlatforms.map((p: any) => p.platform),
+      post_platforms: postPlatforms,
+      scheduled_at: scheduledAt
+    };
+  });
 
   const platforms = [
     { id: "instagram", label: "Instagram" },

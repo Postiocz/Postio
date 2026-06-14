@@ -1,4 +1,105 @@
+## 2026-06-14
+
+### Fix – Oprava Facebook update "Application does not have the capability" (#3)
+
+- **Problém**: `updateOnPlatformAction` pro Facebook selhával s chybou `(#3) Application does not have the capability`. Dva důvody:
+  1. Dotaz na `social_accounts` selectoval sloupec `metadata`, který v DB neexistuje – dotaz padl s `42703` a vrátil `null`, což vedlo k hlášce "Chybí přístupový token".
+  2. Pokud `external_id` nebyl ve formátu `page_id_post_id` (bez podtržítka), Meta API neznalo příspěvek bez kontextu stránky.
+- **Řešení** (`src/lib/actions/publish.ts`):
+  - Odstraněn `metadata` ze SELECT dotazu (sloupec neexistuje). Token z `social_accounts.access_token` je už Page Access Token (uložený z `/me/accounts` při OAuth callbacku).
+  - Pokud `external_id` neobsahuje podtržítko, sestavíme ho dynamicky jako `${platform_id}_${external_id}`.
+  - Přidáno detailní logování `[FB UPDATE]` a `[TOKEN LOOKUP]` pro debug.
+- Změněné soubory:
+  - `src/lib/actions/publish.ts`
+
+## 2026-06-13
+
+### Feature – Univerzální per-platform update publikovaných příspěvků
+
+- **Cíl**: Přípráva kódu pro dodatečnou úpravu textu u již publikovaných příspěvků, rozšiřitelná pro všechny podporované platformy.
+- **`src/lib/actions/publish.ts`** – nová funkce `updateOnPlatformAction(postId, platform, newContent)`:
+  - Striktní ověření `user_id` (bezpečnost) – post musí patřit přihlášenému uživateli.
+  - Načte `external_id` z `post_platforms` a `access_token` z `social_accounts` pro danou platformu.
+  - Switch/case router podle platformy:
+    - `facebook`: Plně funkční – POST `graph.facebook.com/{external_id}?message={newContent}`
+    - `linkedin`: Placeholder s TODO komentářem (PUT `/v2/posts/{id}`)
+    - `youtube`: Placeholder s TODO komentářem (`videos().update`)
+    - `twitter` / `x`: Placeholder s TODO komentářem (PUT `/2/tweets/{id}`)
+    - `instagram`: Explicitní chyba (API úpravy nepodporuje)
+  - Po úspěchu aktualizuje `updated_at` v `post_platforms` a `content` v `posts`.
+- **`src/components/edit-post-dialog.tsx`** – dynamické UI:
+  - `SUPPORTED_UPDATE_PLATFORMS = ["facebook", "linkedin", "youtube"]` – konfigurační objekt pro snadné rozšiřování.
+  - `isContentChanged` detekce: `content.trim() !== post.content?.trim()`.
+  - Dynamická tlačítka "Aktualizovat na [Platforma]" – generována pro každou platformu v `post_platforms`, která má `status='published'` A je v seznamu `SUPPORTED_UPDATE_PLATFORMS`.
+  - Per-platform loading stavy (`updatingPlatforms` record) – každé tlačítko má vlastní loading spinner.
+  - Toast po úspěchu: "Text na [Platforma] byl úspěšně upraven".
+  - Instagram varování (žlutý banner) zůstává – zobrazuje se když je post publikován na Instagramu.
+- **Design switch/case struktury**:
+  - Každá platforma má vlastní `case` blok s API voláním.
+  - Společná logika (ověření uživatele, načtení tokenů, update DB, revalidace) je OUTSIDE switch – každá nová platforma potřebuje jen napsat svůj API call.
+  - Přidání nové sítě = 1 nový case blok + přidání do `SUPPORTED_UPDATE_PLATFORMS` v UI.
+
+### Fix – Publikování na další platformu (Facebook) po publikování na Instagram
+
+- **Problém**: Když uživatel publikoval příspěvek na Instagram (status `published`, zelená fajfka) a poté chtěl publikovat stejný příspěvek také na Facebook, příspěvek se fyzicky publikoval na Facebook profil, ale aplikace si to nepamatovala. Ikona Facebook zůstala bez fajfky jak na kartě příspěvku tak v dialogu úprav.
+- **Příčina**: `publishAdditionalPlatforms` v `publish.ts` volal `handlePublishSuccess`, který dělal `UPDATE` na `post_platforms` kde `platform = 'facebook'`. Ale pokud Facebook v `post_platforms` vůbec neexistoval (příspěvek původně měl jen Instagram), UPDATE aktualizoval 0 řádků. DB zůstala nezměněná.
+- **Řešení**: Před publikováním zkontrolujeme, zda cílová platforma existuje v `post_platforms`. Pokud ne, nejprve vytvoříme řádek se statusem `draft`. Poté `handlePublishSuccess` aktualizuje tento řádek na `published` s `external_id` a `published_at`.
+- **Změněné soubory**:
+  - `src/lib/actions/publish.ts` – přidána kontrola a insert do `post_platforms` v `publishAdditionalPlatforms`
+
+### Fix – `removed_externally` se nastavuje až po skutečném smazání z platformy
+
+- **Problém**: Když uživatel klikl na "Smazat" pro Instagram příspěvek, `deleteFromMeta` vrátil chybu (Instagram nepodporuje DELETE přes API) a okamžitě se status změnil na `removed_externally` v DB. Po obnovení stránky se příspěvek zobrazil jako "Odstraněn externě" i když byl stále na Instagramu.
+- **Řešení**:
+  - `src/lib/actions/publish.ts` (`deleteFromMeta`): Při chybě mazání (API not supported, network error, missing externalId) se již NENASTAVUJE `removed_externally`. Jediná výjimka je "Object not found" – když Meta potvrdí že příspěvek skutečně neexistuje.
+  - `removed_externally` se nastavuje POUZE přes `syncPostStatus` / `syncPublishedPosts` které ověří přes GET request že příspěvek na platformě skutečně chybí.
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`: Info toast nyní informuje uživatele že musí smazat ručně na platformě a Postio to detekuje při sync – bez změny stavu v DB.
+- **Nový workflow**:
+  1. Uživatel klikne "Smazat" → Postio zkusí DELETE → API vrátí chybu
+  2. Toast: "Instagram nepodporuje smazání přes API. Smažte příspěvek ručně."
+  3. Status v DB zůstává `published` – příspěvek se nezobrazuje jako "Odstraněn externě"
+  4. Uživatel smaže příspěvek ručně na Instagramu
+  5. `syncPublishedPosts` (každé 30 min) ověří přes GET že příspěvek chybí → až tehdy `removed_externally`
+
+### Feature – Chytré mazání Instagram příspěvků (Smart Delete)
+
+- **Problém**: Když uživatel smazal publikovaný příspěvek z Instagramu přes aplikaci Postio, Meta API vrátilo chybu ("Unsupported delete request") a příspěvek zůstal v DB jako `published` navždy. Uživatel neměl možnost příspěvek z aplikace odstranit a neviděl, že na Instagramu stále existuje.
+- **Řešení**:
+  - `src/lib/actions/publish.ts` (`deleteFromMeta`):
+    - Přidán nový return flag `cannotDeleteViaApi` do return typu.
+    - Když Meta API vrátí chybu (kromě "Object not found"), příspěvek se nyní označí jako `removed_externally` v `post_platforms` místo aby se vrátila jen chyba.
+    - "Object not found" (příspěvek už smazán externě) nyní také explicitně nastaví `removed_externally` + `cannotDeleteViaApi: true`.
+    - Network errors a chybějící `externalId` také vedou k `removed_externally` + `cannotDeleteViaApi`.
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`:
+    - `handleDeleteConfirm`: Nová logika — místo blocking warning toastu pro Instagram, se zobrazí informativní `toast.info` s vysvětlením že příspěvek byl označen jako "Odstraněn externě" a lze jej kdykoli bezpečně smazat z aplikace.
+    - Přidáno tlačítko "Chytré mazání" (červený koš) vedle tlačítka Republish pro příspěvky se statusem `removed_externally`.
+    - Banner "Odstraněn externě" nyní obsahuje text o možnosti bezpečného smazání z aplikace.
+    - Ikony platforem s `removed_externally` stavem mají oranžový badge (AlertTriangle) pro vizuální indikaci.
+  - `syncPublishedPosts` v `posts.ts` již umí automaticky detekovat příspěvky smazané na Instagramu ručně (každé 30 min kontroluje Meta API GET).
+
+- **Nový workflow pro Instagram mazání**:
+  1. Uživatel klikne "Smazat" → Postio zkusí smazat přes API → API vrátí chybu
+  2. Příspěvek se označí jako `removed_externally` (oranžový badge + varovný banner)
+  3. Uživatel vidí že příspěvek je "Odstraněn externě" a může:
+     - Smažit ho ručně na Instagramu → Postio to detekuje při sync (každé 30 min)
+     - Použít "Chytré mazání" (🗑) pro okamžité odstranění z aplikace
+     - Použít "Republish" pro znovupublikování
+
+- Změněné soubory:
+  - `src/lib/actions/publish.ts`
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`
+
 ## 2026-06-12
+
+### Fix – Oprava zobrazení ikon po publikování na Instagram
+- **Problém**: V seznamu příspěvků (stránka Příspěvky) a v kalendáři se nezobrazovaly správně ikonky platforem (zejména po úspěšném publikování). Pole `post_platforms` nebylo správně předáváno z parent komponenty a chyběla jasná vizuální indikace stavu u malých ikon v kalendáři.
+- **Řešení**:
+  - `src/app/[locale]/(dashboard)/posts/page.tsx`: Opraven databázový dotaz z `select("*")` na `select("*, post_platforms(*)")` a doplněno dynamické mapování pole `post_platforms` a počítaného stavu do seznamu příspěvků (podobně jako to dělá funkce `getPosts`).
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`:
+    - Ikona platformy (např. Instagram) je nyní zbarvena zeleně, pokud je status `published`.
+    - K ikonám platformy byl přidán malý "badge" (fajfka pro úspěch, křížek pro chybu) pro jasnou vizuální indikaci stavu publikování.
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`:
+    - Zobrazení ikon v desktopovém i mobilním kalendáři bylo rozšířeno o indikátory stavu (zelená fajfka pro `published`, červený křížek pro `failed`), aby bylo na první pohled patrné úspěšné publikování.
 
 ### Fix – Oprava chyb po Etapě 4 (Kalendář a Instagram)
 - **Problém**: Po odstranění starých sloupců z tabulky `posts` v Etapě 4 (Úklid) se objevil nesoulad:

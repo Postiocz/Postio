@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,12 @@ export default function NewPostPage() {
     fileTooLargeVideo: t("fileTooLargeVideo"),
   };
   const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
+
+  // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
+  const firstImageUrl = useMemo(() => {
+    const firstImage = mediaItems.find((item) => item.kind === "image" && item.status === "ready" && item.url);
+    return firstImage?.url ?? null;
+  }, [mediaItems]);
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) =>
@@ -278,6 +284,7 @@ export default function NewPostPage() {
                     return added.length > 0 ? [...prev, ...added] : prev;
                   });
                 }}
+                imageUrl={firstImageUrl}
                 t={{
                   aiAssistant: tAi("aiAssistant"),
                   improveText: tAi("improveText"),
@@ -287,6 +294,8 @@ export default function NewPostPage() {
                   aiSuccess: tAi("aiSuccess"),
                   aiError: tAi("aiError"),
                   aiEmptyContent: tAi("aiEmptyContent"),
+                  generateFromImage: tAi("generateFromImage"),
+                  aiNoImage: tAi("aiNoImage"),
                 }}
               />
             </div>

@@ -136,6 +136,8 @@ export default async function CalendarPage({
           aiSuccess: tAi("aiSuccess"),
           aiError: tAi("aiError"),
           aiEmptyContent: tAi("aiEmptyContent"),
+          generateFromImage: tAi("generateFromImage"),
+          aiNoImage: tAi("aiNoImage"),
         }}
       />
     </div>

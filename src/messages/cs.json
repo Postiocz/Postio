@@ -576,6 +576,8 @@
     "aiThinking": "AI přemýšlí...",
     "aiSuccess": "AI úspěšně zpracoval text!",
     "aiError": "Chyba při generování AI obsahu.",
-    "aiEmptyContent": "Nejprve napište nějaký text."
+    "aiEmptyContent": "Nejprve napište nějaký text.",
+    "generateFromImage": "Generovat z obrázku ✨",
+    "aiNoImage": "Nejprve nahrajte obrázek."
   }
 }

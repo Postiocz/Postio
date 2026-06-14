@@ -239,7 +239,6 @@ export async function deletePost(id: string) {
 
   // Try to delete from Meta (Facebook / Instagram) if the post was published
   // Wrapped in try-catch: even if Meta API fails completely, we still delete from our DB
-  let alreadyDeletedExternally = false;
   try {
     if (externalId && isPublished) {
 
@@ -276,13 +275,11 @@ export async function deletePost(id: string) {
             // Meta returns 404 or 400 when the post was already deleted externally
             if (!graphRes.ok && (graphRes.status === 404 || graphRes.status === 400)) {
               console.log(`Příspěvek již byl smazán na ${targetPlatform} (status ${graphRes.status})`);
-              alreadyDeletedExternally = true;
             } else if (graphPayload?.error) {
               const errCode = graphPayload.error.code ?? graphPayload.error.error_subcode;
               // Meta error codes for "Object not found" or "Object has been deleted"
               if (errCode === 190 || errCode === 1) {
                 console.log(`Příspěvek již neexistuje na ${targetPlatform} (error code ${errCode})`);
-                alreadyDeletedExternally = true;
               } else {
                 console.error(`Smazání z ${targetPlatform} selhalo:`, graphPayload.error.message);
                 // Still proceed to delete from our DB – don't block the user
@@ -300,32 +297,6 @@ export async function deletePost(id: string) {
   } catch (outerError) {
     console.error("Unexpected error during Meta API delete, proceeding with DB delete:", outerError);
     // Still proceed – never block the user
-  }
-
-  // If the post was already deleted externally, mark it instead of hard deleting
-  if (alreadyDeletedExternally) {
-    const targetPlatform = postPlatforms[0]?.platform ?? "unknown";
-    const { error: updateError } = await supabase
-      .from("posts")
-      .update({
-        status: "removed_externally",
-        removed_at: new Date().toISOString(),
-        removed_from_platform: targetPlatform,
-      })
-      .eq("id", id)
-      .eq("user_id", user.id);
-
-    if (updateError) {
-      console.error("Error marking post as removed_externally:", updateError);
-      return { success: false, error: updateError.message };
-    }
-
-    console.log(`Post ${id} označen jako removed_externally (platforma: ${targetPlatform})`);
-
-    revalidateAllLocales("/dashboard");
-    revalidateAllLocales("/calendar");
-    revalidateAllLocales("/posts");
-    return { success: true, removedExternally: true };
   }
 
   // Normal hard delete from our DB
@@ -687,4 +658,129 @@ export async function syncPublishedPosts(): Promise<{
   }
 
   return { success: true, removedIds };
+}
+
+/**
+ * Smart Delete: handle posts marked as removed_externally.
+ * - "keep_as_draft": reset post_platforms status to draft, keep post in DB for republishing
+ * - "delete_from_app": hard delete the post from DB entirely
+ * autoDelete: "never" | "3d" | "7d" | "30d" | "365d" – sets auto_delete_at timestamp
+ */
+export async function smartDeletePost(
+  id: string,
+  mode: "keep_as_draft" | "delete_from_app",
+  autoDelete?: "never" | "3d" | "7d" | "30d" | "365d"
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { success: false, error: "You must be logged in." };
+  }
+
+  // Calculate auto_delete_at if set
+  let autoDeleteAt: string | null = null;
+  if (autoDelete && autoDelete !== "never") {
+    const daysMap: Record<string, number> = { "3d": 3, "7d": 7, "30d": 30, "365d": 365 };
+    const days = daysMap[autoDelete];
+    if (days) {
+      autoDeleteAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    }
+  }
+
+  if (mode === "keep_as_draft") {
+    // Reset all removed_externally platforms to draft
+    const { error: updateError } = await supabase
+      .from("post_platforms")
+      .update({
+        status: "draft",
+        published_at: null,
+        external_id: null,
+        removed_at: null,
+      })
+      .eq("post_id", id)
+      .eq("status", "removed_externally");
+
+    if (updateError) {
+      console.error("Error resetting post to draft:", updateError);
+      return { success: false, error: updateError.message };
+    }
+
+    // Set auto_delete_at if requested
+    if (autoDeleteAt) {
+      await supabase
+        .from("posts")
+        .update({ auto_delete_at: autoDeleteAt })
+        .eq("id", id)
+        .eq("user_id", user.id);
+    }
+
+    revalidateAllLocales("/dashboard");
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    return { success: true };
+  }
+
+  // Hard delete from DB
+  const { error } = await supabase.from("posts").delete().eq("id", id).eq("user_id", user.id);
+  if (error) {
+    console.error("Error deleting post:", error);
+    return { success: false, error: error.message };
+  }
+
+  revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  return { success: true };
+}
+
+/**
+ * Auto-delete posts that have passed their auto_delete_at timestamp.
+ * Called periodically (e.g. on page load via syncPublishedPosts or a cron).
+ */
+export async function cleanupAutoDeletedPosts(): Promise<{ success: boolean; deletedCount: number }> {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { success: false, deletedCount: 0 };
+  }
+
+  const now = new Date().toISOString();
+
+  // Find posts with auto_delete_at in the past
+  const { data: posts, error: queryError } = await supabase
+    .from("posts")
+    .select("id")
+    .eq("user_id", user.id)
+    .not("auto_delete_at", "is", null)
+    .lt("auto_delete_at", now);
+
+  if (queryError || !posts) {
+    console.error("Error fetching auto-delete posts:", queryError);
+    return { success: false, deletedCount: 0 };
+  }
+
+  if (posts.length === 0) {
+    return { success: true, deletedCount: 0 };
+  }
+
+  // Delete all expired posts
+  const { error: deleteError } = await supabase
+    .from("posts")
+    .delete()
+    .in("id", posts.map(p => p.id))
+    .eq("user_id", user.id);
+
+  if (deleteError) {
+    console.error("Error deleting auto-expired posts:", deleteError);
+    return { success: false, deletedCount: 0 };
+  }
+
+  console.log(`[cleanupAutoDeletedPosts] Deleted ${posts.length} post(s)`);
+
+  revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  return { success: true, deletedCount: posts.length };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Sparkles, Wand2, Scissors, Hash, Loader2 } from "lucide-react";
+import { Sparkles, Wand2, Scissors, Hash, Loader2, ImagePlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,12 +19,15 @@ interface AiTranslations {
   aiSuccess: string;
   aiError: string;
   aiEmptyContent: string;
+  generateFromImage: string;
+  aiNoImage: string;
 }
 
 interface AIAssistantButtonProps {
   content: string;
   onContentReplace: (text: string) => void;
   onTagsAdd: (tags: string[]) => void;
+  imageUrl?: string | null;
   t: AiTranslations;
 }
 
@@ -32,12 +35,13 @@ export function AIAssistantButton({
   content,
   onContentReplace,
   onTagsAdd,
+  imageUrl,
   t,
 }: AIAssistantButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const handleAction = useCallback(
+  const handleTextAction = useCallback(
     async (action: "improve" | "shorten" | "hashtags") => {
       if (!content.trim()) {
         toast.info(t.aiEmptyContent);
@@ -84,6 +88,45 @@ export function AIAssistantButton({
     [content, onContentReplace, onTagsAdd, t.aiAssistant, t.aiEmptyContent, t.aiError, t.aiSuccess]
   );
 
+  const handleGenerateFromImage = useCallback(async () => {
+    if (!imageUrl) {
+      toast.info(t.aiNoImage);
+      setOpen(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setOpen(false);
+
+    try {
+      const response = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate_from_image",
+          text: content.trim() || undefined,
+          imageUrl,
+        }),
+      });
+
+      const data = await response.json();
+
+      console.log("🤖 AI Vision API Response:", { ok: response.ok, status: response.status, data });
+
+      if (!response.ok || !data.success) {
+        console.error("🤖 AI Vision API Error:", data.error || "Unknown error");
+        throw new Error(data.error || t.aiError);
+      }
+
+      onContentReplace(data.result);
+      toast.success(t.aiSuccess);
+    } catch {
+      toast.error(t.aiError);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [content, imageUrl, onContentReplace, t.aiNoImage, t.aiError, t.aiSuccess]);
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -114,7 +157,7 @@ export function AIAssistantButton({
         className="w-48 rounded-xl border border-white/10 bg-card/80 backdrop-blur-xl shadow-2xl"
       >
         <DropdownMenuItem
-          onClick={() => handleAction("improve")}
+          onClick={() => handleTextAction("improve")}
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
         >
           <Wand2 className="h-4 w-4 text-indigo-400" />
@@ -122,7 +165,7 @@ export function AIAssistantButton({
         </DropdownMenuItem>
 
         <DropdownMenuItem
-          onClick={() => handleAction("shorten")}
+          onClick={() => handleTextAction("shorten")}
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
         >
           <Scissors className="h-4 w-4 text-pink-400" />
@@ -130,11 +173,20 @@ export function AIAssistantButton({
         </DropdownMenuItem>
 
         <DropdownMenuItem
-          onClick={() => handleAction("hashtags")}
+          onClick={() => handleTextAction("hashtags")}
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
         >
           <Hash className="h-4 w-4 text-emerald-400" />
           <span>{t.generateTags}</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={handleGenerateFromImage}
+          disabled={!imageUrl}
+          className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ImagePlus className="h-4 w-4 text-amber-400" />
+          <span>{t.generateFromImage}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

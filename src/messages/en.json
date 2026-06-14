@@ -576,6 +576,8 @@
     "aiThinking": "AI is thinking...",
     "aiSuccess": "AI successfully processed the text!",
     "aiError": "Error generating AI content.",
-    "aiEmptyContent": "Write some text first."
+    "aiEmptyContent": "Write some text first.",
+    "generateFromImage": "Generate from image ✨",
+    "aiNoImage": "Upload an image first."
   }
 }

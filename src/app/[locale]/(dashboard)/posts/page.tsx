@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import { syncPublishedPosts } from "@/lib/actions/posts";
+import { syncPublishedPosts, cleanupAutoDeletedPosts } from "@/lib/actions/posts";
 import { PostsContainer } from "./_posts-container";
 
 export default async function PostsPage({
@@ -22,15 +22,38 @@ export default async function PostsPage({
   // Sync published posts with external platforms (throttled: 30 min cooldown via last_sync_at)
   await syncPublishedPosts();
 
-  const { data: posts, error: postsError } = await supabase
+  // Auto-delete posts that have passed their auto_delete_at timestamp
+  await cleanupAutoDeletedPosts();
+
+  const { data: rawPosts, error: postsError } = await supabase
     .from("posts")
-    .select("*")
+    .select("*, post_platforms(*)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (postsError) {
     return <div className="text-muted-foreground">{t("errorDeleting")}</div>;
   }
+
+  const posts = rawPosts?.map(post => {
+    const postPlatforms = post.post_platforms || [];
+    postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
+    
+    const statuses = postPlatforms.map((p: any) => p.status);
+    let computedStatus = "draft";
+    if (statuses.includes("failed")) computedStatus = "failed";
+    else if (statuses.includes("publishing")) computedStatus = "publishing";
+    else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
+    else if (statuses.includes("published")) computedStatus = "published";
+    else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+
+    return {
+      ...post,
+      status: computedStatus,
+      platforms: postPlatforms.map((p: any) => p.platform),
+      post_platforms: postPlatforms
+    };
+  }) || [];
 
   return (
     <div className="relative space-y-8 max-w-3xl mx-auto">
@@ -45,6 +68,7 @@ export default async function PostsPage({
             content: post.content,
             status: post.status,
             platforms: post.platforms ?? [],
+            post_platforms: post.post_platforms ?? [],
             scheduled_at: post.scheduled_at,
             created_at: post.created_at,
             location: post.location ?? null,
@@ -52,8 +76,6 @@ export default async function PostsPage({
             media_urls: post.media_urls ?? [],
             published_platforms: post.published_platforms ?? [],
             external_ids: post.external_ids ?? null,
-            removed_at: post.removed_at ?? null,
-            removed_from_platform: post.removed_from_platform ?? null,
           }))}
           locale={locale}
           postsCount={posts.length}
@@ -122,6 +144,8 @@ export default async function PostsPage({
             aiSuccess: tAi("aiSuccess"),
             aiError: tAi("aiError"),
             aiEmptyContent: tAi("aiEmptyContent"),
+            generateFromImage: tAi("generateFromImage"),
+            aiNoImage: tAi("aiNoImage"),
           }}
         />
       </div>

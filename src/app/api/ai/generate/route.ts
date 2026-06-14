@@ -7,18 +7,33 @@ const DEMO_RESPONSES: Record<string, string> = {
   improve: "🚀 This is a demo-improved version of your text. AI content has been enhanced with better engagement, clearer messaging, and more impactful language. Connect a valid Gemini API key for real AI improvements!",
   shorten: "⚡ Demo-shortened text: Your core message here, optimized for Twitter/X limits. Connect a valid Gemini API key for real AI shortening!",
   hashtags: "#demo #AI #socialmedia #contentcreator #Postio #marketing #trending #viral #demo_mode",
+  generate_from_image: "🖼️ Demo: AI analyzed the image and generated an engaging caption based on its visual content. Connect a valid Gemini API key for real AI vision!",
 };
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, text } = body as { action: string; text: string };
+    const { action, text, imageUrl } = body as { action: string; text?: string; imageUrl?: string };
 
     console.log("🤖 AI REQUEST RECEIVED, ACTION:", action);
 
-    if (!text || !action) {
+    if (!action) {
       return NextResponse.json(
-        { error: "Missing 'action' or 'text' in request body" },
+        { error: "Missing 'action' in request body" },
+        { status: 400 }
+      );
+    }
+
+    if (action !== "generate_from_image" && (!text || !text.trim())) {
+      return NextResponse.json(
+        { error: "Missing 'text' in request body" },
+        { status: 400 }
+      );
+    }
+
+    if (action === "generate_from_image" && (!imageUrl || !imageUrl.trim())) {
+      return NextResponse.json(
+        { error: "Missing 'imageUrl' for generate_from_image action" },
         { status: 400 }
       );
     }
@@ -63,15 +78,59 @@ Text:
 ${text}`;
         break;
 
+      case "generate_from_image":
+        prompt = `Analizuj tento obrázek a vytvoř poutavý popisek (caption) pro sociální sítě. Buď kreativní, angažující a přirozený. Vrať pouze čistý text bez uvozovek.`;
+        if (text && text.trim()) {
+          prompt += `\n\nUživatel už má v editoru tento text, který bys měl vzít v úvahu a propojit s obsahem fotky:\n${text}`;
+        }
+        break;
+
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}. Valid actions: improve, shorten, hashtags` },
+          { error: `Unknown action: ${action}. Valid actions: improve, shorten, hashtags, generate_from_image` },
           { status: 400 }
         );
     }
 
     console.log("🤖 Sending prompt to Gemini...");
-    const result = await model.generateContent(prompt);
+
+    let result;
+    if (action === "generate_from_image" && imageUrl) {
+      // Multimodal: fetch image, send to Gemini as inline data
+      console.log("🤖 VISION: Fetching image from:", imageUrl);
+      const imageRes = await fetch(imageUrl);
+      if (!imageRes.ok) {
+        return NextResponse.json(
+          { error: "Failed to fetch image for vision analysis" },
+          { status: 500 }
+        );
+      }
+      const imageBuffer = await imageRes.arrayBuffer();
+      const mimeType = imageRes.headers.get("content-type")?.split(";")[0] ?? "image/jpeg";
+      const base64Data = Buffer.from(imageBuffer).toString("base64");
+
+      console.log("🤖 VISION: Image fetched, size:", imageBuffer.byteLength, "mimeType:", mimeType);
+
+      result = await model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType,
+                },
+              },
+            ],
+          },
+        ],
+      });
+    } else {
+      result = await model.generateContent(prompt);
+    }
+
     const response = result.response;
     const generatedText = response.text().trim();
     console.log("🤖 Gemini response received, length:", generatedText.length);

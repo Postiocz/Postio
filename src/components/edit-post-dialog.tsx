@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction, updatePost } from "@/lib/actions/posts";
-import { publishPost, updateRemotePostAction, publishAdditionalPlatforms } from "@/lib/actions/publish";
+import { publishPost, updateRemotePostAction, publishAdditionalPlatforms, updateOnPlatformAction } from "@/lib/actions/publish";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -45,6 +45,21 @@ const PLATFORMS = [
 ];
 
 const MAX_MEDIA_FILES = 10;
+
+/**
+ * Platforms that support remote text editing of published posts.
+ * Extend this array as new platforms are implemented in updateOnPlatformAction.
+ *
+ * - facebook: ✅ POST /{post_id}?message=...
+ * - linkedin: ✅ (placeholder in backend, ready for implementation)
+ * - youtube: ✅ (placeholder in backend, ready for implementation)
+ *
+ * NOT supported (do NOT add here):
+ * - instagram: API does not allow caption edits
+ * - twitter/x: API does not support edits (free tier write-only)
+ * - tiktok: Full lock after publishing
+ */
+const SUPPORTED_UPDATE_PLATFORMS = ["facebook", "linkedin", "youtube"] as const;
 
 export type PostPlatform = {
   id: string;
@@ -128,6 +143,8 @@ interface EditPostDialogProps {
     aiSuccess: string;
     aiError: string;
     aiEmptyContent: string;
+    generateFromImage: string;
+    aiNoImage: string;
   };
 }
 
@@ -191,37 +208,65 @@ export function EditPostDialog({
     hasUploading,
   } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
+  // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
+  const firstImageUrl = useMemo(() => {
+    const firstImage = mediaItems.find((item) => item.kind === "image" && item.status === "ready" && item.url);
+    return firstImage?.url ?? null;
+  }, [mediaItems]);
+
   // Detect if the published post is on Instagram
   const isInstagramPublished = useMemo(() => {
     if (!isEdit) return false;
     return (post?.post_platforms || []).some(p => p.platform === 'instagram' && p.status === 'published');
   }, [isEdit, post?.post_platforms]);
 
-  // Detect if the published post is on Facebook (supports remote text editing)
-  const isFacebookPublished = useMemo(() => {
-    if (!isEdit) return false;
-    return (post?.post_platforms || []).some(p => p.platform === 'facebook' && p.status === 'published');
+  // Detect which published platforms support remote text editing
+  const updatablePlatforms = useMemo(() => {
+    if (!isEdit) return [];
+    return (post?.post_platforms || [])
+      .filter(p => p.status === 'published' && (SUPPORTED_UPDATE_PLATFORMS as unknown as string[]).includes(p.platform))
+      .map(p => p.platform);
   }, [isEdit, post?.post_platforms]);
+
+  // Per-platform loading state for update buttons
+  const [updatingPlatforms, setUpdatingPlatforms] = useState<Record<string, boolean>>({});
+
+  // Detect if any platform is published
+  const isAnyPublished = useMemo(() => {
+    return (post?.post_platforms || []).some(p => p.status === 'published');
+  }, [post?.post_platforms]);
 
   // Detect if media was changed for published posts
   const mediaChanged = useMemo(() => {
-    if (!isEdit || post?.status !== "published") return false;
-    const originalMedia = post.media_urls ?? [];
+    if (!isEdit || !isAnyPublished) return false;
+    const originalMedia = post?.media_urls ?? [];
     const currentMedia = getMediaUrls();
     return (
       originalMedia.length !== currentMedia.length ||
       originalMedia.some((url, i) => url !== currentMedia[i])
     );
-  }, [isEdit, post?.status, post?.media_urls, mediaItems]);
+  }, [isEdit, post?.post_platforms, post?.media_urls, mediaItems]);
 
   // Determine which selected platforms are not yet published
   const unpublishedSelectedPlatforms = useMemo(() => {
     const published = (post?.post_platforms || []).filter(p => p.status === 'published').map(p => p.platform);
-    return platforms.filter((p) => !published.includes(p));
-  }, [platforms, post?.post_platforms]);
+    
+    // Zahrneme všechny vybrané sítě z post.platforms i ze stavu formuláře (platforms)
+    const allIntended = post?.platforms || [];
+    const fromPostPlatforms = (post?.post_platforms || []).map(p => p.platform);
+    
+    // Vytvoříme unikátní seznam všech zamýšlených platforem
+    const allPlatforms = Array.from(new Set([...allIntended, ...fromPostPlatforms, ...platforms]));
+    
+    // Vrátíme ty, které ještě nebyly publikovány
+    return allPlatforms.filter(p => !published.includes(p));
+  }, [platforms, post?.platforms, post?.post_platforms]);
 
-  // If any selected platform is unpublished → show "Publish to selected" button
+  // If any platform is intended but not published → show "Publish to selected" button
   const canPublishAdditional = unpublishedSelectedPlatforms.length > 0;
+
+  // Detect if content text was changed from the original post
+  const isContentChanged = isEdit && post && content.trim() !== post.content?.trim();
 
   useEffect(() => {
     if (!open) return;
@@ -318,7 +363,7 @@ export function EditPostDialog({
         let result;
 
         // Remote Edit: if editing a published post, sync text changes to social network
-        if (isEdit && post?.id && status === "published") {
+        if (isEdit && post?.id && isAnyPublished) {
           // Instagram does not support editing captions of published posts
           if (isInstagramPublished) {
             const msg = tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu.";
@@ -436,6 +481,49 @@ export function EditPostDialog({
       toast.error(tLabels.errorSaving);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  /**
+   * Per-platform update handler – calls updateOnPlatformAction for a specific platform.
+   * Shows loading state per button and toast on success.
+   */
+  const handleUpdatePlatform = async (targetPlatform: string) => {
+    if (!content.trim() || !isEdit || !post?.id) return;
+    if (hasUploading()) {
+      toast.info(tLabels.uploading);
+      return;
+    }
+    if (mediaChanged) {
+      toast.error(tLabels.onlyTextUpdatePossible ?? "U publikovaného postu lze měnit pouze text.");
+      return;
+    }
+
+    const platformLabel = PLATFORMS.find((p) => p.id === targetPlatform)?.label ?? targetPlatform;
+    setUpdatingPlatforms((prev) => ({ ...prev, [targetPlatform]: true }));
+    setError(null);
+
+    try {
+      const result = await updateOnPlatformAction({
+        postId: post.id,
+        platform: targetPlatform,
+        newContent: content.trim(),
+      });
+
+      if (result.success) {
+        toast.success(`Text na ${platformLabel} byl úspěšně upraven.`);
+        await router.refresh();
+        onOpenChange(false);
+        return;
+      }
+
+      setError(result.error ?? tLabels.errorSaving);
+      toast.error(result.error ?? tLabels.errorSaving);
+    } catch {
+      setError(tLabels.errorSaving);
+      toast.error(tLabels.errorSaving);
+    } finally {
+      setUpdatingPlatforms((prev) => ({ ...prev, [targetPlatform]: false }));
     }
   };
 
@@ -626,6 +714,7 @@ export function EditPostDialog({
                       return added.length > 0 ? [...prev, ...added] : prev;
                     });
                   }}
+                  imageUrl={firstImageUrl}
                   t={tAi}
                 />
               )}
@@ -773,7 +862,7 @@ export function EditPostDialog({
           </div>
 
           {/* Warning: media changed for published post */}
-          {isEdit && status === "published" && mediaChanged && (
+          {isEdit && mediaChanged && (
             <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
               <span>{tLabels.onlyTextUpdatePossible ?? "U publikovaného postu lze měnit pouze text. Pro změnu fotky musíte příspěvek smazat a vytvořit znovu."}</span>
@@ -897,7 +986,7 @@ export function EditPostDialog({
 
         {/* Action buttons */}
         <div className="px-6 pb-6 pt-4 border-t border-white/5 space-y-3">
-          {isEdit && status === "published" ? (
+          {isEdit && isAnyPublished ? (
             <>
               {/* Additional publish buttons – publish to platforms not yet published */}
               {canPublishAdditional && unpublishedSelectedPlatforms.map((p) => {
@@ -925,6 +1014,34 @@ export function EditPostDialog({
                   <span>{tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu."}</span>
                 </div>
               )}
+
+              {/* Dynamic per-platform update buttons – shown when content changed */}
+              {isContentChanged && updatablePlatforms.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground/60">
+                    Text byl změněn. Aktualizujte na vybraných sítích:
+                  </p>
+                  {updatablePlatforms.map((p) => {
+                    const Icon = PlatformIconMap[p];
+                    const platformLabel = PLATFORMS.find((pl) => pl.id === p)?.label ?? p;
+                    const isUpdatingThis = updatingPlatforms[p] ?? false;
+                    return (
+                      <Button
+                        key={`update-${p}`}
+                        type="button"
+                        onClick={() => handleUpdatePlatform(p)}
+                        disabled={isUpdatingThis || mediaChanged || hasUploading()}
+                        className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUpdatingThis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {Icon && <Icon className="mr-2 h-4 w-4" />}
+                        Aktualizovat na {platformLabel}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -934,17 +1051,6 @@ export function EditPostDialog({
                 >
                   {tLabels.cancel ?? "Zrušit"}
                 </Button>
-                {isFacebookPublished && (
-                  <Button
-                    type="button"
-                    onClick={handleUpdateOnSocials}
-                    disabled={!content.trim() || isUpdating || mediaChanged || hasUploading()}
-                    className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isUpdating ? tLabels.saving : (tLabels.updateOnSocials ?? "Aktualizovat na sítích")}
-                  </Button>
-                )}
               </div>
             </>
           ) : (

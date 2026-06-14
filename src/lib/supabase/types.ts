@@ -80,6 +80,7 @@ export interface Database {
           tags: string[]
           created_at: string
           updated_at: string
+          auto_delete_at: string | null
         }
         Insert: {
           id?: string
@@ -90,6 +91,7 @@ export interface Database {
           tags?: string[]
           created_at?: string
           updated_at?: string
+          auto_delete_at?: string | null
         }
         Update: {
           id?: string
@@ -100,6 +102,7 @@ export interface Database {
           tags?: string[]
           created_at?: string
           updated_at?: string
+          auto_delete_at?: string | null
         }
       }
       post_platforms: {

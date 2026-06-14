@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ArrowLeft, Film, Image as ImageIcon, Loader2, MapPin, X, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ArrowLeft, Film, Image as ImageIcon, Loader2, MapPin, X, Clock, Check, AlertCircle } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -147,6 +147,8 @@ interface CalendarViewProps {
     aiSuccess: string;
     aiError: string;
     aiEmptyContent: string;
+    generateFromImage: string;
+    aiNoImage: string;
   };
 }
 
@@ -626,15 +628,26 @@ export function CalendarView({
                           {platformsToRender.map((p, idx) => {
                             const Icon = PlatformIconMap[p.platform] || CalendarIcon;
                             return (
-                              <Icon
-                                key={idx}
-                                className={cn(
-                                  "h-3 w-3 bg-transparent rounded-full",
-                                  p.status === "published" ? "text-emerald-500 dark:text-emerald-400" :
-                                  p.status === "failed" ? "text-red-500 dark:text-red-400" :
-                                  "text-inherit"
+                              <div key={idx} className="relative flex items-center justify-center h-3 w-3">
+                                <Icon
+                                  className={cn(
+                                    "h-3 w-3 rounded-full",
+                                    p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
+                                    p.status === "failed" ? "text-red-600 dark:text-red-400" :
+                                    "text-inherit"
+                                  )}
+                                />
+                                {p.status === "published" && (
+                                  <div className="absolute -bottom-1 -right-1 flex h-2 w-2 items-center justify-center rounded-full bg-emerald-500">
+                                    <Check className="h-1.5 w-1.5 text-white" strokeWidth={4} />
+                                  </div>
                                 )}
-                              />
+                                {p.status === "failed" && (
+                                  <div className="absolute -bottom-1 -right-1 flex h-2 w-2 items-center justify-center rounded-full bg-red-500">
+                                    <X className="h-1.5 w-1.5 text-white" strokeWidth={4} />
+                                  </div>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -760,16 +773,27 @@ export function CalendarView({
                             {platformsToRender.map((p, idx) => {
                               const Icon = PlatformIconMap[p.platform] || CalendarIcon;
                               return (
-                                <Icon
-                                  key={idx}
-                                  className={cn(
-                                    "h-4 w-4 bg-transparent rounded-full",
-                                    p.status === "published" ? "text-emerald-500 dark:text-emerald-400" :
-                                    p.status === "failed" ? "text-red-500 dark:text-red-400" :
-                                    p.status === "scheduled" ? "text-indigo-400" :
-                                    "text-muted-foreground"
+                                <div key={idx} className="relative flex items-center justify-center h-4 w-4">
+                                  <Icon
+                                    className={cn(
+                                      "h-4 w-4 rounded-full",
+                                      p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
+                                      p.status === "failed" ? "text-red-600 dark:text-red-400" :
+                                      p.status === "scheduled" ? "text-indigo-400" :
+                                      "text-muted-foreground"
+                                    )}
+                                  />
+                                  {p.status === "published" && (
+                                    <div className="absolute -bottom-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-500">
+                                      <Check className="h-1.5 w-1.5 text-white" strokeWidth={4} />
+                                    </div>
                                   )}
-                                />
+                                  {p.status === "failed" && (
+                                    <div className="absolute -bottom-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500">
+                                      <X className="h-1.5 w-1.5 text-white" strokeWidth={4} />
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>

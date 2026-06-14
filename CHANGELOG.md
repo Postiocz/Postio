@@ -1,5 +1,29 @@
 ## 2026-06-14
 
+### Feature – AI Vision: Generování popisku z obrázku přes Gemini (DOKONČENO)
+
+- **Cíl**: Rozšíření AI asistenta o multimodální analýzu obrázků – AI analyzuje první nahraný obrázek u příspěvku a vytvoří poutavý popisek.
+- **`src/app/api/ai/generate/route.ts`** – nová akce `generate_from_image`:
+  - Backend fetchne obrázek z `imageUrl` (Supabase Storage public URL) a pošle ho Gemini jako base64 inline data přes multimodální API.
+  - Pokud je v editoru už nějaký text, AI ho vezme v úvahu a propojí s obsahem fotky.
+  - Prompt (čeština): "Analizuj tento obrázek a vytvoř poutavý popisek (caption) pro sociální sítě. Buď kreativní, angažující a přirozený."
+  - Demo fallback: pokud API klíč chybí, vrátí demo text.
+  - Stávající akce (`improve`, `shorten`, `hashtags`) zůstávají beze změny.
+- **`src/components/ai-assistant-button.tsx`** – rozšíření komponenty:
+  - Nový volitelný prop `imageUrl?: string | null`.
+  - Nová položka v dropdown menu: "Generovat z obrázku ✨" s ikonou `ImagePlus` (amber barva).
+  - Položka je `disabled` (opacity 40%, cursor not-allowed) pokud `imageUrl` není k dispozici.
+  - Samostatný handler `handleGenerateFromImage` – posílá `imageUrl` + volitelný `text` z editoru.
+  - Stávající funkce (`handleTextAction` pro improve/shorten/hashtags) plně funkční, žádná regrese.
+- **`src/app/[locale]/(dashboard)/posts/new/page.tsx`** – `firstImageUrl` derived z `mediaItems` (první image se `status === 'ready'`) předává jako `imageUrl`.
+- **`src/components/edit-post-dialog.tsx`** – stejně `firstImageUrl` z `mediaItems`. Opraven typový warning (`SUPPORTED_UPDATE_PLATFORMS as unknown as string[]`).
+- **`src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`** – inline formulář nemá media upload, takže tlačítko zůstane disabled (správné chování). Typ `tAi` rozšířen.
+- **Překlady** (`src/messages/cs.json`, `en.json`, `uk.json`):
+  - `generateFromImage`: "Generovat z obrázku ✨" / "Generate from image ✨" / "Згенерувати з фото ✨"
+  - `aiNoImage`: "Nejprve nahrajte obrázek." / "Upload an image first." / "Спочатку завантажте зображення."
+- **Typy**: Rozšířeny v `AiTranslations`, `AIAssistantButtonProps`, `EditPostDialogProps`, `CalendarView`, `CalendarClient`, `PostsContainer`, `PostCard` – všude konzistentně.
+- Build: `npm run build` ✅ 0 chyb
+
 ### Fix – Oprava Facebook update "Application does not have the capability" (#3)
 
 - **Problém**: `updateOnPlatformAction` pro Facebook selhával s chybou `(#3) Application does not have the capability`. Dva důvody:

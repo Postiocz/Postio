@@ -98,6 +98,8 @@ export function CalendarClient({
     aiSuccess: string;
     aiError: string;
     aiEmptyContent: string;
+    generateFromImage: string;
+    aiNoImage: string;
   };
 }) {
   const [platformFilter, setPlatformFilter] = React.useState(initialPlatform);

@@ -102,6 +102,8 @@ export function PostsContainer({
     aiSuccess: string;
     aiError: string;
     aiEmptyContent: string;
+    generateFromImage: string;
+    aiNoImage: string;
   };
 }) {
   const [posts, setPosts] = useState(initialPosts);

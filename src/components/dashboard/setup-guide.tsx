@@ -93,7 +93,7 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
   const totalCount = tasks.length;
   const progressPercent = (completedCount / totalCount) * 100;
 
-  if (!ready || completedCount === totalCount || dismissed) return null;
+  if (!ready || dismissed) return null;
 
   return (
     <motion.div

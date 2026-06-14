@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle } from "lucide-react";
+import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,11 @@ import {
 } from "@/components/ui/social-icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deletePost, resetPostStatus } from "@/lib/actions/posts";
+import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
 import { deleteFromMeta } from "@/lib/actions/publish";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
+import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
 import { toast } from "sonner";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -75,8 +76,6 @@ export type PostListItem = {
   media_urls: string[];
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
-  removed_at?: string | null;
-  removed_from_platform?: string | null;
 };
 
 function toLocaleTag(locale: string) {
@@ -169,10 +168,13 @@ export function PostCard({
     aiSuccess: string;
     aiError: string;
     aiEmptyContent: string;
+    generateFromImage: string;
+    aiNoImage: string;
   };
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [smartDeleteOpen, setSmartDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
   const router = useRouter();
@@ -195,46 +197,69 @@ export function PostCard({
 
       if (isPublished) {
         let deletedCount = 0;
+        let cannotDeletePlatforms: string[] = [];
+
         // Smazat z vybraných Meta platforem
         for (const platform of selectedPlatforms) {
           const result = await deleteFromMeta({ postId: post.id, platform });
           if (result.success) {
             deletedCount++;
+          } else if (result.cannotDeleteViaApi) {
+            // Platform does not support API deletion (e.g. Instagram)
+            // Do NOT mark as removed_externally – post still exists on the platform.
+            // Only syncPublishedPosts will mark it after confirming via GET request.
+            cannotDeletePlatforms.push(platform);
           } else {
-            toast.error(`Smazání z ${platform} selhalo: ${result.error}`);
+            // Unexpected error
+            toast.error(result.error || `Smazání z ${platform} selhalo.`);
           }
         }
-        
-        // Smazat i z aplikace Postio, pokud si to uživatel přeje
+
+        // Show info toasts for platforms that couldn't be deleted via API
+        for (const platform of cannotDeletePlatforms) {
+          const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+          toast.info(
+            `${platformName} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na ${platformName}. Postio automaticky detekuje odstranění při příští synchronizaci.`,
+            {
+              duration: 10000,
+              action: {
+                label: 'Rozumím',
+                onClick: () => {}
+              }
+            }
+          );
+        }
+
+        // Delete from Postio app if requested
         if (deleteFromApp) {
           const result = await deletePost(post.id);
           if (result.success) {
             setDeleteOpen(false);
-            if (result.removedExternally) {
-              router.refresh();
+            onDeleted?.(post.id);
+            if (cannotDeletePlatforms.length === 0) {
+              toast.success("Příspěvek byl úspěšně smazán.");
             } else {
-              onDeleted?.(post.id);
+              toast.success("Příspěvek byl smazán z aplikace. Na některých sítích jej smažte ručně.");
             }
-            toast.success("Příspěvek byl úspěšně smazán.");
             return;
           } else {
             toast.error(`Smazání z aplikace selhalo: ${result.error}`);
           }
         } else if (deletedCount > 0) {
-           toast.success(`Příspěvek byl odstraněn z ${deletedCount} platformy/platforem.`);
-           router.refresh();
-           setDeleteOpen(false);
+          toast.success(`Příspěvek byl odstraněn z ${deletedCount} platformy/platforem.`);
+          router.refresh();
+          setDeleteOpen(false);
+        } else if (cannotDeletePlatforms.length > 0) {
+          // All platforms don't support API deletion – just close dialog.
+          // Posts still exist on platforms. Info toasts already shown above.
+          setDeleteOpen(false);
         }
       } else {
-        // Klasické smazání (draft, scheduled, failed)
+        // Klasické smazání (draft, scheduled, failed, removed_externally)
         const result = await deletePost(post.id);
         if (result.success) {
           setDeleteOpen(false);
-          if (result.removedExternally) {
-            router.refresh();
-          } else {
-            onDeleted?.(post.id);
-          }
+          onDeleted?.(post.id);
           toast.success("Příspěvek byl úspěšně smazán.");
           return;
         } else {
@@ -244,6 +269,30 @@ export function PostCard({
     } catch (e) {
       console.error("Error deleting post:", e);
       toast.error("Nastala neočekávaná chyba při mazání.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSmartDelete = async (mode: "keep_as_draft" | "delete_from_app", _autoDelete: AutoDeleteOption) => {
+    setIsDeleting(true);
+    try {
+      const result = await smartDeletePost(post.id, mode);
+      if (result.success) {
+        setSmartDeleteOpen(false);
+        if (mode === "keep_as_draft") {
+          toast.success("Příspěvek byl ponechán jako koncept.");
+          router.refresh();
+        } else {
+          onDeleted?.(post.id);
+          toast.success("Příspěvek byl trvale smazán z aplikace.");
+        }
+      } else {
+        toast.error(result.error || "Operace selhala.");
+      }
+    } catch (e) {
+      console.error("Smart delete error:", e);
+      toast.error("Nastala chyba při chytrém mazání.");
     } finally {
       setIsDeleting(false);
     }
@@ -291,27 +340,44 @@ export function PostCard({
           <Edit className="h-3.5 w-3.5" />
         </Button>
         {post.status === "removed_externally" && (
+          <>
+            {/* Smart delete – orange trash for removed_externally posts */}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-8 w-8 relative z-[50] cursor-pointer bg-orange-50 dark:bg-orange-500/10 backdrop-blur-sm border border-orange-200 dark:border-orange-500/20 text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-500/20"
+              onClick={() => setSmartDeleteOpen(true)}
+              disabled={isDeleting}
+              title="Chytré mazání – odstranit z platformy i aplikace"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+            {/* Republish button */}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-8 w-8 relative z-[50] cursor-pointer bg-orange-50 dark:bg-orange-500/10 backdrop-blur-sm border border-orange-200 dark:border-orange-500/20 text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-500/20"
+              onClick={handleRepublish}
+              disabled={isRepublishing}
+              title={tRepublish}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        )}
+        {/* Regular delete button – hidden for removed_externally */}
+        {post.status !== "removed_externally" && (
           <Button
             variant="ghost"
             size="icon-sm"
-            className="h-8 w-8 relative z-[50] cursor-pointer bg-orange-50 dark:bg-orange-500/10 backdrop-blur-sm border border-orange-200 dark:border-orange-500/20 text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-500/20"
-            onClick={handleRepublish}
-            disabled={isRepublishing}
-            title={tRepublish}
+            className="h-8 w-8 relative z-[50] cursor-pointer bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => setDeleteOpen(true)}
+            disabled={isDeleting}
+            title={tDeleteConfirmTitle}
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="h-8 w-8 relative z-[50] cursor-pointer bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10 text-destructive hover:text-destructive hover:bg-destructive/10"
-          onClick={() => setDeleteOpen(true)}
-          disabled={isDeleting}
-          title={tDeleteConfirmTitle}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-5">
@@ -360,18 +426,35 @@ export function PostCard({
                 const Icon = platformIcons[p.platform.toLowerCase()] ?? FileText;
                 const isPublished = p.status === "published";
                 const isFailed = p.status === "failed";
+                const isRemovedExternally = p.status === "removed_externally";
                 return (
                   <div
                     key={p.id || p.platform}
                     className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-full border shadow-sm shrink-0",
+                      "relative flex h-9 w-9 items-center justify-center rounded-full border shadow-sm shrink-0",
                       isPublished ? "bg-white dark:bg-white/[0.03] border-emerald-200 dark:border-emerald-500/30" :
                       isFailed ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30" :
+                      isRemovedExternally ? "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30" :
                       "bg-white/50 dark:bg-white/[0.02] border-black/5 dark:border-white/5 opacity-60"
                     )}
                     title={`Status: ${p.status}`}
                   >
-                    <Icon className={cn("h-4 w-4", isPublished ? "text-emerald-600 dark:text-emerald-400" : isFailed ? "text-red-600 dark:text-red-400" : "text-foreground/80")} />
+                    <Icon className={cn("h-4 w-4", isPublished ? "text-emerald-600 dark:text-emerald-400" : isFailed ? "text-red-600 dark:text-red-400" : isRemovedExternally ? "text-orange-600 dark:text-orange-400" : "text-foreground/80")} />
+                    {isPublished && (
+                      <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 border-2 border-white dark:border-card">
+                        <Check className="h-2 w-2 text-white" strokeWidth={4} />
+                      </div>
+                    )}
+                    {isFailed && (
+                      <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 border-2 border-white dark:border-card">
+                        <X className="h-2 w-2 text-white" strokeWidth={4} />
+                      </div>
+                    )}
+                    {isRemovedExternally && (
+                      <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 border-2 border-white dark:border-card">
+                        <AlertTriangle className="h-2 w-2 text-white" strokeWidth={4} />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -403,6 +486,9 @@ export function PostCard({
                     })}
                   </span>
                 )}
+                <span className="text-[11px] text-orange-600/60 dark:text-orange-400/60 mt-1">
+                  Příspěvek byl odstraněn z platformy. Můžete jej bezpečně smazat z aplikace tlačítkem "Chytré mazání" (🗑).
+                </span>
               </div>
             </div>
           )}
@@ -449,6 +535,13 @@ export function PostCard({
         post_platforms: post.post_platforms ?? [],
       }}
       onConfirm={handleDeleteConfirm}
+      isDeleting={isDeleting}
+    />
+
+    <SmartDeleteDialog
+      open={smartDeleteOpen}
+      onOpenChange={setSmartDeleteOpen}
+      onConfirm={handleSmartDelete}
       isDeleting={isDeleting}
     />
     </>
@@ -536,6 +629,8 @@ export function PostsList({
     aiSuccess: string;
     aiError: string;
     aiEmptyContent: string;
+    generateFromImage: string;
+    aiNoImage: string;
   };
   onDeleted?: (id: string) => void;
 }) {

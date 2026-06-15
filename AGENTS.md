@@ -50,3 +50,4 @@ STRIKTNÍ PRAVIDLA – musí být dodržována vždy při práci s publishing a 
 
 ## 🧠 Ponaučení z chyb (Paměť)
 - *Zde bude Claude přidávat věci, které jsme už jednou pokazili a opravili, aby se neopakovaly.*
+- **2026-06-15 – next-intl dynamické překlady**: Překlady obsahující ICU placeholdery (`{name}`, `{count}`, …) se v next-intl **musí volat s parametry** (`t("key", { name: "..." })`). Pokud je předáš jako holý `t("key")` a hodnotu dosazuješ později přes `String.replace`, next-intl při renderu/parsování vyhodí `FORMATTING_ERROR: The intl string context variable "X" was not provided`. Správný vzor pro decompované klientské komponenty: v props předej **funkci** `(value) => t("key", { X: value })` a v komponentě ji teprve zavolej s dynamickou hodnotou.

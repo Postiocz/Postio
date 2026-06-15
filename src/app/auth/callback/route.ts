@@ -8,6 +8,7 @@ type FacebookPagesResponse = {
     id: string;
     name?: string;
     access_token?: string;
+    category?: string;
     picture?: { data?: { url?: string } };
     instagram_business_account?: { id: string };
   }>;
@@ -18,6 +19,20 @@ type InstagramBusinessResponse = {
   username?: string;
   name?: string;
   profile_picture_url?: string;
+};
+
+type SocialAccountMetadata = {
+  // Page-level access token returned by Meta for the Facebook Page.
+  // Stored in metadata (in addition to the main `access_token` column) so the
+  // UI can later swap it without rewriting the main column, and so that
+  // future per-platform extras (e.g. X bearer, TikTok open_id) can live
+  // alongside it in a single JSON blob.
+  access_token?: string;
+  // Page category as returned by Graph API (e.g. "Local Business",
+  // "Product/Service", "Entertainment"). Used in the UI to help the user
+  // disambiguate Pages that share a similar name. May be `null` if Meta
+  // did not return the field for this Page.
+  category?: string | null;
 };
 
 async function graphFetch<T>(
@@ -161,6 +176,11 @@ export async function GET(request: NextRequest) {
       platform_id: string | null;
       avatar_url?: string | null;
       is_active: boolean;
+      // `metadata` is NOT NULL in the DB schema (DEFAULT '{}'::jsonb), so we
+      // require every row to set it explicitly – even an empty object is
+      // fine. Keeping it required in the type prevents accidental nullish
+      // values from slipping into the upsert payload.
+      metadata: SocialAccountMetadata;
     }> = [];
 
     // Instagram Direct Login – get user's own Instagram account via /me
@@ -236,6 +256,7 @@ export async function GET(request: NextRequest) {
             platform_id: igUserId,
             avatar_url: igAvatarUrl,
             is_active: true,
+            metadata: {},
           });
         } else {
           console.log("[Postio] Instagram Direct Login: nelze najít IG účet uživatele");
@@ -248,7 +269,7 @@ export async function GET(request: NextRequest) {
     // Always also fetch Facebook Pages (for Facebook connections or IG via Page)
     try {
       const pagesFields =
-        "id,name,access_token,instagram_business_account,picture{url}";
+        "id,name,access_token,category,instagram_business_account,picture{url}";
 
       const pages = await graphFetch<FacebookPagesResponse>(
         "/me/accounts",
@@ -300,12 +321,17 @@ export async function GET(request: NextRequest) {
                 platform_id: ig.id,
                 avatar_url: igAvatarUrlPage,
                 is_active: true,
+                metadata: {},
               });
             }
           }
           continue;
         }
 
+        // Facebook Pages are NEVER auto-activated. After OAuth we store every
+        // Page the user owns as `is_active = false` and put the Page-level
+        // access_token + category into `metadata`. The user then picks which
+        // Pages to enable in the UI (next feature step).
         rowsToUpsert.push({
           user_id: targetUserId,
           platform: "facebook",
@@ -313,7 +339,11 @@ export async function GET(request: NextRequest) {
           access_token: pageAccessToken,
           platform_id: page.id,
           avatar_url: pageAvatarUrl,
-          is_active: true,
+          is_active: false,
+          metadata: {
+            access_token: pageAccessToken,
+            category: page.category ?? null,
+          },
         });
 
         const igId = page.instagram_business_account?.id;
@@ -347,6 +377,7 @@ export async function GET(request: NextRequest) {
             platform_id: ig.id,
             avatar_url: igAvatarUrl,
             is_active: true,
+            metadata: {},
           });
         } else {
           console.log(`[Postio] Instagram pro stránku ${pageName} nebyl nalezen nebo API vrátilo prázdnou odpověď.`);
@@ -354,6 +385,33 @@ export async function GET(request: NextRequest) {
       }
     } catch (e) {
       console.log("[Postio] Chyba při načítání FB Pages:", e);
+    }
+
+    // Before upserting the freshly fetched set of Pages, make sure that
+    // NO Facebook Page of this user is left in the `is_active = true` state.
+    // This is critical because:
+    //   1. We always upsert with `is_active = false` (user must opt in).
+    //   2. If the user previously connected a Page that has since been
+    //      removed from their Meta account, the upsert will NOT touch it
+    //      (it is no longer in `pages.data`), but it would otherwise remain
+    //      active in our DB. We therefore explicitly deactivate every
+    //      Facebook row, then re-upsert the current set (still inactive).
+    try {
+      const supabaseAdmin = createAdminClient();
+      const { error: deactivateError } = await supabaseAdmin
+        .from("social_accounts")
+        .update({ is_active: false })
+        .eq("user_id", targetUserId)
+        .eq("platform", "facebook");
+
+      if (deactivateError) {
+        console.log(
+          "[Postio] CHYBA při deaktivaci starých FB účtů:",
+          deactivateError
+        );
+      }
+    } catch (e) {
+      console.log("[Postio] Neočekávaná chyba při deaktivaci starých FB účtů:", e);
     }
 
     if (rowsToUpsert.length > 0) {
@@ -389,6 +447,15 @@ export async function GET(request: NextRequest) {
     if (!existingUser && userData?.two_factor_enabled) {
       finalNext = `/${locale}/login/verify-2fa`;
     }
+  }
+
+  // After a Facebook Pages OAuth flow, signal the /accounts page with
+  // `?fb=connected` so it auto-opens the new "pick which Pages to enable"
+  // dialog. We only do this for the Pages flow – the Instagram direct
+  // login does not need this hint (Instagram accounts are auto-activated).
+  if (requestedPlatform !== "instagram") {
+    const separator = finalNext.includes("?") ? "&" : "?";
+    finalNext = `${finalNext}${separator}fb=connected`;
   }
 
   const redirectResponse = NextResponse.redirect(new URL(finalNext, request.url));

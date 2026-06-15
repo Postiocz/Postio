@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { ComponentType } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import {
   Trash2,
   X,
   PlusCircle,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import {
   Instagram,
@@ -30,6 +33,10 @@ import {
 } from "@/components/ui/social-icons";
 import { Reorder } from "framer-motion";
 import { ConnectAccountModal } from "@/components/connect-account-modal";
+import {
+  FacebookPageSelector,
+  type FacebookPageDto,
+} from "@/components/facebook-page-selector";
 
 type PlatformId =
   | "instagram"
@@ -110,11 +117,14 @@ type SocialAccount = {
   is_active: boolean;
   avatar_url?: string | null;
   platform_id?: string | null;
+  token_expires_at?: string | null;
 };
 
 export default function AccountsPage() {
   const t = useTranslations("accounts");
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [platforms, setPlatforms] = useState<Platform[]>(DEFAULT_PLATFORMS);
@@ -135,6 +145,11 @@ export default function AccountsPage() {
     name: string;
     icon: ComponentType<{ className?: string }>;
   } | null>(null);
+  // Facebook Pages that are still inactive (pending the user's opt-in).
+  // Loaded by GET /api/accounts/facebook/select.
+  const [pendingPages, setPendingPages] = useState<FacebookPageDto[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [selectorOpen, setSelectorOpen] = useState(false);
   const isDraggingRef = useRef(false);
 
   const platformById = useMemo(() => {
@@ -173,6 +188,55 @@ export default function AccountsPage() {
   useEffect(() => {
     console.log(accounts);
   }, [accounts]);
+
+  // Pull the list of Facebook Pages that are still inactive. This is the
+  // "tick which Pages to enable" list shown below the connect buttons.
+  const fetchPendingPages = async () => {
+    setLoadingPending(true);
+    try {
+      const res = await fetch("/api/accounts/facebook/select", {
+        method: "GET",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        // Fail silently – the section just stays hidden.
+        setPendingPages([]);
+        return;
+      }
+      const data = (await res.json()) as { pages: FacebookPageDto[] };
+      setPendingPages(data.pages ?? []);
+    } catch {
+      setPendingPages([]);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      fetchPendingPages();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  // When the user is redirected back from Facebook OAuth, the callback
+  // route appends `?fb=connected` to the URL. We use that signal to:
+  //   1. open the page selector dialog automatically (if there are pages)
+  //   2. clean the query param so a refresh does not re-open the dialog
+  useEffect(() => {
+    if (searchParams.get("fb") !== "connected") return;
+    // Open the dialog only when we actually have pages to pick from.
+    // The actual list is fetched in the effect above; we rely on the
+    // pendingPages state being populated by the time this runs. The
+    // dependency on `pendingPages.length` ensures we re-evaluate when the
+    // list arrives.
+    if (pendingPages.length > 0) {
+      setSelectorOpen(true);
+    } else if (!loadingPending) {
+      // No pages to pick – just clean the param so we do not loop.
+      router.replace(window.location.pathname);
+    }
+  }, [searchParams, pendingPages.length, loadingPending, router]);
 
   async function handleConnect(e: React.FormEvent) {
     e.preventDefault();
@@ -278,7 +342,7 @@ export default function AccountsPage() {
                   }}
                   onClick={() => {
                     if (isDraggingRef.current) return;
-                    if (platform.id === "instagram" || platform.id === "facebook") {
+                    if (platform.id === "instagram" || platform.id === "facebook" || platform.id === "linkedin") {
                       setConnectModalPlatform({
                         id: platform.id,
                         name: getPlatformLabel(platform.id),
@@ -407,6 +471,71 @@ export default function AccountsPage() {
           );
         })()}
       </div>
+
+      {/* Pending Facebook Pages – "tick which Pages to enable" section. */}
+      {!loadingPending && pendingPages.length > 0 && (
+        <div className="max-w-2xl mx-auto bg-gradient-to-br from-blue-500/[0.07] to-indigo-500/[0.07] backdrop-blur-md border border-blue-500/15 rounded-[24px] p-6 shadow-xl">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-white/10">
+              <Facebook className="h-6 w-6 text-blue-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-foreground">
+                  {t("pendingPagesTitle")}
+                </h3>
+                <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-xs font-medium text-indigo-300">
+                  {pendingPages.length}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground/70 leading-relaxed">
+                {t("pendingPagesSubtitle")}
+              </p>
+              <Button
+                type="button"
+                onClick={() => setSelectorOpen(true)}
+                className="mt-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {t("managePagesButton")}
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Compact preview of the first 3 pending pages (avatars only) */}
+          <div className="mt-5 flex items-center gap-3">
+            <div className="flex -space-x-2">
+              {pendingPages.slice(0, 4).map((page) => (
+                <div
+                  key={page.id}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-white/10 overflow-hidden"
+                  title={page.account_name}
+                >
+                  {page.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={page.avatar_url}
+                      alt={page.account_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Facebook className="h-4 w-4 text-blue-300" />
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground/60 truncate">
+              {pendingPages
+                .slice(0, 3)
+                .map((p) => p.account_name)
+                .join(", ")}
+              {pendingPages.length > 3 &&
+                ` ${t("andMore").replace("{count}", String(pendingPages.length - 3))}`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Connected accounts list - glassmorphism cards */}
       {!hasConnectedAccounts ? (
@@ -540,7 +669,13 @@ export default function AccountsPage() {
             setShowConnectModal(false);
             const next = window.location.pathname || "/accounts";
 
-            if (connectModalPlatform.id === "instagram") {
+            if (connectModalPlatform.id === "linkedin") {
+              // LinkedIn OAuth – custom flow via our API route
+              const localeMatch = window.location.pathname.match(/\/(cs|en|uk)(?:\/|$)/);
+              const locale = localeMatch?.[1] ?? "cs";
+              const linkedinAuthUrl = `/api/accounts/linkedin?state=${encodeURIComponent(next)}&locale=${locale}`;
+              window.location.assign(linkedinAuthUrl);
+            } else if (connectModalPlatform.id === "instagram") {
               // Instagram Direct Login – no Facebook Page required
               const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: "facebook",
@@ -593,12 +728,60 @@ export default function AccountsPage() {
             warningDesc:
               connectModalPlatform.id === "instagram"
                 ? t("connectModal.warningDescInstagram")
-                : t("connectModal.warningDesc"),
+                : connectModalPlatform.id === "linkedin"
+                  ? t("connectModal.warningDescLinkedIn")
+                  : t("connectModal.warningDesc"),
             connectButton: t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
           }}
         />
       )}
+
+      {/* Facebook Page selector dialog (tick which Pages to enable). */}
+      <FacebookPageSelector
+        pages={pendingPages}
+        open={selectorOpen}
+        onOpenChange={(open) => {
+          setSelectorOpen(open);
+          if (!open) {
+            // Clean the ?fb=connected query param when the dialog closes so
+            // a refresh does not re-open the dialog.
+            if (searchParams.get("fb") === "connected") {
+              router.replace(window.location.pathname);
+            }
+            // Refresh the active list so freshly activated Pages show up
+            // immediately in the connected accounts section below.
+            fetchAccounts();
+            fetchPendingPages();
+          }
+        }}
+        onChanged={() => {
+          // Re-fetch the active accounts list so the connected accounts
+          // section is updated as soon as the user toggles a page on.
+          fetchAccounts();
+          fetchPendingPages();
+        }}
+        t={{
+          title: t("selectorTitle"),
+          subtitle: t("selectorSubtitle"),
+          noCategory: t("pageNoCategory"),
+          // Dynamic strings are wrapped in functions so next-intl receives
+          // the placeholder values and formats them via ICU. Passing a raw
+          // string (e.g. `t("pageConnected")`) triggers FORMATTING_ERROR
+          // because ICU sees `{name}` but no value is provided.
+          categoryLabel: (category) =>
+            t("pageCategoryLabel", { category }),
+          active: t("active"),
+          inactive: t("inactive"),
+          activating: t("activating"),
+          deactivating: t("deactivating"),
+          done: t("done"),
+          pageConnected: (name) => t("pageConnected", { name }),
+          pageDisconnected: (name) => t("pageDisconnected", { name }),
+          errorToggle: t("errorToggle"),
+          emptyState: t("selectorEmpty"),
+        }}
+      />
     </div>
   );
 }

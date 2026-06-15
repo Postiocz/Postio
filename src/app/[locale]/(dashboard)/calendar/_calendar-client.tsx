@@ -26,6 +26,7 @@ type Post = {
   status: string;
   location: string | null;
   tags: string[];
+  post_tags?: { id: string; name: string; color: string }[];
   media_urls: string[];
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
@@ -34,6 +35,7 @@ type Post = {
 export function CalendarClient({
   posts,
   platforms,
+  tags = [],
   initialPlatform,
   initialStatus,
   weekdays,
@@ -44,6 +46,7 @@ export function CalendarClient({
 }: {
   posts: Post[];
   platforms: { id: string; label: string }[];
+  tags?: { id: string; name: string; color: string }[];
   initialPlatform: string;
   initialStatus: string;
   weekdays: string[];
@@ -88,6 +91,18 @@ export function CalendarClient({
     fileDeleted?: string;
     invalidFileType?: string;
     dropMedia?: string;
+    // Internal organization tags
+    internalTags?: string;
+    internalTagsPlaceholder?: string;
+    createTag?: string;
+    noInternalTags?: string;
+    selectColor?: string;
+    add?: string;
+    cancel?: string;
+    // Tag filter
+    filterByTag?: string;
+    allTags?: string;
+    noTagsAvailable?: string;
   };
   tAi: {
     aiAssistant: string;
@@ -104,6 +119,7 @@ export function CalendarClient({
 }) {
   const [platformFilter, setPlatformFilter] = React.useState(initialPlatform);
   const [statusFilter, setStatusFilter] = React.useState(initialStatus);
+  const [tagFilter, setTagFilter] = React.useState("");
 
   React.useEffect(() => setPlatformFilter(initialPlatform), [initialPlatform]);
   React.useEffect(() => setStatusFilter(initialStatus), [initialStatus]);
@@ -123,6 +139,12 @@ export function CalendarClient({
         statusScheduledLabel={tCalendar.statusScheduled || "Naplánované"}
         statusPublishedLabel={tCalendar.statusPublished || "Publikované"}
         statusFailedLabel={tCalendar.statusFailed || "Neúspěšné"}
+        tagValue={tagFilter}
+        tagOptions={tags}
+        tagLabel={tCalendar.filterByTag || "Filtr podle štítku"}
+        allTagsLabel={tCalendar.allTags || "Všechny štítky"}
+        noTagsLabel={tCalendar.noTagsAvailable || "Zatím nemáte žádné štítky."}
+        onTagChange={setTagFilter}
       />
 
       <CalendarView
@@ -130,6 +152,7 @@ export function CalendarClient({
         platforms={platforms}
         platformFilter={platformFilter}
         statusFilter={statusFilter}
+        tagFilter={tagFilter}
         weekdays={weekdays}
         months={months}
         locale={locale}

@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import NextImage from "next/image";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
+import { TagPicker } from "@/components/tag-picker";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -85,6 +86,7 @@ interface Post {
   status: string;
   location: string | null;
   tags: string[];
+  post_tags?: { id: string; name: string; color: string }[];
   media_urls: string[];
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
@@ -95,6 +97,7 @@ interface CalendarViewProps {
   platforms: { id: string; label: string }[];
   platformFilter: string;
   statusFilter: string;
+  tagFilter?: string;
   weekdays: string[];
   months: string[];
   locale: string;
@@ -137,6 +140,14 @@ interface CalendarViewProps {
     fileDeleted?: string;
     invalidFileType?: string;
     dropMedia?: string;
+    // Internal organization tags
+    internalTags?: string;
+    internalTagsPlaceholder?: string;
+    createTag?: string;
+    noInternalTags?: string;
+    selectColor?: string;
+    add?: string;
+    cancel?: string;
   };
   tAi?: {
     aiAssistant: string;
@@ -157,6 +168,7 @@ export function CalendarView({
   platforms,
   platformFilter,
   statusFilter,
+  tagFilter = "",
   weekdays,
   months,
   locale,
@@ -186,6 +198,7 @@ export function CalendarView({
   const [formLocation, setFormLocation] = useState("");
   const [formTags, setFormTags] = useState<string[]>([]);
   const [formTagDraft, setFormTagDraft] = useState("");
+  const [formSelectedTagIds, setFormSelectedTagIds] = useState<string[]>([]);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -247,6 +260,7 @@ export function CalendarView({
     setFormLocation("");
     setFormTags([]);
     setFormTagDraft("");
+    setFormSelectedTagIds([]);
     setFormError(null);
   }, []);
 
@@ -261,6 +275,7 @@ export function CalendarView({
     setFormLocation("");
     setFormTags([]);
     setFormTagDraft("");
+    setFormSelectedTagIds([]);
     setFormError(null);
   }, []);
 
@@ -322,6 +337,7 @@ export function CalendarView({
           status: "draft",
           location: formLocation.trim() || undefined,
           tags: formTags.length > 0 ? formTags : undefined,
+          tagIds: formSelectedTagIds,
           mediaUrls: [],
         });
 
@@ -353,6 +369,7 @@ export function CalendarView({
         status,
         location: formLocation.trim() || undefined,
         tags: formTags.length > 0 ? formTags : undefined,
+        tagIds: formSelectedTagIds,
         mediaUrls: [],
       });
 
@@ -371,7 +388,7 @@ export function CalendarView({
     } finally {
       setFormLoading(false);
     }
-  }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, tCalendar, handleCloseModal, normalizeScheduledAt]);
+  }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, formSelectedTagIds, tCalendar, handleCloseModal, normalizeScheduledAt]);
 
   const handlePostClick = useCallback((post: Post, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -384,6 +401,7 @@ export function CalendarView({
       status: post.status,
       location: post.location ?? null,
       tags: post.tags ?? [],
+      post_tags: post.post_tags ?? [],
       media_urls: post.media_urls ?? [],
     });
     setEditPostOpen(true);
@@ -398,9 +416,13 @@ export function CalendarView({
       if (statusFilter) {
         if (post.status !== statusFilter) return false;
       }
+      if (tagFilter) {
+        const postTagIds = (post.post_tags ?? []).map((t) => t.id);
+        if (!postTagIds.includes(tagFilter)) return false;
+      }
       return true;
     });
-  }, [posts, platformFilter, statusFilter]);
+  }, [posts, platformFilter, statusFilter, tagFilter]);
 
   const getPostsForDayEffective = useCallback((day: Date) => {
     const today = new Date();
@@ -958,6 +980,25 @@ export function CalendarView({
               />
             </div>
 
+            {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground/80">
+                {tCalendar.internalTags || "Interní štítky"}
+              </Label>
+              <TagPicker
+                selectedTagIds={formSelectedTagIds}
+                onChange={setFormSelectedTagIds}
+                t={{
+                  placeholder: tCalendar.internalTagsPlaceholder || "Vyberte štítky…",
+                  createTag: tCalendar.createTag || "Vytvořit štítek",
+                  noTags: tCalendar.noInternalTags || "Žádné další štítky",
+                  selectColor: tCalendar.selectColor || "Barva:",
+                  add: tCalendar.add || "Přidat",
+                  cancel: tCalendar.cancel || "Zrušit",
+                }}
+              />
+            </div>
+
             {/* Schedule */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground/80">
@@ -1026,6 +1067,13 @@ export function CalendarView({
           scheduledAt: tCalendar.scheduledAt || "Naplánovat",
           saving: tCalendar.saving || "Ukládání...",
           addTags: tCalendar.addTags || "Štítky",
+          internalTags: tCalendar.internalTags || "Interní štítky (organizace)",
+          internalTagsPlaceholder: tCalendar.internalTagsPlaceholder || "Vyberte štítky…",
+          createTag: tCalendar.createTag || "Vytvořit štítek",
+          noInternalTags: tCalendar.noInternalTags || "Žádné další štítky",
+          selectColor: tCalendar.selectColor || "Barva:",
+          add: tCalendar.add || "Přidat",
+          cancel: tCalendar.cancel || "Zrušit",
           locationPlaceholder: tCalendar.locationPlaceholder || "Přidejte lokaci...",
           postCreated: tCalendar.postCreated || "Příspěvek vytvořen!",
           postUpdated: tCalendar.postUpdated || "Příspěvek aktualizován",

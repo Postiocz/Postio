@@ -18,6 +18,7 @@ import NextImage from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
+import { TagPicker } from "@/components/tag-picker";
 
 const PLATFORMS = [
   { id: "instagram", labelCs: "Instagram", labelEn: "Instagram", labelUk: "Instagram" },
@@ -39,6 +40,7 @@ export default function NewPostPage() {
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
@@ -139,6 +141,7 @@ export default function NewPostPage() {
         status,
         location: location.trim() || undefined,
         tags: finalTags,
+        tagIds: selectedTagIds,
         mediaUrls,
       });
 
@@ -194,6 +197,7 @@ export default function NewPostPage() {
         status: "draft",
         location: location.trim() || undefined,
         tags: finalTags,
+        tagIds: selectedTagIds,
         mediaUrls,
       });
 
@@ -535,6 +539,25 @@ export default function NewPostPage() {
             />
           </div>
 
+          {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground/80">
+              {t("internalTags")}
+            </Label>
+            <TagPicker
+              selectedTagIds={selectedTagIds}
+              onChange={setSelectedTagIds}
+              t={{
+                placeholder: t("internalTagsPlaceholder"),
+                createTag: t("createTag"),
+                noTags: t("noInternalTags"),
+                selectColor: t("selectColor"),
+                add: t("add"),
+                cancel: t("cancel"),
+              }}
+            />
+          </div>
+
           {/* Schedule */}
           <div className="space-y-2">
             <Label htmlFor="scheduledAt" className="text-sm font-medium text-muted-foreground/80">
@@ -548,32 +571,40 @@ export default function NewPostPage() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 pt-2">
-            <Button
-              onClick={() => handleSubmit("draft")}
-              disabled={!content.trim() || loading || publishing || hasUploading()}
-              variant="outline"
-              className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-            >
-              {(loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {(loading || hasUploading()) ? t("saving") : t("saveDraft")}
-            </Button>
-            <Button
-              onClick={() => handleSubmit("scheduled")}
-              disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading()}
-              className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-            >
-              {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
-              {(loading || hasUploading()) ? t("saving") : t("schedule")}
-            </Button>
-            <Button
-              onClick={handlePublishNow}
-              disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || hasUploading()}
-              className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-            >
-              {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {(publishing || loading || hasUploading()) ? t("saving") : t("publishNow")}
-            </Button>
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => handleSubmit("draft")}
+                disabled={!content.trim() || loading || publishing || hasUploading()}
+                variant="outline"
+                className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+              >
+                {(loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {(loading || hasUploading()) ? t("saving") : t("saveDraft")}
+              </Button>
+              <Button
+                onClick={() => handleSubmit("scheduled")}
+                disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading()}
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+              >
+                {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
+                {(loading || hasUploading()) ? t("saving") : t("schedule")}
+              </Button>
+              <Button
+                onClick={handlePublishNow}
+                disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || hasUploading()}
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+              >
+                {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {(publishing || loading || hasUploading()) ? t("saving") : t("publishNow")}
+              </Button>
+            </div>
+            {/* Explain why buttons might be disabled when only internal tags were set. */}
+            {(!content.trim() || selectedPlatforms.length === 0) && (
+              <p className="text-xs text-muted-foreground/60">
+                {t("newPostHint")}
+              </p>
+            )}
           </div>
         </div>
       </div>

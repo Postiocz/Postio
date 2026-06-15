@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { setPostTags } from "@/lib/actions/tag-actions";
 
 const LOCALES = ["cs", "en", "uk"];
 
@@ -19,6 +20,7 @@ export async function createPostAction(inputData: {
   mediaUrls?: string[];
   location?: string;
   tags?: string[];
+  tagIds?: string[];
   published_platforms?: string[];
   published_at?: string | null;
   external_ids?: Record<string, string> | null;
@@ -86,6 +88,16 @@ export async function createPostAction(inputData: {
     }
   }
 
+  // --- SET POST TAGS (interní organizační štítky z tabulky tags) ---
+  if (post && cleanData.tagIds !== undefined) {
+    const tagResult = await setPostTags(post.id, cleanData.tagIds);
+    if (!tagResult.success) {
+      console.error("❌ POST TAGS ERROR:", tagResult.error);
+    } else {
+      console.log("✅ POST TAGS: nastaveno", cleanData.tagIds.length, "štítků");
+    }
+  }
+
   if (cleanData.status === "scheduled") {
     console.log("PŘÍSPĚVEK NAPLÁNOVÁN:", post.id, "status:", cleanData.status, "scheduled_at:", cleanData.scheduledAt);
   }
@@ -105,6 +117,7 @@ export async function updatePost(id: string, inputData: {
   mediaUrls?: string[];
   location?: string;
   tags?: string[];
+  tagIds?: string[];
   published_platforms?: string[];
   published_at?: string | null;
   external_ids?: Record<string, string> | null;
@@ -196,6 +209,16 @@ export async function updatePost(id: string, inputData: {
           .eq("post_id", id)
           .in("platform", safeToRemove);
       }
+    }
+  }
+
+  // --- SET POST TAGS (interní organizační štítky z tabulky tags) ---
+  if (post && cleanData.tagIds !== undefined) {
+    const tagResult = await setPostTags(id, cleanData.tagIds);
+    if (!tagResult.success) {
+      console.error("❌ POST TAGS ERROR:", tagResult.error);
+    } else {
+      console.log("✅ POST TAGS: nastaveno", cleanData.tagIds.length, "štítků");
     }
   }
 
@@ -483,7 +506,10 @@ export async function resetPostStatus(id: string): Promise<{
 export async function getPosts(status?: string) {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.from("posts").select("*, post_platforms(*)").order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("posts")
+    .select("*, post_platforms(*), post_tags(tags(id, name, color))")
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Error fetching posts:", error);
@@ -494,7 +520,7 @@ export async function getPosts(status?: string) {
   const processedData = data?.map(post => {
     const postPlatforms = post.post_platforms || [];
     postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
-    
+
     const statuses = postPlatforms.map((p: any) => p.status);
     let computedStatus = "draft";
     if (statuses.includes("failed")) computedStatus = "failed";
@@ -503,11 +529,19 @@ export async function getPosts(status?: string) {
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
 
+    // Normalize post_tags → flat array of { id, name, color }.
+    // Supabase returns the join as [{ tags: { id, name, color } | null }].
+    type TagJoinRow = { tags: { id: string; name: string; color: string } | null };
+    const normalizedPostTags = ((post.post_tags ?? []) as TagJoinRow[])
+      .map((row) => row.tags)
+      .filter((t): t is { id: string; name: string; color: string } => t !== null);
+
     return {
       ...post,
       status: computedStatus,
       platforms: postPlatforms.map((p: any) => p.platform),
-      post_platforms: postPlatforms
+      post_platforms: postPlatforms,
+      post_tags: normalizedPostTags,
     };
   });
 
@@ -520,7 +554,7 @@ export async function getPost(id: string) {
 
   const { data, error } = await supabase
     .from("posts")
-    .select("*, post_platforms(*)")
+    .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("id", id)
     .single();
 
@@ -538,9 +572,17 @@ export async function getPost(id: string) {
     else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
-    
+
     data.status = computedStatus;
     data.platforms = data.post_platforms.map((p: any) => p.platform);
+  }
+
+  // Normalize post_tags (same as in getPosts)
+  if (data) {
+    type TagJoinRow = { tags: { id: string; name: string; color: string } | null };
+    data.post_tags = ((data.post_tags ?? []) as TagJoinRow[])
+      .map((row) => row.tags)
+      .filter((t): t is { id: string; name: string; color: string } => t !== null);
   }
 
   return { success: true, data };

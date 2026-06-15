@@ -72,7 +72,10 @@ export type PostListItem = {
   scheduled_at: string | null;
   created_at: string;
   location: string | null;
+  /** Inline hashtags published as part of the content (e.g. #socialmedia). */
   tags: string[];
+  /** Internal organization tags attached via post_tags. */
+  post_tags?: { id: string; name: string; color: string }[];
   media_urls: string[];
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
@@ -154,6 +157,14 @@ export function PostCard({
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+    // Internal organization tags (Nastavení → Štítky)
+    internalTags: string;
+    internalTagsPlaceholder: string;
+    createTag: string;
+    noInternalTags: string;
+    selectColor: string;
+    add: string;
+    cancel: string;
     remoteEditSuccess?: string;
     photoChangeNotAllowed?: string;
     updateOnSocials?: string;
@@ -469,6 +480,30 @@ export function PostCard({
             {post.content}
           </div>
 
+          {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
+          {post.post_tags && post.post_tags.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {post.post_tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  style={{
+                    backgroundColor: `${tag.color}1A`,
+                    color: tag.color,
+                    border: `1px solid ${tag.color}33`,
+                  }}
+                  title="Interní štítek – organizace v aplikaci"
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Removed externally warning */}
           {post.status === "removed_externally" && (
             <div className="flex items-start gap-2 mb-3 p-3 rounded-xl bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20">
@@ -520,6 +555,7 @@ export function PostCard({
         status: post.status,
         location: post.location ?? null,
         tags: post.tags ?? [],
+        post_tags: post.post_tags ?? [],
         media_urls: post.media_urls ?? [],
       }}
       locale={locale}
@@ -615,6 +651,14 @@ export function PostsList({
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+    // Internal organization tags (Nastavení → Štítky)
+    internalTags: string;
+    internalTagsPlaceholder: string;
+    createTag: string;
+    noInternalTags: string;
+    selectColor: string;
+    add: string;
+    cancel: string;
     remoteEditSuccess?: string;
     photoChangeNotAllowed?: string;
     updateOnSocials?: string;

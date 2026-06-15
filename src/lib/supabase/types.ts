@@ -44,6 +44,7 @@ export interface Database {
           access_token: string
           platform_id: string | null
           avatar_url: string | null
+          token_expires_at: string | null
           is_active: boolean
           created_at: string
         }
@@ -55,6 +56,7 @@ export interface Database {
           access_token: string
           platform_id?: string | null
           avatar_url?: string | null
+          token_expires_at?: string | null
           is_active?: boolean
           created_at?: string
         }
@@ -66,6 +68,7 @@ export interface Database {
           access_token?: string
           platform_id?: string | null
           avatar_url?: string | null
+          token_expires_at?: string | null
           is_active?: boolean
           created_at?: string
         }
@@ -139,6 +142,58 @@ export interface Database {
           published_at?: string | null
           external_id?: string | null
           publish_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      tags: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          color: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          color?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          color?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      post_tags: {
+        Row: {
+          id: string
+          post_id: string
+          tag_id: string
+          user_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          tag_id: string
+          user_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          tag_id?: string
+          user_id?: string
           created_at?: string
           updated_at?: string
         }

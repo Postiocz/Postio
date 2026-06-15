@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
@@ -12,6 +12,7 @@ export function PostsContainer({
   initialPosts,
   locale,
   postsCount,
+  tags = [],
   tTitle,
   tNewPost,
   tAllPlatforms,
@@ -33,10 +34,14 @@ export function PostsContainer({
   tRemovedExternallyMsg,
   tLabels,
   tAi,
+  tFilterByTag,
+  tAllTags,
+  tNoTagsAvailable,
 }: {
   initialPosts: PostListItem[];
   locale: string;
   postsCount: number;
+  tags?: { id: string; name: string; color: string }[];
   tTitle: string;
   tNewPost: string;
   tAllPlatforms: string;
@@ -88,6 +93,14 @@ export function PostsContainer({
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+    // Internal organization tags (Nastavení → Štítky)
+    internalTags: string;
+    internalTagsPlaceholder: string;
+    createTag: string;
+    noInternalTags: string;
+    selectColor: string;
+    add: string;
+    cancel: string;
     remoteEditSuccess?: string;
     photoChangeNotAllowed?: string;
     updateOnSocials?: string;
@@ -105,12 +118,25 @@ export function PostsContainer({
     generateFromImage: string;
     aiNoImage: string;
   };
+  tFilterByTag: string;
+  tAllTags: string;
+  tNoTagsAvailable: string;
 }) {
   const [posts, setPosts] = useState(initialPosts);
   const [activePlatform, setActivePlatform] = useState("");
   const [activeStatus, setActiveStatus] = useState("");
+  const [activeTag, setActiveTag] = useState("");
   const [refreshAfterExit, setRefreshAfterExit] = useState(false);
   const router = useRouter();
+
+  // Sync local state with server-provided initialPosts whenever the server
+  // re-renders this page (e.g. after router.refresh() in EditPostDialog).
+  // Without this, edits like "Uložit interní metadata" would land in the DB
+  // and in revalidated initialPosts, but the in-memory list would still show
+  // stale data until the user manually reloads the page.
+  useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
 
   const handleFilterChange = useCallback((platform: string, status: string) => {
     setActivePlatform(platform);
@@ -126,9 +152,13 @@ export function PostsContainer({
       if (activeStatus) {
         if (post.status !== activeStatus) return false;
       }
+      if (activeTag) {
+        const postTagIds = (post.post_tags ?? []).map((t) => t.id);
+        if (!postTagIds.includes(activeTag)) return false;
+      }
       return true;
     });
-  }, [posts, activePlatform, activeStatus]);
+  }, [posts, activePlatform, activeStatus, activeTag]);
 
   const handleDeleted = useCallback((id: string) => {
     setPosts((prev) => {
@@ -170,6 +200,12 @@ export function PostsContainer({
           statusPublishedLabel={tStatusPublished}
           statusFailedLabel={tStatusFailed}
           statusRemovedExternallyLabel={tStatusRemovedExternally}
+          tagValue={activeTag}
+          tagOptions={tags}
+          tagLabel={tFilterByTag}
+          allTagsLabel={tAllTags}
+          noTagsLabel={tNoTagsAvailable}
+          onTagChange={setActiveTag}
         />
       </div>
 

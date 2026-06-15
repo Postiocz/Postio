@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { getUserTags } from "@/lib/actions/tag-actions";
 import { CalendarClient } from "./_calendar-client";
 
 export default async function CalendarPage({
@@ -23,7 +24,7 @@ export default async function CalendarPage({
 
   let query = supabase
     .from("posts")
-    .select("*, post_platforms(*)")
+    .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -55,7 +56,11 @@ export default async function CalendarPage({
       status: computedStatus,
       platforms: postPlatforms.map((p: any) => p.platform),
       post_platforms: postPlatforms,
-      scheduled_at: scheduledAt
+      scheduled_at: scheduledAt,
+      // Normalize post_tags (same shape as getPosts/getPost in posts.ts)
+      post_tags: ((post.post_tags ?? []) as { tags: { id: string; name: string; color: string } | null }[])
+        .map((row) => row.tags)
+        .filter((t): t is { id: string; name: string; color: string } => t !== null),
     };
   });
 
@@ -67,6 +72,9 @@ export default async function CalendarPage({
     { id: "youtube", label: "YouTube" },
     { id: "tiktok", label: "TikTok" },
   ];
+
+  // Load user's internal tags for the tag filter dropdown
+  const tagsResult = await getUserTags();
 
   const weekdays = t.raw("weekdays") as string[];
   const months = t.raw("months") as string[];
@@ -82,6 +90,7 @@ export default async function CalendarPage({
       <CalendarClient
         posts={posts ?? []}
         platforms={platforms}
+        tags={tagsResult.success && tagsResult.data ? tagsResult.data : []}
         initialPlatform={sp?.platform ?? ""}
         initialStatus={sp?.status ?? ""}
         weekdays={weekdays}
@@ -104,6 +113,12 @@ export default async function CalendarPage({
           scheduledAt: t("scheduledAt"),
           saving: t("saving"),
           addTags: t("addTags"),
+          internalTags: t("internalTags"),
+          internalTagsPlaceholder: t("internalTagsPlaceholder"),
+          createTag: t("createTag"),
+          noInternalTags: t("noInternalTags"),
+          selectColor: t("selectColor"),
+          add: t("add"),
           locationPlaceholder: t("locationPlaceholder"),
           postCreated: t("postCreated"),
           errorSaving: t("errorSaving"),

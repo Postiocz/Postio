@@ -1,4 +1,329 @@
+## 2026-06-15
+
+### Fix – FORMATTING_ERROR u dynamických zpráv FacebookPageSelectoru
+
+- **Problém**: Konzole hlásila `FORMATTING_ERROR: The intl string context variable "name"/"category" was not provided to the string …` při práci s `FacebookPageSelector` (Accounts stránka).
+- **Příčina**: V `accounts/page.tsx` se dynamické překlady (`pageCategoryLabel`, `pageConnected`, `pageDisconnected`) předávaly jako holý `t("…")` výsledek. Protože tyto řetězce obsahují ICU placeholdery (`{category}`, `{name}`), next-intl je při vykreslování/parsování validoval a hlásil chybějící proměnné. V komponentě se pak hodnoty dosazovaly ručně přes `String.replace(...)`, což už bylo příliš pozdě.
+- **Oprava**:
+  - **`src/components/facebook-page-selector.tsx`** – typ props u `categoryLabel`, `pageConnected` a `pageDisconnected` změněn ze `string` na `(value: string) => string`. Interní volání (`toast.success(…)` a vykreslení štítku kategorie) nyní funkci rovnou zavolají s dynamickou hodnotou.
+  - **`src/app/[locale]/(dashboard)/accounts/page.tsx`** – tyto tři položky v `t={{…}}` se nyní předávají jako arrow funkce, které delegují na `t("…", { name })` / `t("…", { category })`. Díky tomu next-intl dostane hodnotu ještě před ICU formátováním a chyba zmizí.
+- **Překlady**: Beze změn – stávající klíče v `cs.json` / `en.json` / `uk.json` (s placeholdery `{name}`, `{category}`) jsou nyní správně používány přes standardní next-intl API.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+
+### Fix – `null value in column "metadata"` při Facebook OAuth (HOTFIX)
+
+- **Problém**: Při propojování Facebook účtu OAuth callback končil chybou `error code 23502: null value in column "metadata" of relation "social_accounts" violates not-null constraint`. Uživatel byl vrácen na úvodní stránku bez propojení.
+- **Příčina**: V callbacku se u **Instagram řádků** (3 místa) posílal do `rowsToUpsert.push(...)` objekt bez `metadata`. Sloupec `metadata` je `NOT NULL DEFAULT '{}'::jsonb` (z migrace 029), ale při explicitním upsertu s `null` hodnotou se DEFAULT nepoužije – proto chyba.
+- **Oprava** (`src/app/auth/callback/route.ts`):
+  - Přidáno `metadata: {}` do všech 3 Instagram pushů:
+    1. Instagram Direct Login (řádek ~248).
+    2. Instagram z Pages v IG-only flow (řádek ~309).
+    3. Instagram z Pages v běžném flow (řádek ~369).
+  - Typ `rowsToUpsert` zpřísněn: `metadata: SocialAccountMetadata` (povinné, ne `optional`). Tím TypeScript zachytí podobnou chybu v budoucnu při kompilaci.
+- **Bonus** (`src/components/facebook-page-selector.tsx`):
+  - Přidán `<DialogDescription className="sr-only">` pro accessibility (řeší browser warning `Missing Description or aria-describedby`).
+- **Build**: `npm run build` prošel ✅ 0 chyb.
+- **Dopad**: Propojení Facebooku nyní projde čistě. IG i FB stránky se uloží do DB, dialog se otevře s pending pages.
+
+### Feature – Výběr konkrétní Facebook Page (Krok 2: Frontend & Interakce) (DOKONČENO)
+
+- **Cíl**: Po úspěšném přihlášení přes Facebook nabídnout uživateli UI pro zaškrtnutí stránek, které chce přes Postio publikovat. Backend logiku (uložení stránek jako `is_active=false` + endpoint `/api/accounts/facebook/select`) jsme připravili v předchozím kroku – tento commit ji zprístupňuje v UI.
+- **`src/lib/actions/social-accounts.ts`** (NOVÝ) – serverová akce `toggleAccountActive(accountId, isActive)`:
+  - Ověří přihlášení a provede **explicitní ownership check** (`select id where id=… and user_id=auth.uid()` – vrátí friendly chybu pokud account neexistuje nebo nepatří uživateli).
+  - Aktualizuje `is_active` v `social_accounts` s `eq("id", accountId).eq("user_id", user.id)` (defence in depth – RLS navíc chrání).
+  - Po úspěchu `revalidatePath("/accounts")` pro obnovení serverového listu.
+  - Vrací `{ success, error? }` (žádné 500 výjimky – chyby se posílají jako result).
+- **`src/components/facebook-page-selector.tsx`** (NOVÝ) – `"use client"` dialog (glassmorphism styl):
+  - Vizuální styl konzistentní s `ConnectAccountModal`: `rounded-[24px]`, `bg-black/40 backdrop-blur-xl`, `border-white/10`, indigo→purple gradient akcenty, vlastní close tlačítko vpravo nahoře.
+  - Hlavička s Facebook ikonou + titulkem + subtitulem.
+  - Seznam stránek (každá = řádek s avatarem, názvem, kategorií a Switchem).
+  - **Optimistická aktualizace**: po kliknutí se stránka **okamžitě odebere z lokálního seznamu** + zobrazí se `Loader2` spinner místo switche.
+  - Po úspěchu `toast.success("Stránka {name} byla úspěšně připojena k Postiu.")` + `onChanged` callback.
+  - Při chybě: revert + `toast.error`.
+  - Prázdný stav: `CheckCircle2` + "Všechny vaše stránky jsou již aktivní."
+  - Lokální stav `items` se re-syncuje s `pages` prop přes `useEffect` (pro případ opakovaného otevření dialogu).
+  - Footer s tlačítkem "Hotovo" pro zavření.
+  - **Bezpečnost**: žádný `access_token` se neodesílá na klienta – pouze `category` z `metadata`.
+- **`src/app/[locale]/(dashboard)/accounts/page.tsx`**:
+  - Přidán state: `pendingPages`, `loadingPending`, `selectorOpen`.
+  - Nová `fetchPendingPages()` – GET na `/api/accounts/facebook/select` (cache: no-store) → naplní `pendingPages`.
+  - `useEffect` na mountu volá `fetchPendingPages()`.
+  - **Auto-open dialogu**: pokud URL obsahuje `?fb=connected` a existují pending pages, dialog se **automaticky otevře**; po zavření se query param vyčistí přes `router.replace(pathname)`.
+  - **Sekce "Nalezené stránky k připojení"** mezi kartou platforem a seznamem připojených účtů:
+    - Glassmorphism karta s modro-indigo gradientem (odlišení od ostatních sekcí).
+    - Ikona Facebook, badge s počtem, popis, tlačítko "Spravovat stránky" s `Sparkles` ikonou.
+    - **Preview avatarů** prvních 4 stránek v `flex -space-x-2` + názvy prvních 3 + „a {count} dalších".
+  - Po úspěšném přepnutí se volá `fetchAccounts()` (pro refresh aktivního seznamu) + `fetchPendingPages()` (stránka zmizí z pending).
+- **`src/app/auth/callback/route.ts`**:
+  - Po úspěšném Facebook Pages OAuth flow (ne Instagram) se k `finalNext` přidá `?fb=connected` (respektive `&fb=connected` pokud již parametry existují). Tím triggerujeme auto-open v `/accounts`.
+  - Instagram direct login tento parametr **nedostává** (IG účty se aktivují automaticky).
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – přidáno 17 nových klíčů v sekci `accounts`:
+  - `pendingPagesTitle`, `pendingPagesSubtitle`, `managePagesButton`, `andMore` (s placeholder `{count}`).
+  - `selectorTitle`, `selectorSubtitle`, `pageNoCategory`, `pageCategoryLabel` (s placeholder `{category}`).
+  - `inactive`, `activating`, `deactivating`, `done`.
+  - `pageConnected` (placeholder `{name}`), `pageDisconnected` (placeholder `{name}`), `errorToggle`, `selectorEmpty`.
+- **Bezpečnost / Data**: Žádné DB změny (pouze UI). RLS chrání `toggleAccountActive`. Optimistická aktualizace má revert při chybě.
+- **Build**: `npm run build` prošel ✅ 0 chyb. Endpoint `/api/accounts/facebook/select` (z Krok 1) je v route listu.
+
+### Flow (konec→konec):
+1. Uživatel klikne na Facebook v `/accounts` → OAuth na Meta.
+2. Callback uloží všechny Pages jako `is_active=false` + metadata + redirect na `/accounts?fb=connected`.
+3. `/accounts` detekuje `?fb=connected`, zavolá `fetchPendingPages()`, automaticky otevře `<FacebookPageSelector>`.
+4. Uživatel zaškrtne stránky → `toggleAccountActive` → toast + refresh.
+5. Stránky se okamžitě objeví v "Propojené účty" níže (a zmizí z pending).
+
+### Feature – Výběr konkrétní Facebook Page (Krok 1: Backend logika) (DOKONČENO)
+
+- **Cíl**: Připravit backend pro to, aby si uživatel po přihlášení přes Facebook mohl sám zvolit, **které** stránky (Pages) chce mít aktivní pro publikování. V tomto kroku jde výhradně o serverovou stranu – UI pro samotné zaškrtávání přijde v dalším kroku.
+- **`supabase/migrations/029_add_metadata_to_social_accounts.sql`** (NOVÝ):
+  - Přidán sloupec `metadata JSONB NOT NULL DEFAULT '{}'::jsonb` do `public.social_accounts`.
+  - Držen generický JSON blob, aby se do něj v budoucnu mohly ukládat i per-platform extras (X bearer, TikTok open_id, …).
+  - Existující unikátní index `social_accounts_user_platform_platform_id_key` na `(user_id, platform, platform_id)` zůstává beze změny → **jednoznačně podporuje více stránek pro jednoho uživatele** (jedna stránka = jeden řádek).
+  - Migrace je `ADD COLUMN IF NOT EXISTS` → idempotentní a bezpečná pro opakované spuštění.
+- **`src/app/auth/callback/route.ts`**:
+  - Nový typ `SocialAccountMetadata` (exportuje vše potřebné pro UI): `access_token?`, `category?`.
+  - Graph API dotaz `/me/accounts` nyní žádá i pole `category` (přidáno do `pagesFields`).
+  - **Změna chování pro Facebook Pages**: každá stránka se nyní ukládá s `is_active = false` a metadata `{ access_token, category }` (page-level token a kategorie dle Meta). Hlavní sloupec `access_token` se plní stejnou hodnotou kvůli konzistenci s publishing logikou, ale v `metadata` je uložena totéž hodnota jako canonical per-page token.
+  - **Bezpečnostní oprava**: těsně před upsertem se **deaktivují všechny existující Facebook řádky** daného uživatele (`update is_active=false where user_id=… and platform='facebook'`). Tím se zabrání tomu, aby stránka, kterou uživatel mezitím ztratil přístup v Meta, zůstala v Postiu aktivní. Instagram řádky zůstávají nedotčeny.
+  - **Instagram chování beze změny**: jak direct login IG, tak IG z Pages se stále ukládají s `is_active = true` (single-IG-account model).
+  - Pole `metadata?` přidáno do typu `rowsToUpsert`.
+- **`src/app/api/accounts/facebook/select/route.ts`** (NOVÝ) – `GET` endpoint:
+  - Vyžaduje přihlášení (`supabase.auth.getUser()`), RLS automaticky filtruje `user_id = auth.uid()`.
+  - Vrací `JSON { pages: FacebookPageDto[] }`, kde každá page obsahuje: `id` (interní UUID – klíč pro pozdější aktivaci), `platform_id` (FB Page id), `account_name`, `avatar_url`, `category` (z `metadata.category`), `created_at`.
+  - Filtruje `platform = 'facebook' AND is_active = false` – tedy **pouze neaktivní** stránky, které čekají na výběr.
+  - Řazeno `created_at ASC` – nejstarší nahoře (typicky první přidaná Page).
+  - **Bezpečnost**: žádné write operace, pouze read přes RLS-scoped Supabase client. `access_token` z `metadata` se nikdy neposílá na klienta (chráněn).
+- **Bezpečnost / Data**:
+  - RLS na `social_accounts` (z migrace 013) zůstává v platnosti – uživatel nikdy neuvidí cizí stránky.
+  - Žádný `access_token` v hlavním API response – klient dostane jen `category` z `metadata`, což je bezpečné UI-hint pole.
+- **Dopad na stávající flow**:
+  - Po tomto commitu: po FB OAuth **žádná** Page není aktivní → uživatel musí stránky ručně zaškrtnout (připravíme v dalším kroku).
+  - UI v `/accounts` by měl tento stav reflektovat – v dalším kroku přidáme hlášku „Nemáte aktivní žádnou FB stránku, vyberte si" + tlačítko pro otevření výběru z nového endpointu.
+- **Build**: `npm run build` projde (viz další řádek). Endpoint se automaticky zaregistruje do Next.js route handlerů pod `/api/accounts/facebook/select`.
+
+### Feature – Modální okno „O štítcích" po kliknutí na „Zjistit více" (DOKONČENO)
+
+- **Cíl**: Po kliknutí na tlačítko „Zjistit více" v info banneru na stránce `/settings/labels` otevřít modální okno se stručným readmem pro uživatele – k čemu tagy jsou, jak je využít a hlavně proč.
+- **`src/app/[locale]/(dashboard)/settings/labels/tag-info-dialog.tsx`** (NOVÝ) – `"use client"` komponenta:
+  - Postavena na shadcn `Dialog` (stejný styl jako `CreateTagDialog` / `EditTagDialog`) s vlastním `DialogContent` (skryt výchozí close button – máme vlastní footer).
+  - **Layout**: hlavička s indigo gradientem (konzistentní s bannerem), scrollovatelný body (`max-h-[60vh]`) se 4 sekcemi a patička s tlačítkem „Rozumím".
+  - **Sekce** (každá s vlastní ikonou v kruhovém badge):
+    1. **Co jsou štítky?** (`Tag` ikona) – vysvětlení, že jde o interní štítky, které si uživatel sám pojmenuje (kampaň, cílová skupina, fáze nákupní cesty, téma).
+    2. **Proč je používat?** (`Sparkles` ikona) – 4 odrážky s indigo tečkami: rychlé filtrování, lepší přehled (počty), příprava na analytiku, konzistentní tým.
+    3. **Jak je využít?** (`Filter` ikona) – číslovaný seznam 4 kroků: vytvořit v Nastavení → Štítky, přiřadit k příspěvku, filtrovat, sledovat počty.
+    4. **Důležité – štítky jsou interní** (`EyeOff` ikona) – **amber** zvýrazněný box, zdůrazňuje, že sledující štítky nikdy neuvidí.
+  - **Responzivita**: `sm:max-w-lg`; horizontální padding `px-6 sm:px-8`; body scrolluje vertikálně, pokud se na malé obrazovce nevejde.
+- **`src/app/[locale]/(dashboard)/settings/labels/tag-info-banner.tsx`**:
+  - Přidán nový prop `infoDialog: React.ComponentProps<typeof TagInfoDialog>["t"]` (překlady pro dialog).
+  - `<a>` odkaz „Zjistit více" nahrazen `<button type="button">` se `setInfoOpen(true)` – nyní otevírá dialog místo pseudo-navigace.
+  - Přidán interní state `infoOpen` (default `false`); dialog se renderuje vždy, ale zobrazí se jen po kliknutí.
+  - Render banneru zabalen do fragmentu (`<>…</>`), aby vedle `<div>` bannneru mohl být i `<TagInfoDialog>` jako sourozenec.
+  - Persistent dismiss v `localStorage` zůstává beze změny (banner lze i nadále zavřít křížkem; dialog je na tom nezávislý).
+- **`src/app/[locale]/(dashboard)/settings/labels/page.tsx`**:
+  - Nový objekt `infoDialogTranslations` sestavuje všechny klíče pro dialog (včetně 4 + 4 položek seznamů).
+  - Předán do `<TagInfoBanner t={bannerTranslations} infoDialog={infoDialogTranslations} />`.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – přidáno 18 nových klíčů v sekci `tags`: `infoDialogTitle`, `infoDialogIntro`, `infoDialogWhatTitle`, `infoDialogWhatBody`, `infoDialogWhyTitle`, `infoDialogWhyItem1`–`4`, `infoDialogHowTitle`, `infoDialogHowItem1`–`4`, `infoDialogVisibilityTitle`, `infoDialogVisibilityBody`, `infoDialogClose`.
+- **Bezpečnost / Data**: Žádné DB změny, žádné server actions. Čistě UI vrstva (klientská komponenta + i18n klíče).
+- **Build**: `npm run build` prošel ✅ 0 chyb. Stránka `/[locale]/settings/labels` se generuje správně.
+
+### Feature – Info banner na stránce Štítky inspirovaný Bufferem (DOKONČENO)
+
+- **Cíl**: Přenést na stránku `/settings/labels` (Nastavení → Štítky) kontextový info box o viditelnosti štítků pro organizaci, který zná uživatelé z Bufferu, a přizpůsobit jej Postio design systému (pure-black + glassmorphism + indigo akcent). Dbát na mobilní responzivitu.
+- **Inspirace (Buffer)**: Banner s textem „Tags are visible to everyone in your organization. Learn more" + zvýrazněný odstavec v prázdném stavu „Create tags to organize and categorize your social media content…"
+- **`src/app/[locale]/(dashboard)/settings/labels/tag-info-banner.tsx`** (NOVÝ) – `"use client"` komponenta:
+  - Glassmorphism karta (`rounded-[20px]`, `border-white/5`, `bg-white/50 dark:bg-card/40`, `backdrop-blur-sm`) s ikonou `Info` v indigo „disku" (`bg-indigo-500/15 ring-1 ring-indigo-500/20`).
+  - Inline text + odkaz „Zjistit více" v `text-indigo-300` s focus ringem pro klávesnici.
+  - Tlačítko zavřít (`X`, lucide) s `aria-label` a větší touch target na mobilu (`h-8 w-8` absolutně vpravo nahoře → `sm:static sm:h-7 sm:w-7` na desktopu).
+  - **Responzivita**: `flex-col` na mobilu (text pod ikonou, zavírací tlačítko absolutně v rohu), `sm:flex-row sm:items-center` na desktopu (vše v jedné řadě).
+  - **Perzistentní dismiss**: stav uložen v `localStorage` pod klíčem `postio:labels:info-banner-dismissed` (props `storageKey` overridable). SSR-safe – server vždy renderuje banner; po `useEffect` mountu se teprve čte `localStorage` a případně banner skryje → žádný hydration mismatch.
+  - Pokud `localStorage` není dostupný (private mode), selhání se tiše ignoruje a banner zůstane viditelný.
+- **`src/app/[locale]/(dashboard)/settings/labels/page.tsx`**:
+  - Import + render `<TagInfoBanner t={bannerTranslations} />` vždy mezi hlavičkou a seznamem (viditelné jak v prázdném, tak v naplněném stavu – kontext pro uživatele je v obou případech cenný).
+  - **Prázdný stav vylepšen**:
+    - Původní `emptyTitle: "Štítky"` nahrazen novým klíčem `noTagsYet` (výstižnější pro prázdný stav).
+    - Pod nadpisem a podtitulem přidán **zvýrazněný box** s textem `emptyDescription` – `rounded-[20px]` + `border-indigo-500/20` + `bg-indigo-500/5` + `backdrop-blur-sm` + text v `text-indigo-100/90`. Vizuální obdoba zvýrazněného textu v Bufferu, ale laděná do Postio designu (indigo akcent místo zelené).
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – přidány klíče v sekci `tags`:
+  - `noTagsYet`: "Zatím žádné štítky" / "No tags yet" / "Ще немає міток".
+  - `infoBannerText`: "Štítky jsou viditelné pro všechny ve vaší organizaci." / "Tags are visible to everyone in your organization." / "Мітки видимі для всіх у вашій організації."
+  - `infoBannerLearnMore`: "Zjistit více" / "Learn more" / "Дізнатися більше".
+  - `infoBannerDismiss`: "Zavřít" / "Dismiss" / "Закрити".
+- **Poznámka**: Klíč `emptyTitle` v překladech zůstává (zpětná kompatibilita), ale aktuálně jej kód nepoužívá – bude-li v budoucnu nepotřebný, lze jej odstranit. `emptySubtitle` a `emptyDescription` se nadále používají v prázdném stavu.
+- **Bezpečnost / Data**: Žádné DB změny, žádné server actions, žádné API volání. Čistě UI vrstva.
+- **Build**: `npm run build` prošel ✅ 0 chyb. Všechny routy vygenerovány, včetně `/[locale]/settings/labels`.
+
+### Feature – Počty příspěvků u každého tagu v Nastavení → Štítky (DOKONČENO)
+
+- **Cíl**: Zobrazit u každého tagu v seznamu **počet příspěvků**, které mají tento tag přiřazen přes vazební tabulku `post_tags`. Bod 3 ze seznamu "Co zůstává na další iteraci".
+- **`src/lib/actions/tag-actions.ts`**:
+  - Nový typ `UserTagWithCount extends UserTag` s polem `post_count: number`.
+  - Nová server action `getUserTagsWithCounts()` – vrací `UserTagWithCount[]`. Strategie: dva RLS-friendly dotazy (1. `tags` pro `user_id`, 2. `post_tags` aggregované na straně serveru v `Map<tag_id, count>`), výsledek sloučen v paměti. RLS na `post_tags` automaticky filtruje `auth.uid() = user_id`, takže cizí posty nejsou nikdy započítány. Tagy bez příspěvků mají `post_count: 0`.
+- **`src/app/[locale]/(dashboard)/settings/labels/page.tsx`**:
+  - Server component přešel z přímého `supabase.from("tags").select("*")` na `getUserTagsWithCounts()`.
+  - Výsledek předává do nové klientské komponenty `TagsList` (včetně `locale` pro pluralizaci).
+  - Odstraněn nevyužitý import `Plus` z lucide-react.
+- **`src/app/[locale]/(dashboard)/settings/labels/tags-list.tsx`** (NOVÝ) – `"use client"` wrapper nad `TagItem`:
+  - Toggle "Seřadit podle názvu" / "Seřadit podle počtu" (výchozí = abecedně). Vizuál: glassmorphism přepínač v pravém horním rohu seznamu s aktivním stavem v `bg-indigo-500/15 text-indigo-300`. Ikony `ArrowDownAZ` / `Hash` (lucide).
+  - Stabilní řazení: při shodě `post_count` se řadí abecedně (`localeCompare` s aktivním locale).
+- **`src/app/[locale]/(dashboard)/settings/labels/tag-item.tsx`**:
+  - Přidány props `postCount: number` a `locale: string`.
+  - Nový helper `formatPostsCount(count, locale, t)` – řeší české/ukrajinské skloňování (1, 2-4, 5+, 0) s oddělenými klíči `onePost` / `postsCountFew` / `postsCount` / `noPosts`. Anglie používá jednoduché `one` / `other`.
+  - Vedle názvu tagu se zobrazuje **glassmorphism badge** s počtem:
+    - `postCount > 0` → `bg-indigo-500/10 text-indigo-300` (aktivní).
+    - `postCount === 0` → `bg-white/5 text-muted-foreground/60` s textem "Bez příspěvků".
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – přidány klíče v sekci `tags`: `noPosts`, `onePost`, `postsCount`, `postsCountFew`, `sortByName`, `sortByCount`. Příklady:
+  - cs: `"Bez příspěvků"` / `"1 příspěvek"` / `"2 příspěvky"` / `"5 příspěvků"`.
+  - en: `"No posts"` / `"1 post"` / `"5 posts"`.
+  - uk: `"Без публікацій"` / `"1 публікація"` / `"3 публікації"` / `"10 публікацій"`.
+- **Bezpečnost**:
+  - RLS na `post_tags` (`auth.uid() = user_id`) zajišťuje, že počet nikdy nezahrnuje cizí příspěvky.
+  - Žádné nové sloupce v DB nejsou potřeba.
+- **Refresh**: Po `revalidatePath("/settings")` (z `createTag` / `deleteTag` / `updateTag` / `setPostTags`) se stránka `/settings/labels` automaticky přerenderuje a počty se aktualizují.
+- **Build**: `npm run build` prošel ✅ 0 chyb.
+
+### Feature – Editace tagu v Nastavení → Štítky (DOKONČENO)
+
+- **Cíl**: Umožnit uživateli upravit název i barvu existujícího tagu. Bod 2 ze seznamu "Co zůstává na další iteraci".
+- **`src/app/[locale]/(dashboard)/settings/labels/actions.ts`** – nová server action `updateTag(id, name, color)`:
+  - Ověří přihlášení a **ownership** (`select id, name, color ... eq("id", id).eq("user_id", user.id).maybeSingle()` → pokud null, vrátí chybu).
+  - Normalizuje `name = trim().replace(/^#/, "")`.
+  - **Case-insensitive duplicity** přes `ilike(name, cleaned).neq("id", id).maybeSingle()` – pokud existuje jiný tag se stejným názvem, vrátí `{ success: false, alreadyExists: true }`.
+  - `update` provede s `eq("id", id).eq("user_id", user.id)` (defence in depth) a aktualizuje `updated_at`. Po úspěchu `revalidatePath("/settings")` a vrátí aktualizovaný tag.
+  - Typ `UpdateTagResult` exportován pro UI.
+- **`src/app/[locale]/(dashboard)/settings/labels/edit-tag-dialog.tsx`** (NOVÝ) – klientský dialog (lucide Pencil) s:
+  - Inputem pro název (placeholder: `Název štítku` / `Tag name` / `Назва мітки`).
+  - 10 předdefinovanými barvami (stejná sada jako `CreateTagDialog` a `TagPicker`).
+  - Tlačítky `Uložit` / `Zružit`.
+  - Toast oznámení: `tagUpdated` (úspěch), `tagNameExists` (duplicita), jinak `error.message`.
+  - Re-sync lokálního stavu s `initialName`/`initialColor` při každém otevření (takže editace dvou různých tagů po sobě funguje korektně).
+- **`src/app/[locale]/(dashboard)/settings/labels/tag-item.tsx`** – přidáno tlačítko **Upravit** (Pencil ikona) před tlačítkem Smazat, zobrazené na `group-hover` (konzistentní s existujícím UX mazání).
+- **`src/app/[locale]/(dashboard)/settings/labels/page.tsx`** – rozšířen `itemTranslations` o nové i18n klíče.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – přidány klíče v sekci `tags`: `save`, `editTag`, `tagUpdated`, `tagNameExists`.
+- **Bezpečnost**:
+  - Ownership check je **povinný** – cizí tag nelze editovat (test: pokus o `updateTag` s cizím `id` vrátí `success: false, error: "Tag not found"`).
+  - `ilike` pro case-insensitive porovnání (zamezí obcházení velikostí písmen).
+  - WHERE klauzule `eq("user_id", user.id)` je v update dotazu (defence in depth vedle explicitního `ownedTag` checku).
+  - RLS na `tags` je již aktivní – žádné změny v DB nejsou potřeba.
+- **Refresh** – po úspěšném uložení `revalidatePath("/settings")` v server action → server render stránky `/settings/labels` se obnoví; navíc se změna barvy okamžitě projeví v kartě příspěvku (`_post-card.tsx`), tag filtru (`_posts-filters.tsx` → `TagFilterSelect`) a v `TagPickeru`, protože tyto komponenty čtou `tag.color` z `tags` tabulky – po refreshi se změna automaticky projeví.
+- **Build**: `npm run build` prošel ✅ 0 chyb.
+
+### Fix – Chybějící překlady pro tag filtr v Příspěvcích (DOKONČENO)
+
+- **Problém**: Na stránce `/posts` (src\app\[locale]\(dashboard)\posts\page.tsx) se v konzoli zobrazovaly chyby `MISSING_MESSAGE` pro klíče `posts.filterByTag`, `posts.allTags` a `posts.noTagsAvailable`.
+- **Příčina**: Při dřívější implementaci tag filtru v Příspěvcích/Kalendáři byly tyto tři klíče přidány pouze do sekce `calendar` v `cs.json`/`en.json`/`uk.json`. Sekce `posts` je ale používá samostatně (přes `t("filterByTag")` atd.) – klíče v ní chyběly.
+- **Řešení**: Přidány chybějící klíče do sekce `posts` ve všech třech jazykových souborech (`src/messages/cs.json`, `en.json`, `uk.json`):
+  - `filterByTag`: "Filtr podle štítku" / "Filter by tag" / "Фільтр за тегом"
+  - `allTags`: "Všechny štítky" / "All tags" / "Усі теги"
+  - `noTagsAvailable`: "Zatím nemáte žádné štítky. Vytvořte je v Nastavení → Štítky." / "You have no tags yet. Create them in Settings → Labels." / "У вас ще немає тегів. Створіть їх у Налаштуваннях → Мітки."
+- **Dopad**: Stránka `/posts` se nyní vykresluje bez `MISSING_MESSAGE` chyb. Tag filtr na Příspěvcích i Kalendáři používá stejné texty.
+
+### Feature – Filtr podle interních štítků v Příspěvky/Kalendáři (DOKONČENO)
+
+- **Cíl**: Umožnit filtrování příspěvků podle interních štítků (Nastavení → Štítky) v seznamu Příspěvky i v Kalendáři – bod 1 ze seznamu "Co zůstává na další iteraci".
+- **`src/components/post-filters-row.tsx`**:
+  - Přidána nová interní komponenta `TagFilterSelect` – specializovaný dropdown s barevnou tečkou u každé možnosti (vizuální vazba na barvu tagu z DB). Reaguje na aktivní tag – v triggeru zobrazí tečku barvy místo výchozí ikony. Plná podpora mobile/desktop + empty state ("Zatím nemáte žádné štítky").
+  - Rozšířen `PostFiltersRow` o nové volitelné props: `tagValue`, `tagOptions`, `tagLabel`, `allTagsLabel`, `noTagsLabel`, `onTagChange`. Pokud `onTagChange` není předán, třetí filtr se vůbec nevykreslí (zpětná kompatibilita).
+  - Vstupní tvar `tagOptions` odpovídá `UserTag` z `tag-actions.ts` (`{ id, name, color }`). V renderu se mapuje na interní `{ value: id, label: name, color }`.
+  - Layout na desktopu: tři filtry vedle sebe, `sm:max-w-[660px]`. Na mobilech tři filtry pod sebou (vertikální flex).
+- **`src/app/[locale]/(dashboard)/posts/_posts-container.tsx`**:
+  - Přidán state `activeTag` a rozšířen `filteredPosts` o tag filtr: `(post.post_tags ?? []).some(t => t.id === activeTag)`.
+  - Předány nové props `tags`, `tFilterByTag`, `tAllTags`, `tNoTagsAvailable` do renderu `PostFiltersRow`.
+- **`src/app/[locale]/(dashboard)/posts/page.tsx`**:
+  - Import `getUserTags` z `@/lib/actions/tag-actions`.
+  - Zavoláno `getUserTags()` paralelně s ostatními načítáními a výsledek předán do `PostsContainer` (fallback na `[]` při chybě).
+- **`src/app/[locale]/(dashboard)/calendar/_calendar-client.tsx`**:
+  - Přidán state `tagFilter`, předán do `PostFiltersRow` (`tagValue`, `tagOptions`, `onTagChange`).
+  - Předán dále do `CalendarView` jako nový prop `tagFilter`.
+  - Rozšířen `tCalendar` typ o volitelná pole `filterByTag`, `allTags`, `noTagsAvailable`.
+- **`src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`**:
+  - Přidán nový prop `tagFilter?: string` do `CalendarViewProps`.
+  - Rozšířen `effectiveFilteredPosts` o tag filtr (stejná logika jako v `PostsContainer`).
+- **`src/app/[locale]/(dashboard)/calendar/page.tsx`**:
+  - Import `getUserTags`. Zavoláno `await getUserTags()` a výsledek předán do `CalendarClient` jako `tags` prop.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`):
+  - Sekce `posts` i `calendar` rozšířeny o klíče: `filterByTag`, `allTags`, `noTagsAvailable`.
+- **UX detaily**:
+  - Filtr je plně nezávislý na stávajících filtrech (platforma, stav) – všechny se kombinují AND logikou.
+  - V triggeru se po výběru tagu zobrazí barevná tečka (10px kroužek s `ring-1`) + jeho název. V dropdownu je tečka u každé option.
+  - Prázdný stav: pokud uživatel nemá žádné tagy, dropdown zobrazí informaci "Zatím nemáte žádné štítky" jak v desktopu tak v mobile bottom-sheetu.
+  - Tlačítko pro vymazání filtru (X) je vždy k dispozici, když je filtr aktivní.
+- **Build**: `npm run build` prošel ✅ 0 chyb. Všechna nová pole v `tLabels`/`tCalendar` jsou volitelná s `??` fallbacky – zpětná kompatibilita zachována.
+
+### Fix – Interní štítky se v kartě nezobrazovaly po uložení (DOKONČENO)
+
+- **Problém**: Po kliknutí na "Uložit interní metadata" v `EditPostDialog` se toast zobrazil a backend vrátil 200 OK, ale interní štítky se v kartě příspěvku na stránce Příspěvky (`/posts`) nezobrazovaly.
+- **Příčina** (dvě chyby):
+  1. **Chybějící JOIN v SELECTu** – server component `posts/page.tsx` načítal `posts` přes `select("*, post_platforms(*)")` – **chybělo `post_tags(tags(id, name, color))`**. Server tedy vůbec nevěděl, že příspěvek má interní tagy. V kalendáři to bylo opraveno (viz. předchozí CHANGELOG), ale v `posts/page.tsx` se na to zapomnělo.
+  2. **State se neaktualizoval po `router.refresh()`** – `PostsContainer` držel seznam příspěvků ve vlastním `useState(initialPosts)`, který se inicializoval jen jednou. Když `EditPostDialog` po uložení zavolal `router.refresh()`, server sice poslal nová data, ale lokální `posts` state zůstal starý.
+- **Řešení**:
+  - **`posts/page.tsx`**:
+    - Přidán `post_tags(tags(id, name, color))` do SELECTu.
+    - V `map()` funkci přidána normalizace `post_tags` z formátu `[{ tags: { id, name, color } | null }]` na flat array `[{ id, name, color }]`.
+    - V `initialPosts` mappingu přidáno `post_tags: post.post_tags ?? []`.
+  - **`_posts-container.tsx`**: Přidán `useEffect`, který synchronizuje lokální `posts` state s `initialPosts` props při každé změně. Po `router.refresh()` se nyní karty v seznamu automaticky aktualizují.
+- **Dopad**: Štítky uložené přes tlačítko "Uložit interní metadata" (nebo přes standardní uložení příspěvku) se nyní **okamžitě zobrazí v kartě** v seznamu Příspěvky i v Kalendáři.
+- **Build**: `npm run build` prošel ✅ 0 chyb.
+
+### Fix – Tlačítko pro uložení interních štítků u publikovaných příspěvků (DOKONČENO)
+
+- **Problém**: Uživatel hlásil, že po výběru interního štítku (Nastavení → Štítky) v editoru se u publikovaných příspěvků neobjevilo žádné tlačítko pro uložení změn. Stejný problém se projevil u nových příspěvků. Interní metadata tak nebylo možné uložit.
+- **Příčina**:
+  1. `EditPostDialog` – v `isAnyPublished` větvi se tlačítka zobrazovala jen podmíněně (`isContentChanged`, `canPublishAdditional`). Pokud uživatel změnil pouze interní metadata (tagy/lokaci), nezobrazilo se žádné tlačítko.
+  2. `posts/[id]/page.tsx` – v `handleSave`, když byl `status === "published"`, se vždycky volalo `publishPost` (znovu publikovalo na sociální sítě), i když se změnily jen interní tagy.
+  3. `posts/new/page.tsx` – tlačítka byla disabled, ale bez vysvětlení proč (uživatel nevěděl, že chybí text/platformy).
+- **Řešení**:
+  - **`edit-post-dialog.tsx`**: Přidán `useMemo` `hasMetadataChanges` (porovnává `selectedTagIds`, `location`, `tags` proti originálu). Přidán handler `handleSaveMetadata` volající `updatePost` jen s interními poli (location, tags, tagIds). V `isAnyPublished` větvi přidáno tlačítko "Uložit interní metadata" (vždy viditelné, disabled pokud žádná změna). Rozšířen typ `tLabels` o volitelná pole `saveMetadata`, `metadataSaved`.
+  - **`posts/[id]/page.tsx`**: Přidán state `originalPost` (snapshot originálních dat). Přidány `useMemo` `isContentChanged` a `hasMetadataChanges`. Přidán handler `handleSaveMetadata`. V `handleSave` u `status === "published"` se nově větví: pokud `!isContentChanged` → uloží se jen metadata, BEZ opakovaného `publishPost`. V UI přidáno druhé tlačítko "Uložit interní metadata" vedle "Uložit".
+  - **`posts/new/page.tsx`**: Přidána nápověda `newPostHint` pod tlačítka, která se zobrazí, když chybí text nebo platformy – uživatel pochopí, proč jsou tlačítka disabled.
+  - **Překlady** (`src/messages/cs.json`, `en.json`, `uk.json`): Přidány klíče `saveMetadata`, `metadataSaved`, `saveMetadataTooltip`, `metadataOnlyHint`, `newPostHint` v sekcích `posts` i `calendar`.
+- **Bezpečnost**: `updatePost` striktně odděluje interní metadata od `published_platforms`/`published_at`/`external_ids` – tyto sloupce se nikdy nepřepíšou přes `updatePost` (řízeno přes RPC `append_published_platform` v `publish` flow). Nové tlačítko "Uložit interní metadata" je tedy zcela bezpečné – nikdy neovlivní stav na sociálních sítích.
+- **Build**: `npm run build` prošel ✅ 0 chyb. Typ `tLabels` rozšířen zpětně kompatibilně (všechna nová pole jsou volitelná s `??` fallbacky).
+
+### Feature – Interní štítky (Nastavení → Štítky) integrace do editoru a karty (DOKONČENO)
+
+- **Cíl**: Štítky z tabulky `tags` (dříve "dead feature") dostaly skutečný účel – slouží jako interní organizační pomůcka. Inline hashtagy (`posts.tags: string[]`) zůstávají beze změn pro publikaci na sociální sítě.
+- **`supabase/migrations/028_create_post_tags.sql`** (NOVÝ) – vazební tabulka `post_tags` (N:M mezi `posts` a `tags`). Sloupce: `id`, `post_id`, `tag_id`, `user_id`, `created_at`, `updated_at` + UNIQUE(post_id, tag_id) + indexy + RLS politiky (SELECT/INSERT/DELETE přes `auth.uid() = user_id`) + trigger na `updated_at`. CASCADE na smazání.
+- **`src/lib/supabase/types.ts`** – přidány typy `tags` a `post_tags` (Row/Insert/Update).
+- **`src/lib/actions/tag-actions.ts`** (NOVÝ):
+  - `getUserTags()` – načte všechny tagy přihlášeného uživatele (seřazené abecedně).
+  - `createTagInline(name, color)` – vytvoří nový tag z editoru. Při duplicitě (case-insensitive) vrátí existující tag s `alreadyExists: true`.
+  - `setPostTags(postId, tagIds)` – diff-based: smaže všechny vazby pro post, vloží nové (s ownership checkem na `tags` i `posts`).
+  - `getPostTags(postId)` – vrátí tagy s metadaty (name, color) přiřazené k postu.
+- **`src/lib/actions/posts.ts`** – rozšíření:
+  - `getPosts` / `getPost` – JOIN na `post_tags(tags(id, name, color))`. Výsledek normalizován do flat array `post_tags: { id, name, color }[]`.
+  - `createPostAction` / `updatePost` – nový volitelný parametr `tagIds: string[]`. Po dual-write bloku se zavolá `setPostTags()`.
+- **`src/components/tag-picker.tsx`** (NOVÝ) – multi-select picker komponenta (glassmorphism, `rounded-[20px]`). Podporuje:
+  - Inline vytváření nových štítků s výběrem barvy (10 předdefinovaných barev).
+  - Search + outside-click close.
+  - Zobrazení vybraných tagů jako barevné chipy s tlačítkem pro odebrání.
+- **Editor integrace** – `posts/new/page.tsx`, `posts/[id]/page.tsx`, `edit-post-dialog.tsx`, `calendar/_calendar-view.tsx`: TagPicker přidán pod existující inline hashtag input (beze změn). Hydratace `selectedTagIds` z `post_tags` při načtení existujícího příspěvku. Všechna volání `createPostAction`/`updatePost` rozšířena o `tagIds`.
+- **Karta příspěvku** – `_post-card.tsx`: typ `PostListItem` rozšířen o `post_tags?: { id, name, color }[]`. V kartě se pod textem zobrazují barevné `Badge` s tečkou barvy štítku. `_posts-container.tsx` a `calendar/_calendar-client.tsx` synchronizovány.
+- **Překlady** – `cs.json`, `en.json`, `uk.json`: přidány klíče `internalTags`, `internalTagsPlaceholder`, `createTag`, `noInternalTags`, `selectColor`, `add`, `cancel` v sekcích `posts` i `calendar`. Předávány do `posts/page.tsx` a `calendar/page.tsx`.
+- **`calendar/page.tsx`** – SELECT rozšířen o `post_tags(tags(id, name, color))`, normalizace v map() funkci.
+- **Build** – `npm run build` prošel ✅. Opraveny drobné TS chyby (duplicitní `cancel` v `edit-post-dialog.tsx`, chybějící importy, optional → required `tLabels` klíče).
+- **Publish flow** – beze změn. `publish.ts` nikdy nepoužíval `post.tags`, nyní ani nové `post_tags` se neodesílají. Štítky jsou čistě interní.
+- **Dopad na stávající data** – žádná. `post_tags` je prázdná. Inline hashtagy fungují dál. Nastavitelné štítky v Nastavení → Štítky konečně použitelné.
+- **Co zůstává na další iteraci** (nyní mimo scope): breakdown v Analytice.
+
 ## 2026-06-14
+
+### Feature – LinkedIn OAuth Integration (DOKONČENO)
+
+- **Cíl**: Umožnit uživatelům propojit LinkedIn účet přes OAuth 2.0. Zatím jen připojení, publikování následuje.
+- **`.env.local`** – přidány `LINKEDIN_CLIENT_ID` a `LINKEDIN_CLIENT_SECRET` (prázdné, čekají na vyplnění z LinkedIn Developer Portal).
+- **`supabase/migrations/027_add_token_expires_at_to_social_accounts.sql`** – nový sloupec `token_expires_at TIMESTAMPTZ` v `social_accounts`. LinkedIn tokeny expirují za 60 dní.
+- **`src/lib/supabase/types.ts`** – typy `social_accounts` rozšířeny o `token_expires_at: string | null` (Row, Insert, Update).
+- **`src/app/api/accounts/linkedin/route.ts`** – nový API route (GET):
+  - Bez `code` parametru → redirect na LinkedIn OAuth consent (`w_member_social openid profile email`).
+  - S `code` → exchange pro access_token → fetch `/v2/userinfo` → uložení do `social_accounts` (platform='linkedin', token_expires_at=60 dní).
+  - Používá `createAdminClient` pro upsert s `onConflict: user_id,platform,platform_id`.
+  - Redirect zpět na dashboard (`/accounts`) po úspěchu/chybě.
+- **`src/app/[locale]/(dashboard)/accounts/page.tsx`**:
+  - `linkedin` přidán do podmínky, která otevírá `ConnectAccountModal` místo manuálního formuláře.
+  - `onConnect` handler redirect na `/api/accounts/linkedin?state=...&locale=...`.
+  - `SocialAccount` typ rozšířen o `token_expires_at`.
+- **Překlady** (`src/messages/cs.json`, `en.json`, `uk.json`):
+  - `connectModal.warningDescLinkedIn` – upozornění na 60d expiraci tokenů.
+- Build: `npm run build` ✅ 0 chyb
 
 ### Feature – AI Vision: Generování popisku z obrázku přes Gemini (DOKONČENO)
 

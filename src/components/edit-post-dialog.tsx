@@ -25,6 +25,8 @@ import {
   TikTok,
 } from "@/components/ui/social-icons";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
+import { TagPicker } from "@/components/tag-picker";
+import { getPostTags } from "@/lib/actions/tag-actions";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -83,6 +85,8 @@ export interface EditPostData {
   status: string;
   location: string | null;
   tags: string[];
+  /** Internal organization tags attached via post_tags. */
+  post_tags?: { id: string; name: string; color: string }[];
   media_urls: string[];
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
@@ -125,12 +129,23 @@ interface EditPostDialogProps {
     statusScheduled: string;
     statusPublished: string;
     statusFailed: string;
+    // Internal organization tags (Nastavení → Štítky)
+    internalTags: string;
+    internalTagsPlaceholder: string;
+    createTag: string;
+    noInternalTags: string;
+    selectColor: string;
+    add: string;
+    cancel: string;
+    /** Button label – saves only internal metadata (tags, location) without touching published content on social networks. */
+    saveMetadata?: string;
+    /** Toast shown after internal metadata is successfully saved. */
+    metadataSaved?: string;
     remoteEditSuccess?: string;
     photoChangeNotAllowed?: string;
     updateOnSocials?: string;
     onlyTextUpdatePossible?: string;
     igEditNotSupported?: string;
-    cancel?: string;
     publishToSelected?: string;
     additionalPublishSuccess?: string;
   };
@@ -166,6 +181,7 @@ export function EditPostDialog({
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -268,6 +284,23 @@ export function EditPostDialog({
   // Detect if content text was changed from the original post
   const isContentChanged = isEdit && post && content.trim() !== post.content?.trim();
 
+  // Detect changes in internal-only metadata (never sent to social networks).
+  // Shown as an explicit "Uložit interní metadata" button in the published-post UI.
+  const hasMetadataChanges = useMemo(() => {
+    if (!isEdit || !post) return false;
+    const originalTagIds = (post.post_tags ?? []).map((t) => t.id).sort().join(",");
+    const currentTagIds = [...selectedTagIds].sort().join(",");
+    const originalLocation = (post.location ?? "").trim();
+    const currentLocation = location.trim();
+    const originalTags = [...(post.tags ?? [])].sort().join(",");
+    const currentTags = [...tags].sort().join(",");
+    return (
+      originalTagIds !== currentTagIds ||
+      originalLocation !== currentLocation ||
+      originalTags !== currentTags
+    );
+  }, [isEdit, post, selectedTagIds, location, tags]);
+
   useEffect(() => {
     if (!open) return;
     Promise.resolve().then(() => {
@@ -285,6 +318,9 @@ export function EditPostDialog({
         if (post.media_urls && post.media_urls.length > 0) {
           loadExistingUrls(post.media_urls);
         }
+        // Hydrate selected internal organization tags from post_tags (passed in via props)
+        const initialTagIds = (post.post_tags ?? []).map((t) => t.id);
+        setSelectedTagIds(initialTagIds);
       } else {
         setContent("");
         setPlatforms([]);
@@ -292,6 +328,7 @@ export function EditPostDialog({
         setLocation("");
         setTags([]);
         setScheduledAt("");
+        setSelectedTagIds([]);
       }
       setTagDraft("");
       setError(null);
@@ -411,6 +448,7 @@ export function EditPostDialog({
             status: newStatus,
             location: location.trim() || "",
             tags: finalTags,
+            tagIds: selectedTagIds,
             mediaUrls,
           });
         } else {
@@ -421,6 +459,7 @@ export function EditPostDialog({
             status: newStatus,
             location: location.trim() || undefined,
             tags: finalTags.length > 0 ? finalTags : undefined,
+            tagIds: selectedTagIds,
             mediaUrls,
           });
         }
@@ -446,6 +485,42 @@ export function EditPostDialog({
       normalizeScheduledAt, onOpenChange, tLabels, isInstagramPublished,
     ]
   );
+
+  /**
+   * Save only the internal-only metadata of a published post (location, inline hashtags,
+   * internal organization tags via post_tags). Does NOT touch the published content
+   * on social networks. Safe to call repeatedly – updatePost never modifies
+   * published_platforms, published_at, external_ids or status.
+   */
+  const handleSaveMetadata = useCallback(async () => {
+    if (!isEdit || !post?.id) return;
+    if (hasUploading()) {
+      toast.info(tLabels.uploading);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await updatePost(post.id, {
+        location: location.trim() || "",
+        tags,
+        tagIds: selectedTagIds,
+      });
+      if (result.success) {
+        toast.success(tLabels.metadataSaved ?? "Interní metadata byla uložena.");
+        await router.refresh();
+        onOpenChange(false);
+      } else {
+        setError(result.error ?? tLabels.errorSaving);
+        toast.error(result.error ?? tLabels.errorSaving);
+      }
+    } catch {
+      setError(tLabels.errorSaving);
+      toast.error(tLabels.errorSaving);
+    } finally {
+      setLoading(false);
+    }
+  }, [isEdit, post, location, tags, selectedTagIds, hasUploading, onOpenChange, router, tLabels]);
 
   const handleUpdateOnSocials = async () => {
     if (!content.trim() || !isEdit || !post?.id) return;
@@ -586,6 +661,7 @@ export function EditPostDialog({
             scheduledAt: null,
             location: location.trim() || "",
             tags: finalTags,
+            tagIds: selectedTagIds,
             mediaUrls,
           });
 
@@ -605,6 +681,7 @@ export function EditPostDialog({
             status: "draft",
             location: location.trim() || undefined,
             tags: finalTags.length > 0 ? finalTags : undefined,
+            tagIds: selectedTagIds,
             mediaUrls,
           });
 
@@ -971,6 +1048,25 @@ export function EditPostDialog({
             />
           </div>
 
+          {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground/80">
+              {tLabels.internalTags}
+            </Label>
+            <TagPicker
+              selectedTagIds={selectedTagIds}
+              onChange={setSelectedTagIds}
+              t={{
+                placeholder: tLabels.internalTagsPlaceholder,
+                createTag: tLabels.createTag,
+                noTags: tLabels.noInternalTags,
+                selectColor: tLabels.selectColor,
+                add: tLabels.add,
+                cancel: tLabels.cancel,
+              }}
+            />
+          </div>
+
           {/* Schedule */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
@@ -1042,15 +1138,33 @@ export function EditPostDialog({
                 </div>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3">
+                {/* Save internal-only metadata – always available for published posts */}
                 <Button
                   type="button"
-                  onClick={() => handleClose()}
+                  onClick={handleSaveMetadata}
+                  disabled={!hasMetadataChanges || loading || isPublishingAdditional || isUpdating}
                   variant="outline"
-                  className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                  className={cn(
+                    "rounded-xl border-indigo-500/30 bg-indigo-500/10 transition-colors",
+                    hasMetadataChanges
+                      ? "hover:bg-indigo-500/20 text-indigo-200"
+                      : "opacity-50 cursor-not-allowed"
+                  )}
                 >
-                  {tLabels.cancel ?? "Zrušit"}
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {tLabels.saveMetadata ?? "Uložit interní metadata"}
                 </Button>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    onClick={() => handleClose()}
+                    variant="outline"
+                    className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                  >
+                    {tLabels.cancel ?? "Zrušit"}
+                  </Button>
+                </div>
               </div>
             </>
           ) : (

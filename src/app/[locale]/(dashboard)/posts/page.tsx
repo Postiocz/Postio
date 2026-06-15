@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncPublishedPosts, cleanupAutoDeletedPosts } from "@/lib/actions/posts";
+import { getUserTags } from "@/lib/actions/tag-actions";
 import { PostsContainer } from "./_posts-container";
 
 export default async function PostsPage({
@@ -25,9 +26,12 @@ export default async function PostsPage({
   // Auto-delete posts that have passed their auto_delete_at timestamp
   await cleanupAutoDeletedPosts();
 
+  // Load user's internal tags for the tag filter dropdown
+  const tagsResult = await getUserTags();
+
   const { data: rawPosts, error: postsError } = await supabase
     .from("posts")
-    .select("*, post_platforms(*)")
+    .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -38,7 +42,7 @@ export default async function PostsPage({
   const posts = rawPosts?.map(post => {
     const postPlatforms = post.post_platforms || [];
     postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
-    
+
     const statuses = postPlatforms.map((p: any) => p.status);
     let computedStatus = "draft";
     if (statuses.includes("failed")) computedStatus = "failed";
@@ -47,11 +51,19 @@ export default async function PostsPage({
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
 
+    // Normalize post_tags → flat array of { id, name, color }.
+    // Supabase returns the join as [{ tags: { id, name, color } | null }].
+    type TagJoinRow = { tags: { id: string; name: string; color: string } | null };
+    const normalizedPostTags = ((post.post_tags ?? []) as TagJoinRow[])
+      .map((row) => row.tags)
+      .filter((t): t is { id: string; name: string; color: string } => t !== null);
+
     return {
       ...post,
       status: computedStatus,
       platforms: postPlatforms.map((p: any) => p.platform),
-      post_platforms: postPlatforms
+      post_platforms: postPlatforms,
+      post_tags: normalizedPostTags,
     };
   }) || [];
 
@@ -73,12 +85,14 @@ export default async function PostsPage({
             created_at: post.created_at,
             location: post.location ?? null,
             tags: post.tags ?? [],
+            post_tags: post.post_tags ?? [],
             media_urls: post.media_urls ?? [],
             published_platforms: post.published_platforms ?? [],
             external_ids: post.external_ids ?? null,
           }))}
           locale={locale}
           postsCount={posts.length}
+          tags={tagsResult.success && tagsResult.data ? tagsResult.data : []}
           tTitle={t("title")}
           tNewPost={t("newPost")}
           tAllPlatforms={t("allPlatforms")}
@@ -98,6 +112,9 @@ export default async function PostsPage({
           tDeleteCancel={t("deleteCancel")}
           tRepublish={t("republish")}
           tRemovedExternallyMsg={t("removedExternallyMsg")}
+          tFilterByTag={t("filterByTag")}
+          tAllTags={t("allTags")}
+          tNoTagsAvailable={t("noTagsAvailable")}
           tLabels={{
             newPost: t("newPost"),
             editPost: t("editPost"),
@@ -110,6 +127,13 @@ export default async function PostsPage({
             scheduledAt: t("scheduledAt"),
             saving: t("saving"),
             addTags: t("addTags"),
+            internalTags: t("internalTags"),
+            internalTagsPlaceholder: t("internalTagsPlaceholder"),
+            createTag: t("createTag"),
+            noInternalTags: t("noInternalTags"),
+            selectColor: t("selectColor"),
+            add: t("add"),
+            cancel: t("cancel"),
             locationPlaceholder: t("locationPlaceholder"),
             postCreated: t("postCreated"),
             postUpdated: t("postUpdated"),

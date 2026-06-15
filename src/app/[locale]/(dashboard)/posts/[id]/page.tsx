@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import NextImage from "next/image";
 import { useMediaUpload } from "@/hooks/use-media-upload";
+import { TagPicker } from "@/components/tag-picker";
 
 const PLATFORMS = ["instagram", "facebook", "twitter", "linkedin"];
 
@@ -33,13 +34,25 @@ export default function EditPostPage() {
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingMetadata, setSavingMetadata] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  // Snapshot of the original post used to detect "internal metadata" changes
+  // (location, inline hashtags, internal organization tags) without re-publishing
+  // the post on social networks.
+  const [originalPost, setOriginalPost] = useState<{
+    content: string;
+    location: string;
+    tags: string[];
+    tagIds: string[];
+    status: string;
+  } | null>(null);
 
   const supabase = createClient();
   const uploadLabels = {
@@ -74,10 +87,19 @@ export default function EditPostPage() {
     (async () => {
       const { data: postData, error: err } = (await supabase
         .from("posts")
-        .select("*")
+        .select("*, post_tags(tags(id, name, color))")
         .eq("id", id)
         .single()) as {
-        data: { content: string; platforms: string[]; status: string; scheduled_at: string | null; location: string | null; tags: string[]; media_urls: string[] } | null;
+        data: {
+          content: string;
+          platforms: string[];
+          status: string;
+          scheduled_at: string | null;
+          location: string | null;
+          tags: string[];
+          media_urls: string[];
+          post_tags: { tags: { id: string; name: string; color: string } | null }[] | null;
+        } | null;
         error: Error | null;
       };
 
@@ -93,6 +115,19 @@ export default function EditPostPage() {
       if (postData.media_urls && postData.media_urls.length > 0) {
         loadExistingUrls(postData.media_urls);
       }
+      // Load existing internal organization tags
+      const existingTagIds = (postData.post_tags ?? [])
+        .map((row) => row.tags?.id)
+        .filter((t): t is string => typeof t === "string");
+      setSelectedTagIds(existingTagIds);
+      // Snapshot for change detection
+      setOriginalPost({
+        content: postData.content,
+        location: postData.location ?? "",
+        tags: postData.tags ?? [],
+        tagIds: existingTagIds,
+        status: postData.status,
+      });
       setLoading(false);
     })();
   }, [id, supabase, loadExistingUrls]);
@@ -129,6 +164,63 @@ export default function EditPostPage() {
     return d.toISOString();
   };
 
+  // Detect changes against the original snapshot.
+  const isContentChanged = useMemo(() => {
+    if (!originalPost) return false;
+    return content.trim() !== originalPost.content.trim();
+  }, [content, originalPost]);
+
+  const hasMetadataChanges = useMemo(() => {
+    if (!originalPost) return false;
+    const originalTagIds = [...originalPost.tagIds].sort().join(",");
+    const currentTagIds = [...selectedTagIds].sort().join(",");
+    const originalLocation = (originalPost.location ?? "").trim();
+    const currentLocation = location.trim();
+    const originalTags = [...originalPost.tags].sort().join(",");
+    const currentTags = [...tags].sort().join(",");
+    return (
+      originalTagIds !== currentTagIds ||
+      originalLocation !== currentLocation ||
+      originalTags !== currentTags
+    );
+  }, [originalPost, selectedTagIds, location, tags]);
+
+  /**
+   * Save only the internal metadata of a published post (location, inline hashtags,
+   * internal organization tags). Does NOT touch the published content on social
+   * networks, status, or scheduled_at.
+   */
+  const handleSaveMetadata = async () => {
+    if (hasUploading()) {
+      toast.info(t("uploading"));
+      return;
+    }
+    setSavingMetadata(true);
+    setError(null);
+    try {
+      const result = await updatePost(id, {
+        location: location.trim() || "",
+        tags,
+        tagIds: selectedTagIds,
+      });
+      if (result.success) {
+        toast.success(t("metadataSaved"));
+        // Keep the user on the page – just refresh state via originalPost.
+        if (originalPost) {
+          setOriginalPost({ ...originalPost, location, tags, tagIds: selectedTagIds });
+        }
+        router.refresh();
+        return;
+      }
+      setError(result.error ?? t("errorSaving"));
+      toast.error(result.error ?? t("errorSaving"));
+    } catch {
+      setError(t("errorSaving"));
+    } finally {
+      setSavingMetadata(false);
+    }
+  };
+
   const handleSave = async () => {
     if (hasUploading()) {
       toast.info(t("uploading"));
@@ -161,12 +253,35 @@ export default function EditPostPage() {
           return;
         }
 
+        // If only internal metadata changed (no content/media/platforms change),
+        // save only the internal metadata and stay on the page – do NOT re-publish
+        // to social networks.
+        if (!isContentChanged) {
+          const saveResult = await updatePost(id, {
+            location: location.trim() || "",
+            tags: finalTags,
+            tagIds: selectedTagIds,
+          });
+          if (!saveResult.success) {
+            setError(saveResult.error ?? t("errorSaving"));
+            toast.error(saveResult.error ?? t("errorSaving"));
+            return;
+          }
+          toast.success(t("metadataSaved"));
+          if (originalPost) {
+            setOriginalPost({ ...originalPost, location, tags: finalTags, tagIds: selectedTagIds });
+          }
+          router.refresh();
+          return;
+        }
+
         const saveResult = await updatePost(id, {
           content: content.trim(),
           platforms: selectedPlatforms,
           scheduledAt: null,
           location: location.trim() || "",
           tags: finalTags,
+          tagIds: selectedTagIds,
           mediaUrls,
         });
 
@@ -197,6 +312,7 @@ export default function EditPostPage() {
         status: status as "draft" | "scheduled" | "published",
         location: location.trim() || "",
         tags: finalTags,
+        tagIds: selectedTagIds,
         mediaUrls,
       });
 
@@ -500,6 +616,25 @@ export default function EditPostPage() {
             />
           </div>
 
+          {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground/80">
+              {t("internalTags")}
+            </Label>
+            <TagPicker
+              selectedTagIds={selectedTagIds}
+              onChange={setSelectedTagIds}
+              t={{
+                placeholder: t("internalTagsPlaceholder"),
+                createTag: t("createTag"),
+                noTags: t("noInternalTags"),
+                selectColor: t("selectColor"),
+                add: t("add"),
+                cancel: t("cancel"),
+              }}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="scheduledAt" className="text-sm font-medium text-muted-foreground/80">
               {t("scheduledAt")}
@@ -511,15 +646,36 @@ export default function EditPostPage() {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <Button
-              onClick={handleSave}
-              disabled={saving || publishing || !content.trim() || hasUploading()}
-              className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-            >
-              {saving || publishing || hasUploading() ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {saving || publishing || hasUploading() ? t("loading") : t("save")}
-            </Button>
+          <div className="flex flex-col gap-3 pt-2">
+            <div className="flex gap-3">
+              <Button
+                onClick={handleSave}
+                disabled={saving || publishing || savingMetadata || !content.trim() || hasUploading()}
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+              >
+                {saving || publishing || hasUploading() ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {saving || publishing || hasUploading() ? t("loading") : t("save")}
+              </Button>
+              <Button
+                onClick={handleSaveMetadata}
+                disabled={!hasMetadataChanges || savingMetadata || saving || publishing || hasUploading()}
+                variant="outline"
+                className={
+                  hasMetadataChanges
+                    ? "rounded-xl border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-200"
+                    : "rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06] opacity-50"
+                }
+                title={t("saveMetadataTooltip")}
+              >
+                {savingMetadata ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {savingMetadata ? t("loading") : t("saveMetadata")}
+              </Button>
+            </div>
+            {status === "published" && !isContentChanged && hasMetadataChanges && (
+              <p className="text-xs text-muted-foreground/60">
+                {t("metadataOnlyHint")}
+              </p>
+            )}
           </div>
         </div>
       </div>

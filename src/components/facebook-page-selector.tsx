@@ -54,6 +54,18 @@ interface FacebookPageSelectorProps {
     pageDisconnected: (name: string) => string;
     errorToggle: string;
     emptyState: string;
+    /**
+     * Label for the bulk-activate button that activates every page still in
+     * the dialog at once. The `{count}` placeholder is replaced with the
+     * number of pages that will be activated.
+     */
+    activateAll: (count: number) => string;
+    /** Label shown on the bulk-activate button while the request is running. */
+    activatingAll: string;
+    /** Toast shown when every page was activated successfully. */
+    allActivated: (count: number) => string;
+    /** Toast shown when at least one page failed to activate. */
+    someFailed: (failed: number) => string;
   };
 }
 
@@ -81,6 +93,9 @@ export function FacebookPageSelector({
   // to remount the dialog.
   const [items, setItems] = useState<FacebookPageDto[]>(pages);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  // True while the bulk-activate action is running across every page.
+  // Disables the per-row switches and shows a spinner on the button itself.
+  const [bulkActivating, setBulkActivating] = useState(false);
   const [, startTransition] = useTransition();
 
   // Keep local state in sync when the parent re-fetches and passes a new
@@ -135,6 +150,56 @@ export function FacebookPageSelector({
     });
   };
 
+  /**
+   * Activate every page still present in the dialog in a single action.
+   *
+   * - We snapshot the current ids and clear `items` optimistically so the
+   *   user sees immediate feedback (the whole list collapses).
+   * - We fire all `toggleAccountActive` calls in parallel using
+   *   `Promise.allSettled` so a single failure does not abort the others.
+   * - `toggleAccountActive` already calls `revalidatePath("/accounts")` on
+   *   every successful update, so by the time this function ends the
+   *   server-side accounts list is fresh and `onChanged` triggers the
+   *   client-side re-fetch of both the pending and the active lists.
+   */
+  const handleActivateAll = async () => {
+    if (bulkActivating) return;
+    const toActivate = items;
+    if (toActivate.length === 0) return;
+
+    const ids = toActivate.map((p) => p.id);
+    setBulkActivating(true);
+
+    // Optimistic: clear the list immediately so the user sees a result.
+    setItems([]);
+    setPendingIds(new Set(ids));
+
+    const results = await Promise.allSettled(
+      ids.map((id) => toggleAccountActive(id, true))
+    );
+
+    setPendingIds(new Set());
+    setBulkActivating(false);
+
+    const failed = results.filter(
+      (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success)
+    );
+    const succeeded = ids.length - failed.length;
+
+    if (failed.length === 0) {
+      toast.success(t.allActivated(succeeded));
+    } else {
+      // Even partial success is useful – surface both numbers so the user
+      // knows what went through and what did not.
+      toast.error(t.someFailed(failed.length));
+      // Re-sync with the parent so the dialog shows only what is still
+      // pending (some pages may have succeeded and vanished from the list).
+      setItems(pages);
+    }
+
+    onChanged?.();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -172,62 +237,86 @@ export function FacebookPageSelector({
                 {t.emptyState}
               </div>
             ) : (
-              <ul className="space-y-2">
-                {items.map((page) => {
-                  const isPending = pendingIds.has(page.id);
-                  return (
-                    <li
-                      key={page.id}
-                      className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:bg-white/[0.05]"
-                    >
-                      {/* Avatar */}
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-white/10 overflow-hidden">
-                        {page.avatar_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={page.avatar_url}
-                            alt={page.account_name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Facebook className="h-5 w-5 text-blue-300" />
-                        )}
-                      </div>
+              <>
+                {/* Bulk-activate action – visible when there is more than one
+                    page. Disabled (with a spinner) while the request is in
+                    flight to prevent duplicate submissions. */}
+                {items.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleActivateAll}
+                    disabled={bulkActivating}
+                    className="mb-3 w-full rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-sm font-medium"
+                  >
+                    {bulkActivating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {t.activatingAll}
+                      </>
+                    ) : (
+                      <>{t.activateAll(items.length)}</>
+                    )}
+                  </Button>
+                )}
 
-                      {/* Name + category */}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {page.account_name}
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground/60">
-                          <Tag className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">
-                            {page.category
-                              ? t.categoryLabel(page.category)
-                              : t.noCategory}
-                          </span>
-                        </p>
-                      </div>
+                <ul className="space-y-2">
+                  {items.map((page) => {
+                    const isPending = pendingIds.has(page.id);
+                    return (
+                      <li
+                        key={page.id}
+                        className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:bg-white/[0.05]"
+                      >
+                        {/* Avatar */}
+                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-white/10 overflow-hidden">
+                          {page.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={page.avatar_url}
+                              alt={page.account_name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Facebook className="h-5 w-5 text-blue-300" />
+                          )}
+                        </div>
 
-                      {/* Switch / loader */}
-                      <div className="flex items-center gap-2">
-                        {isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-indigo-300" />
-                        ) : (
-                          <Switch
-                            checked={false}
-                            onCheckedChange={(checked) =>
-                              handleToggle(page, checked)
-                            }
-                            aria-label={t.active}
-                            size="default"
-                          />
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                        {/* Name + category */}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {page.account_name}
+                          </p>
+                          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                            <Tag className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">
+                              {page.category
+                                ? t.categoryLabel(page.category)
+                                : t.noCategory}
+                            </span>
+                          </p>
+                        </div>
+
+                        {/* Switch / loader */}
+                        <div className="flex items-center gap-2">
+                          {isPending || bulkActivating ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-indigo-300" />
+                          ) : (
+                            <Switch
+                              checked={false}
+                              onCheckedChange={(checked) =>
+                                handleToggle(page, checked)
+                              }
+                              aria-label={t.active}
+                              size="default"
+                            />
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </div>
 

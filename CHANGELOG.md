@@ -1,5 +1,225 @@
 ## 2026-06-15
 
+### Fix – UX sjednocení: Instagram hard-block banner jen u tlačítek (HOTFIX 3)
+
+- **Problém**: Po předchozích opravách (Instagram hard-block + persistence rozměrů) se v `EditPostDialog` zobrazovaly **dvě různá varování** o stejné věci:
+  1. **Nahoře** v modalu (ve scrollovací oblasti): krátký červený error banner „Toto video nelze na Instagramu publikovat." – generovaný přes `setError(msg)` v `handlePublishAdditional`. Uživatel ho viděl, ale pak scrolloval k tlačítkům a nevěděl, co se změnilo.
+  2. **Dole** u tlačítek: velký banner s detailním vysvětlením a doporučeným rozlišením – ale ten se nezobrazoval ve větvi pro **již publikované** posty (větev `isEdit && isAnyPublished`), takže tam zůstalo jen to horní krátké upozornění.
+- **Výsledek**: nekonzistentní UX – v `posts/new` a `posts/[id]` se zobrazoval banner dole, ale v `EditPostDialog` (kde se řeší „přidat Instagram k existujícímu postu") byl navíc ještě krátký banner nahoře, což působilo zmateně.
+- **Oprava** (`src/components/edit-post-dialog.tsx`):
+  - **Sjednocení banneru**: Instagram hard-block banner (`AlertTriangle`, růžový, hlavní text + hint) je nyní **renderován jen jednou**, vně jakékoliv větve `isEdit && isAnyPublished` vs. `:`. Leží v `<div className="px-6 pb-6 pt-4 border-t border-white/5 space-y-3">` – tedy v dolní části modalu, **před všemi akčními tlačítky** (ať už se jedná o tlačítka pro nový post, nebo pro dodatečné publikování).
+  - **Odstranění `setError` v IG-specifickém bloku `handlePublishAdditional`**: místo toho se volá jen `toast.error(msg)`. Důvod: `setError` by vytvořil **druhý** banner nahoře v modalu, což je přesně to, co si uživatel nepřál. Jednotný banner dole + toast jsou dostatečnou zpětnou vazbou.
+  - **Banner je nyní konzistentní ve všech třech formulářích** (`EditPostDialog`, `posts/new`, `posts/[id]`) – vždy dole u tlačítek, vždy se stejným textem a ikonkou.
+- **`posts/new/page.tsx`, `posts/[id]/page.tsx`**: beze změny – jejich banner byl od začátku dole u tlačítek.
+- **Bezpečnost / Data**: Žádné DB změny. Žádné nové API routes. Žádné nové npm závislosti.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - V `EditPostDialog` pro již publikované posty s IG-konfliktním videem se nyní zobrazuje **velký banner dole** (s hintem), ne krátký nahoře.
+  - Kliknutí na „Publikovat na Instagram" u takového postu nyní vyvolá **toast + zvýraznění existujícího banneru** (protože tlačítko je disabled), žádný duplicitní banner nahoře.
+  - Konzistentní vizuální jazyk ve všech třech formulářích: vždy 1× banner, vždy dole, vždy se stejnými texty.
+
+### Fix – Instagram hard-block se nyní aplikuje i u dodatečného publikování (HOTFIX)
+
+- **Problém**: Po předchozí opravě (hard-block při výběru Instagramu v editoru) se projevil nový use case: uživatel publikuje příspěvek s nízkorozlišenovým videem **nejprve na Facebook** (kde to projde), a pak se rozhodne přidat **Instagram** jako další platformu přes tlačítko „Publikovat na Instagram" v `EditPostDialog`. V tu chvíli se `handlePublishAdditional` volal bez kontroly rozlišení, request proletěl až do `publishAdditionalPlatforms` → `publishToInstagram` → Graph API container → po 9 polling pokusech opět `status_code: ERROR` s `2207082`. Server-side latence ~29 s, pak teprve chyba.
+- **Příčina**:
+  1. Rozměry videa (`dimensions` na `MediaUploadItem`) se v hooku nastavovaly **pouze během uploadu v aktuální session**. Po otevření existujícího postu (nebo refreshi stránky) se `loadExistingUrls()` rehydratoval `items` z remote URL bez `dimensions`. V důsledku `getInstagramIncompatibleVideos()` vracel prázdné pole a `isInstagramVideoIncompatible` byl vždy `false`.
+  2. `handlePublishAdditional` nekontroloval IG kompatibilitu vůbec – spoléhal na to, že se kontrola provedla při výběru platformy v době vytváření postu. U „dodatečného" přidávání platformy se ale `platforms` state nemění, takže useMemo `isInstagramVideoIncompatible` se vyhodnocoval jen z `platforms`, ale `platforms` v tu chvíli Instagram typicky neobsahoval (byl jen v `post.post_platforms`).
+- **Oprava**:
+  - **`src/hooks/use-media-upload.ts`**:
+    - Nová interní utilita `getVideoDimensionsFromUrl(url)` – stejný princip jako `getVideoDimensions(file)`, ale pracuje s remote URL. Používá `<video preload="metadata">`, takže stahuje jen hlavičku (řádově KB), ne celé video.
+    - Nový `useEffect` po změně `items`: najde videa, která jsou `status === "ready"`, mají `url`, ale nemají `dimensions`, a asynchronně je doplní přes `getVideoDimensionsFromUrl`. Tím se `dimensions` rekonstruují i u postů otevřených po refreshi, nebo u videí nahraných v předchozí session. Pokud browser metadata nepřečte (CORS, broken file), tiše se vzdá – bezpečnější než blokovat stránku.
+    - Hook stále **neukládá dimensions do DB** (žádná migrace). Funguje to proto, že browser umí přečíst metadata z libovolné dostupné URL.
+  - **`src/components/edit-post-dialog.tsx`**:
+    - `handlePublishAdditional(targetPlatform)` nyní hned na začátku kontroluje `targetPlatform === "instagram" && isInstagramVideoIncompatible`. Pokud ano, nastaví se `error`, zobrazí se toast se stejnou zprávou jako v banneru a akce se přeruší ještě před zavoláním `publishAdditionalPlatforms`.
+    - `useMemo isInstagramVideoIncompatible` se nově vyhodnocuje **i pro `post.post_platforms`**, ne jen pro aktuální `platforms` state – tedy pokud je Instagram už publikovaný nebo se chystá publikovat, kontrola se aktivuje. (Tím se pokryje i případ, kdy `platforms` v daném renderu ještě Instagram neobsahuje, ale `targetPlatform` ho posílá do `publishAdditionalPlatforms`.)
+  - **`src/app/[locale]/(dashboard)/posts/[id]/page.tsx`**: tato stránka nemá `handlePublishAdditional` (veškeré publikování jde přes `handleSave` + `status === "published"`), kde už IG kontrola je. Beze změny.
+- **Bezpečnost / Data**: Žádné DB změny (žádná migrace). Žádné nové API routes. Žádné nové npm závislosti. Hook používá `crossOrigin = "anonymous"` pro `<video>` element, takže CORS preflight jde přes Supabase Storage – funguje bez další konfigurace.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Po otevření existujícího postu (nebo refreshi) se rozměry videí zrekonstruují z remote URL během cca 100–500 ms (závisí na velikosti hlavičky). Uživatel nepozná žádný rozdíl.
+  - Dodatečné přidání Instagramu k postu s nízkorozlišenovým videem nyní rovnou zobrazí srozumitelnou chybu („Toto video nelze na Instagramu publikovat. Instagram nepodporuje videa s nízkým rozlišením…") – žádný 30s let na server, žádná kryptická `2207082`.
+  - Pokud browser metadata nepřečte (CORS, chybný soubor), kontrola se neaplikuje a server může stále selhat – to je akceptovatelné (graceful degradation) a mnohem lepší než fallback na chybný false-positive blok.
+
+### Feature – Hard-block Instagram publikování u videí s nízkým rozlišením (DOKONČENO)
+
+- **Cíl**: Zabránit opakovanému selhávání `error_subcode 2207082` u Instagram Reels, když video má kratší stranu < 640 px. Facebook tyto videa akceptuje, Instagram ne – a dříve se chyba projevila až v Graph API kontejneru s textem `Media upload has failed with error code 2207082`, který uživatele nijak nepomohl.
+- **Kontext z testu**: Video 576 × 1024 px (Download.mp4) prošlo na Facebook bez problémů, ale na Instagramu končilo s `status_code: ERROR` po cca 9 polling pokusech. Po přegenerování do 1080 × 1920 (nebo alespoň 720 × 1280) potíže zmizí.
+- **`src/hooks/use-media-upload.ts`**:
+  - `MediaUploadItem` rozšířen o `dimensions?: { width: number; height: number }`. Rozměry se zjišťují v již existující utilitě `getVideoDimensions()` po uploadu a perzistují se do state (dříve se jenom zobrazoval soft warning a výsledek se zahazoval).
+  - Nový helper `getInstagramIncompatibleVideos(): MediaUploadItem[]` – vrací všechna videa, jejichž kratší strana je menší než `MIN_VIDEO_DIMENSION` (640 px). Neurčeno (např. upload ještě probíhá nebo se nepodařilo dekódovat) se nepočítá jako nekompatibilní.
+  - Helper je součástí return objektu hooku, takže ho mohou snadno konzumovat všechny tři formuláře.
+- **`src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `src/app/[locale]/(dashboard)/posts/[id]/page.tsx`** – tři místa, kde se skládá post:
+  - Destructuring `getInstagramIncompatibleVideos` z hooku.
+  - Nový `useMemo` `isInstagramVideoIncompatible` – true, pokud je Instagram ve vybraných platformách a existuje alespoň jedno nekompatibilní video.
+  - **Hard-block banner** (růžový, `border-rose-500/30`, `AlertTriangle` ikona, `role="alert"`):
+    - Hlavní text: **„Toto video nelze na Instagramu publikovat."**
+    - Vedlejší text: **„Instagram nepodporuje videa s nízkým rozlišením (minimálně 640 × 1138 px). Přegenerujte prosím video ve vyšším rozlišení (doporučeno 1080 × 1920 px)."** – formulováno jako omezení platformy, nikoliv aplikace.
+    - Banner se zobrazuje **pouze** když je `isInstagramVideoIncompatible === true` a dané tlačítko se chystá publikovat (tj. je vybrán Instagram).
+  - **Blokace tlačítek**: Tlačítka „Publikovat" a „Naplánovat" (resp. „Save" u `posts/[id]`, pokud je `status === 'published' || 'scheduled'`) mají v `disabled` nový predikát `isInstagramVideoIncompatible`. Tlačítko „Uložit koncept" zůstává aktivní – chceme umožnit uložení nehotového návrhu.
+  - **Defense in depth v handlerech**: I kdyby se tlačítko nějak obešlo, kontrola se opakuje v `handleSubmit("scheduled")`, `handlePublishNow` a `handleSave` – při pokusu se zobrazí toast se stejnou zprávou a akce se přeruší.
+  - **Title u disabled tlačítek**: `title` atribut se nastaví na text banneru, takže při najetí myší uživatel vidí důvod.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – 2 nové klíče přidané v obou sekcích (`common` i `posts`):
+  - `instagramVideoTooSmall` – hlavní text banneru.
+  - `instagramVideoTooSmallHint` – vysvětlení a doporučené rozlišení.
+  - Anglické/ukrajinské verze jsou formulovány stejně jako omezení platformy.
+- **Bezpečnost / Data**: Žádné DB změny. Žádné nové API routes. Žádné nové npm závislosti. Server-side kontrola v `publish.ts` zůstává pro klid v duši na svém místě (kdyby klient nějak obešel UI) – chybová hláška z `publishToInstagram` je teď pro uživatele relevantnější, protože se tam dostane jen přes bypass UI.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Uživatel dostane srozumitelnou hlášku **před** selháním API: „Instagram nepodporuje videa s nízkým rozlišením…" – ne kryptickou `2207082`.
+  - Uživatel nemůže omylem naplánovat post, který by v naplánovaném čase selhal.
+  - Pokud omylem publikuje jen na Facebook (kde video projde), stále to funguje – Instagram kontrola se aktivuje jen když je Instagram ve vybraných platformách.
+  - U draftu zůstává tlačítko „Uložit koncept" aktivní, aby mohl uživatel dokončit ostatní části postu a vrátit se k videu později.
+
+### Feature – Přísná validace médií při nahrávání (DOKONČENO)
+
+- **Cíl**: Zabránit chybám typu Meta subcode `2207082` tím, že do aplikace nepustíme soubory s nepodporovanými kodeky (`.gif`, `.svg`, `.avi`, `.mkv`, `.bmp`…) nebo s příliš velkou velikostí. Dosud se takové soubory buď tiše propustily do uploadu, nebo se velikost kontrolovala zastaralým limitem 20 MB pro videa.
+- **`src/lib/constants.ts`** (NOVÝ) – centrální definice limitů pro média:
+  - `ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']` – striktní seznam; **GIF a SVG byly záměrně vyřazeny** (nejsou akceptovány všemi sociálními sítěmi a vedly ke kryptickým API chybám).
+  - `ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime']`.
+  - `MAX_VIDEO_SIZE = 50 * 1024 * 1024` (50 MB) – nový, vyšší limit pro videa.
+  - `ABSOLUTE_HARD_LIMIT = 50 * 1024 * 1024` – absolutní strop pro cokoliv.
+  - `MIN_VIDEO_DIMENSION = 640` – Meta standard pro minimální rozlišení videa.
+  - Soubor je čistý (žádný React/Next/Supabase) → importovatelný jak ze serveru, tak z klienta.
+- **`src/hooks/use-media-upload.ts`**:
+  - Přesunuty konstanty do `@/lib/constants` (žádné duplicitní definice).
+  - Nová striktní logika v `addFiles()` v pořadí:
+    1. **Formát**: Pokud MIME typ není v `ALLOWED_IMAGE_TYPES` ∪ `ALLOWED_VIDEO_TYPES`, soubor je okamžitě odmítnut a zobrazí se toast s konkrétním typem: `Formát {type} není podporován. Použijte JPG, PNG, WEBP nebo MP4/MOV.` Jeden toast na každý odmítnutý soubor (typ se bere z `file.type`, fallback na příponu nebo `"unknown"`).
+    2. **Velikost videa**: Pokud `video/*` soubor překročí 50 MB, je tvrdě odmítnut ještě před zahájením uploadu → toast `Video je příliš velké (max. 50 MB). Zmenšete ho prosím.`
+    3. **Hard cap pro obrázky**: Obrázky > 50 MB jsou odmítnuty (stávající chování, ponecháno).
+    4. **Obrázky > 5 MB** – beze změny, putují do fáze `optimizing` (auto-komprese) a poté do uploadu.
+    5. **Low-resolution warning pro videa**: Po úspěšném uploadu (paralelně, neblokující) se přes novou utilitu `getVideoDimensions(file)` zjistí rozměry videa; pokud je kratší strana < 640 px, zobrazí se **soft warning** toast `Video má nízké rozlišení (méně než 640 px). Na sociálních sítích může vypadat rozmazaně.` Upload se NEPŘERUŠUJE – uživatel se může rozhodnout soubor vyměnit.
+  - Nové labely v `MediaUploadLabels`: `unsupportedFormat` (funkce přijímá `{type}` pro ICU placeholder), `videoTooLarge`, `videoLowResolution`. Kvůli `FORMATTING_ERROR` z next-intl jsou tyto ICU zprávy předávány jako **funkce** (viz paměťový záznam v AGENTS.md).
+  - Nová interní utilita `getVideoDimensions(file)` v hooku – vytvoří dočasný `<video>` element, parsuje `videoWidth`/`videoHeight` z `loadedmetadata`, vždy uvolní object URL.
+  - Z checku v `addFiles` byly odstraněny všechny interní konstanty pro GIF/SVG (nyní pouze allow-list v `constants.ts`).
+- **Reset inputu**: Všechna tři místa, kde se input maže (`edit-post-dialog.tsx`, `posts/new/page.tsx`, `posts/[id]/page.tsx`), již po `onChange` provádějí `e.currentTarget.value = ""` – to zůstává zachováno. Nová striktní kontrola navíc **zaručuje, že se nevalidní soubor nikdy nedostane do pipeline** – input tedy zůstane prázdný a uživatel může vybrat jiný soubor.
+- **`src/components/edit-post-dialog.tsx`**:
+  - `EditPostDialogProps.tLabels` rozšířen o `unsupportedFormat?: (values) => string`, `videoTooLarge?: string`, `videoLowResolution?: string`.
+  - V `uploadLabels` jsou tyto tři klíče mapovány z `tLabels`; pokud je komponenta volána bez nich (zpětná kompatibilita), poskytne se anglický fallback.
+- **`src/app/[locale]/(dashboard)/posts/new/page.tsx`** a **`src/app/[locale]/(dashboard)/posts/[id]/page.tsx`**:
+  - `uploadLabels` objekt rozšířen o `unsupportedFormat` (jako arrow funkce delegující na `t("unsupportedFormat", { type })` – next-intl ICU safe), `videoTooLarge` a `videoLowResolution`.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – přidány 3 nové klíče v sekcích `common` i `posts` (konzistentně v obou):
+  - `unsupportedFormat` (placeholder `{type}`) – `"Formát {type} není podporován. Použijte JPG, PNG, WEBP nebo MP4/MOV."` / EN: `"Format {type} is not supported. Please use JPG, PNG, WEBP or MP4/MOV."` / UK: `"Формат {type} не підтримується. Використовуйте JPG, PNG, WEBP або MP4/MOV."`
+  - `videoTooLarge` – nový limit 50 MB ve všech jazycích.
+  - `videoLowResolution` – upozornění na nízké rozlišení.
+- **Bezpečnost / Data**: Žádné DB změny. Žádné nové API routes. Žádné nové npm závislosti.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - GIF, SVG, AVI, MKV, WMV, BMP a další nepodporované formáty jsou nyní odmítnuty hned při výběru souboru – chyba se zobrazí dříve, než se vůbec začne něco nahrávat.
+  - Videa > 50 MB jsou blokována; starý limit 20 MB pro videa byl příliš přísný a nedával smysl, když obrázky mají 50 MB hard cap.
+  - Uživatel dostává **konkrétní informaci** o tom, který soubor a proč neprošel (`Formát image/gif není podporován…`).
+  - U malých videí (<640 px) dostane měkké varování – upload proběhne, ale uživatel ví, že výsledek může být rozmazaný.
+  - Cílená obrana v hloubce proti Meta subcode `2207082` a jemu podobným: do Supabase Storage a do API sociálních sítí se dostane jen to, co platforma skutečně akceptuje.
+
+### Fix – Instagram MP4 publikování – sanitizace media URL (HOTFIX 2)
+
+- **Problém**: Po opravě pollingu se polling dokončil správně (status_code: FINISHED byl dosažen), ale `media_publish` selhal s chybou `error_subcode: 2207082` – "Media upload has failed with error code 2207082". V logu `console.log` v Next.js dev serveru se URL zobrazovala obalená zpětnými uvozovkami `` `https://...mp4` ``, což naznačovalo, že string v DB obsahuje balicí uvozovky (jednoduché nebo zpětné). Meta API je striktní: `video_url` musí být čistá absolutní URL, jinak kontejner spadne s `2207082`.
+- **Příčina**: V `getMediaUrls` hooku (`src/hooks/use-media-upload.ts`) se vracelo `i.url` bez jakékoliv sanitizace. Pokud se do `i.url` dostala URL s okolními uvozovkami/backticky (copy-paste, terminál/IDE formatter), zůstaly v ní a putovaly do DB i do Instagram API. Stejně tak `publishToInstagram` v `publish.ts` používalo `mediaUrls[0]` přímo – žádná sanitizace ani kontrola formátu.
+- **Oprava**:
+  - **`src/lib/utils.ts`** – přidán nový helper `sanitizeMediaUrl(input: unknown): string`:
+    - Ověří, že `input` je `string`; jinak vrátí `""`.
+    - Ořízne `trim()`.
+    - Odstraní **jednu** pár okolních uvozovek (single `'`, double `"` nebo backtick `` ` ``).
+    - Ověří, že výsledek odpovídá `/^https?:\/\/\S+$/i` – absolutní http/https URL; jinak vrátí `""`.
+    - Úmyslně vrací `""` (ne `null`) – falsy → jednoduchý guard.
+  - **`src/hooks/use-media-upload.ts`** – import `sanitizeMediaUrl` z `@/lib/utils`. `getMediaUrls()` nyní vrací `[sanitizeMediaUrl(i.url), ...]` filtrované na neprázdné stringy.
+  - **`src/lib/actions/publish.ts`** – import `sanitizeMediaUrl`. V `publishToInstagram`:
+    - Hned po `getFacebookMediaType` se `mediaUrls[0]` **nahradí sanitizovanou verzí** (`const mediaUrl = sanitizeMediaUrl(mediaUrls[0])`).
+    - Pokud `sanitizeMediaUrl` vrátí prázdný string, vrátí se user-friendly chyba „Neplatná URL média (po sanitizaci). Zkuste soubor nahrát znovu." – dřív by se taková URL poslala rovnou do Meta API a tam spadla s kryptickou chybou.
+    - Odstraněna duplicitní deklarace `const mediaUrl = mediaUrls[0]` (která sanitizovanou verzi přepisovala).
+    - Diagnostický log `Vytvářím IG kontejner...` nyní obsahuje i `"mediaUrl (JSON)": JSON.stringify(mediaUrl)` – při debugu je jasně vidět, co se skutečně posílá (čistý JSON formát bez interpretace `util.inspect`).
+- **Bezpečnost / Data**: Žádné DB změny. Žádné nové API routes. Žádné nové závislosti.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Instagram MP4 videa, jejichž URL omylem obsahovala okolní uvozovky/backticky, se nyní publikují správně.
+  - Všechna URL posílaná do Meta API jsou nyní **vždy** čisté absolutní http(s) adresy – obrana v hloubce na obou vrstvách (klient i server).
+  - User-friendly chybová hláška v případě, že se nepodaří URL ani po sanitizaci zvalidovat.
+
+### Fix – Instagram MP4 publikování – polling status_code kontejneru (HOTFIX)
+
+- **Problém**: Publikování MP4 videí na Instagram končilo chybou `(#9007) Media ID is not available` (`error_subcode: 2207027`). V lokalizované chybě: „Multimédium není připravené ke zveřejnění. Počkejte chvilku." Post se v `post_platforms` uložil jako `failed` a uložil se text chyby.
+- **Příčina**: V `publishToInstagram` ([src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts)) se po vytvoření IG kontejneru čekalo pevných `setTimeout(10_000)` na zpracování videa. U reálných MP4 (řádově 10+ MB) Instagram nestihne za 10 s dokončit upload → transcode → scan, a proto `media_publish` skončil chybou `(#9007)` – media ještě nebylo připravené. Obrázky používaly 3s timeout a fungovaly OK.
+- **Oprava** ([src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts)):
+  - Nový helper `getContainerStatusCode(payload)` – parsuje `status_code` z Graph API payloadu.
+  - Nový typ `InstagramContainerStatus` (`IN_PROGRESS | FINISHED | PUBLISHED | ERROR | EXPIRED` + string fallback).
+  - Nová async funkce `waitForInstagramContainerReady({ igUserId, creationId, accessToken, pollIntervalMs?, maxWaitMs? })`:
+    - Každých **2.5 s** volá `GET https://graph.facebook.com/v20.0/{creation_id}?fields=status_code,status&access_token=…`.
+    - Vrací `{ success: true }` jakmile `status_code === FINISHED` (nebo `PUBLISHED`).
+    - Vrací `{ success: false, error }` při `ERROR` (s `status` textem z API) nebo `EXPIRED` (kontejner vypršel).
+    - Hard timeout **120 s** (konfigurovatelný přes `maxWaitMs`).
+    - Transientní network chyby se logují přes `console.warn` a polling pokračuje – nespadne na jednom výpadku sítě.
+  - V `publishToInstagram`:
+    - **Obrázky**: ponechán krátký 3s `setTimeout` (API je rychlé, polling by zbytečně zdržoval tok).
+    - **Videa**: `setTimeout(10_000)` nahrazen voláním `waitForInstagramContainerReady` – čeká se skutečně na `status_code: FINISHED` z Instagramu.
+  - Nové diagnostické `console.log` výpisy: `⏳ IG container status: { creationId, attempt, elapsedMs, status_code, status }` – umožní snadno sledovat průběh zpracování v konzoli prohlížeče.
+- **Bezpečnost / Data**: Žádné DB změny. Žádné nové API routes. Žádné nové závislosti.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Instagram MP4 videa se nyní publikují spolehlivě, i když zpracování trvá 30-60 s (dříve failovalo konzistentně).
+  - Chyba `(#9007) Media ID is not available` se již nebude zobrazovat u správně nahraných videí.
+  - Pokud Instagram kontejner spadne (`status_code: ERROR`) nebo vyprší (`EXPIRED`), dostane uživatel srozumitelnou chybovou zprávu s textem z API, ne jen obecný timeout.
+
+### Feature – Automatická komprese obrázků před uploadem (DOKONČENO)
+
+- **Cíl**: Umožnit uživateli nahrát i velkou fotku (nad 5 MB) a nechat Postio, aby ji před odesláním do Supabase Storage automaticky zmenšilo. Dříve se soubory > 5 MB rovnou odmítaly (toast „fileTooLargeImage").
+- **`src/lib/image-compression.ts`** (NOVÝ):
+  - `compressImageIfNeeded(file, options?)` – čistá browser-side utilita, **bez nové npm závislosti** (nativní Canvas API).
+  - Logika: pokud je soubor ≤ 5 MB nebo není obrázek (video/SVG/GIF) → vrátí originál. Pokud je > 5 MB a je to re-encodovatelný obrázek (JPEG/WebP/PNG), načte ho do `HTMLImageElement`, vypočítá nové rozměry (max 2048 px na delší straně, poměr zachován) a přes `canvas.toBlob` vygeneruje nový Blob.
+  - **Iterativní kvalita**: 0.8 → 0.7 → 0.6 → 0.5, cíl ≤ 3 MB. Když se povede dosáhnout 3 MB, iterace se zastaví.
+  - **Jediný toast**: `toast.warning("Soubor je příliš velký (nad 5 MB). Postio ho nyní automaticky optimalizuje pro sociální sítě…")` se zobrazí právě jednou při vstupu do komprese (ne při každém iteraci kvality).
+  - **Log do konzole**: `📸 Optimalizace: Původní velikost X.XX MB -> Nová velikost Y.YY MB`.
+  - **Bezpečné fallbacky**: pokud dekódování obrázku selže nebo `canvas.toBlob` vrátí `null`, vrátí se originální soubor + zobrazí se chybový toast (`compressionError`). SVG a GIF jsou úmyslně přeskočeny (vektor / animace).
+  - Konstanta `COMPRESSION_THRESHOLD_BYTES = 5 * 1024 * 1024` exportovaná pro hook.
+- **`src/hooks/use-media-upload.ts`**:
+  - Přidán nový stav **`"optimizing"`** do `MediaUploadItem.status` (vedle `"uploading" | "ready" | "error"`).
+  - Nahrazena stará logika `isFileTooLarge` novou **`isFileHardRejected`**: videa > 20 MB a obrázky > 50 MB se i nadále tvrdě odmítnou (hard cap), ale obrázky mezi 5 a 50 MB **už nejsou odmítnuty – putují do fáze optimalizace**.
+  - V `addFiles`:
+    1. Validace typu (beze změny).
+    2. Hard-reject (videa > 20 MB / obrázky > 50 MB) – zobrazení `fileTooLargeImage` / `fileTooLargeVideo`.
+    3. Pro obrázky > 5 MB se vytvoří položka se stavem `"optimizing"`, ostatní rovnou `"uploading"`.
+    4. Asynchronní pipeline: `compressImageIfNeeded()` → (pokud `compressed`) update `file` + `previewUrl` (aby se v gridu hned zobrazil optimalizovaný obrázek) + `toast.success("Obrázek byl optimalizován")` → přepnutí stavu na `"uploading"` → `uploadFile()` → `"ready"`.
+    5. Při chybě komprese se uploaduje originál + `toast.error("Nepodařilo se obrázek optimalizovat, odesílám originální soubor.")`.
+  - `hasUploading()` nyní vrací `true` i pro stav `"optimizing"` → tlačítka "Uložit koncept / Naplánovat / Publikovat" zůstávají **disablovaná po celou dobu optimalizace i uploadu**.
+  - Nové překlady v `MediaUploadLabels`: `optimizingImage`, `fileOptimized`, `compressionError`. Výchozí texty v angličtině jsou v `DEFAULT_LABELS` (kvůli `useTranslations` fallbacku).
+- **UI indikace** – overlay přes náhled v gridu médií (tři místa, konzistentní styl):
+  - `src/components/edit-post-dialog.tsx` (overlay s fialovým spinnerem – `text-purple-400`, text „Optimalizuji…").
+  - `src/app/[locale]/(dashboard)/posts/new/page.tsx` (stejný overlay, lokalizovaný text z `t("optimizingImage")`).
+  - `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` (stejný overlay – zajištěno, že i standalone editační stránka pokrývá nový stav).
+- **Aktualizované `uploadLabels`** ve všech třech komponentách (EditPostDialog, posts/new, posts/[id]) – předávají hooku nové překlady.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – 3 nové klíče přidány v sekcích `common` i `posts` (konzistentně):
+  - `optimizingImage` – lokalizovaná zpráva o auto-optimalizaci.
+  - `fileOptimized` – úspěšná optimalizace.
+  - `compressionError` – fallback na originál.
+  - `fileTooLargeImage` přeformulováno z „max 5 MB" na „max 50 MB" (nyní hard cap, protože 5 MB se automaticky komprimuje).
+- **Bezpečnost / Data**: Žádné DB změny. Žádné nové API routes. Komprese je čistě klientská (probíhá v prohlížeči před uploadem), server dostává už optimalizovaný soubor.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**: Uživatel může nahrávat fotografie z moderních telefonů (často > 10 MB) bez toho, aby dostal chybu. Postio samo optimalizuje velikost pro sociální sítě – upload je rychlejší, fotografie vypadají na sítích stále skvěle (max 2048 px, kvalita 0.8+). Tok funguje jak v `EditPostDialog`, tak na stránkách `posts/new` i `posts/[id]`.
+
+### Feature – ETAPA 3: Finální doladění Facebook správy (DOKONČENO)
+
+- **Cíl**: Vizuálně atraktivní a pohodlná správa více Facebook stránek – reálné avatary stránek, kategorie v kartě účtu a hromadná aktivace všech nalezených stránek jedním kliknutím.
+- **`src/app/[locale]/(dashboard)/accounts/page.tsx`**:
+  - Typ `SocialAccount` rozšířen o `metadata?: { access_token?: string; category?: string | null }` – v `fetchAccounts()` se používá `select("*")`, takže `metadata` (JSONB sloupec z migrace 029) se vrací automaticky jako JS objekt.
+  - **Importy**: přidán `Badge` z `@/components/ui/badge` a `Tag` ikona z `lucide-react`.
+  - V kartě propojeného účtu přidán **Badge s kategorií stránky** pod název účtu – zobrazuje se **pouze pro `platform === "facebook"` a pokud `metadata.category` existuje** (jinak se nic neukazuje). Styl: `variant="premium"` (indigo průsvitný s border/backdrop-blur, konzistentní s Postio designem), `Tag` ikona vlevo, `text-[10px]` (decentní), `rounded-full`, `w-fit`.
+  - **Avatary v kartě** se již zobrazovaly (`account.avatar_url`), kód zůstává – fallback na platformovou ikonu v plném kroužku (`rounded-full`) je zachován pro případ chybějícího avataru. Drobné sjednocení: `rounded-full` pro placeholder div, `object-cover` pro img.
+  - Nové překlady `activateAll`, `activatingAll`, `allActivated`, `someFailed` propojeny do `<FacebookPageSelector>` přes `t={{...}}` – dynamické hodnoty (`{count}`, `{failed}`) se opět předávají přes funkce, aby nedošlo k `FORMATTING_ERROR` (next-intl + ICU).
+- **`src/components/facebook-page-selector.tsx`**:
+  - **Hromadná aktivace** (`handleActivateAll`): nové tlačítko "Aktivovat všechny nalezené stránky (N)" nad seznamem stránek, viditelné pouze pokud `items.length > 1`.
+  - Tok: snapshot ids → optimicky vyprázdnit `items` a přidat všechna id do `pendingIds` → paralelně přes `Promise.allSettled` zavolat `toggleAccountActive(id, true)` pro každou stránku (paralelní běh, jeden failure neblokuje ostatní) → spinner na tlačítku i na jednotlivých řádcích (`isPending || bulkActivating`) → po dokončení toast (`allActivated(count)` při 100% úspěchu, jinak `someFailed(failed)`) + `onChanged()` pro refresh.
+  - Per-row Switch je během `bulkActivating` zablokovaný (zobrazí se `Loader2`), aby nedošlo k duplicitním požadavkům.
+  - Nové překlady v `t` prop: `activateAll(count)`, `activatingAll`, `allActivated(count)`, `someFailed(failed)` – všechny dynamické hodnoty jdou přes funkce (next-intl ICU safe).
+- **Revalidace**: `toggleAccountActive` v `src/lib/actions/social-accounts.ts` již po každém úspěšném update volá `revalidatePath("/accounts")` – při hromadné aktivaci se tedy revalidace spustí N-krát (jednou za stránku), cache serveru je vždy čerstvá. Klientský refresh se pak děje přes `onChanged` callback v accounts page (ten volá `fetchAccounts()` + `fetchPendingPages()`), takže UI je aktualizováno okamžitě.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – přidány 4 nové klíče v sekci `accounts`:
+  - `activateAll` (placeholder `{count}`) – "Aktivovat všechny nalezené stránky ({count})".
+  - `activatingAll` – "Aktivuji všechny stránky…".
+  - `allActivated` (placeholder `{count}`) – "Všech {count} stránek bylo úspěšně aktivováno.".
+  - `someFailed` (placeholder `{failed}`) – "Nepodařilo se aktivovat {failed} stránek. Zkuste to prosím znovu.".
+- **Bezpečnost / Data**: Žádné DB změny. Žádná nová API route. Hromadná aktivace jde stále přes `toggleAccountActive` (server-side ownership check + RLS).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Uživatel v seznamu propojených účtů uvidí **reálnou fotku** své stránky (nebo FB fallback ikonu) a **kategorii** pod názvem.
+  - Při mnoha FB stránkách je může připojit **jedním kliknutím** – žádné postupné přepínání switchů.
+
 ### Fix – FORMATTING_ERROR u dynamických zpráv FacebookPageSelectoru
 
 - **Problém**: Konzole hlásila `FORMATTING_ERROR: The intl string context variable "name"/"category" was not provided to the string …` při práci s `FacebookPageSelector` (Accounts stránka).

@@ -3,6 +3,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { buildFinalCaption } from "@/lib/caption";
+import { sanitizeMediaUrl } from "@/lib/utils";
 
 const LOCALES = ["cs", "en", "uk"] as const;
 
@@ -53,6 +54,127 @@ function getGraphResponseId(payload: unknown): string | null {
 }
 
 /**
+ * Instagram container status codes (returned by the Graph API field
+ * `status_code` on `/{ig-container-id}`). See:
+ * https://developers.facebook.com/docs/instagram-api/reference/ig-container
+ */
+type InstagramContainerStatus =
+  | "IN_PROGRESS"
+  | "FINISHED"
+  | "PUBLISHED"
+  | "ERROR"
+  | "EXPIRED"
+  | string;
+
+function getContainerStatusCode(payload: unknown): InstagramContainerStatus | null {
+  if (!payload || typeof payload !== "object") return null;
+  const code = (payload as { status_code?: unknown }).status_code;
+  return typeof code === "string" && code.trim() ? code : null;
+}
+
+/**
+ * Poll the Instagram container endpoint until the video finishes processing
+ * (or fails / expires). Replaces the previous hard-coded `setTimeout` which
+ * was too short for MP4 uploads and caused Meta error `(#9007) Media ID is
+ * not available` during `media_publish`.
+ *
+ * Strategy:
+ *  - Poll every `pollIntervalMs` (default 2.5s).
+ *  - Stop when `status_code` is `FINISHED` (ready to publish) or
+ *    `PUBLISHED` (already published – shouldn't happen here).
+ *  - Bail out with an error when status is `ERROR` or `EXPIRED`.
+ *  - Bail out with a timeout error after `maxWaitMs` (default 120s).
+ */
+async function waitForInstagramContainerReady(params: {
+  igUserId: string;
+  creationId: string;
+  accessToken: string;
+  pollIntervalMs?: number;
+  maxWaitMs?: number;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const {
+    igUserId,
+    creationId,
+    accessToken,
+    pollIntervalMs = 2500,
+    maxWaitMs = 120_000,
+  } = params;
+
+  const start = Date.now();
+  let attempt = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    attempt += 1;
+    const elapsed = Date.now() - start;
+
+    if (elapsed > maxWaitMs) {
+      return {
+        success: false,
+        error: `IG container ${creationId} not ready after ${Math.round(
+          maxWaitMs / 1000,
+        )}s.`,
+      };
+    }
+
+    const url = `https://graph.facebook.com/v20.0/${encodeURIComponent(
+      creationId,
+    )}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`;
+
+    try {
+      const res = await fetch(url, { method: "GET", cache: "no-store" });
+      const payload = (await res.json().catch(() => ({}))) as Record<
+        string,
+        unknown
+      >;
+
+      const apiErr = getGraphErrorMessage(payload);
+      if (apiErr) {
+        return { success: false, error: `IG status check failed: ${apiErr}` };
+      }
+
+      const code = getContainerStatusCode(payload);
+      console.log("⏳ IG container status:", {
+        creationId,
+        attempt,
+        elapsedMs: elapsed,
+        status_code: code,
+        status: (payload as { status?: unknown }).status ?? null,
+      });
+
+      if (code === "FINISHED" || code === "PUBLISHED") {
+        return { success: true };
+      }
+      if (code === "ERROR") {
+        const statusMsg =
+          (payload as { status?: unknown }).status ??
+          "Instagram reported an error while processing the media.";
+        return {
+          success: false,
+          error: `IG container processing failed: ${String(statusMsg)}`,
+        };
+      }
+      if (code === "EXPIRED") {
+        return {
+          success: false,
+          error:
+            "IG container expired before it could be published. Please try again.",
+        };
+      }
+    } catch (e) {
+      // Transient network error – log and keep polling until timeout.
+      console.warn("⚠️ IG status poll network error:", {
+        creationId,
+        attempt,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+}
+
+/**
  * Publish a post to Instagram via the two-phase IG Container process.
  * Phase 1: Create container (/{ig_user_id}/media)
  * Phase 2: Publish container (/{ig_user_id}/media_publish)
@@ -76,14 +198,29 @@ async function publishToInstagram(params: {
   const mediaType = getFacebookMediaType(mediaUrls);
   const baseUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(igUserId)}`;
 
+  // Sanitize the media URL – strip whitespace, wrapping quotes/backticks
+  // and refuse anything that is not a valid http(s) URL. Meta's video
+  // endpoint is strict: a single stray backtick makes `video_url` invalid
+  // and the container ends with `error_subcode: 2207082`.
+  const mediaUrl = sanitizeMediaUrl(mediaUrls[0]);
+  if (!mediaUrl) {
+    return {
+      success: false,
+      error: "Neplatná URL média (po sanitizaci). Zkuste soubor nahrát znovu.",
+    };
+  }
+
   // --- Phase 1: Create Media Container ---
-  console.log("Vytvářím IG kontejner...", { igUserId, mediaType, mediaUrls });
+  console.log("Vytvářím IG kontejner...", {
+    igUserId,
+    mediaType,
+    mediaUrl,
+    "mediaUrl (JSON)": JSON.stringify(mediaUrl),
+  });
 
   const containerBody = new URLSearchParams();
   containerBody.set("access_token", accessToken);
   containerBody.set("caption", content);
-
-  const mediaUrl = mediaUrls[0];
 
   if (mediaType === "video") {
     containerBody.set("video_url", mediaUrl);
@@ -117,9 +254,25 @@ async function publishToInstagram(params: {
 
   console.log("IG kontejner vytvořen, creation_id:", creationId);
 
-  // Wait for Instagram to process the media (video needs more time)
-  const waitMs = mediaType === "video" ? 10_000 : 3_000;
-  await new Promise((r) => setTimeout(r, waitMs));
+  // For images, a short static wait is enough (Instagram processes JPEGs in
+  // a few seconds and the previous 3 s `setTimeout` worked reliably).
+  // For videos, we MUST poll the container's `status_code` until it is
+  // `FINISHED` – the previous hard-coded 10 s wait was too short and caused
+  // Meta error `(#9007) Media ID is not available` on `media_publish`.
+  if (mediaType === "video") {
+    console.log("⏳ Čekám na zpracování IG videa (polling status_code)...");
+    const ready = await waitForInstagramContainerReady({
+      igUserId,
+      creationId,
+      accessToken,
+    });
+    if (!ready.success) {
+      return { success: false, error: ready.error };
+    }
+    console.log("✅ IG video kontejner je připraven k publikaci.");
+  } else {
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
 
   // --- Phase 2: Publish Container ---
   console.log("Publikuji IG kontejner...", { creationId });

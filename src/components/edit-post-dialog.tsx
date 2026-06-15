@@ -118,6 +118,10 @@ interface EditPostDialogProps {
     addMedia: string;
     dropMedia: string;
     uploading: string;
+    /** Label shown over a media tile while the image is being compressed. */
+    optimizingImage?: string;
+    fileOptimized?: string;
+    compressionError?: string;
     uploadError: string;
     uploadSuccess: string;
     fileTooLarge: string;
@@ -125,6 +129,26 @@ interface EditPostDialogProps {
     fileTooLargeVideo: string;
     fileDeleted: string;
     invalidFileType: string;
+    /**
+     * Strict format rejection. Receives the offending MIME type as `{type}`.
+     * Example: "Formát image/gif není podporován. Použijte JPG, PNG, WEBP nebo MP4/MOV."
+     */
+    unsupportedFormat?: (values: { type: string }) => string;
+    /** Toast shown when a video is larger than the 50 MB limit. */
+    videoTooLarge?: string;
+    /** Toast shown when a video is shorter than 640 px on its shortest side. */
+    videoLowResolution?: string;
+    /**
+     * Hard-block banner shown above the action buttons when a post is
+     * configured for Instagram but contains a video whose shorter side is
+     * below the platform's minimum resolution.
+     */
+    instagramVideoTooSmall?: string;
+    /**
+     * Secondary line of the Instagram-resolution banner – explains why and
+     * how to fix it (e.g. regenerate at 1080 × 1920 px).
+     */
+    instagramVideoTooSmallHint?: string;
     statusDraft: string;
     statusScheduled: string;
     statusPublished: string;
@@ -212,8 +236,25 @@ export function EditPostDialog({
     uploadError: tLabels.uploadError,
     fileDeleted: tLabels.fileDeleted ?? "File deleted",
     invalidFileType: tLabels.invalidFileType ?? "Unsupported file format",
-    fileTooLargeImage: tLabels.fileTooLargeImage ?? "File is too large. Max limit for images is 5MB.",
+    // Default to a function (the hook expects a callable for unsupportedFormat
+    // so it can pass the offending MIME type). Consumers that don't supply
+    // their own get a generic English fallback.
+    unsupportedFormat:
+      tLabels.unsupportedFormat ??
+      ((values: { type: string }) =>
+        `Format ${values.type} is not supported. Please use JPG, PNG, WEBP or MP4/MOV.`),
+    videoTooLarge: tLabels.videoTooLarge ?? "Video is too large (max 50 MB). Please reduce its size.",
+    videoLowResolution: tLabels.videoLowResolution ?? "Video has a low resolution (less than 640px). It may look blurry on social networks.",
+    instagramVideoTooSmall:
+      tLabels.instagramVideoTooSmall ?? "This video cannot be published on Instagram.",
+    instagramVideoTooSmallHint:
+      tLabels.instagramVideoTooSmallHint ??
+      "Instagram does not support videos with low resolution (minimum 640 × 1138 px). Please regenerate the video at a higher resolution (recommended 1080 × 1920 px).",
+    fileTooLargeImage: tLabels.fileTooLargeImage ?? "Image is too large (max 50 MB).",
     fileTooLargeVideo: tLabels.fileTooLargeVideo ?? "File is too large. Max limit for videos is 20MB.",
+    optimizingImage: tLabels.optimizingImage ?? "File is too large (over 5 MB). Postio is now automatically optimizing it for social networks...",
+    fileOptimized: tLabels.fileOptimized ?? "Image optimized",
+    compressionError: tLabels.compressionError ?? "Could not optimize the image, uploading the original file.",
   };
   const {
     items: mediaItems,
@@ -222,6 +263,7 @@ export function EditPostDialog({
     loadExistingUrls,
     getMediaUrls,
     hasUploading,
+    getInstagramIncompatibleVideos,
   } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
@@ -300,6 +342,21 @@ export function EditPostDialog({
       originalTags !== currentTags
     );
   }, [isEdit, post, selectedTagIds, location, tags]);
+
+  // ---------------------------------------------------------------------
+  // Instagram hard-block: if the post is destined for Instagram AND it has
+  // at least one video whose shorter side is below the platform minimum
+  // (< 640 px), we surface a banner and disable Publish / Schedule buttons.
+  //
+  // Phrased as a platform limitation (Instagram nepodporuje…), not an
+  // app limitation – the user must regenerate the file, we cannot help.
+  // ---------------------------------------------------------------------
+  const instagramIncompatibleVideos = useMemo(() => {
+    if (!platforms.includes("instagram")) return [];
+    return getInstagramIncompatibleVideos();
+  }, [platforms, getInstagramIncompatibleVideos]);
+
+  const isInstagramVideoIncompatible = instagramIncompatibleVideos.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -387,6 +444,21 @@ export function EditPostDialog({
       if (!content.trim()) return;
       if (hasUploading()) {
         toast.info(tLabels.uploading);
+        return;
+      }
+      // -------------------------------------------------------------------
+      // Instagram video-resolution hard-block. Applies only to "scheduled"
+      // (and to "draft" too – we silently allow the draft to be saved
+      // without media, but if the user picked Instagram AND attached an
+      // incompatible video, even saving a draft is meaningless because it
+      // can never be published).
+      // -------------------------------------------------------------------
+      if (isInstagramVideoIncompatible && platforms.includes("instagram") && newStatus === "scheduled") {
+        const msg =
+          tLabels.instagramVideoTooSmall ??
+          "Toto video nelze na Instagramu publikovat.";
+        setError(msg);
+        toast.error(msg);
         return;
       }
 
@@ -608,6 +680,29 @@ export function EditPostDialog({
       toast.info(tLabels.uploading);
       return;
     }
+    // -------------------------------------------------------------------
+    // Instagram video-resolution hard-block.
+    //
+    // The user is about to (re-)publish an existing post to a new
+    // platform. If that platform is Instagram AND the post contains a
+    // video that we already know is below 640 px on its shorter side,
+    // we refuse the call here. Without this guard the request would
+    // reach `publishAdditionalPlatforms` and the Meta container would
+    // just fail with error_subcode 2207082 after ~30 s of polling –
+    // a confusing experience for the user.
+    // -------------------------------------------------------------------
+    if (targetPlatform === "instagram" && isInstagramVideoIncompatible) {
+      const msg =
+        tLabels.instagramVideoTooSmall ??
+        "Toto video nelze na Instagramu publikovat.";
+      // NOTE: we intentionally do NOT call `setError(msg)` here – that would
+      // show a red error banner at the top of the dialog (in the scrollable
+      // area), which would compete with the dedicated Instagram resolution
+      // banner that already lives next to the action buttons. A single
+      // unified banner + a toast is enough feedback.
+      toast.error(msg);
+      return;
+    }
 
     setIsPublishingAdditional(true);
     setError(null);
@@ -640,6 +735,20 @@ export function EditPostDialog({
     if (!content.trim()) return;
     if (hasUploading()) {
       toast.info(tLabels.uploading);
+      return;
+    }
+    // -------------------------------------------------------------------
+    // Instagram video-resolution hard-block. If the post is destined for
+    // Instagram but contains a video whose shorter side is below 640 px,
+    // we refuse to even attempt publishing – Meta's API would just fail
+    // with error_subcode 2207082 and the user would see a cryptic error.
+    // -------------------------------------------------------------------
+    if (isInstagramVideoIncompatible) {
+      const msg =
+        tLabels.instagramVideoTooSmall ??
+        "Toto video nelze na Instagramu publikovat.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -896,6 +1005,14 @@ export function EditPostDialog({
                     key={item.id}
                     className="group relative overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.02] backdrop-blur-md"
                   >
+                    {item.status === "optimizing" && (
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
+                        <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+                        <span className="text-[10px] font-medium text-purple-200/80">
+                          {tLabels.optimizingImage ?? "Optimalizuji..."}
+                        </span>
+                      </div>
+                    )}
                     {item.status === "uploading" && (
                       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
                         <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
@@ -1082,6 +1199,28 @@ export function EditPostDialog({
 
         {/* Action buttons */}
         <div className="px-6 pb-6 pt-4 border-t border-white/5 space-y-3">
+          {/* Instagram video-resolution hard-block banner.
+              Single source of truth – shown for BOTH new posts and existing
+              (already published) posts, so the user always sees the same
+              message in the same place. */}
+          {isInstagramVideoIncompatible && (
+            <div
+              className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200/90"
+              role="alert"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+              <div className="space-y-0.5">
+                <p className="font-medium">
+                  {tLabels.instagramVideoTooSmall ??
+                    "Toto video nelze na Instagramu publikovat."}
+                </p>
+                <p className="text-xs text-rose-200/70">
+                  {tLabels.instagramVideoTooSmallHint ??
+                    "Instagram nepodporuje videa s nízkým rozlišením (minimálně 640 × 1138 px). Přegenerujte prosím video ve vyšším rozlišení (doporučeno 1080 × 1920 px)."}
+                </p>
+              </div>
+            </div>
+          )}
           {isEdit && isAnyPublished ? (
             <>
               {/* Additional publish buttons – publish to platforms not yet published */}
@@ -1169,6 +1308,8 @@ export function EditPostDialog({
             </>
           ) : (
             <>
+              {/* The Instagram video-resolution hard-block banner is rendered
+                  once above this conditional, so we don't repeat it here. */}
               <Button
                 type="button"
                 onClick={() => handleSubmit("draft")}
@@ -1182,7 +1323,15 @@ export function EditPostDialog({
               <Button
                 type="button"
                 onClick={() => handleSubmit("scheduled")}
-                disabled={!content.trim() || !scheduledAt || platforms.length === 0 || loading || publishing}
+                disabled={
+                  !content.trim() ||
+                  !scheduledAt ||
+                  platforms.length === 0 ||
+                  loading ||
+                  publishing ||
+                  isInstagramVideoIncompatible
+                }
+                title={isInstagramVideoIncompatible ? tLabels.instagramVideoTooSmall : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1191,7 +1340,14 @@ export function EditPostDialog({
               <Button
                 type="button"
                 onClick={handlePublishNow}
-                disabled={!content.trim() || platforms.length === 0 || loading || publishing}
+                disabled={
+                  !content.trim() ||
+                  platforms.length === 0 ||
+                  loading ||
+                  publishing ||
+                  isInstagramVideoIncompatible
+                }
+                title={isInstagramVideoIncompatible ? tLabels.instagramVideoTooSmall : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
                 {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import {
   PlusCircle,
   ChevronRight,
   Sparkles,
+  Tag,
 } from "lucide-react";
 import {
   Instagram,
@@ -118,6 +120,16 @@ type SocialAccount = {
   avatar_url?: string | null;
   platform_id?: string | null;
   token_expires_at?: string | null;
+  /**
+   * Per-platform JSON blob. For Facebook Pages it contains
+   * `{ access_token, category }` (see migration 029 + callback route).
+   * `category` is the Meta Page category (e.g. "Marketingová agentura")
+   * and is rendered as a small badge under the account name.
+   */
+  metadata?: {
+    access_token?: string;
+    category?: string | null;
+  } | null;
 };
 
 export default function AccountsPage() {
@@ -587,6 +599,16 @@ export default function AccountsPage() {
                     <p className="text-sm text-muted-foreground capitalize">
                       {getPlatformLabel(account.platform as PlatformId)}
                     </p>
+                    {account.platform === "facebook" &&
+                      account.metadata?.category && (
+                        <Badge
+                          variant="premium"
+                          className="mt-1.5 w-fit gap-1 rounded-full px-2 py-0 text-[10px] font-medium"
+                        >
+                          <Tag className="h-2.5 w-2.5" />
+                          {account.metadata.category}
+                        </Badge>
+                      )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -780,6 +802,10 @@ export default function AccountsPage() {
           pageDisconnected: (name) => t("pageDisconnected", { name }),
           errorToggle: t("errorToggle"),
           emptyState: t("selectorEmpty"),
+          activateAll: (count) => t("activateAll", { count }),
+          activatingAll: t("activatingAll"),
+          allActivated: (count) => t("allActivated", { count }),
+          someFailed: (failed) => t("someFailed", { failed }),
         }}
       />
     </div>

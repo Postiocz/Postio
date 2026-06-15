@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
-import { ArrowLeft, Calendar, CheckCircle2, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -64,16 +64,40 @@ export default function NewPostPage() {
     uploadError: t("uploadError"),
     fileDeleted: t("fileDeleted"),
     invalidFileType: t("invalidFileType"),
+    // `unsupportedFormat` is an ICU message with the `{type}` placeholder – it
+    // must be called as a function (per next-intl rules) so the offending
+    // MIME type is substituted correctly.
+    unsupportedFormat: (values: { type: string }) => t("unsupportedFormat", values),
+    videoTooLarge: t("videoTooLarge"),
+    videoLowResolution: t("videoLowResolution"),
+    // These two are required by the MediaUploadLabels type but are only
+    // surfaced by the form UI, not the upload hook itself – the hook never
+    // calls them. We pass them so the uploadLabels object satisfies the
+    // type contract.
+    instagramVideoTooSmall: t("instagramVideoTooSmall"),
+    instagramVideoTooSmallHint: t("instagramVideoTooSmallHint"),
     fileTooLargeImage: t("fileTooLargeImage"),
     fileTooLargeVideo: t("fileTooLargeVideo"),
+    optimizingImage: t("optimizingImage"),
+    fileOptimized: t("fileOptimized"),
+    compressionError: t("compressionError"),
   };
-  const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
+  const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading, getInstagramIncompatibleVideos } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
   const firstImageUrl = useMemo(() => {
     const firstImage = mediaItems.find((item) => item.kind === "image" && item.status === "ready" && item.url);
     return firstImage?.url ?? null;
   }, [mediaItems]);
+
+  // Instagram video-resolution hard-block. When the post is destined for
+  // Instagram and contains a video with shorter side < 640 px, we surface
+  // a banner and disable Publish / Schedule (see EditPostDialog for the
+  // matching copy and rationale).
+  const isInstagramVideoIncompatible = useMemo(() => {
+    if (!selectedPlatforms.includes("instagram")) return false;
+    return getInstagramIncompatibleVideos().length > 0;
+  }, [selectedPlatforms, getInstagramIncompatibleVideos]);
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) =>
@@ -111,6 +135,17 @@ export default function NewPostPage() {
     if (!content.trim()) return;
     if (hasUploading()) {
       toast.info(t("uploading"));
+      return;
+    }
+    // -------------------------------------------------------------------
+    // Instagram video-resolution hard-block. Applies to "scheduled" only –
+    // a plain draft can still be saved so the user can keep working on
+    // other parts of the post and fix the media later.
+    // -------------------------------------------------------------------
+    if (isInstagramVideoIncompatible && status === "scheduled") {
+      const msg = t("instagramVideoTooSmall");
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -164,6 +199,18 @@ export default function NewPostPage() {
     if (!content.trim()) return;
     if (hasUploading()) {
       toast.info(t("uploading"));
+      return;
+    }
+    // -------------------------------------------------------------------
+    // Instagram video-resolution hard-block. If the post is destined for
+    // Instagram but contains a video whose shorter side is below 640 px,
+    // we refuse to even attempt publishing – Meta's API would just fail
+    // with error_subcode 2207082 and the user would see a cryptic error.
+    // -------------------------------------------------------------------
+    if (isInstagramVideoIncompatible) {
+      const msg = t("instagramVideoTooSmall");
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -400,6 +447,14 @@ export default function NewPostPage() {
                     key={item.id}
                     className="group relative overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.02] backdrop-blur-md"
                   >
+                    {/* Image optimization overlay */}
+                    {item.status === "optimizing" && (
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
+                        <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+                        <span className="text-[10px] font-medium text-purple-200/80">{t("optimizingImage")}</span>
+                      </div>
+                    )}
+
                     {/* Upload progress overlay */}
                     {item.status === "uploading" && (
                       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
@@ -572,6 +627,19 @@ export default function NewPostPage() {
 
           {/* Action buttons */}
           <div className="flex flex-col gap-2 pt-2">
+            {/* Instagram video-resolution hard-block banner. */}
+            {isInstagramVideoIncompatible && (
+              <div
+                className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200/90"
+                role="alert"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+                <div className="space-y-0.5">
+                  <p className="font-medium">{t("instagramVideoTooSmall")}</p>
+                  <p className="text-xs text-rose-200/70">{t("instagramVideoTooSmallHint")}</p>
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={() => handleSubmit("draft")}
@@ -584,7 +652,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={() => handleSubmit("scheduled")}
-                disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading()}
+                disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
+                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
                 {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
@@ -592,7 +661,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={handlePublishNow}
-                disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || hasUploading()}
+                disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
+                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
                 {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

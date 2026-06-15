@@ -1,4 +1,57 @@
+# Changelog
+
+> Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
+> Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
+
 ## 2026-06-15
+
+### Feature – Dashboard (Přehled): vizuální analytika (DOKONČENO)
+
+- **Cíl**: Dashboard říkal „Tady je tvá aktivita za poslední měsíc přehledně a v barvách." – dosud zobrazoval jen holá čísla, bez kontextu. Tato iterace přidává **dvě nové analytické karty** (TopLabelsChart, PlatformDonutChart) a dělá ze streaku a trendu funkční, dynamicky počítané metriky.
+- **Datový model – důležitá poznámka**:
+  - Úkol popisoval analýzu `pole 'labels' v tabulce 'posts'`. Toto pole **neexistuje** – štítky jsou v projektu uloženy normalizovaně v tabulkách `tags` (definice) + `post_tags` (vazební tabulka M:N; viz migrace 007 a 028). Implementace tedy čte z `post_tags` + `tags` přes JOIN, což je konzistentní s celou aplikací (Settings → Labels, Posts, Calendar).
+  - Stejně tak `published` příspěvky se nečtou z `posts.status='published'`, ale z `post_platforms` (single source of truth, migrace 023). To umožňuje granularitu na úrovni platforem (FB post může být publikovaný, IG verze stejného postu může být ve stavu `failed`).
+- **Nové komponenty** (vše client-side, `"use client"`):
+  - **`src/components/dashboard/top-labels-chart.tsx`**:
+    - 5 nejpoužívanějších interních štítků (horizontální progress bar seznam).
+    - Každý řádek = barevná tečka 10 px (z `tags.color`) + název tagu + absolutní počet + progress bar vůči TOP1 (gradient v barvě tagu + jemný glow).
+    - **Animace**: framer-motion `motion.div` se staggerovaným `delay: index * 0.06`, progress bar roste z 0 na `{percentage}%` přes `transition: duration 0.7s, ease "easeOut"`. Vstup: `opacity 0 → 1` + `x: -8 → 0`.
+    - **Prázdný stav**: pokud `labels.length === 0`, zobrazí se CTA s odkazem na `/settings/labels` (Next.js Link + Button variant="outline", radius 20 px).
+    - Glassmorphism: `bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]` (konzistentní s Postio standardem).
+  - **`src/components/dashboard/platform-donut-chart.tsx`**:
+    - Donut chart (recharts `PieChart` + `Pie` + `Cell` + `ResponsiveContainer` + `Tooltip`).
+    - **Brand colors**: Facebook `#1877F2`, Instagram `#E1306C` (zjednodušená reprezentace gradientu), Twitter `#1d9bf0`, LinkedIn `#0a66c2`, TikTok `#ff0050`, YouTube `#ff0000`. Ostatní platformy dostanou fallback `#a855f7` (Postio purple-500).
+    - Střed donutu = dominantní platforma (jméno + procento), `motion.div` s `scale 0.9 → 1` + `opacity 0 → 1`, delay 0.2 s.
+    - **Legenda** pod grafem (vlastní seznam, ne recharts `Legend`) – `motion.li` se staggerovaným vstupem. Každá položka: barevná tečka + název + absolutní číslo + procento.
+    - **Tooltip**: custom `contentStyle` – pozadí `#09090b` + `1px solid rgba(255,255,255,0.08)` + `borderRadius: 12px` + `backdropFilter: blur(12px)` (stejný pattern jako AnalyticsPage).
+    - **Animace**: recharts vlastní `animationBegin={0} animationDuration={700}` na `Pie`.
+    - **Prázdný stav**: ikona + text + popis (žádný CTA, protože akce je v jiném flow).
+- **Nová utilita `src/lib/dashboard-stats.ts`** (čisté funkce, pure, bez React/Next/Supabase):
+  - `calculateStreak(publishedDates, now?)` – počet po sobě jdoucích dní s alespoň 1 publikací, končících dnes NEBO včerejškem (aby se série ráno hned neanulovala). Algoritmus: unikátní dny v UTC → seřadit sestupně → ověřit, že nejnovější je dnes/včera → počítat po sobě jdoucí dny od nejnovějšího.
+  - `calculateTrend(createdDates, days=7, now?)` – kolik příspěvků bylo vytvořeno v posledních `days` dnech. Slouží pro trend indikátor.
+  - `aggregateTopLabels(rows, limit=5)` – top N štítků z `post_tags JOIN tags`, setříděno sestupně dle count.
+  - `aggregatePlatforms(rows)` – agregace podle platformy, přiřazení brand barev.
+  - `prioritizeForDonut(data)` – Facebook a Instagram mají přednost v legendě (větší relevance pro Postio), ostatní se seřadí dle value.
+- **Dashboard page** (`src/app/[locale]/(dashboard)/page.tsx`):
+  - Zůstává Server Component (SSR), ale načítá **7 paralelních dotazů** přes `Promise.all` pro minimální latenci.
+  - **RLS poznámka**: `post_platforms` (migrace 023) **nemá** sloupec `user_id` – RLS filtruje přes JOIN na `posts.user_id`. V selectu proto používáme `posts!inner(user_id)` + `.eq("posts.user_id", user.id)`. Tím vnucujeme INNER JOIN a data jsou správně izolovaná i přes agregaci (jinak by se mohly objevit cizí záznamy).
+  - **Streak** se nově **počítá dynamicky** z `post_platforms.published_at` přes `calculateStreak()`. Pokud výpočet > 0, použijeme ho; jinak fallback na `users.streak` (který aktualizuje cron job). Výsledek: streak je skutečně funkční, ne pouze načtený z DB.
+  - **Trend indikátor** se zobrazuje v kartě "Celkem příspěvků" – ikona `TrendingUp` (zelená) pro kladný trend, `TrendingDown` (růžová) pro záporný, neutrální `—` pro 0. Text: `+X tento týden` / `X tento týden` / `— tento týden`.
+- **Layout Dashboardu**:
+  - Stats grid (4 karty) zůstává nahoře.
+  - Nový **analytics grid** pod ním: `lg:grid-cols-3` → vlevo `ConsistencyScore` (1/3 šířky), vpravo 2/3 s `sm:grid-cols-2` obsahujícím `PlatformDonutChart` + `TopLabelsChart`. Na menších obrazovkách se oba grafy skládají pod sebe pod consistency score.
+- **Glassmorphism** je dodržen na 100 %: všechny nové karty mají `bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]`. Barvy konzistentní s Postio paletou (indigo/purple akcenty, brand barvy platforem v donut chartu).
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – 10 nových klíčů v sekci `dashboard`:
+  - `thisWeek`, `platformBreakdown`, `platformEmptyTitle`, `platformEmptyDescription`, `topLabels`, `labelsEmptyTitle`, `labelsEmptyDescription`, `labelsEmptyAction`, `postsCount` + reuse existujícího `published`.
+  - Všechny tři jazyky mají přirozené formulace (ne doslovný překlad).
+- **Bezpečnost / Data**: Žádné DB migrace. Žádné nové API routes. Žádné nové npm závislosti (recharts a framer-motion již v `package.json`).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Dashboard nyní dává uživateli **okamžitý přehled** o tom, co publikuje (top štítky), kam publikuje (donut) a jak se mu daří (streak + trend).
+  - **Streak je poprvé funkční** – dříve se pouze četl z `users.streak` (který se updatuje z cronu; pokud cron neexistuje, je hodnota stale). Nyní se počítá z `post_platforms.published_at` přímo při načtení stránky.
+  - **Trend indikátor** dává kontext k suchému číslu „12 příspěvků" → „12 příspěvků, +2 tento týden".
+  - Prázdné stavy mají CTA – uživatel s 0 štítky vidí odkaz na `/settings/labels`; uživatel s 0 publikacemi vidí popis „Publikujte první příspěvky…".
+  - Pokud má uživatel jen 1-2 platformy, donut chart funguje (recharts zvládne i 1-slice, i když typicky zobrazuje prázdný kroužek – proto `prioritizeForDonut` + kontrola `total === 0` pro prázdný stav).
 
 ### Fix – UX sjednocení: Instagram hard-block banner jen u tlačítek (HOTFIX 3)
 

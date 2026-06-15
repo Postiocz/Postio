@@ -191,7 +191,16 @@
     "advanced": "Pokročilá",
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
-    "perMonth": "/měsíc"
+    "perMonth": "/měsíc",
+    "thisWeek": "tento týden",
+    "platformBreakdown": "Rozdělení podle platforem",
+    "platformEmptyTitle": "Zatím žádné publikace",
+    "platformEmptyDescription": "Publikujte první příspěvky pro zobrazení rozdělení.",
+    "topLabels": "Top štítky",
+    "labelsEmptyTitle": "Zatím žádné štítky",
+    "labelsEmptyDescription": "Přidejte štítky k příspěvkům a sledujte, co publikujete nejčastěji.",
+    "labelsEmptyAction": "Vytvořit štítky",
+    "postsCount": "příspěvků"
   },
   "posts": {
     "title": "Příspěvky",

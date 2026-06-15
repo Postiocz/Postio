@@ -191,7 +191,16 @@
     "advanced": "Розширений",
     "upgrade": "Оновити",
     "downgrade": "Знизити",
-    "perMonth": "/місяць"
+    "perMonth": "/місяць",
+    "thisWeek": "цього тижня",
+    "platformBreakdown": "Розподіл за платформами",
+    "platformEmptyTitle": "Поки що немає публікацій",
+    "platformEmptyDescription": "Опублікуйте перші дописи, щоб побачити розподіл.",
+    "topLabels": "Топ-мітки",
+    "labelsEmptyTitle": "Поки що немає міток",
+    "labelsEmptyDescription": "Додайте мітки до дописів і відстежуйте, що публікуєте найчастіше.",
+    "labelsEmptyAction": "Створити мітки",
+    "postsCount": "дописів"
   },
   "posts": {
     "title": "Публікації",

@@ -191,7 +191,16 @@
     "advanced": "Advanced",
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
-    "perMonth": "/month"
+    "perMonth": "/month",
+    "thisWeek": "this week",
+    "platformBreakdown": "Platform Breakdown",
+    "platformEmptyTitle": "No publications yet",
+    "platformEmptyDescription": "Publish your first posts to see the breakdown.",
+    "topLabels": "Top Labels",
+    "labelsEmptyTitle": "No labels yet",
+    "labelsEmptyDescription": "Add labels to your posts to track what you publish most often.",
+    "labelsEmptyAction": "Create Labels",
+    "postsCount": "posts"
   },
   "posts": {
     "title": "Posts",

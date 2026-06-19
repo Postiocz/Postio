@@ -297,7 +297,13 @@
     "allTags": "All tags",
     "noTagsAvailable": "You have no tags yet. Create them in Settings → Labels.",
     "deleteConfirm": "Are you sure you want to delete this post?",
-    "allPlatforms": "All platforms"
+    "allPlatforms": "All platforms",
+    "previewTitle": "Preview",
+    "previewFacebookTab": "Facebook",
+    "previewInstagramTab": "Instagram",
+    "previewNoMedia": "No media",
+    "previewPlaceholderName": "Postio",
+    "previewCaptionHint": "Write your post text here…"
   },
   "accounts": {
     "title": "Social Accounts",

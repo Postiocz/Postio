@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ArrowLeft, Film, Image as ImageIcon, Loader2, MapPin, X, Clock, Check, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ArrowLeft, Film, Image as ImageIcon, Loader2, MapPin, X, Clock, Check, AlertCircle, Play } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -1117,17 +1117,43 @@ export function CalendarView({
             }}
           >
             <div className="bg-white/80 dark:bg-black/80 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-[16px] p-4 w-72 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-              {hoveredPost.media_urls && hoveredPost.media_urls.length > 0 && (
-                <div className="w-full aspect-video rounded-lg overflow-hidden mb-3 bg-black/5 dark:bg-white/5">
-                  <NextImage
-                    src={hoveredPost.media_urls[0]}
-                    alt="Media preview"
-                    width={384}
-                    height={216}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
+              {hoveredPost.media_urls && hoveredPost.media_urls.length > 0 && (() => {
+                const firstMedia = hoveredPost.media_urls[0];
+                // Detect video from URL extension – mirrors the helper used in
+                // src/app/[locale]/(dashboard)/posts/_post-card.tsx so the
+                // calendar stays consistent with the posts list.
+                const isVideo = firstMedia
+                  ? /\.(mp4|mov|webm)(\?.*)?$/i.test(firstMedia)
+                  : false;
+                return (
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-3 bg-black/5 dark:bg-white/5">
+                    {isVideo ? (
+                      <>
+                        <video
+                          src={firstMedia}
+                          className="w-full h-full object-cover"
+                          preload="metadata"
+                          muted
+                          playsInline
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm border border-white/20">
+                            <Play className="h-4 w-4 text-white ml-0.5" />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <NextImage
+                        src={firstMedia ?? ""}
+                        alt="Media preview"
+                        width={384}
+                        height={216}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                );
+              })()}
               <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 mb-3">
                 {hoveredPost.content?.substring(0, 80)}
                 {hoveredPost.content?.length > 80 ? "..." : ""}

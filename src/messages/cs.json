@@ -298,7 +298,13 @@
     "allTags": "Všechny štítky",
     "noTagsAvailable": "Zatím nemáte žádné štítky. Vytvořte je v Nastavení → Štítky.",
     "deleteConfirm": "Opravdu chcete smazat tento příspěvek?",
-    "allPlatforms": "Všechny platformy"
+    "allPlatforms": "Všechny platformy",
+    "previewTitle": "Náhled",
+    "previewFacebookTab": "Facebook",
+    "previewInstagramTab": "Instagram",
+    "previewNoMedia": "Žádná média",
+    "previewPlaceholderName": "Postio",
+    "previewCaptionHint": "Sem napište text příspěvku…"
   },
   "accounts": {
     "title": "Sociální účty",

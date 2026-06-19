@@ -3,6 +3,66 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-06-19
+
+### Fix – Video preview v kalendáři (HOTFIX)
+
+- **Problém**: V hover preview na `/[locale]/calendar` se u příspěvků s video souborem (`.mp4`) místo náhledu videa zobrazoval fallback text „Media preview" / prázdný rámeček. Konzole hlásila `The requested resource isn't a valid image for ...mp4 received null`.
+- **Příčina**: `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` používal pro render média v hover preview vždy `<NextImage>` (next/image), bez ohledu na to, zda médium bylo obrázek nebo video. Next.js image optimizer neumí dekódovat `.mp4` a vyhazuje chybu. U statických obrázků (`Test 5` – viz. obrázek 2) fungovalo vše správně.
+- **Oprava**:
+  - Import `Play` z `lucide-react` přidán do hlavičky importů.
+  - Render media v hover preview nyní rozlišuje image vs. video na základě koncovky URL (regex `/\.(mp4|mov|webm)(\?.*)?$/i`) – stejný helper jako v `src/app/[locale]/(dashboard)/posts/_post-card.tsx` a `src/lib/actions/publish.ts::getFacebookMediaType`, takže chování kalendáře je konzistentní se zbytkem aplikace.
+  - **Video**: `<video src={...} preload="metadata" muted playsInline className="w-full h-full object-cover" />` + overlay s `Play` ikonou (průhledná tmavá vrstva + bílé play tlačítko uprostřed) pro jasné UX.
+  - **Obrázek**: `<NextImage>` beze změny (optimalizované dekódování přes Next.js image optimizer).
+  - Wrapper `div` dostal `relative` (kvůli absolutnímu overlay) – rozměry a `aspect-video` rounded overflow zůstávají.
+- **Bezpečnost / Data**: Žádné DB migrace. Žádné nové API routes. Žádné nové npm závislosti (`Play` je z `lucide-react`, které už v `package.json` je).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**: Hover preview v kalendáři nyní korektně zobrazuje první rámec videa (thumbnail z `<video preload="metadata">`) u video postů, stejně jako u obrázkových postů. Chyby `isn't a valid image` v terminálu by měly zmizet.
+
+## 2026-06-19
+
+### Feature – Náhled příspěvku v editoru (Post Preview) (DOKONČENO)
+
+- **Cíl**: Při psaní příspěvku chtěl uživatel v reálném čase vidět, jak bude jeho post vypadat na Facebooku a Instagramu. Doposud musel obsah „odeslat naslepo" a kontrolovat výsledek až na síti.
+- **Nová komponenta `src/components/post-preview.tsx`**:
+  - Client component (vyžaduje `useState` pro přepínání platformy).
+  - **Vnější obal**: Postio glassmorphism (`rounded-[20px] border border-white/5 bg-card/40 backdrop-blur-md`) – konzistentní se zbytkem aplikace.
+  - **Vnitřek**: simulace mobilního feedu FB / IG v brand barvách dané sítě (FB `#1877F2` + tmavý `#242526` / `#18191a`, IG gradient `#F58529 → #DD2A7B → #8134AF` + černé pozadí).
+  - **Přepínač (Tabs)**: vlastní segmentovaný control – dvě tlačítka v jednom zaobleném kontejneru. Aktivní platforma má podbarvení v brand barvě s 22 hex alpha (`${accent}22`). Přepínání mění interní stav `platform`, který řídí, který sub-renderer (`FacebookPreview` / `InstagramPreview`) se namountuje.
+  - **Facebook simulace**: feed card s avatarou (40 px), jménem stránky, „Právě teď 🌐" timestampem (s volitelnou lokací), textovým captionem nahoře a obrázkem pod ním (poměr 4:3, `aspect-[4/3]`), dole fake engagement row.
+  - **Instagram simulace**: feed card s avatarou obalenou IG gradient kruhem (32 px), username nahoře, čtvercovým médiem (`aspect-square`), action řádkou (♡ 💬 ✈️) a captionem pod fotkou – text captionu začíná jménem uživatele (IG konvence).
+  - **Médiа**: společná komponenta `MediaArea` rozlišuje image vs. video. Všechna média jsou renderována přes `<img>` / `<video>` – žádný `next/image` optimalizátor, protože URL jsou object URL z `URL.createObjectURL()` (ty by Next.js nevalidoval). Při více než 1 médiu se zobrazí „1/N" indikátor.
+  - **Avatar**: pokud existuje URL, zobrazí se `<img>`. Pokud ne, generuje se kulatá bublina s prvním písmenem jména v Postio indigo→purple gradientu – graceful fallback.
+  - **Prázdné stavy**: pokud `content` je prázdný, zobrazí se placeholder text (italic). Pokud `media` je prázdné, zobrazí se šedý placeholder „Žádná média".
+  - **Realtime**: komponenta je čistě poháněna props. Žádné interní síťové dotazy – `EditPostDialog` jí předává `content` (z textarea state) a `media` (z `useMediaUpload` hooku). Při každém `setContent` / uploadu proběhne re-render a náhled se okamžitě aktualizuje.
+  - **TypeScript**: nové exportované typy `PostPreviewMedia` a `PostPreviewProfile` pro sdílení kontraktů mezi dialogem a komponentou.
+- **`src/components/edit-post-dialog.tsx`** – integrace:
+  - **Layout**: dialog rozšířen z `max-w-lg` na `max-w-[1100px]` (responzivně `w-[95vw]`), obalen do `<div className="grid grid-cols-1 gap-4 px-6 lg:grid-cols-[minmax(0,1fr)_360px]">`. Na `lg+` se zobrazí dvousloupcový grid (formulář vlevo, náhled vpravo); pod `lg` se náhled přesune pod formulář.
+  - **Sticky pravý sloupec**: náhled je na desktopu `sticky top-0` v rámci `max-h-[60vh]` scroll oblasti, takže zůstává viditelný i při dlouhém formuláři (když uživatel scrolluje k tlačítkům, náhled nezmizí).
+  - **Akční tlačítka zůstávají přes celou šířku** pod grid kontejnerem (mimo scope layoutu – zachováno kvůli konzistenci s existujícími bannery a Instagram hard-block).
+  - **Nové state**: `facebookProfile` + `instagramProfile` (typ `PostPreviewProfile | null`).
+  - **Nový useEffect**: po získání `userId` paralelně načte `users` (fallback jméno + avatar) a `social_accounts` (FB/IG specifická jména + avatary). Preferuje se `social_accounts` řádek pro danou platformu – odráží skutečnou stránku/uživatelské jméno, pod kterým bude post publikován. Pokud social_account chybí, použije se `users.full_name`. Při chybě dotazu se náhled zobrazí s placeholderem.
+  - **Nový `previewMedia` memo**: promítne `mediaItems` z `useMediaUpload` do tvaru `PostPreviewMedia[]`. Filtruje jen errory – zahrnuje jak rozpracované uploady (object URL preview), tak hotité (public URL), takže náhled reaguje okamžitě i během uploadu.
+  - **Nové `previewLabels` memo**: bezpečné fallbacky pro všechny překladové klíče (`"Postio"`, `"Sem napište text příspěvku…"`) – kdyby konzumentský kód nepředal překlady, komponenta stále funguje.
+  - **Rozšíření `tLabels` interface**: 6 nových volitelných klíčů (`previewTitle`, `previewFacebookTab`, `previewInstagramTab`, `previewNoMedia`, `previewPlaceholderName`, `previewCaptionHint`) – všechny `?`, takže existující volající nemusejí nic měnit.
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) – 6 nových klíčů v sekci `posts`:
+  - cs: `Náhled`, `Facebook`, `Instagram`, `Žádná média`, `Postio`, `Sem napište text příspěvku…`
+  - en: `Preview`, `Facebook`, `Instagram`, `No media`, `Postio`, `Write your post text here…`
+  - uk: `Попередній перегляд`, `Facebook`, `Instagram`, `Немає медіа`, `Postio`, `Напишіть текст публікації тут…`
+- **Jak jsem vyřešil přepínání FB ↔ IG**:
+  1. **Interní stav `platform` v `PostPreview`**: `useState<Platform>("facebook")`. Žádný externí state management, žádné URL parametry – přepínač je čistě UI záležitost komponenty.
+  2. **Segmentovaný control (`PlatformTabs`)**: vlastní dvoutlačítkový přepínač s `role="tablist"` + `role="tab"` + `aria-selected`. Aktivní tlačítko má brand-color pozadí s alpha 22 (tj. `${accent}22`).
+  3. **Podmíněný render**: `{platform === "facebook" ? <FacebookPreview …/> : <InstagramPreview …/>}`. Při přepnutí React odmountuje jednu komponentu a mountne druhou – díky tomu jsou obě simulace na sobě zcela nezávislé a mohou mít odlišnou strukturu (FB: text nahoře, médium dole; IG: médium nahoře, text dole).
+  4. **Re-resolve profilu přes `useMemo`**: když se změní `platform`, přepočítá se `activeProfile` (z `facebookProfile` nebo `instagramProfile`). Tím se zajistí, že FB preview ukazuje FB page jméno, IG preview ukazuje IG username – i když uživatel teprve připojil jednu ze sítí.
+  5. **Žádné zbytečné re-rendery**: oba sub-renderery jsou pure functions. Rodič jim předává jen `content`, `media`, `profile`, `location`, `labels` – nestahují nic samy.
+- **Bezpečnost / Data**: Žádné DB migrace. Žádné nové API routes. Žádné nové npm závislosti.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Při psaní příspěvku v `EditPostDialog` nyní uživatel okamžitě vidí, jak bude post vypadat na FB / IG – včetně obrázku, videa, avataru, jména stránky a captionu.
+  - Náhled reaguje v reálném čase: při každém stisku klávesy v textarea, při každém uploadu obrázku, při každém přidání hashtagu, při změně lokace.
+  - Na mobilu se náhled přesune pod formulář (žádné rozhraní se neláme), na desktopu je sticky vpravo a nebrání scrollu formuláře.
+  - Žádný nový síťový roundtrip při psaní – profily se načtou jen jednou při otevření dialogu.
+
 ## 2026-06-15
 
 ### Feature – Dashboard (Přehled): vizuální analytika (DOKONČENO)

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/social-icons";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
+import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/components/post-preview";
 import { getPostTags } from "@/lib/actions/tag-actions";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
@@ -172,6 +173,13 @@ interface EditPostDialogProps {
     igEditNotSupported?: string;
     publishToSelected?: string;
     additionalPublishSuccess?: string;
+    // Post preview (real-time FB/IG simulation)
+    previewTitle?: string;
+    previewFacebookTab?: string;
+    previewInstagramTab?: string;
+    previewNoMedia?: string;
+    previewPlaceholderName?: string;
+    previewCaptionHint?: string;
   };
   tAi?: {
     aiAssistant: string;
@@ -215,6 +223,10 @@ export function EditPostDialog({
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
+  // Profiles used by the live post preview (FB page name/avatar, IG username/avatar).
+  // Loaded once per dialog open from the `users` + `social_accounts` tables.
+  const [facebookProfile, setFacebookProfile] = useState<PostPreviewProfile | null>(null);
+  const [instagramProfile, setInstagramProfile] = useState<PostPreviewProfile | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -229,6 +241,53 @@ export function EditPostDialog({
     };
     getUser();
   }, [open, supabase, userId]);
+
+  // Load the user's profile + connected FB/IG accounts for the live preview.
+  // Runs once we have a userId. We deliberately fetch BOTH the `users` row
+  // (full_name + avatar_url fallback) and the `social_accounts` rows
+  // (platform-specific display name + avatar). The social account takes
+  // priority because it reflects the actual page/username that will be shown
+  // on the network; the `users` row is a graceful fallback.
+  useEffect(() => {
+    if (!userId || !open) return;
+    let cancelled = false;
+    const loadProfiles = async () => {
+      try {
+        const [userRes, accountsRes] = await Promise.all([
+          supabase
+            .from("users")
+            .select("full_name, avatar_url")
+            .eq("id", userId)
+            .maybeSingle(),
+          supabase
+            .from("social_accounts")
+            .select("platform, account_name, avatar_url")
+            .eq("user_id", userId)
+            .eq("is_active", true)
+            .in("platform", ["facebook", "instagram"]),
+        ]);
+        if (cancelled) return;
+        const fallbackName = userRes.data?.full_name ?? tLabels.previewPlaceholderName ?? "Postio";
+        const fallbackAvatar = userRes.data?.avatar_url ?? null;
+        const fb = accountsRes.data?.find((a) => a.platform === "facebook");
+        const ig = accountsRes.data?.find((a) => a.platform === "instagram");
+        setFacebookProfile({
+          displayName: fb?.account_name ?? fallbackName,
+          avatarUrl: fb?.avatar_url ?? fallbackAvatar,
+        });
+        setInstagramProfile({
+          displayName: ig?.account_name ?? fallbackName,
+          avatarUrl: ig?.avatar_url ?? fallbackAvatar,
+        });
+      } catch {
+        // non-fatal – preview falls back to placeholder name
+      }
+    };
+    loadProfiles();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, open, supabase, tLabels.previewPlaceholderName]);
 
   const uploadLabels = {
     tooManyFiles: tLabels.maxFilesReached,
@@ -271,6 +330,35 @@ export function EditPostDialog({
     const firstImage = mediaItems.find((item) => item.kind === "image" && item.status === "ready" && item.url);
     return firstImage?.url ?? null;
   }, [mediaItems]);
+
+  // Media items projected into the shape expected by PostPreview.
+  // We include BOTH in-progress uploads (object URL preview) and ready
+  // uploads (public URL) so the preview reflects the current state in
+  // real time, even before the upload finishes.
+  const previewMedia = useMemo<PostPreviewMedia[]>(
+    () =>
+      mediaItems
+        .filter((i) => i.status !== "error")
+        .map((i) => ({
+          previewUrl: i.previewUrl,
+          kind: i.kind,
+        })),
+    [mediaItems],
+  );
+
+  // Labels for PostPreview with safe fallbacks so the dialog works even
+  // when a consumer didn't wire up the new optional translation keys.
+  const previewLabels = useMemo(
+    () => ({
+      previewTitle: tLabels.previewTitle ?? "Náhled",
+      facebookTab: tLabels.previewFacebookTab ?? "Facebook",
+      instagramTab: tLabels.previewInstagramTab ?? "Instagram",
+      noMedia: tLabels.previewNoMedia ?? "Žádná média",
+      placeholderName: tLabels.previewPlaceholderName ?? "Postio",
+      captionHint: tLabels.previewCaptionHint ?? "Sem napište text příspěvku…",
+    }),
+    [tLabels],
+  );
 
   // Detect if the published post is on Instagram
   const isInstagramPublished = useMemo(() => {
@@ -833,7 +921,7 @@ export function EditPostDialog({
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(); }}>
       <DialogContent
-        className="max-w-lg rounded-[20px] bg-white/80 dark:bg-card/40 backdrop-blur-xl border border-black/5 dark:border-white/10 p-0 sm:max-w-lg shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+        className="max-w-[1100px] w-[95vw] rounded-[20px] bg-white/80 dark:bg-card/40 backdrop-blur-xl border border-black/5 dark:border-white/10 p-0 sm:max-w-[1100px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
         showCloseButton
       >
         <DialogHeader className="px-6 pt-6">
@@ -842,7 +930,10 @@ export function EditPostDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        {/* Two-column layout: form (left) + live preview (right).
+            On screens below `lg` the preview collapses below the form. */}
+        <div className="grid grid-cols-1 gap-4 px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           {error && (
             <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
@@ -1195,6 +1286,23 @@ export function EditPostDialog({
               locale={locale}
             />
           </div>
+        </div>
+
+        {/* Live post preview (right column on desktop, below form on mobile).
+            Sticky on desktop so it stays in view while the user scrolls the
+            form. Hidden on very small screens via the grid breakpoint. */}
+        <div className="hidden lg:block">
+          <div className="sticky top-0 max-h-[60vh]">
+            <PostPreview
+              content={content}
+              media={previewMedia}
+              facebookProfile={facebookProfile}
+              instagramProfile={instagramProfile}
+              location={location}
+              labels={previewLabels}
+            />
+          </div>
+        </div>
         </div>
 
         {/* Action buttons */}

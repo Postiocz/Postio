@@ -297,7 +297,13 @@
     "allTags": "Усі теги",
     "noTagsAvailable": "У вас ще немає тегів. Створіть їх у Налаштуваннях → Мітки.",
     "deleteConfirm": "Ви впевнені, що хочете видалити цю публікацію?",
-    "allPlatforms": "Усі платформи"
+    "allPlatforms": "Усі платформи",
+    "previewTitle": "Попередній перегляд",
+    "previewFacebookTab": "Facebook",
+    "previewInstagramTab": "Instagram",
+    "previewNoMedia": "Немає медіа",
+    "previewPlaceholderName": "Postio",
+    "previewCaptionHint": "Напишіть текст публікації тут…"
   },
   "accounts": {
     "title": "Акаунти в соцмережах",

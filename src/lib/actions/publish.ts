@@ -1,0 +1,1433 @@
+"use server";
+
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+import { buildFinalCaption } from "@/lib/caption";
+import { sanitizeMediaUrl } from "@/lib/utils";
+
+const LOCALES = ["cs", "en", "uk"] as const;
+
+function revalidateAllLocales(path: string) {
+  for (const locale of LOCALES) {
+    revalidatePath(`/${locale}${path}`);
+  }
+}
+
+type FacebookPublishResponse =
+  | { id: string }
+  | { error?: { message?: string } }
+  | Record<string, unknown>;
+
+type FacebookPublishMediaType = "text" | "photo" | "video";
+
+function getFacebookMediaType(mediaUrls: unknown): FacebookPublishMediaType {
+  if (!Array.isArray(mediaUrls) || mediaUrls.length === 0) return "text";
+  const first = mediaUrls[0];
+  if (typeof first !== "string" || !first.trim()) return "text";
+  const withoutHash = first.split("#")[0] ?? "";
+  const withoutQuery = (withoutHash.split("?")[0] ?? "").toLowerCase();
+
+  if (withoutQuery.endsWith(".mp4") || withoutQuery.endsWith(".mov")) return "video";
+  if (
+    withoutQuery.endsWith(".jpg") ||
+    withoutQuery.endsWith(".png") ||
+    withoutQuery.endsWith(".webp")
+  ) {
+    return "photo";
+  }
+
+  return "text";
+}
+
+function getGraphErrorMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const error = (payload as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return null;
+  const message = (error as { message?: unknown }).message;
+  return typeof message === "string" && message.trim() ? message : null;
+}
+
+function getGraphResponseId(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const id = (payload as { id?: unknown }).id;
+  return typeof id === "string" && id.trim() ? id : null;
+}
+
+/**
+ * Instagram container status codes (returned by the Graph API field
+ * `status_code` on `/{ig-container-id}`). See:
+ * https://developers.facebook.com/docs/instagram-api/reference/ig-container
+ */
+type InstagramContainerStatus =
+  | "IN_PROGRESS"
+  | "FINISHED"
+  | "PUBLISHED"
+  | "ERROR"
+  | "EXPIRED"
+  | string;
+
+function getContainerStatusCode(payload: unknown): InstagramContainerStatus | null {
+  if (!payload || typeof payload !== "object") return null;
+  const code = (payload as { status_code?: unknown }).status_code;
+  return typeof code === "string" && code.trim() ? code : null;
+}
+
+/**
+ * Poll the Instagram container endpoint until the video finishes processing
+ * (or fails / expires). Replaces the previous hard-coded `setTimeout` which
+ * was too short for MP4 uploads and caused Meta error `(#9007) Media ID is
+ * not available` during `media_publish`.
+ *
+ * Strategy:
+ *  - Poll every `pollIntervalMs` (default 2.5s).
+ *  - Stop when `status_code` is `FINISHED` (ready to publish) or
+ *    `PUBLISHED` (already published – shouldn't happen here).
+ *  - Bail out with an error when status is `ERROR` or `EXPIRED`.
+ *  - Bail out with a timeout error after `maxWaitMs` (default 120s).
+ */
+async function waitForInstagramContainerReady(params: {
+  igUserId: string;
+  creationId: string;
+  accessToken: string;
+  pollIntervalMs?: number;
+  maxWaitMs?: number;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const {
+    igUserId,
+    creationId,
+    accessToken,
+    pollIntervalMs = 2500,
+    maxWaitMs = 120_000,
+  } = params;
+
+  const start = Date.now();
+  let attempt = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    attempt += 1;
+    const elapsed = Date.now() - start;
+
+    if (elapsed > maxWaitMs) {
+      return {
+        success: false,
+        error: `IG container ${creationId} not ready after ${Math.round(
+          maxWaitMs / 1000,
+        )}s.`,
+      };
+    }
+
+    const url = `https://graph.facebook.com/v20.0/${encodeURIComponent(
+      creationId,
+    )}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`;
+
+    try {
+      const res = await fetch(url, { method: "GET", cache: "no-store" });
+      const payload = (await res.json().catch(() => ({}))) as Record<
+        string,
+        unknown
+      >;
+
+      const apiErr = getGraphErrorMessage(payload);
+      if (apiErr) {
+        return { success: false, error: `IG status check failed: ${apiErr}` };
+      }
+
+      const code = getContainerStatusCode(payload);
+      console.log("⏳ IG container status:", {
+        creationId,
+        attempt,
+        elapsedMs: elapsed,
+        status_code: code,
+        status: (payload as { status?: unknown }).status ?? null,
+      });
+
+      if (code === "FINISHED" || code === "PUBLISHED") {
+        return { success: true };
+      }
+      if (code === "ERROR") {
+        const statusMsg =
+          (payload as { status?: unknown }).status ??
+          "Instagram reported an error while processing the media.";
+        return {
+          success: false,
+          error: `IG container processing failed: ${String(statusMsg)}`,
+        };
+      }
+      if (code === "EXPIRED") {
+        return {
+          success: false,
+          error:
+            "IG container expired before it could be published. Please try again.",
+        };
+      }
+    } catch (e) {
+      // Transient network error – log and keep polling until timeout.
+      console.warn("⚠️ IG status poll network error:", {
+        creationId,
+        attempt,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+}
+
+/**
+ * Publish a post to Instagram via the two-phase IG Container process.
+ * Phase 1: Create container (/{ig_user_id}/media)
+ * Phase 2: Publish container (/{ig_user_id}/media_publish)
+ */
+async function publishToInstagram(params: {
+  igUserId: string;
+  accessToken: string;
+  content: string;
+  mediaUrls: string[];
+}): Promise<{ success: boolean; externalId?: string; error?: string }> {
+  const { igUserId, accessToken, content, mediaUrls } = params;
+
+  // Instagram requires at least one image or video — text-only is not allowed
+  if (mediaUrls.length === 0) {
+    return {
+      success: false,
+      error: "Instagram vyžaduje alespoň jeden obrázek nebo video.",
+    };
+  }
+
+  const mediaType = getFacebookMediaType(mediaUrls);
+  const baseUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(igUserId)}`;
+
+  // Sanitize the media URL – strip whitespace, wrapping quotes/backticks
+  // and refuse anything that is not a valid http(s) URL. Meta's video
+  // endpoint is strict: a single stray backtick makes `video_url` invalid
+  // and the container ends with `error_subcode: 2207082`.
+  const mediaUrl = sanitizeMediaUrl(mediaUrls[0]);
+  if (!mediaUrl) {
+    return {
+      success: false,
+      error: "Neplatná URL média (po sanitizaci). Zkuste soubor nahrát znovu.",
+    };
+  }
+
+  // --- Phase 1: Create Media Container ---
+  console.log("Vytvářím IG kontejner...", {
+    igUserId,
+    mediaType,
+    mediaUrl,
+    "mediaUrl (JSON)": JSON.stringify(mediaUrl),
+  });
+
+  const containerBody = new URLSearchParams();
+  containerBody.set("access_token", accessToken);
+  containerBody.set("caption", content);
+
+  if (mediaType === "video") {
+    containerBody.set("video_url", mediaUrl);
+    containerBody.set("media_type", "REELS");
+  } else {
+    containerBody.set("image_url", mediaUrl);
+    containerBody.set("media_type", "IMAGE");
+  }
+
+  const containerRes = await fetch(`${baseUrl}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: containerBody,
+    cache: "no-store",
+  });
+
+  const containerPayload = (await containerRes.json().catch(async () => ({
+    raw: await containerRes.text().catch(() => ""),
+  }))) as FacebookPublishResponse;
+  console.log("META RESPONSE (IG container):", containerPayload);
+
+  const containerErr = getGraphErrorMessage(containerPayload);
+  if (containerErr) {
+    return { success: false, error: `IG container creation failed: ${containerErr}` };
+  }
+
+  const creationId = getGraphResponseId(containerPayload);
+  if (!creationId) {
+    return { success: false, error: "IG container creation returned no ID." };
+  }
+
+  console.log("IG kontejner vytvořen, creation_id:", creationId);
+
+  // For images, a short static wait is enough (Instagram processes JPEGs in
+  // a few seconds and the previous 3 s `setTimeout` worked reliably).
+  // For videos, we MUST poll the container's `status_code` until it is
+  // `FINISHED` – the previous hard-coded 10 s wait was too short and caused
+  // Meta error `(#9007) Media ID is not available` on `media_publish`.
+  if (mediaType === "video") {
+    console.log("⏳ Čekám na zpracování IG videa (polling status_code)...");
+    const ready = await waitForInstagramContainerReady({
+      igUserId,
+      creationId,
+      accessToken,
+    });
+    if (!ready.success) {
+      return { success: false, error: ready.error };
+    }
+    console.log("✅ IG video kontejner je připraven k publikaci.");
+  } else {
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
+
+  // --- Phase 2: Publish Container ---
+  console.log("Publikuji IG kontejner...", { creationId });
+
+  const publishBody = new URLSearchParams();
+  publishBody.set("creation_id", creationId);
+  publishBody.set("access_token", accessToken);
+
+  const publishRes = await fetch(`${baseUrl}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: publishBody,
+    cache: "no-store",
+  });
+
+  const publishPayload = (await publishRes.json().catch(async () => ({
+    raw: await publishRes.text().catch(() => ""),
+  }))) as FacebookPublishResponse;
+  console.log("🔥 META RESPONSE (IG publish):", publishPayload);
+
+  const publishErr = getGraphErrorMessage(publishPayload);
+  if (publishErr) {
+    return { success: false, error: `IG publish failed: ${publishErr}` };
+  }
+
+  // Instagram media_publish returns { "id": "17841405876543214" }
+  // This is the actual post ID on Instagram – we MUST store it for deletion.
+  const publishedId = getGraphResponseId(publishPayload);
+
+  if (publishedId) {
+    console.log("🔥 IG PUBLISH SUCCESS, final external_id:", publishedId);
+    return { success: true, externalId: publishedId };
+  }
+
+  // Fallback: if media_publish returned OK but no 'id', use creation_id.
+  // This can happen with certain Meta API versions. creation_id is still usable
+  // for deletion via Graph API.
+  console.warn("⚠️ IG publish returned no 'id' – falling back to creation_id:", creationId);
+  return { success: true, externalId: creationId };
+}
+
+/**
+ * Main publish router: looks up the post's platforms and routes to the correct publisher.
+ * Supports: facebook, instagram
+ */
+export async function publishPost(input: { postId: string }): Promise<{
+  success: boolean;
+  data?: { externalId?: string; platform?: string };
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, content, post_platforms(*), media_urls, location, tags")
+    .eq("id", input.postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  const postPlatforms = post.post_platforms || [];
+  const unpublishedPlatforms = postPlatforms.filter((p: any) => p.status !== "published").map((p: any) => p.platform);
+  const platforms = unpublishedPlatforms.length > 0 ? unpublishedPlatforms : postPlatforms.map((p: any) => p.platform);
+
+  const rawContent = String(post.content ?? "");
+  const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
+  const rawLocation = (post as { location?: string | null }).location ?? null;
+  const rawTags = (Array.isArray((post as { tags?: unknown }).tags) ? (post as { tags?: string[] }).tags : []) ?? [];
+
+  // Build final caption: content + location + hashtags
+  const finalCaption = buildFinalCaption({
+    content: rawContent,
+    location: rawLocation,
+    tags: rawTags,
+  });
+
+  // Publish to the first unpublished platform in the list
+  const targetPlatform = platforms[0] ?? "facebook";
+
+  // --- Instagram ---
+  if (targetPlatform === "instagram") {
+    const { data: igAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("*")
+      .eq("user_id", user.id)
+      .ilike("platform", "instagram")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const igAccount = igAccounts?.[0] as any;
+    let platformId = igAccount?.platform_id;
+    let accessToken = igAccount?.access_token;
+
+    if (!platformId || !accessToken) {
+      // Fallback na Facebook ucet
+      const { data: fbAccounts } = await supabaseAdmin
+        .from("social_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .ilike("platform", "facebook")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
+        
+      const fbAccount = fbAccounts?.[0] as any;
+      if (fbAccount) {
+        if (!platformId) {
+          platformId = fbAccount.metadata?.instagram_id || fbAccount.metadata?.instagram_business_account_id || fbAccount.platform_id;
+        }
+        if (!accessToken) {
+          accessToken = fbAccount.access_token;
+        }
+      }
+    }
+
+    if (!accessToken || !platformId) {
+      return {
+        success: false,
+        error: "Chybí propojený Instagram účet (platform_id / access_token).",
+      };
+    }
+
+    const result = await publishToInstagram({
+      igUserId: platformId,
+      accessToken: accessToken,
+      content: finalCaption,
+      mediaUrls: rawUrls,
+    });
+
+    if (!result.success) {
+      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram");
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram");
+    return { success: true, data: { externalId: result.externalId, platform: "instagram" } };
+  }
+
+  // --- Facebook (default) ---
+  const { data: fbAccounts } = await supabaseAdmin
+    .from("social_accounts")
+    .select("access_token, platform_id")
+    .eq("user_id", user.id)
+    .ilike("platform", "facebook")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const fbAccount = fbAccounts?.[0];
+  if (!fbAccount?.access_token || !fbAccount?.platform_id) {
+    return {
+      success: false,
+      error: "Chybí propojený Facebook účet (platform_id / access_token).",
+    };
+  }
+
+  const mediaType = getFacebookMediaType(rawUrls);
+  const photoUrls = mediaType === "photo" ? rawUrls.filter((u) => typeof u === "string" && u.trim()) : [];
+  const base = `https://graph.facebook.com/v20.0/${encodeURIComponent(fbAccount.platform_id)}`;
+
+  let facebookPostId: string | null = null;
+
+  try {
+    if (mediaType === "video") {
+      const mediaUrl = String(rawUrls[0] ?? "");
+      const body = new URLSearchParams();
+      body.set("file_url", mediaUrl);
+      body.set("description", finalCaption);
+      body.set("access_token", fbAccount.access_token);
+
+      console.log("ODESÍLÁM VIDEO NA FACEBOOK...", { platform_id: fbAccount.platform_id, mediaUrl });
+      const res = await fetch(`${base}/videos`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (video):", payload);
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
+
+    } else if (mediaType === "photo" && photoUrls.length > 1) {
+      console.log("Nahrávám galerii s počtem fotek:", photoUrls.length);
+      console.log("ODESÍLÁM GALERII FOTEK NA FACEBOOK...", { platform_id: fbAccount.platform_id, count: photoUrls.length });
+
+      const mediaIds: string[] = [];
+      for (let i = 0; i < photoUrls.length; i++) {
+        const uploadBody = new URLSearchParams();
+        uploadBody.set("url", photoUrls[i]);
+        uploadBody.set("published", "false");
+        uploadBody.set("access_token", fbAccount.access_token);
+
+        const uploadRes = await fetch(`${base}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: uploadBody,
+          cache: "no-store",
+        });
+
+        const uploadPayload = (await uploadRes.json().catch(async () => ({ raw: await uploadRes.text().catch(() => "") }))) as FacebookPublishResponse;
+        console.log(`META UPLOAD photo ${i + 1}:`, uploadPayload);
+
+        const uploadErr = getGraphErrorMessage(uploadPayload);
+        if (uploadErr) throw new Error(`Upload photo ${i + 1} failed: ${uploadErr}`);
+
+        const photoId = getGraphResponseId(uploadPayload);
+        if (!photoId) throw new Error(`Upload photo ${i + 1} returned no ID.`);
+        mediaIds.push(photoId);
+      }
+
+      const feedBody = new URLSearchParams();
+      feedBody.set("message", finalCaption);
+      feedBody.set("attached_media", JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))));
+      feedBody.set("access_token", fbAccount.access_token);
+
+      console.log("PUBLIKUJI GALERII...", { mediaIds });
+      const feedRes = await fetch(`${base}/feed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: feedBody,
+        cache: "no-store",
+      });
+
+      const feedPayload = (await feedRes.json().catch(async () => ({ raw: await feedRes.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (gallery feed):", feedPayload);
+
+      const feedErr = getGraphErrorMessage(feedPayload);
+      if (feedErr) throw new Error(feedErr);
+      facebookPostId = getGraphResponseId(feedPayload);
+
+    } else if (mediaType === "photo" && photoUrls.length === 1) {
+      const body = new URLSearchParams();
+      body.set("url", photoUrls[0]);
+      body.set("caption", finalCaption);
+      body.set("access_token", fbAccount.access_token);
+
+      console.log("ODESÍLÁM FOTO NA FACEBOOK...", { platform_id: fbAccount.platform_id, mediaUrl: photoUrls[0] });
+      const res = await fetch(`${base}/photos`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (photo):", payload);
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
+
+    } else {
+      const body = new URLSearchParams();
+      body.set("message", finalCaption);
+      body.set("access_token", fbAccount.access_token);
+
+      console.log("ODESÍLÁM TEXT NA FACEBOOK...", { platform_id: fbAccount.platform_id });
+      const res = await fetch(`${base}/feed`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+      console.log("META RESPONSE (text):", payload);
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
+    }
+
+    if (!facebookPostId) {
+      throw new Error("Meta Graph API returned no post ID.");
+    }
+
+    await handlePublishSuccess(supabase, user.id, post.id, facebookPostId, "facebook");
+    return { success: true, data: { externalId: facebookPostId, platform: "facebook" } };
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing to Facebook.";
+    console.error("FACEBOOK PUBLISH ERROR:", errorMessage);
+
+    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook");
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Shared helpers for DB updates and revalidation
+async function handlePublishSuccess(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  postId: string,
+  externalId: string,
+  platform: string
+) {
+  const publishedAt = new Date().toISOString();
+
+  console.log(`✅ ZAPISUJI ÚSPĚCH DO DB: ${platform} pro post ${postId}`);
+  console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> published`);
+  const { error: ppError } = await supabase
+    .from("post_platforms")
+    .update({
+      status: "published",
+      published_at: publishedAt,
+      external_id: externalId,
+      publish_error: null,
+    })
+    .eq("post_id", postId)
+    .eq("platform", platform);
+
+  if (ppError) {
+    console.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
+  }
+
+  // Hard revalidate – clear all Next.js cache
+  revalidatePath("/", "layout");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+}
+
+async function handlePublishError(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  postId: string,
+  errorMessage: string,
+  platform?: string
+) {
+  if (platform) {
+    console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> failed`);
+    const { error: ppError } = await supabase
+      .from("post_platforms")
+      .update({
+        status: "failed",
+        publish_error: errorMessage,
+      })
+      .eq("post_id", postId)
+      .eq("platform", platform);
+
+    if (ppError) {
+      console.error("handlePublishError: Failed to update post_platforms:", ppError.message);
+    }
+  }
+
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+}
+
+/**
+ * Backward-compatible alias — keeps existing imports working.
+ * Routes to publishPost internally.
+ */
+export async function publishToFacebook(input: { postId: string }): Promise<{
+  success: boolean;
+  data?: { facebookPostId?: string };
+  error?: string;
+}> {
+  const result = await publishPost(input);
+  if (result.success && result.data) {
+    return { success: true, data: { facebookPostId: result.data.externalId } };
+  }
+  return result as { success: boolean; data?: { facebookPostId?: string }; error?: string };
+}
+
+/**
+ * Remote Edit: update a published post on Meta platforms (Facebook / Instagram).
+ * Sends the new caption/message to the Graph API and updates the DB.
+ * - Facebook: POST /{external_id} with { message, access_token }
+ * - Instagram: POST /{external_id} with { caption, access_token }
+ */
+export async function updateRemotePostAction(input: {
+  postId: string;
+  newContent: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // Fetch the post with external_ids, platforms, and published_platforms
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, post_platforms(*)")
+    .eq("id", input.postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatforms = postPlatforms.filter((p: any) => p.status === 'published');
+  if (publishedPlatforms.length === 0) {
+    return { success: false, error: "Pouze publikované příspěvky lze editovat na sociální síti." };
+  }
+  const publishedPlatformNames = publishedPlatforms.map((p: any) => p.platform);
+
+  // Platforms that support remote text editing
+  const editablePlatforms = ["facebook", "youtube"];
+
+  // Find the first platform that is both published and supports editing
+  const targetPlatform = publishedPlatformNames.find((p: string) => editablePlatforms.includes(p))
+    ?? publishedPlatformNames[0]
+    ?? "facebook";
+
+  const targetPlatformData = publishedPlatforms.find((p: any) => p.platform === targetPlatform);
+  const externalId = targetPlatformData?.external_id ?? null;
+
+  if (!externalId) {
+    return { success: false, error: `Příspěvek nemá external_id pro platformu ${targetPlatform} – nelze editovat na sociální síti.` };
+  }
+
+  // Look up the access token for the target platform
+  const { data: accounts } = await supabaseAdmin
+    .from("social_accounts")
+    .select("access_token")
+    .eq("user_id", user.id)
+    .ilike("platform", targetPlatform)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (!accounts?.[0]?.access_token) {
+    return {
+      success: false,
+      error: `Chybí přístupový token pro ${targetPlatform}.`,
+    };
+  }
+
+  const accessToken = accounts[0].access_token;
+  const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
+
+  // Facebook uses 'message', Instagram uses 'caption'
+  const paramName = targetPlatform === "instagram" ? "caption" : "message";
+
+  const body = new URLSearchParams();
+  body.set(paramName, input.newContent);
+  body.set("access_token", accessToken);
+
+  console.log(`Remote editing post on ${targetPlatform}:`, { externalId, paramName });
+
+  const res = await fetch(graphUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    cache: "no-store",
+  });
+
+  const payload = (await res.json().catch(async () => ({
+    raw: await res.text().catch(() => ""),
+  }))) as FacebookPublishResponse;
+  console.log(`META RESPONSE (remote edit ${targetPlatform}):`, payload);
+
+  const errMsg = getGraphErrorMessage(payload);
+  if (errMsg) {
+    // Check for Meta Capability Error (#3) — remote editing requires App Review
+    const isCapabilityError =
+      errMsg.includes("capability") ||
+      errMsg.includes("#3") ||
+      errMsg.includes("3") ||
+      String(payload).includes('"code":3') ||
+      String(payload).includes('"error_code":3');
+
+    if (isCapabilityError) {
+      // Revalidate to prevent UI freeze on error
+      revalidatePath("/", "layout");
+      revalidateAllLocales("/calendar");
+      revalidateAllLocales("/posts");
+      revalidateAllLocales("/dashboard");
+
+      return {
+        success: false,
+        error: "Úprava publikovaného příspěvku na Facebooku momentálně vyžaduje dodatečné schválení aplikace ze strany Meta (App Review). V tuto chvíli nelze text na dálku změnit.",
+      };
+    }
+
+    // Revalidate on any error to prevent UI freeze
+    revalidatePath("/", "layout");
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+
+    return { success: false, error: `Editace na ${targetPlatform} selhala: ${errMsg}` };
+  }
+
+  // Update local DB with new content only
+  const { error: updateError } = await supabase
+    .from("posts")
+    .update({
+      content: input.newContent.trim(),
+    })
+    .eq("id", input.postId)
+    .eq("user_id", user.id);
+
+  if (updateError) {
+    revalidatePath("/", "layout");
+    return { success: false, error: updateError.message };
+  }
+
+  revalidatePath("/", "layout");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+
+  return { success: true };
+}
+
+/**
+ * Universal per-platform text update for published posts.
+ *
+ * Architecture: switch/case router – each platform gets its own case block.
+ * To add a new platform:
+ *   1. Add the platform name to the switch.
+ *   2. Implement the API call (fetch to the platform's update endpoint).
+ *   3. Return { success, externalId } or { success: false, error }.
+ *   4. The shared post-update logic (DB + revalidate) runs automatically.
+ *
+ * Supported now: facebook
+ * Planned: linkedin, youtube, twitter (X), instagram (not supported by API)
+ */
+export async function updateOnPlatformAction(input: {
+  postId: string;
+  platform: string;
+  newContent: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  // (a) Strict user authentication
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // (b) Ownership check – post MUST belong to the authenticated user
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, content, post_platforms(*)")
+    .eq("id", input.postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  const postPlatforms = post.post_platforms || [];
+  const targetPlatformData = postPlatforms.find(
+    (p: any) => p.platform === input.platform && p.status === "published"
+  );
+
+  if (!targetPlatformData) {
+    return {
+      success: false,
+      error: `Příspěvek není publikován na platformě ${input.platform}.`,
+    };
+  }
+
+  const externalId = targetPlatformData.external_id;
+  if (!externalId) {
+    return {
+      success: false,
+      error: `Příspěvek nemá external_id pro platformu ${input.platform} – nelze updatovat.`,
+    };
+  }
+
+  // (c) Look up access_token from social_accounts
+  const { data: accounts, error: accError } = await supabaseAdmin
+    .from("social_accounts")
+    .select("access_token, platform_id, account_name")
+    .eq("user_id", user.id)
+    .ilike("platform", input.platform)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  console.log(`[TOKEN LOOKUP] platform: ${input.platform}, user: ${user.id}`);
+  console.log(`[TOKEN LOOKUP] accounts:`, JSON.stringify(accounts?.map(a => ({ platform_id: a.platform_id, account_name: a.account_name, tokenLast10: a.access_token?.slice(-10) })), null, 2));
+  console.log(`[TOKEN LOOKUP] error:`, accError);
+
+  if (!accounts?.[0]?.access_token) {
+    return {
+      success: false,
+      error: `Chybí přístupový token pro ${input.platform}.`,
+    };
+  }
+
+  const accessToken = accounts[0].access_token;
+  const accountPlatformId = accounts[0].platform_id;
+
+  // (d) Switch/case router – extend with new platforms here
+  const apiResult = await (async () => {
+    switch (input.platform) {
+      case "facebook": {
+        // Facebook Graph API: POST /{post_id} with message in body
+        // external_id from post_platforms is the full post ID (e.g. "page_id_post_id")
+        // If it doesn't contain an underscore, reconstruct it as "{page_id}_{external_id}"
+        let resolvedExternalId = externalId;
+        if (!externalId.includes("_") && accountPlatformId) {
+          resolvedExternalId = `${accountPlatformId}_${externalId}`;
+          console.log(`[FB UPDATE] external_id bez podtržítka, sestavuji: ${resolvedExternalId}`);
+        }
+
+        // The access_token from social_accounts IS the Page Access Token
+        // (stored from /me/accounts response during OAuth callback)
+        const pageAccessToken = accessToken;
+
+        const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(resolvedExternalId)}`;
+
+        // Log exact request details before sending to Meta
+        console.log(`[FB UPDATE] === Požadavek na Facebook ===`);
+        console.log(`[FB UPDATE] URL: ${graphUrl}`);
+        console.log(`[FB UPDATE] Method: POST`);
+        console.log(`[FB UPDATE] external_id (raw): ${externalId}`);
+        console.log(`[FB UPDATE] resolvedExternalId: ${resolvedExternalId}`);
+        console.log(`[FB UPDATE] pageAccessToken (last 12): ${pageAccessToken.slice(-12)}`);
+        console.log(`[FB UPDATE] message: ${input.newContent.slice(0, 100)}...`);
+
+        const body = new URLSearchParams();
+        body.set("message", input.newContent);
+        body.set("access_token", pageAccessToken);
+
+        console.log(`[FB UPDATE] Body (urlencoded): ${body.toString().replace(pageAccessToken, "TOKEN_REDACTED")}`);
+
+        const res = await fetch(graphUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+          cache: "no-store",
+        });
+
+        const payload = (await res.json().catch(async () => ({
+          raw: await res.text().catch(() => ""),
+        }))) as FacebookPublishResponse;
+        console.log(`[FB UPDATE] META RESPONSE:`, payload);
+
+        const errMsg = getGraphErrorMessage(payload);
+        if (errMsg) {
+          return { success: false as const, error: `Facebook update failed: ${errMsg}` };
+        }
+
+        return { success: true as const, externalId: resolvedExternalId };
+      }
+
+      case "linkedin": {
+        // TODO: LinkedIn API v2 – PUT /v2/posts/{external_id}
+        // Body: { "text": { "content": newContent } }
+        // Header: Authorization: Bearer {accessToken}
+        // LinkedIn tokens expire in 60 days – check token_expires_at before calling.
+        console.warn(`LinkedIn update placeholder – platform: ${input.platform}, post: ${input.postId}`);
+        return {
+          success: false as const,
+          error: "Úprava na LinkedIn zatím není implementována.",
+        };
+      }
+
+      case "youtube": {
+        // TODO: YouTube Data API v3 – videos().update({ id, part, requestBody })
+        // requestBody: { snippet: { description: newContent } }
+        console.warn(`YouTube update placeholder – platform: ${input.platform}, post: ${input.postId}`);
+        return {
+          success: false as const,
+          error: "Úprava na YouTube zatím není implementována.",
+        };
+      }
+
+      case "twitter":
+      case "x": {
+        // TODO: X/Twitter API v2 – PUT /2/tweets/{external_id}
+        // Body: { "text": newContent }
+        // Note: X API may require the media metadata to be preserved in the update.
+        console.warn(`Twitter/X update placeholder – platform: ${input.platform}, post: ${input.postId}`);
+        return {
+          success: false as const,
+          error: "Úprava na X (Twitter) zatím není implementována.",
+        };
+      }
+
+      case "instagram": {
+        // Instagram does NOT support editing captions of published posts.
+        // This case should never be reached if SUPPORTED_UPDATE_PLATFORMS
+        // is correctly configured on the frontend.
+        return {
+          success: false as const,
+          error: "Instagram neumožňuje úpravu textu u publikovaných příspěvků.",
+        };
+      }
+
+      default: {
+        return {
+          success: false as const,
+          error: `Platforma ${input.platform} není pro úpravy podporována.`,
+        };
+      }
+    }
+  })();
+
+  if (!apiResult.success) {
+    // Revalidate on error to prevent UI freeze
+    revalidatePath("/", "layout");
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+    return { success: false, error: apiResult.error };
+  }
+
+  // (d) On success: update 'updated_at' in post_platforms AND 'content' in posts
+  const now = new Date().toISOString();
+
+  await supabase
+    .from("post_platforms")
+    .update({
+      updated_at: now,
+    })
+    .eq("post_id", input.postId)
+    .eq("platform", input.platform);
+
+  await supabase
+    .from("posts")
+    .update({
+      content: input.newContent.trim(),
+    })
+    .eq("id", input.postId)
+    .eq("user_id", user.id);
+
+  // Revalidate
+  revalidatePath("/", "layout");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+
+  return { success: true };
+}
+
+/**
+ * Selective Delete: remove a published post from a specific platform via Meta Graph API.
+ * Accepts postId and platform to enable per-platform deletion without affecting
+ * other published platforms. Also removes the platform from `published_platforms`
+ * via RPC `remove_published_platform`.
+ *
+ * Supports: facebook, instagram (via Meta Graph API)
+ */
+export async function deleteFromMeta(input: {
+  postId: string;
+  platform: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  /** Platform does not support API deletion (e.g. Instagram). Post is marked as removed_externally. */
+  cannotDeleteViaApi?: boolean;
+}> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // Fetch the post with external_ids and published_platforms
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, post_platforms(*)")
+    .eq("id", input.postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatforms = postPlatforms.filter((p: any) => p.status === 'published');
+  if (publishedPlatforms.length === 0) {
+    return { success: false, error: "Příspěvek není publikován." };
+  }
+
+  const targetPlatformData = publishedPlatforms.find((p: any) => p.platform === input.platform);
+  const externalId = targetPlatformData?.external_id ?? null;
+
+  if (!externalId) {
+    console.log(`deleteFromMeta: Na platformě ${input.platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
+  }
+
+  const publishedPlatformNames = publishedPlatforms.map((p: any) => p.platform);
+
+  // Verify the target platform is in published_platforms
+  if (!publishedPlatformNames.includes(input.platform)) {
+    return { success: false, error: `Příspěvek není publikován na ${input.platform}.` };
+  }
+
+  // Look up the access token for the target platform
+  const { data: accounts } = await supabaseAdmin
+    .from("social_accounts")
+    .select("access_token")
+    .eq("user_id", user.id)
+    .ilike("platform", input.platform)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (!accounts?.[0]?.access_token) {
+    return {
+      success: false,
+      error: `Chybí přístupový token pro ${input.platform}.`,
+    };
+  }
+
+  if (externalId) {
+    const accessToken = accounts[0].access_token;
+    const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
+
+    console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${input.platform}`);
+    console.log(`>>> POUŽITÉ ID: ${externalId}`);
+    console.log(`>>> POUŽITÝ TOKEN (last 10): ${accessToken.slice(-10)}`);
+
+    try {
+      const body = new URLSearchParams();
+      body.set("access_token", accessToken);
+
+      const res = await fetch(graphUrl, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+        cache: "no-store",
+      });
+
+      const resData = await res.json().catch(async () => ({
+        raw: await res.text().catch(() => ""),
+      }));
+      console.log(`>>> META RESPONSE (${input.platform}):`, JSON.stringify(resData, null, 2));
+
+      const errMsg = getGraphErrorMessage(resData);
+      if (errMsg) {
+        // If Meta says "Object does not exist" – the post is already gone on the platform.
+        // Treat as success and remove from our DB.
+        const isObjectNotFound =
+          errMsg.toLowerCase().includes("object does not exist") ||
+          errMsg.toLowerCase().includes("(#3) ") ||
+          (String(resData).includes('"error_code":3') &&
+            String(resData).toLowerCase().includes("does not exist"));
+
+        if (isObjectNotFound) {
+          console.log(`>>> Object not found on ${input.platform} – post already deleted on platform. Treating as success.`);
+          // Mark as removed_externally since the post is already gone on the platform
+          const now = new Date().toISOString();
+          await supabase
+            .from("post_platforms")
+            .update({
+              status: "removed_externally",
+              removed_at: now,
+              last_sync_at: now,
+            })
+            .eq("post_id", input.postId)
+            .eq("platform", input.platform);
+
+          revalidateAllLocales("/calendar");
+          revalidateAllLocales("/posts");
+          revalidateAllLocales("/dashboard");
+
+          return { success: true, cannotDeleteViaApi: true };
+        } else {
+          console.error(`>>> CHYBA při mazání na ${input.platform}: ${errMsg}`);
+          // API deletion not supported (e.g. Instagram) – do NOT mark as removed_externally.
+          // The post still exists on the platform. Only syncPublishedPosts (via GET check)
+          // should set removed_externally after confirming the post is truly gone.
+          return { success: false, cannotDeleteViaApi: true, error: `Smazání z ${input.platform} přes API není podporováno. Smažte příspěvek ručně na platformě.` };
+        }
+      }
+
+      // Úspěšné smazání – Graph API vrací {"success": true} pro Facebook
+      // nebo {"id": "..."} pro Instagram
+      console.log(`>>> Smazání z ${input.platform} ÚSPĚŠNÉ`);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : "Neznámá síťová chyba.";
+      console.error(`>>> VÝJIMEKA při mazání na ${input.platform}: ${errorMessage}`);
+      // Network error – do NOT mark as removed_externally.
+      // The post may still exist on the platform. Let syncPublishedPosts verify via GET.
+      return { success: false, cannotDeleteViaApi: true, error: `Síťová chyba při mazání z ${input.platform}. Zkuste to znovu.` };
+    }
+  } else {
+    console.log(`>>> externalId chybí pro ${input.platform} – přeskočíme API volání`);
+    // No externalId – do NOT mark as removed_externally.
+    // We cannot verify the post status without an ID.
+    return { success: false, cannotDeleteViaApi: true, error: `Chybí ID pro smazání z ${input.platform}.` };
+  }
+
+
+
+  // Status updates on post_platforms are handled by remove_published_platform RPC or locally
+  // Here we just make sure we update post_platforms status to draft
+  await supabase.from("post_platforms").update({
+      status: "draft",
+      published_at: null,
+      external_id: null
+  }).eq("post_id", input.postId).eq("platform", input.platform);
+
+  // Revalidate after successful deletion
+  revalidatePath("/", "layout");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+
+  return { success: true };
+}
+
+/**
+ * Publish an existing post to an additional platform that was not included
+ * in the original publish. Appends the platform to `published_platforms`.
+ */
+export async function publishAdditionalPlatforms(input: {
+  postId: string;
+  platform: string;
+}): Promise<{
+  success: boolean;
+  data?: { externalId?: string; platform?: string };
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // Fetch post with published_platforms
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, content, post_platforms(*), media_urls, location, tags")
+    .eq("id", input.postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  const postPlatforms = post.post_platforms || [];
+  const publishedPlatformNames = postPlatforms.filter((p: any) => p.status === 'published').map((p: any) => p.platform);
+  const allPlatformNames = postPlatforms.map((p: any) => p.platform);
+
+  // Already published to this platform
+  if (publishedPlatformNames.includes(input.platform)) {
+    return { success: false, error: `Příspěvek je již publikován na ${input.platform}.` };
+  }
+
+  // CRITICAL: If the platform does not exist in post_platforms at all,
+  // create a draft entry first so handlePublishSuccess can UPDATE it.
+  if (!allPlatformNames.includes(input.platform)) {
+    console.log(`⚠️ Platform ${input.platform} not in post_platforms – creating entry first`);
+    await supabase
+      .from("post_platforms")
+      .insert({
+        post_id: post.id,
+        platform: input.platform,
+        status: "draft",
+      });
+  }
+
+  const targetPlatform = input.platform;
+  const rawContent = String(post.content ?? "");
+  const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
+  const rawLocation = (post as { location?: string | null }).location ?? null;
+  const rawTags = (Array.isArray((post as { tags?: unknown }).tags) ? (post as { tags?: string[] }).tags : []) ?? [];
+
+  const finalCaption = buildFinalCaption({
+    content: rawContent,
+    location: rawLocation,
+    tags: rawTags,
+  });
+
+  // --- Instagram ---
+  if (targetPlatform === "instagram") {
+    const { data: igAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("access_token, platform_id")
+      .eq("user_id", user.id)
+      .ilike("platform", "instagram")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const igAccount = igAccounts?.[0];
+    if (!igAccount?.access_token || !igAccount?.platform_id) {
+      return {
+        success: false,
+        error: "Chybí propojený Instagram účet.",
+      };
+    }
+
+    const result = await publishToInstagram({
+      igUserId: igAccount.platform_id,
+      accessToken: igAccount.access_token,
+      content: finalCaption,
+      mediaUrls: rawUrls,
+    });
+
+    if (!result.success) {
+      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram");
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram");
+    return { success: true, data: { externalId: result.externalId, platform: "instagram" } };
+  }
+
+  // --- Facebook (default) ---
+  const { data: fbAccounts } = await supabaseAdmin
+    .from("social_accounts")
+    .select("access_token, platform_id")
+    .eq("user_id", user.id)
+    .ilike("platform", "facebook")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const fbAccount = fbAccounts?.[0];
+  if (!fbAccount?.access_token || !fbAccount?.platform_id) {
+    return {
+      success: false,
+      error: "Chybí propojený Facebook účet.",
+    };
+  }
+
+  const mediaType = getFacebookMediaType(rawUrls);
+  const photoUrls = mediaType === "photo" ? rawUrls.filter((u) => typeof u === "string" && u.trim()) : [];
+  const base = `https://graph.facebook.com/v20.0/${encodeURIComponent(fbAccount.platform_id)}`;
+
+  let facebookPostId: string | null = null;
+
+  try {
+    if (mediaType === "video") {
+      const mediaUrl = String(rawUrls[0] ?? "");
+      const body = new URLSearchParams();
+      body.set("file_url", mediaUrl);
+      body.set("description", finalCaption);
+      body.set("access_token", fbAccount.access_token);
+
+      const res = await fetch(`${base}/videos`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
+
+    } else if (mediaType === "photo" && photoUrls.length > 1) {
+      const mediaIds: string[] = [];
+      for (let i = 0; i < photoUrls.length; i++) {
+        const uploadBody = new URLSearchParams();
+        uploadBody.set("url", photoUrls[i]);
+        uploadBody.set("published", "false");
+        uploadBody.set("access_token", fbAccount.access_token);
+
+        const uploadRes = await fetch(`${base}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: uploadBody,
+          cache: "no-store",
+        });
+
+        const uploadPayload = (await uploadRes.json().catch(async () => ({ raw: await uploadRes.text().catch(() => "") }))) as FacebookPublishResponse;
+        const uploadErr = getGraphErrorMessage(uploadPayload);
+        if (uploadErr) throw new Error(`Upload photo ${i + 1} failed: ${uploadErr}`);
+
+        const photoId = getGraphResponseId(uploadPayload);
+        if (!photoId) throw new Error(`Upload photo ${i + 1} returned no ID.`);
+        mediaIds.push(photoId);
+      }
+
+      const feedBody = new URLSearchParams();
+      feedBody.set("message", finalCaption);
+      feedBody.set("attached_media", JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))));
+      feedBody.set("access_token", fbAccount.access_token);
+
+      const feedRes = await fetch(`${base}/feed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: feedBody,
+        cache: "no-store",
+      });
+
+      const feedPayload = (await feedRes.json().catch(async () => ({ raw: await feedRes.text().catch(() => "") }))) as FacebookPublishResponse;
+      const feedErr = getGraphErrorMessage(feedPayload);
+      if (feedErr) throw new Error(feedErr);
+      facebookPostId = getGraphResponseId(feedPayload);
+
+    } else if (mediaType === "photo" && photoUrls.length === 1) {
+      const body = new URLSearchParams();
+      body.set("url", photoUrls[0]);
+      body.set("caption", finalCaption);
+      body.set("access_token", fbAccount.access_token);
+
+      const res = await fetch(`${base}/photos`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
+
+    } else {
+      const body = new URLSearchParams();
+      body.set("message", finalCaption);
+      body.set("access_token", fbAccount.access_token);
+
+      const res = await fetch(`${base}/feed`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+      const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
+
+      const errMsg = getGraphErrorMessage(payload);
+      if (errMsg) throw new Error(errMsg);
+      facebookPostId = getGraphResponseId(payload);
+    }
+
+    if (!facebookPostId) {
+      throw new Error("Meta Graph API returned no post ID.");
+    }
+
+    await handlePublishSuccess(supabase, user.id, post.id, facebookPostId, "facebook");
+    return { success: true, data: { externalId: facebookPostId, platform: "facebook" } };
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing.";
+    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook");
+    return { success: false, error: errorMessage };
+  }
+}
+

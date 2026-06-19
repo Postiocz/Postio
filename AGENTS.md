@@ -1,0 +1,53 @@
+# Projekt: Postio (Social Media Content Planner)
+
+## 🛠 Tech Stack
+- **Framework:** Next.js (App Router)
+- **Styling:** Tailwind CSS
+- **Backend & Databáze:** Supabase
+- **Autentizace:** Supabase Auth (Google OAuth + Email)
+
+## 📐 Pravidla pro Claude Code
+1. **Next.js pravidla:** 
+   - Používej moderní přístup (Server Components). Pro klientskou interaktivitu nezapomeň na vrchol souboru přidat `"use client"`.
+2. **Supabase pravidla:** 
+   - Klientské a serverové dotazy dělej přes `@supabase/ssr`. 
+   - Nepoužívej staré verze Supabase knihoven.
+   - `auth.users` slouží pouze pro primární identitu (E-mail/Heslo). Sociální integrace ukládej výhradně do `public.social_accounts`.
+3. **Pracovní postup:**
+   - Než vytvoříš velké množství kódu, nejprve mi napiš krátký plán, co přesně půjdeš udělat.
+   - Po úspěšném vyřešení složitého problému si zapiš ponaučení sem dolů do sekce "Ponaučení z chyb".
+
+## 🚀 Časté příkazy
+- Start vývojového serveru: `npm run dev` (dostupné na http://localhost:3000)
+
+## 🎨 Standard Postio UI
+- **Barevné schéma**: Pure Black (#000) pozadí, Card bg (#09090b s opacitou).
+- **Radius**: Všude 20px (`rounded-[20px]`).
+- **Efekty**: Glassmorphism, mřížka 24x24px, jemné glow gradienty.
+- **Fonty**: Geist/Inter pro texty, stylizované Logo pro branding.
+- **Design System Standard**: Pozadí #000, Radius 20px, Glassmorphism, Grid, Barevné logo.
+
+## 📱 Sociální sítě – UI/UX & API pravidla (Bibla pravidel)
+
+STRIKTNÍ PRAVIDLA – musí být dodržována vždy při práci s publishing a post management features.
+
+### 1. Editace po publikování
+- **Facebook:** Jediná platforma s editací textu. UI: tlačítko "Aktualizovat na sítích".
+- **Instagram & LinkedIn:** Zákaz editace textu, ale **smazání je plně podporováno**. Místo tlačítka editace zobraz banner "Editace není platformou podporována".
+- **TikTok:** Úplné uzamření po publikování. Žádná editace, žádné smazání. Zobraz ikonu zámku.
+- **YouTube:** Plná podpora editace i smazání.
+- **X (Twitter):** Zákaz editace přes API. Smazání je plně podporováno.
+
+### 2. Validace médií
+- **Instagram:** Pouze JPEG. Poměr stran 4:5 až 1.91:1. Varování předem při nesedícím poměru.
+
+### 3. Tokeny
+- Pole `token_expires_at` v `social_accounts`. Monitoruj expiraci (LinkedIn = 60 dní).
+
+### 4. Specifika
+- **LinkedIn:** Žádné PDF karusely. `@mention` = prostý text.
+- **X (Twitter):** Free tier = jen write-only (publish a smazání), žádné čtení timeline.
+
+## 🧠 Ponaučení z chyb (Paměť)
+- *Zde bude Claude přidávat věci, které jsme už jednou pokazili a opravili, aby se neopakovaly.*
+- **2026-06-15 – next-intl dynamické překlady**: Překlady obsahující ICU placeholdery (`{name}`, `{count}`, …) se v next-intl **musí volat s parametry** (`t("key", { name: "..." })`). Pokud je předáš jako holý `t("key")` a hodnotu dosazuješ později přes `String.replace`, next-intl při renderu/parsování vyhodí `FORMATTING_ERROR: The intl string context variable "X" was not provided`. Správný vzor pro decompované klientské komponenty: v props předej **funkci** `(value) => t("key", { X: value })` a v komponentě ji teprve zavolej s dynamickou hodnotou.

@@ -4,6 +4,8 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { buildFinalCaption } from "@/lib/caption";
 import { sanitizeMediaUrl } from "@/lib/utils";
+import { publishToYouTubeAction } from "@/lib/actions/publish-youtube";
+import { publishToLinkedInAction } from "@/lib/actions/publish-linkedin";
 
 const LOCALES = ["cs", "en", "uk"] as const;
 
@@ -316,7 +318,7 @@ async function publishToInstagram(params: {
 
 /**
  * Main publish router: looks up the post's platforms and routes to the correct publisher.
- * Supports: facebook, instagram
+ * Supports: facebook, instagram, youtube
  */
 export async function publishPost(input: { postId: string }): Promise<{
   success: boolean;
@@ -366,6 +368,34 @@ export async function publishPost(input: { postId: string }): Promise<{
   // Publish to the first unpublished platform in the list
   const targetPlatform = platforms[0] ?? "facebook";
 
+  // CRITICAL – Guard against duplicate uploads.
+  // If a `post_platforms` row for this post + target platform is already
+  // in `status="published"` with a non-empty `external_id`, the post has
+  // ALREADY been uploaded to that platform. Re-running the upload would
+  // create a duplicate (e.g. a second copy of the same YouTube video).
+  // This can happen when:
+  //   - The sync routine falsely flipped the row to `removed_externally`
+  //     (it has been fixed in syncPostStatus / syncPublishedPosts to use
+  //     the right platform API, but we keep the guard here as defense
+  //     in depth).
+  //   - The user double-clicks "Publikovat" before the first call finishes.
+  // In both cases we MUST refuse to upload again. Returning a clear error
+  // surfaces the situation to the UI rather than silently creating a
+  // duplicate on the external channel.
+  const alreadyPublishedRow = (post.post_platforms || []).find(
+    (p: any) => p.platform === targetPlatform && p.status === "published" && typeof p.external_id === "string" && p.external_id.trim(),
+  );
+  if (alreadyPublishedRow) {
+    console.warn(
+      `[publishPost] Refusing duplicate upload – post ${input.postId} already published on ${targetPlatform} with external_id=${alreadyPublishedRow.external_id}`,
+    );
+    return {
+      success: false,
+      error: `Příspěvek je již publikován na ${targetPlatform}. Duplicitní nahrávání je blokováno.`,
+      data: { externalId: alreadyPublishedRow.external_id, platform: targetPlatform },
+    };
+  }
+
   // --- Instagram ---
   if (targetPlatform === "instagram") {
     const { data: igAccounts } = await supabaseAdmin
@@ -391,7 +421,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(1);
-        
+
       const fbAccount = fbAccounts?.[0] as any;
       if (fbAccount) {
         if (!platformId) {
@@ -424,6 +454,162 @@ export async function publishPost(input: { postId: string }): Promise<{
 
     await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram");
     return { success: true, data: { externalId: result.externalId, platform: "instagram" } };
+  }
+
+  // --- YouTube ---
+  // YouTube requires video (not photo). The publisher helper handles:
+  //   1) refresh-token logic when the stored access_token expired
+  //      (Google access tokens live for ~1 hour),
+  //   2) the resumable upload protocol to YouTube Data API v3,
+  //   3) writing the returned video ID back via handlePublishSuccess.
+  if (targetPlatform === "youtube") {
+    const { data: ytAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata")
+      .eq("user_id", user.id)
+      .ilike("platform", "youtube")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const ytAccount = ytAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+        }
+      | undefined;
+
+    if (!ytAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený YouTube kanál (access_token).",
+      };
+    }
+
+    // Pass any previously stored YouTube video ID so the publisher can
+    // refuse a duplicate upload (belt-and-suspenders on top of the
+    // alreadyPublishedRow guard above).
+    const existingYtExternalId =
+      alreadyPublishedRow?.platform === "youtube" ? alreadyPublishedRow.external_id : null;
+
+    const result = await publishToYouTubeAction({
+      account: ytAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      location: rawLocation,
+      tags: rawTags,
+      existingExternalId: existingYtExternalId,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "YouTube publish failed",
+        "youtube",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "youtube",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "youtube" },
+    };
+  }
+
+  // --- LinkedIn ---
+  // LinkedIn UGC Posts API. Supports:
+  //   - text-only posts
+  //   - single-image posts (first image attachment)
+  //   - NOTE: video posts are NOT supported in this version (would need a
+  //     separate /v2/videos upload flow with asset recipe
+  //     urn:li:digitalmediaRecipe:feedshare-video).
+  // The publisher helper handles:
+  //   1) refresh-token logic when the stored access_token expired
+  //      (LinkedIn access tokens live for 60 days),
+  //   2) text vs image path selection,
+  //   3) LinkedIn asset registration + binary upload for image posts,
+  //   4) building the ugcPosts payload with the correct author URN
+  //      (`urn:li:person:{openIdSub}`) and writing the post URN back via
+  //      handlePublishSuccess.
+  if (targetPlatform === "linkedin") {
+    const { data: liAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+      .eq("user_id", user.id)
+      .ilike("platform", "linkedin")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const liAccount = liAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+          platform_id: string | null;
+        }
+      | undefined;
+
+    if (!liAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený LinkedIn účet (access_token).",
+      };
+    }
+
+    // Pass any previously stored LinkedIn post URN so the publisher can
+    // refuse a duplicate publish (belt-and-suspenders on top of the
+    // alreadyPublishedRow guard above).
+    const existingLiExternalId =
+      alreadyPublishedRow?.platform === "linkedin" ? alreadyPublishedRow.external_id : null;
+
+    const result = await publishToLinkedInAction({
+      account: liAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      location: rawLocation,
+      tags: rawTags,
+      existingExternalId: existingLiExternalId,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "LinkedIn publish failed",
+        "linkedin",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "linkedin",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "linkedin" },
+    };
   }
 
   // --- Facebook (default) ---
@@ -1247,7 +1433,34 @@ export async function publishAdditionalPlatforms(input: {
   const publishedPlatformNames = postPlatforms.filter((p: any) => p.status === 'published').map((p: any) => p.platform);
   const allPlatformNames = postPlatforms.map((p: any) => p.platform);
 
-  // Already published to this platform
+  // CRITICAL – Guard against duplicate uploads.
+  // If `post_platforms` for this post + `input.platform` is already in
+  // `status="published"` with a non-empty `external_id`, the upload to
+  // that platform has already happened. Re-running it would create a
+  // duplicate (e.g. a second copy of the same YouTube video on the
+  // channel). This is the same defense-in-depth guard we have in
+  // `publishPost()`; see the comment there for the full rationale.
+  const alreadyPublishedRow = postPlatforms.find(
+    (p: any) =>
+      p.platform === input.platform &&
+      p.status === "published" &&
+      typeof p.external_id === "string" &&
+      p.external_id.trim(),
+  );
+  if (alreadyPublishedRow) {
+    console.warn(
+      `[publishAdditionalPlatforms] Refusing duplicate upload – post ${input.postId} already on ${input.platform} with external_id=${alreadyPublishedRow.external_id}`,
+    );
+    return {
+      success: false,
+      error: `Příspěvek je již publikován na ${input.platform}. Duplicitní nahrávání je blokováno.`,
+      data: { externalId: alreadyPublishedRow.external_id, platform: input.platform },
+    };
+  }
+
+  // Backward-compat: legacy check for `status="published"` rows that
+  // somehow lost their `external_id` (should not happen in practice but
+  // keeps existing behavior for callers that rely on the simple guard).
   if (publishedPlatformNames.includes(input.platform)) {
     return { success: false, error: `Příspěvek je již publikován na ${input.platform}.` };
   }
@@ -1310,6 +1523,146 @@ export async function publishAdditionalPlatforms(input: {
 
     await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram");
     return { success: true, data: { externalId: result.externalId, platform: "instagram" } };
+  }
+
+  // --- YouTube ---
+  if (targetPlatform === "youtube") {
+    const { data: ytAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata")
+      .eq("user_id", user.id)
+      .ilike("platform", "youtube")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const ytAccount = ytAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+        }
+      | undefined;
+
+    if (!ytAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený YouTube kanál (access_token).",
+      };
+    }
+
+    // Pass any previously stored YouTube video ID so the publisher can
+    // refuse a duplicate upload (belt-and-suspenders on top of the
+    // alreadyPublishedRow guard above).
+    const existingYtExternalId =
+      alreadyPublishedRow?.platform === "youtube" ? alreadyPublishedRow.external_id : null;
+
+    const result = await publishToYouTubeAction({
+      account: ytAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      location: rawLocation,
+      tags: rawTags,
+      existingExternalId: existingYtExternalId,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "YouTube publish failed",
+        "youtube",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "youtube",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "youtube" },
+    };
+  }
+
+  // --- LinkedIn ---
+  // Same logic as the `publishPost` LinkedIn branch – see that comment
+  // for the full rationale. We only differ in that
+  // `publishAdditionalPlatforms` already verified the LinkedIn target
+  // platform is not in `publishedPlatformNames`, so we do not need to
+  // pass an `existingExternalId` guard beyond the duplicate-upload
+  // check at the top of this function.
+  if (targetPlatform === "linkedin") {
+    const { data: liAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+      .eq("user_id", user.id)
+      .ilike("platform", "linkedin")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const liAccount = liAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+          platform_id: string | null;
+        }
+      | undefined;
+
+    if (!liAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený LinkedIn účet.",
+      };
+    }
+
+    const existingLiExternalId =
+      alreadyPublishedRow?.platform === "linkedin" ? alreadyPublishedRow.external_id : null;
+
+    const result = await publishToLinkedInAction({
+      account: liAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      location: rawLocation,
+      tags: rawTags,
+      existingExternalId: existingLiExternalId,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "LinkedIn publish failed",
+        "linkedin",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "linkedin",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "linkedin" },
+    };
   }
 
   // --- Facebook (default) ---

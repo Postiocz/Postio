@@ -34,6 +34,7 @@ import {
   TikTok,
 } from "@/components/ui/social-icons";
 import { Reorder } from "framer-motion";
+import { toast } from "sonner";
 import { ConnectAccountModal } from "@/components/connect-account-modal";
 import {
   FacebookPageSelector,
@@ -121,14 +122,23 @@ type SocialAccount = {
   platform_id?: string | null;
   token_expires_at?: string | null;
   /**
-   * Per-platform JSON blob. For Facebook Pages it contains
-   * `{ access_token, category }` (see migration 029 + callback route).
-   * `category` is the Meta Page category (e.g. "Marketingová agentura")
-   * and is rendered as a small badge under the account name.
+   * Per-platform JSON blob. Shape varies by platform:
+   *
+   *  - **Facebook Pages**: `{ access_token, category }` (see migration 029
+   *    + callback route). `category` is the Meta Page category
+   *    (e.g. "Marketingová agentura") and is rendered as a small badge
+   *    under the account name.
+   *  - **YouTube channels**: `{ refresh_token?, custom_url? }`.
+   *    `refresh_token` is used by the scheduled-post processor to mint
+   *    fresh access tokens (Google access tokens expire after 1 hour).
+   *    `custom_url` is the channel handle (e.g. `@pepa`) shown in the UI
+   *    so the user can recognise which channel was connected.
    */
   metadata?: {
     access_token?: string;
     category?: string | null;
+    refresh_token?: string | null;
+    custom_url?: string | null;
   } | null;
 };
 
@@ -250,6 +260,56 @@ export default function AccountsPage() {
     }
   }, [searchParams, pendingPages.length, loadingPending, router]);
 
+  // ──────────────────────────────────────────────────────────────────
+  // OAuth callback signal handling (YouTube + LinkedIn + generic errors)
+  // ──────────────────────────────────────────────────────────────────
+  // Each Postio OAuth flow appends a single success query param to the
+  // post-auth redirect so we can show a toast + refresh the list without
+  // guessing which provider just completed:
+  //   - `?yt=connected` – `/api/auth/google` (YouTube channel connect)
+  //   - `?li=connected` – `/api/accounts/linkedin` (LinkedIn OpenID Connect)
+  //   - `?fb=connected` – Supabase Auth Facebook (Pages, see selector below)
+  //   - `?error=<msg>`  – any provider reported a failure. The message is
+  //     surfaced as a toast so the user knows why nothing was connected.
+  // The Facebook Page selector has its own effect above because it needs
+  // `pendingPages.length` to decide whether to auto-open the dialog.
+  const ytSignal = searchParams.get("yt");
+  const liSignal = searchParams.get("li");
+  const errorSignal = searchParams.get("error");
+  useEffect(() => {
+    if (!ytSignal && !liSignal && !errorSignal) return;
+
+    // Strip the query params from the URL immediately so we never loop on
+    // a manual refresh (the same pattern used for `?fb=connected` above).
+    if (ytSignal || liSignal || errorSignal) {
+      router.replace(window.location.pathname);
+    }
+
+    if (ytSignal === "connected") {
+      // Re-fetch the active list so the freshly connected YouTube channel
+      // shows up immediately in the connected accounts section below.
+      // The toast text is intentionally generic – the actual channel name
+      // is visible right next to the toast in the list below.
+      fetchAccounts();
+      toast.success(t("ytConnectedShort"));
+      return;
+    }
+
+    if (liSignal === "connected") {
+      // Same pattern as YouTube – the LinkedIn OAuth route at
+      // `/api/accounts/linkedin` redirects back here with `?li=connected`
+      // after a successful upsert into `social_accounts`. We re-fetch the
+      // active list and show a localized toast (cs/en/uk via `liConnectedShort`).
+      fetchAccounts();
+      toast.success(t("liConnectedShort"));
+      return;
+    }
+
+    if (errorSignal) {
+      toast.error(t("connectionError", { error: errorSignal }));
+    }
+  }, [ytSignal, liSignal, errorSignal, router, t]);
+
   async function handleConnect(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedPlatform || !accountName || !accessToken) return;
@@ -354,7 +414,17 @@ export default function AccountsPage() {
                   }}
                   onClick={() => {
                     if (isDraggingRef.current) return;
-                    if (platform.id === "instagram" || platform.id === "facebook" || platform.id === "linkedin") {
+                    // Platforms that go through the universal OAuth connect
+                    // modal (ConnectAccountModal → Google / Meta / LinkedIn).
+                    // The "else" branch shows the legacy manual token +
+                    // account-name form, which is kept for platforms that
+                    // do not yet have an OAuth flow (TikTok, X).
+                    const isOAuthPlatform =
+                      platform.id === "instagram" ||
+                      platform.id === "facebook" ||
+                      platform.id === "linkedin" ||
+                      platform.id === "youtube";
+                    if (isOAuthPlatform) {
                       setConnectModalPlatform({
                         id: platform.id,
                         name: getPlatformLabel(platform.id),
@@ -609,6 +679,17 @@ export default function AccountsPage() {
                           {account.metadata.category}
                         </Badge>
                       )}
+                    {account.platform === "youtube" &&
+                      account.metadata?.custom_url && (
+                        <Badge
+                          variant="premium"
+                          className="mt-1.5 w-fit gap-1 rounded-full px-2 py-0 text-[10px] font-medium"
+                          title={`YouTube handle: ${account.metadata.custom_url}`}
+                        >
+                          <Youtube className="h-2.5 w-2.5" />
+                          {account.metadata.custom_url}
+                        </Badge>
+                      )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -697,6 +778,17 @@ export default function AccountsPage() {
               const locale = localeMatch?.[1] ?? "cs";
               const linkedinAuthUrl = `/api/accounts/linkedin?state=${encodeURIComponent(next)}&locale=${locale}`;
               window.location.assign(linkedinAuthUrl);
+            } else if (connectModalPlatform.id === "youtube") {
+              // YouTube OAuth via Google – routed through /api/auth/google,
+              // which adds `?provider=youtube` to its internal redirect_uri
+              // so `/auth/callback` branches into handleYouTubeCallback()
+              // BEFORE Supabase tries to sign the user in as a Google
+              // identity (which would otherwise ignore the youtube.upload
+              // scope and discard our refresh_token request).
+              const localeMatch = window.location.pathname.match(/\/(cs|en|uk)(?:\/|$)/);
+              const locale = localeMatch?.[1] ?? "cs";
+              const googleAuthUrl = `/api/auth/google?state=${encodeURIComponent(next)}&locale=${locale}`;
+              window.location.assign(googleAuthUrl);
             } else if (connectModalPlatform.id === "instagram") {
               // Instagram Direct Login – no Facebook Page required
               const { data, error } = await supabase.auth.signInWithOAuth({
@@ -752,7 +844,9 @@ export default function AccountsPage() {
                 ? t("connectModal.warningDescInstagram")
                 : connectModalPlatform.id === "linkedin"
                   ? t("connectModal.warningDescLinkedIn")
-                  : t("connectModal.warningDesc"),
+                  : connectModalPlatform.id === "youtube"
+                    ? t("connectModal.warningDescYouTube")
+                    : t("connectModal.warningDesc"),
             connectButton: t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
           }}

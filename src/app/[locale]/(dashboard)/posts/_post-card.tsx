@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X } from "lucide-react";
+import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Archive, History } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/social-icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
+import { deletePost, resetPostStatus, smartDeletePost, archiveLinkedInPlatformRow, restoreArchivedLinkedInPost } from "@/lib/actions/posts";
 import { deleteFromMeta } from "@/lib/actions/publish";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
@@ -38,6 +38,7 @@ const STATUS_STYLES: Record<string, string> = {
   published: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30",
   failed: "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30",
   removed_externally: "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/30",
+  archived: "bg-gray-100 text-gray-700 border border-gray-200 dark:bg-white/5 dark:text-gray-300 dark:border-white/10",
 };
 
 const platformIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -59,6 +60,10 @@ export type PostPlatform = {
   published_at: string | null;
   external_id: string | null;
   publish_error: string | null;
+  /** Timestamp when the user archived (soft-deleted) this platform row from Postio. NULL for active rows. */
+  archived_at?: string | null;
+  /** Why the row was archived. Common values: user_archived_from_app, auto_cleanup. */
+  archive_reason?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -95,6 +100,7 @@ export function PostCard({
   tStatusPublished,
   tStatusFailed,
   tStatusRemovedExternally,
+  tStatusArchived,
   tScheduledAt,
   tEditPost,
   tDeleteConfirmTitle,
@@ -103,6 +109,17 @@ export function PostCard({
   tDeleteCancel,
   tRepublish,
   tRemovedExternallyMsg,
+  tLinkedInRestoreConfirmTitle,
+  tLinkedInRestoreConfirmDesc,
+  tLinkedInRestoreConfirmAction,
+  tLinkedInArchiveBanner,
+  tLinkedInArchiveBannerSubtext,
+  tLinkedInRestoreSuccess,
+  tLinkedInArchiveSuccess,
+  tLinkedInRestoreError,
+  tLinkedInArchiveError,
+  tLinkedInRestoreWarningLine1,
+  tLinkedInRestoreWarningLine2,
   onDeleted,
   animationDelay = 0,
   tLabels,
@@ -115,6 +132,7 @@ export function PostCard({
   tStatusPublished: string;
   tStatusFailed: string;
   tStatusRemovedExternally: string;
+  tStatusArchived: string;
   tScheduledAt: string;
   tEditPost: string;
   tDeleteConfirmTitle: string;
@@ -123,6 +141,24 @@ export function PostCard({
   tDeleteCancel: string;
   tRepublish: string;
   tRemovedExternallyMsg: string;
+  /** Confirmation dialog title before restoring an archived LinkedIn post. */
+  tLinkedInRestoreConfirmTitle: string;
+  /** Confirmation dialog body before restoring an archived LinkedIn post. */
+  tLinkedInRestoreConfirmDesc: string;
+  /** Primary CTA label in the restore confirmation dialog. */
+  tLinkedInRestoreConfirmAction: string;
+  /** Short banner line shown under the archived LinkedIn row in the card. */
+  tLinkedInArchiveBanner: string;
+  /** Subtext under the banner explaining the soft-delete nature. */
+  tLinkedInArchiveBannerSubtext: string;
+  tLinkedInRestoreSuccess: string;
+  tLinkedInArchiveSuccess: string;
+  tLinkedInRestoreError: string;
+  tLinkedInArchiveError: string;
+  /** Warning line 1 in the restore dialog – warns about duplicate on platform. */
+  tLinkedInRestoreWarningLine1: string;
+  /** Warning line 2 in the restore dialog – confirms the user wants to proceed. */
+  tLinkedInRestoreWarningLine2: string;
   onDeleted?: (id: string) => void;
   animationDelay?: number;
   tLabels: {
@@ -188,7 +224,18 @@ export function PostCard({
   const [smartDeleteOpen, setSmartDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
+  // LinkedIn-specific soft-delete ("archive") UI state. The
+  // confirmation dialog protects the user from accidentally
+  // republishing a post that might still be live on LinkedIn.
+  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const router = useRouter();
+
+  // LinkedIn archived row helper – per-post lookup.
+  const linkedinArchivedRow = (post.post_platforms || []).find(
+    (p) => p.platform === "linkedin" && p.status === "archived",
+  );
 
   const statusLabels: Record<string, string> = {
     draft: tStatusDraft,
@@ -196,6 +243,7 @@ export function PostCard({
     published: tStatusPublished,
     failed: tStatusFailed,
     removed_externally: tStatusRemovedExternally,
+    archived: tStatusArchived,
   };
 
   const statusLabel = statusLabels[post.status] ?? post.status;
@@ -319,6 +367,59 @@ export function PostCard({
     setIsRepublishing(false);
   };
 
+  // LinkedIn-specific: archive (soft-delete) the published LinkedIn
+  // row. Called from the DeletePostDialog when the user picks the
+  // "Archivovat v aplikaci" action.
+  const handleArchiveLinkedIn = async () => {
+    setIsArchiving(true);
+    try {
+      const result = await archiveLinkedInPlatformRow(post.id);
+      if (result.success) {
+        setDeleteOpen(false);
+        if (result.alreadyArchived) {
+          toast.info(tLinkedInArchiveSuccess);
+        } else {
+          toast.success(tLinkedInArchiveSuccess);
+        }
+        router.refresh();
+        return;
+      }
+      toast.error(result.error || tLinkedInArchiveError);
+    } catch (e) {
+      console.error("Archive LinkedIn error:", e);
+      toast.error(tLinkedInArchiveError);
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  // Opens the confirmation dialog before restoring an archived
+  // LinkedIn post. The dialog warns the user that re-publishing might
+  // create a duplicate on LinkedIn.
+  const handleRestoreLinkedInClick = () => {
+    setRestoreConfirmOpen(true);
+  };
+
+  // Performs the actual restore after the user confirms.
+  const handleRestoreLinkedInConfirm = async () => {
+    setIsRestoring(true);
+    try {
+      const result = await restoreArchivedLinkedInPost(post.id);
+      if (result.success) {
+        setRestoreConfirmOpen(false);
+        toast.success(tLinkedInRestoreSuccess);
+        router.refresh();
+        return;
+      }
+      toast.error(result.error || tLinkedInRestoreError);
+    } catch (e) {
+      console.error("Restore LinkedIn error:", e);
+      toast.error(tLinkedInRestoreError);
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   const localeTag = toLocaleTag(locale);
   const createdDate = new Date(post.created_at).toLocaleDateString(localeTag);
   const scheduledTime = post.scheduled_at
@@ -375,6 +476,19 @@ export function PostCard({
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </>
+        )}
+        {/* LinkedIn archived row – offer one-click restore. */}
+        {linkedinArchivedRow && post.status !== "removed_externally" && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-8 w-8 relative z-[50] cursor-pointer bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-foreground/80 hover:bg-gray-200 dark:hover:bg-white/10"
+            onClick={handleRestoreLinkedInClick}
+            disabled={isRestoring}
+            title="Obnovit a publikovat znovu"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </Button>
         )}
         {/* Regular delete button – hidden for removed_externally */}
         {post.status !== "removed_externally" && (
@@ -528,6 +642,44 @@ export function PostCard({
             </div>
           )}
 
+          {/* LinkedIn archived info banner – shows dates of original
+              publish + archive so the user can decide whether to restore. */}
+          {linkedinArchivedRow && (
+            <div className="flex items-start gap-2 mb-3 p-3 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10">
+              <Archive className="h-4 w-4 text-foreground/60 shrink-0 mt-0.5" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-medium text-foreground">
+                  {tLinkedInArchiveBanner}
+                </span>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                  {linkedinArchivedRow.published_at && (
+                    <span className="flex items-center gap-1">
+                      <History className="h-3 w-3" />
+                      Publikováno: {new Date(linkedinArchivedRow.published_at).toLocaleDateString(localeTag, {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
+                  {linkedinArchivedRow.archived_at && (
+                    <span className="flex items-center gap-1">
+                      <Archive className="h-3 w-3" />
+                      Archivováno: {new Date(linkedinArchivedRow.archived_at).toLocaleDateString(localeTag, {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-muted-foreground/70 mt-1">
+                  {tLinkedInArchiveBannerSubtext}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Footer: date + scheduled time */}
           <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground/50 border-t border-gray-200 dark:border-white/5 pt-3">
             <span>{createdDate}</span>
@@ -571,7 +723,8 @@ export function PostCard({
         post_platforms: post.post_platforms ?? [],
       }}
       onConfirm={handleDeleteConfirm}
-      isDeleting={isDeleting}
+      onArchiveLinkedIn={handleArchiveLinkedIn}
+      isDeleting={isDeleting || isArchiving}
     />
 
     <SmartDeleteDialog
@@ -580,6 +733,69 @@ export function PostCard({
       onConfirm={handleSmartDelete}
       isDeleting={isDeleting}
     />
+
+    {/* Restore confirmation dialog – warns the user about potential
+        duplicate publish on LinkedIn before restoring the archived row. */}
+    <Dialog open={restoreConfirmOpen} onOpenChange={(val) => { if (!isRestoring) setRestoreConfirmOpen(val); }}>
+      <DialogContent className="sm:max-w-[480px] bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[24px] shadow-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            {tLinkedInRestoreConfirmTitle}
+          </DialogTitle>
+          <DialogDescription className="text-base pt-2 text-foreground/80 whitespace-pre-line">
+            {tLinkedInRestoreConfirmDesc
+              .replace("__publishedAt__", linkedinArchivedRow?.published_at
+                ? new Date(linkedinArchivedRow.published_at).toLocaleDateString(localeTag, {
+                    day: "numeric", month: "long", year: "numeric",
+                  })
+                : "—")
+              .replace("__archivedAt__", linkedinArchivedRow?.archived_at
+                ? new Date(linkedinArchivedRow.archived_at).toLocaleDateString(localeTag, {
+                    day: "numeric", month: "long", year: "numeric",
+                  })
+                : "—")
+            }
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-3">
+          <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/10">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex flex-col text-sm text-foreground/80">
+              <span className="font-medium text-amber-700 dark:text-amber-300">
+                {tLinkedInRestoreWarningLine1}
+              </span>
+              <span className="text-xs text-muted-foreground mt-1">
+                {tLinkedInRestoreWarningLine2}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="sm:flex-row sm:justify-end gap-2 mt-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-xl border-black/10 dark:border-white/10"
+            onClick={() => setRestoreConfirmOpen(false)}
+            disabled={isRestoring}
+          >
+            {tDeleteCancel}
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white"
+            onClick={handleRestoreLinkedInConfirm}
+            disabled={isRestoring}
+          >
+            {isRestoring ? "Obnovuji…" : tLinkedInRestoreConfirmAction}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
@@ -592,6 +808,7 @@ export function PostsList({
   tStatusPublished,
   tStatusFailed,
   tStatusRemovedExternally,
+  tStatusArchived,
   tScheduledAt,
   tEditPost,
   tDeleteConfirmTitle,
@@ -600,6 +817,17 @@ export function PostsList({
   tDeleteCancel,
   tRepublish,
   tRemovedExternallyMsg,
+  tLinkedInRestoreConfirmTitle,
+  tLinkedInRestoreConfirmDesc,
+  tLinkedInRestoreConfirmAction,
+  tLinkedInArchiveBanner,
+  tLinkedInArchiveBannerSubtext,
+  tLinkedInRestoreSuccess,
+  tLinkedInArchiveSuccess,
+  tLinkedInRestoreError,
+  tLinkedInArchiveError,
+  tLinkedInRestoreWarningLine1,
+  tLinkedInRestoreWarningLine2,
   tLabels,
   tAi,
   onDeleted,
@@ -611,6 +839,7 @@ export function PostsList({
   tStatusPublished: string;
   tStatusFailed: string;
   tStatusRemovedExternally: string;
+  tStatusArchived: string;
   tScheduledAt: string;
   tEditPost: string;
   tDeleteConfirmTitle: string;
@@ -619,6 +848,17 @@ export function PostsList({
   tDeleteCancel: string;
   tRepublish: string;
   tRemovedExternallyMsg: string;
+  tLinkedInRestoreConfirmTitle: string;
+  tLinkedInRestoreConfirmDesc: string;
+  tLinkedInRestoreConfirmAction: string;
+  tLinkedInArchiveBanner: string;
+  tLinkedInArchiveBannerSubtext: string;
+  tLinkedInRestoreSuccess: string;
+  tLinkedInArchiveSuccess: string;
+  tLinkedInRestoreError: string;
+  tLinkedInArchiveError: string;
+  tLinkedInRestoreWarningLine1: string;
+  tLinkedInRestoreWarningLine2: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -691,6 +931,7 @@ export function PostsList({
             tStatusPublished={tStatusPublished}
             tStatusFailed={tStatusFailed}
             tStatusRemovedExternally={tStatusRemovedExternally}
+            tStatusArchived={tStatusArchived}
             tScheduledAt={tScheduledAt}
             tEditPost={tEditPost}
             tDeleteConfirmTitle={tDeleteConfirmTitle}
@@ -699,6 +940,17 @@ export function PostsList({
             tDeleteCancel={tDeleteCancel}
             tRepublish={tRepublish}
             tRemovedExternallyMsg={tRemovedExternallyMsg}
+            tLinkedInRestoreConfirmTitle={tLinkedInRestoreConfirmTitle}
+            tLinkedInRestoreConfirmDesc={tLinkedInRestoreConfirmDesc}
+            tLinkedInRestoreConfirmAction={tLinkedInRestoreConfirmAction}
+            tLinkedInArchiveBanner={tLinkedInArchiveBanner}
+            tLinkedInArchiveBannerSubtext={tLinkedInArchiveBannerSubtext}
+            tLinkedInRestoreSuccess={tLinkedInRestoreSuccess}
+            tLinkedInArchiveSuccess={tLinkedInArchiveSuccess}
+            tLinkedInRestoreError={tLinkedInRestoreError}
+            tLinkedInArchiveError={tLinkedInArchiveError}
+            tLinkedInRestoreWarningLine1={tLinkedInRestoreWarningLine1}
+            tLinkedInRestoreWarningLine2={tLinkedInRestoreWarningLine2}
             animationDelay={Math.min(index * 0.04, 0.2)}
             onDeleted={onDeleted}
             tLabels={tLabels}

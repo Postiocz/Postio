@@ -3,7 +3,622 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-06-20
+
+### Docs – Roadmap: BUDOUCÍ ROZVOJ: LinkedIn Sync & Delete (přidána do CLAUDE.md)
+
+- **Kontext**: Současné řešení archivace LinkedIn příspěvků (viz záznam níže) je funkční, ale čistě manuální. API delete na LinkedInu je nedostupný kvůli tomu, že Postio nemá přístup k **Community Management API (CM API)** — to vyžaduje registraci na firemním e-mailu na vlastní doméně. Abychom měli jasnou mapu, jak z manuální archivace přejít na plnou synchronizaci se stavem příspěvků na platformě, přidána nová roadmap sekce do CLAUDE.md.
+- **Přidáno v [CLAUDE.md](file:///c:/VS_Code/Postio/CLAUDE.md)** – sekce `## 🚀 BUDOUCÍ ROZVOJ: LinkedIn Sync & Delete (Roadmap)` (těsně před sekci „🗂️ Budoucí úkoly čekající na trigger"). Sekce obsahuje:
+  - **Proč to nyní nejde** — LinkedIn CM API vyžaduje firemní e-mail na vlastní doméně; Postio aktuálně read endpointy vrací HTTP 403.
+  - **Postup povýšení (4 kroky)**: (1) zřízení firemního e-mailu `info@postio.cz`, (2) vytvoření dedikované aplikace **„Postio-Sync"** v LinkedIn Developer Portálu s POUZE produktem „Community Management API", (3) implementace OAuth scopes `r_member_social` a `r_organization_social` (doporučeno přes dva oddělené OAuth flow — publikační vs. sync), (4) náhrada manuální archivace plnou automatizací v `syncPublishedPosts` včetně stavového automatu (2xx / 404 / 401 / 5xx) a migrace stávajících `archived` řádků.
+  - **Architektonická připravenost** — explicitně zdůrazněno, že omezení je **čistě na straně LinkedIn API** a Postio je připraveno na okamžitý přechod: DB model `post_platforms` pokrývá oba stavy (`archived` i `removed_externally`), `syncPublishedPosts` již má 4-větvovou logiku, `getValidLinkedInAccessToken` je připraven na multi-app drivery, `archiveLinkedInPlatformRow`/`restoreArchivedLinkedInPost` zůstanou v kódu jako fallback.
+  - **Trigger pro spuštění implementace** — roadmap **nebude implementována automaticky** (žádný watcher). Spustí se manuálně, jakmile (a) Postio bude mít vlastní doménu a pracovní e-mail, (b) v LinkedIn Developer Portálu bude schválená aplikace „Postio-Sync" s aktivním CM API, (c) uživatel dá vědět.
+- **Bez změn v kódu ani DB** — pouze dokumentační roadmap. Stávající archive flow se nemění.
+- **Po dokončení implementace** (v budoucnu): tato roadmap sekce v CLAUDE.md + sekce „LinkedIn soft-delete (archive) flow" v CHANGELOG.md se přesunou do „Dokončené postponed úkoly (historie)".
+
+### Feature – LinkedIn soft-delete (archive) flow s obnovou a potvrzovacím dialogem
+
+- **Kontext**: Po uzavření kapitoly LinkedIn CM API (viz předchozí záznam) je API delete nedostupné. Uživatel přesto potřebuje způsob, jak smazat/ukrýt LinkedIn příspěvek v aplikaci, aniž by ztratil historii (datum publikování), a případně ho později znovu obnovit. Cíl: zabránit nechtěnému duplikátu při republish.
+- **Datový model – nový status `archived`** (migrace [031_add_archived_status_to_post_platforms.sql](file:///c:/VS_Code/Postio/supabase/migrations/031_add_archived_status_to_post_platforms.sql)):
+  - Rozšířen CHECK constraint `post_platforms.status` o hodnotu `'archived'`.
+  - Přidány sloupce `archived_at TIMESTAMPTZ` a `archive_reason TEXT` (výchozí reason: `'user_archived_from_app'`).
+  - Vytvořen parciální index `idx_post_platforms_archived` pro rychlé filtrování.
+  - **Sémantika**: `archived` ≠ `removed_externally`. `removed_externally` = platforma potvrdila smazání přes API (u LinkedIn nikdy nenastane kvůli 403). `archived` = uživatel ručně skryl příspěvek v Postio (per-platform logika – týká se jen LinkedIn řádku).
+  - **Dopad na ostatní platformy**: žádný. Každý `post_platforms` řádek je per-platform, archivace se týká pouze LinkedIn řádku, ne celého postu.
+- **Server akce** v [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts#L617-L780):
+  - **`archiveLinkedInPlatformRow(postId)`** – nastaví LinkedIn řádek na `status='archived'`, vyplní `archived_at` + `archive_reason`. Idempotentní (pokud je už archived, vrátí `alreadyArchived: true`). Odmítne archivovat draft/scheduled/failed (ty se běžně mažou přes `deletePost`). Zachová `published_at` a `external_id` pro pozdější obnovení.
+  - **`restoreArchivedLinkedInPost(postId)`** – obnoví archived řádek zpět na `status='draft'`, vyčistí `archived_at`/`archive_reason` a **nastaví `external_id=null`**. Důvod: nemůžeme zaručit, že původní URN je stále platný (příspěvek mohl být na platformě smazán). Nové publikování dostane čerstvý URN.
+- **Výpočet `computedStatus` v Postio** – aktualizován v `getPosts` ([src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts#L795-L815)) i `posts/page.tsx`:
+  - `archived` se stane hlavním statusem **pouze pokud VŠECHNY platformy příspěvku jsou archived**. Pokud je alespoň jedna published/scheduled/failed, vyhraje vyšší priorita a per-platform badge v UI ukáže archived detail (viz níže).
+- **UI – DeletePostDialog** ([src/components/dashboard/delete-post-dialog.tsx](file:///c:/VS_Code/Postio/src/components/dashboard/delete-post-dialog.tsx)):
+  - Nový prop `onArchiveLinkedIn?: () => Promise<void>`.
+  - Když je v livePlatforms přítomen LinkedIn, dialog přidá **dedikovanou sekci s vysvětlením + tlačítkem "Archivovat LinkedIn příspěvek v aplikaci"** (doporučeno). LinkedIn je zároveň odstraněn ze seznamu platforem pro API delete (nelze smazat přes API). Původní "Trvale smazat z aplikace" zůstává dostupné.
+- **UI – PostCard** ([src/app/[locale]/(dashboard)/posts/_post-card.tsx](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/_post-card.tsx)):
+  - **Status badge**: nový styl pro `archived` (šedý, glass-like) a nový překladový klíč `statusArchived`.
+  - **Akční tlačítko**: nové tlačítko "Obnovit a publikovat znovu" (RotateCcw ikona) – zobrazí se jen pokud existuje LinkedIn archived řádek. Otevře **confirmation dialog** s daty publikování a archivace + výstražným boxem o možném duplikátu.
+  - **Banner**: po archive se v kartě zobrazí info banner s datumem původního publikování, datumem archivace a vysvětlujícím textem "Fyzicky může na platformě stále existovat".
+- **UI – filter**: `PostFiltersRow` nyní zobrazuje i archived ve stavovém filtru.
+- **Překlady**: 13 nových klíčů přidáno do [src/messages/cs.json](file:///c:/VS_Code/Postio/src/messages/cs.json), [en.json](file:///c:/VS_Code/Postio/src/messages/en.json) a [uk.json](file:///c:/VS_Code/Postio/src/messages/uk.json) – `statusArchived`, `linkedInRestoreConfirmTitle`, `linkedInRestoreConfirmDesc`, `linkedInRestoreConfirmAction`, `linkedInArchiveBanner`, `linkedInArchiveBannerSubtext`, `linkedInRestoreSuccess`, `linkedInArchiveSuccess`, `linkedInRestoreError`, `linkedInArchiveError`, `linkedInRestoreWarningLine1`, `linkedInRestoreWarningLine2`. `linkedInRestoreConfirmDesc` používá placeholdery `__publishedAt__` a `__archivedAt__`, které se v UI dynamicky nahrazují lokalizovaným datem.
+- **Bezpečnost**: confirmation dialog před obnovou archived postu explicitně varuje, že obnova může vytvořit duplikát na LinkedInu (pokud uživatel fyzicky nesmazal příspěvek na platformě).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Postup testování po nasazení**:
+  1. Aplikovat migraci `031_add_archived_status_to_post_platforms.sql` v Supabase.
+  2. Otevřít publikovaný LinkedIn příspěvek v Postiu → kliknout na trash → v dialogu vybrat "Archivovat LinkedIn příspěvek v aplikaci".
+  3. Ověřit: badge se změní na "Archivováno" + banner s daty + tlačítko "Obnovit".
+  4. Kliknout na "Obnovit" → confirmation dialog s daty → potvrdit → příspěvek je zpět jako draft, připravený k novému publikování.
+  5. Ověřit v konzoli: `[archiveLinkedInPlatformRow] LinkedIn row archived for post {id}`.
+
+### Refactor – LinkedIn sync: tichý režim pro 403 (CM API není dostupné)
+
+- **Kontext**: Po přidání `r_member_social` scope (viz záznam výše) se ukázalo, že OAuth scopes nejsou hlavní překážkou – **LinkedIn z právních důvodů nepovolí přidat produkt „Community Management API" do aplikace, která již má produkt „Share on LinkedIn"**. To znamená, že read endpointy `/v2/ugcPosts/{id}` a `/v2/shares/{id}` budou pro Postio **vždy vracet HTTP 403 ACCESS_DENIED**, bez ohledu na to, jaké scopes token má.
+- **Důsledek pro sync logiku**: `syncPublishedPosts` v [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts#L887-L930) nemůže spolehlivě ověřit existenci LinkedIn příspěvků – všechny LinkedIn read requesty skončí 403. Před touto úpravou se každých 30 minut vypsala konzolová warning `LinkedIn check inconclusive (HTTP 403) for post {id}` (a `last_sync_at` se neaktualizoval, takže se stejný warning opakoval donekonečna).
+- **Změna** – LinkedIn větev v `syncPublishedPosts` nyní dělí stav odpovědi do 4 explicitních větví:
+  1. `404` → příspěvek opravdu smazán → `status="removed_externally"` + `removed_at` + `last_sync_at` (beze změny).
+  2. `2xx` → příspěvek žije → `last_sync_at` (beze změny).
+  3. **`403` (nově explicitní větev)** → CM API nedostupné pro scope této aplikace → `console.log("LinkedIn sync skipped: CM API not available for this app scope.")` + `last_sync_at`. Žádný warning, žádný inconclusive stav. Příspěvek zůstává `published` (konzervativně předpokládáme, že žije).
+  4. Ostatní (`401`, `5xx`, network) → stále `console.warn` jako inconclusive, **ale nově i zde se aktualizuje `last_sync_at`**, aby se zabránilo nekonečnému opakování neúspěšného requestu každých 30 minut.
+- **Stabilita**: `continue` na konci LinkedIn větve zajišťuje, že 403 na LinkedInu neblokuje iterace pro YouTube/Facebook/Instagram – ty běží ve vlastních iteracích `for (const { postId, pp } of toSync)` a mají nezávislou logiku. Jeden LinkedIn 403 se nikdy nepromítne do chování jiných platforem.
+- **Dopad na stávající příspěvky**: Žádný negativní dopad. Příspěvky, které byly předtím mylně označeny `removed_externally` kvůli Meta 404 (viz předchozí fix v CHANGELOGu), zůstanou `published`. Pokud by uživatel reálně smazal příspěvek na LinkedInu a my dostali 404 (např. po budoucím schválení CM API), kód by ho správně přesunul do `removed_externally`. Bez CM API zůstává konzervativní `published`.
+- **Dopad na ostatní platformy**: Žádný. YouTube a Meta větve jsou netknuté.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**: Po 30 minutách od posledního sync by se v konzoli místo warningu měl objevit info log `[syncPublishedPosts] LinkedIn sync skipped: CM API not available for this app scope. (post {id})` – a to jen jednou za 30 minut (díky aktualizaci `last_sync_at`).
+
+### Feature – LinkedIn OAuth scope: přidán `r_member_social` pro čtení stavu příspěvků (sync logika)
+
+- **Problém**: Po opravě sync logiky (viz záznam níže) `syncPublishedPosts` správně volá LinkedIn API pro ověření existence příspěvků, ale dostává **HTTP 403 ACCESS_DENIED** (`Not enough permissions to access: ugcPosts.GET.NO_VERSION` / `shares.GET.NO_VERSION`). Důvodem je, že OAuth token uživatele měl pouze **write scope `w_member_social`**, ale **chyběl read scope** – konkrétně `r_member_social`. Výsledek: sync nemohl detekovat skutečné smazání příspěvků na LinkedInu a všechny příspěvky zůstávaly navždy `published`, i když je uživatel na LinkedInu smazal.
+- **Řešení**: Přidán scope `r_member_social` do LinkedIn OAuth authorize URL v [src/app/api/accounts/linkedin/route.ts](file:///c:/VS_Code/Postio/src/app/api/accounts/linkedin/route.ts#L62-L67):
+  ```ts
+  scope = "openid profile email w_member_social r_member_social"
+  ```
+  Po této změně bude mít každý nový (a re-authorizovaný) LinkedIn token oba scopes:
+  - `w_member_social` – publikování příspěvků (fungovalo již dříve).
+  - `r_member_social` – čtení stavu příspěvků (nové, potřebné pro `syncPublishedPosts`).
+- **Akce potřebná od uživatele** (jednorázově):
+  1. V [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps) otevři svou aplikaci → záložka **Products** → ověř, že máš přidaný produkt **„Sign In with LinkedIn using OpenID Connect"** (pro `openid profile email`) a **„Share on LinkedIn"** (pro `w_member_social`). Scope `r_member_social` je součástí „Share on LinkedIn" a nevyžaduje zvláštní schválení.
+  2. V Postiu jdi na **Nastavení → Propojené účty → LinkedIn → Odpojit** a poté **Připojit znovu**. LinkedIn zobrazí nový consent screen s rozšířeným seznamem oprávnění.
+  3. Po re-authorizaci by `syncPublishedPosts` měl pro existující příspěvky vracet **HTTP 200** a pro smazané **HTTP 404**. Konzole bude vypisovat:
+     ```
+     [syncPublishedPosts] Post {id} removed on linkedin   ← smazáno
+     [syncPublishedPosts] LinkedIn check OK for post {id}  ← žije
+     ```
+- **Dopad na stávající uživatele**: Všichni uživatelé s LinkedIn účtem propojeným **před touto změnou** budou mít token bez `r_member_social` → jejich sync logika bude stále vracet 403 (inconclusive). Musí se znovu připojit, aby získali aktualizovaný token.
+- **Dopad na stávající příspěvky**: Žádný negativní dopad. Příspěvky publikované s write-only tokenem zůstávají `published` (konzervativní chování). Po re-authorizaci se stav správně synchronizuje.
+- **Bezpečnost / Data**: Žádná DB migrace. Žádná API route kromě té, která generuje OAuth URL. Žádná nová závislost. Scope `r_member_social` je **read-only** – LinkedIn ho výslovně doporučuje pro aplikace, které čtou vlastní příspěvky uživatele.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test**: Viz runtime evidence z předchozího commitu (`.dbg/li-check.js`, dočasný soubor, po testu smazán) – read endpoint vracel 403 právě kvůli chybějícímu scope. Po re-authorizaci by měl stejný test vrátit **200**.
+
+### Fix – `syncPublishedPosts`: LinkedIn příspěvky se mylně ověřovaly přes Meta Graph API a byly označovány jako `removed_externally`
+
+- **Problém**: Po opravě registrace LinkedIn assetu (viz záznam níže) se příspěvky na LinkedIn úspěšně publikovaly a Postio zapsal `status="published"` do DB. Během několika minut ale `syncPublishedPosts` (pravidelný job, který ověřuje, že příspěvky jsou stále na cílové síti) označil příspěvek jako `removed_externally`:
+  ```
+  [syncPublishedPosts] Syncing 1 published platform row(s)
+  [syncPublishedPosts] Post 1898b6eb-8062-4f23-968f-d444bdf0f19d removed on linkedin
+  [syncPublishedPosts] Marked 1 post(s) as removed_externally
+  ```
+  Uživatel viděl v UI: *„Příspěvek byl odstraněn z platformy. Můžete jej bezpečně smazat z aplikace tlačítkem „Chytré mazání" (🗑)"* – ačkoliv příspěvek na LinkedInu nikdy nebyl smazán.
+- **Příčina**: V [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts) měla funkce `syncPublishedPosts` **pouze dvě platformní větve** – YouTube (s vlastní logikou) a Meta (Facebook/Instagram, přes `https://graph.facebook.com/v20.0/{externalId}`). **LinkedIn větev chyběla úplně**, takže se všechny LinkedIn příspěvky propadly do Meta větve. Meta Graph API samozřejmě nezná LinkedIn URN (`urn:li:share:7474040249233436673`) a vracela HTTP 404, což kód interpretoval jako „příspěvek byl smazán z platformy".
+- **Runtime evidence**: Přímý LinkedIn API test s uloženým tokenem (`.dbg/li-check.js`, dočasný soubor, po testu smazán) potvrdil, že **oba** Read endpointy vrací HTTP 403:
+  ```
+  GET /v2/shares/urn:li:share:7474040249233436673
+  → 403 "Not enough permissions to access: shares.GET.NO_VERSION"
+
+  GET /v2/ugcPosts/urn:li:share:7474040249233436673
+  → 403 "Not enough permissions to access: ugcPosts.GET.NO_VERSION"
+  ```
+  Důvodem je, že OAuth token uživatele má **pouze write scope `w_member_social`**, ale **chybí `r_member_social`** (read scope pro Member Posts). Token tedy umí příspěvky vytvářet, ale ne číst jejich stav.
+- **Oprava** – přidána samostatná **LinkedIn větev** do `syncPublishedPosts` v [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts#L839-L913):
+  1. **Import** `getValidLinkedInAccessToken` z [`@/lib/actions/publish-linkedin`](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts) – transparentně obnoví token před ověřením (LinkedIn 60denní platnost).
+  2. **Select rozšířen** o `platform_id` (potřebný pro `SocialAccountRow`), přestože ho jiné větve nevyužijí.
+  3. **URN endpoint dispatch**:
+     - `urn:li:ugcPost:{id}` → `GET https://api.linkedin.com/v2/ugcPosts/{id}`
+     - `urn:li:share:{id}` → `GET https://api.linkedin.com/v2/shares/{id}` (legacy formát, ale LinkedIn ugcPosts API v současné verzi vrací URN právě v tomto tvaru přes hlavičku `x-restli-id`).
+     - Nerozpoznaný formát → `console.warn` a `continue` (příspěvek zůstane `published`, neoznačí se falešně za smazaný).
+  4. **Status dispatch**:
+     - `404` → `status="removed_externally"` + `removed_at` + `last_sync_at` (skutečně smazáno).
+     - `2xx` → `last_sync_at` (příspěvek žije, sync OK).
+     - `401`/`403`/`5xx` → `console.warn` a `continue` (inconclusive – nemáme read scope, takže nevíme; bezpečnější je nechat `published` než riskovat false-positive).
+- **Známý limit**: Dokud OAuth flow v [`src/app/api/accounts/linkedin/route.ts`](file:///c:/VS_Code/Postio/src/app/api/accounts/linkedin/route.ts) nezačne žádat i `r_member_social`, sync logika nemůže skutečně ověřit existenci LinkedIn příspěvků – bude je vždy nechávat `published`. Přidání read scope vyžaduje změnu OAuth aplikace v LinkedIn Developer Portalu **a re-authorizaci všech uživatelů** (consent screen změna). Toto je záměrně mimo scope tohoto fixu (backwards-compat hrozba), bude řešeno v samostatném commitu.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**: Po této opravě se **žádný LinkedIn příspěvek neoznačí falešně jako `removed_externally`** kvůli Meta Graph API 404. Pokud by reálně na LinkedInu smazán byl (kontrolou přes web), `404` z LinkedIn API by příspěvek správně přesunul do `removed_externally`. UI se přestane chovat zmateně.
+- **Postup pro testování po nasazení**:
+  1. Restartovat `npm run dev`.
+  2. Otevřít libovolný LinkedIn příspěvek, který byl omylem označen `removed_externally`.
+  3. Ověřit, že po 30 minutách od posledního sync zůstává `status="published"` (díky inconclusive 403 větvi).
+  4. V konzoli by mělo být: `[syncPublishedPosts] LinkedIn check inconclusive (HTTP 403) for post {id}`.
+
+### Fix – LinkedIn `registerUpload`: `recipes[]` musí být pole URN stringů + chybějící `serviceRelationships` a `supportedUploadMechanism` (HTTP 403)
+
+- **Problém**: Po předchozí opravě struktury `recipes[]` (viz záznam níže „Fix – LinkedIn `registerUpload`: chybná struktura `recipes[]`") se příspěvky s obrázkem na LinkedIn stále nepublikovaly. LinkedIn API vracel HTTP 403 s `serviceErrorCode: 100`:
+  ```
+  Field Value validation failed in REQUEST_BODY: Data Processing Exception
+  while processing fields [/registerUploadRequest/recipes/serviceRelationships]
+  ```
+  Přímý LinkedIn API test ([`.dbg/li-test.js`](file:///c:/VS_Code/Postio/.dbg/li-test.js)) potvrdil, že s naší strukturou `recipes: [{ relationshipType: "OWNER", recipe: "..." }]` server vrací 403 i se správným OAuth tokenem (`w_member_social`, `expires_at=2026-08-19`).
+- **Příčina**: Podle oficiální [LinkedIn Vector Assets API dokumentace](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/vector-asset-api?view=li-lms-2025-08) (Microsoft Learn, červen 2026) musí mít `registerUploadRequest` tuto strukturu:
+  - `recipes`: **pole URN stringů** (např. `["urn:li:digitalmediaRecipe:feedshare-image"]`), **ne pole objektů**.
+  - `serviceRelationships`: **top-level pole** objektů `{ identifier: "urn:li:userGeneratedContent", relationshipType: "OWNER" }` – není součástí `recipes[]`.
+  - `supportedUploadMechanism`: top-level pole, pro single-shot image upload hodnota `["SYNCHRONOUS_UPLOAD"]`.
+
+  Předchozí fix z dneška (`recipes: [{ relationshipType, recipe }]`) se držel staršího vzoru z LinkedIn Marketing API, který ovšem `/v2/assets?action=registerUpload` (stejně jako novější `/rest/assets`) v aktuální verzi odmítá. Chybová zpráva `[/registerUploadRequest/recipes/serviceRelationships]` je důsledek toho, že validátor API kontroluje v každém prvku `recipes[]` klíč `serviceRelationships` (který tam správně nepatří, ale validátor ho očekává jako `recipes[*].serviceRelationships`, zatímco my ho posíláme na top-level).
+- **Runtime evidence** (z [.dbg/trae-debug-log-linkedin-register-upload-service-relationships.ndjson](file:///c:/VS_Code/Postio/.dbg/trae-debug-log-linkedin-register-upload-service-relationships.ndjson), 4 varianty requestu se skutečným LinkedIn tokenem):
+
+  | # | URL | Struktura | Status |
+  |---|-----|-----------|--------|
+  | v1 | `/v2/assets` | staré pole objektů v `recipes[]` | **403** – přesně reprodukuje chybu z aplikace |
+  | **v2** | **`/v2/assets`** | **nová struktura (stringy + top-level)** | **200 OK** – `value.asset=urn:li:digitalmediaAsset:D4D22AQEaf87ZJx-igQ`, `uploadMechanism` správně ✅ |
+  | v3 | `/rest/assets` + `Linkedin-Version: 202606` | nová struktura | 403 – nový endpoint vyžaduje schválení partnera (`partnerApiAssets.ACTION-registerUpload.20260601`) |
+  | v4 | `/rest/assets` + `Linkedin-Version: 202606` | staré objekty | 403 – permission, stejná chyba jako v3 |
+
+  Varianty v3/v4 potvrzují, že nový `/rest/assets` endpoint vyžaduje Marketing Developer Platform partner schválení, které Postio nemá – proto zůstáváme na `/v2/assets`, který stále funguje.
+
+- **Oprava** – v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts) i [supabase/functions/process-scheduled-posts/index.ts](file:///c:/VS_Code/Postio/supabase/functions/process-scheduled-posts/index.ts) je `registerBody` nyní:
+  ```ts
+  const registerBody = {
+    registerUploadRequest: {
+      owner: authorUrn,
+      recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+      serviceRelationships: [
+        { identifier: "urn:li:userGeneratedContent", relationshipType: "OWNER" },
+      ],
+      supportedUploadMechanism: ["SYNCHRONOUS_UPLOAD"],
+    },
+  };
+  ```
+  Endpoint zůstává `https://api.linkedin.com/v2/assets?action=registerUpload` (Next.js i Deno port), URL se nemění.
+- **Bezpečnost / Data**: Žádná DB migrace, žádná API route, žádná nová npm/Deno závislost. Čistě oprava struktury JSON payloadu + aktualizace komentářů v obou souborech (musí zůstat v sync – viz JSDoc poznámka).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Debug session**: [debug-linkedin-register-upload-service-relationships.md](file:///c:/VS_Code/Postio/debug-linkedin-register-upload-service-relationships.md) – `[OPEN]` čeká na manuální potvrzení v aplikaci.
+- **Dopad**: Po této opravě by mělo publikování obrázkových příspěvků na LinkedIn opět fungovat. Token refresh, URN vlastníka, `X-Restli-Protocol-Version: 2.0.0` hlavička a `shareMediaCategory: "IMAGE"` v ugcPosts zůstávají nezměněné.
+- **Postup pro testování po nasazení**:
+  1. Restartovat `npm run dev`.
+  2. Vytvořit nový příspěvek s obrázkem a zvolit LinkedIn jako cílovou platformu.
+  3. Kliknout „Publikovat".
+  4. **Očekávaný výstup**: `registerUpload` vrátí 200 s `value.asset` ve tvaru `urn:li:digitalmediaAsset:...`, `value.uploadMechanism["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"].uploadUrl`. Následný `PUT` binárních dat proběhne úspěšně, ugcPosts se uloží jako `urn:li:ugcPost:...`. Příspěvek se zobrazí na LinkedInu.
+  5. V Supabase `post_platforms` by měl mít `status="published"`, `external_id=urn:li:ugcPost:...`, `published_at` nastavené, `publish_error=null`.
+  6. Pokud by se přesto objevila chyba, ověřit `application-code` výstup – měl by obsahovat `[LinkedIn] ✅ publish success` a `urn:li:ugcPost:...`. Další kontrola v Supabase logu `trae-debug-log-*.ndjson` (pokud běží Debug Server).
+
+### Fix – LinkedIn `registerUpload`: chybná struktura `recipes[]` (HTTP 403 ACCESS_DENIED)
+
+- **Problém**: Při pokusu o publikování příspěvku s obrázkem na LinkedIn se v konzoli objevila chyba:
+  ```
+  [LinkedIn] assets.registerUpload failed: {
+    status: 403,
+    text: '{"status":403,"serviceErrorCode":100,"code":"ACCESS_DENIED",
+           "message":"Field Value validation failed in REQUEST_BODY: Data Processing
+           Exception while processing fields [/registerUploadRequest/recipes/relationshipType]"}'
+  }
+  ```
+  `post_platforms` se následně aktualizoval na `status="failed"`. Text-only příspěvky fungovaly (ty nepoužívají asset registration), ale jakýkoliv příspěvek s obrázkem na LinkedIn selhal.
+- **Příčina**: V [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts) i v Deno portu [supabase/functions/process-scheduled-posts/index.ts](file:///c:/VS_Code/Postio/supabase/functions/process-scheduled-posts/index.ts) jsme posílali body ve tvaru:
+  ```json
+  {
+    "registerUploadRequest": {
+      "owner": "urn:li:person:...",
+      "recipes": [{ "recipe": "urn:li:digitalmediaRecipe:feedshare-image" }],
+      "serviceRelationships": [{ "relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent" }]
+    }
+  }
+  ```
+  Tato struktura vychází ze starší LinkedIn dokumentace. Současné `/v2/assets?action=registerUpload` (v2 API) ale **odmítá** top-level `serviceRelationships` a vyžaduje, aby `relationshipType` byl součástí KAŽDÉHO objektu v `recipes[]`. Když chybí, API vrací HTTP 403 s `serviceErrorCode: 100` a zprávou „Field Value validation failed in REQUEST_BODY: ... [/registerUploadRequest/recipes/relationshipType]".
+- **Oprava** – `recipes[]` nyní obsahuje `relationshipType` i `recipe` na stejné úrovni, a `serviceRelationships` se vůbec neposílá:
+  ```json
+  {
+    "registerUploadRequest": {
+      "owner": "urn:li:person:...",
+      "recipes": [
+        {
+          "relationshipType": "OWNER",
+          "recipe": "urn:li:digitalmediaRecipe:feedshare-image"
+        }
+      ]
+    }
+  }
+  ```
+  Tato struktura odpovídá aktuální LinkedIn v2 API dokumentaci (Community Management API → ugcPost API → Image uploads).
+- **Konkrétní soubory**:
+  - [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts) – opraven `registerBody` v `registerLinkedInImageAsset`; přidán JSDoc komentář vysvětlující chybu (ACCESS_DENIED 100) a proč se struktura změnila.
+  - [supabase/functions/process-scheduled-posts/index.ts](file:///c:/VS_Code/Postio/supabase/functions/process-scheduled-posts/index.ts) – identická oprava v Deno portu (oba soubory musí zůstat v sync, viz komentář).
+- **Bezpečnost / Data**: Žádná DB migrace. Žádná API route. Žádná nová npm/Deno závislost. Čistě oprava struktury JSON payloadu.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**: Po této opravě by mělo publikování obrázkových příspěvků na LinkedIn fungovat. Ostatní cesty (text-only, asset URN v `media[].media`) zůstávají nezměněné – autor URN, refresh logika i `X-Restli-Protocol-Version: 2.0.0` hlavička jsou správně.
+- **Postup pro testování po nasazení**:
+  1. Restartovat `npm run dev`.
+  2. Vytvořit nový příspěvek s obrázkem a zvolit LinkedIn jako cílovou platformu.
+  3. Kliknout „Publikovat" (nebo naplánovat).
+  4. **Očekávaný výsledek**: `registerUpload` vrátí 200 s `value.asset = "urn:li:image:..."` a `value.uploadMechanism...uploadUrl`, následný `PUT` binárních dat proběhne úspěšně, ugcPosts se uloží jako `urn:li:ugcPost:...`. Příspěvek se zobrazí na LinkedInu.
+  5. Pokud by se přesto objevila chyba, další krok by byl ověřit v Supabase logu `application-code` výstup – měl by obsahovat `[LinkedIn] ✅ publish success` a `externalId` ve tvaru `urn:li:ugcPost:...`.
+
+### Feature – LinkedIn publisher: reálné publikování + LinkedIn preview v editoru (DONE)
+
+- **Kontext**: LinkedIn účet lze v Postiu úspěšně propojit (viz OAuth route + UX notifikace záznamy dříve), ale publikování na LinkedIn zatím nebylo implementované – `publishPost()`, `publishAdditionalPlatforms()` a plánovaná edge funkce `process-scheduled-posts` neměly LinkedIn větev, takže příspěvek se po kliknutí na „Publikovat" tvářil jako úspěšně publikovaný v UI, ale nikdy neopustil Postio. Stejně tak v náhledu příspěvku (`PostPreview`) v `EditPostDialog` chyběl LinkedIn tab – uživatel nemohl vizuálně ověřit, jak bude příspěvek na LinkedIn vypadat. Tento commit uzavírá celý end-to-end flow: klik na „Publikovat" nebo naplánování příspěvku na LinkedIn skutečně publikuje přes LinkedIn UGC Posts API, uloží `urn:li:ugcPost:{id}` jako `external_id` do `post_platforms.external_id`, a v pravém panelu editoru se objeví věrný LinkedIn feed preview.
+- **1) OAuth route – ukládání `refresh_token`** – [`src/app/api/accounts/linkedin/route.ts`](file:///c:/VS_Code/Postio/src/app/api/accounts/linkedin/route.ts):
+  - LinkedIn token endpoint vrací vedle 60denního `access_token` i `refresh_token` (při authorization-code exchange). Ten byl v OAuth route extrahován do `tokenData.refresh_token`, ale nikdy persistován – tudíž po 60 dnech nebylo možné získat nový token. Nyní se ukládá do `social_accounts.metadata` jako `metadata.refresh_token` (JSONB blob) – stejný vzor jako YouTube route.
+  - `token_expires_at` zůstává nastaven na `+60 dní` (LinkedIn `expires_in`).
+- **2) Nový modul [`src/lib/actions/publish-linkedin.ts`](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts)** – zapouzdřuje vše specifické pro LinkedIn (zrcadlí strukturu `publish-youtube.ts`):
+  1. **`getValidLinkedInAccessToken({ account })`** – kontrola `token_expires_at` s 24hodinovým bezpečnostním bufferem; pokud vypršel/blíží se, zavolá `exchangeRefreshToken(refreshToken)` na `https://www.linkedin.com/oauth/v2/accessToken` s `grant_type=refresh_token`, uloží nový `access_token` + `token_expires_at` a případně rotovaný `refresh_token` zpět do `social_accounts` (přes admin klienta kvůli RLS).
+  2. **`registerLinkedInImageAsset(...)`** – dvoukrokový LinkedIn asset registration: `POST /v2/assets?action=registerUpload` s recipe `urn:li:digitalmediaRecipe:feedshare-image` → `PUT` binárních bytů na vrácenou `uploadUrl`. Vrací `urn:li:image:{assetId}`.
+  3. **`publishToLinkedIn(...)`** – samotné odeslání na LinkedIn UGC Posts API:
+     - Endpoint: `POST https://api.linkedin.com/v2/ugcPosts` s povinnou hlavičkou `X-Restli-Protocol-Version: 2.0.0`.
+     - Author URN: `urn:li:person:{platform_id}` (kde `platform_id` = LinkedIn OpenID subject uložený v DB při OAuth).
+     - Text-only post: `shareCommentary.text` + `shareMediaCategory: "NONE"`.
+     - Image post: registrace assetu + `shareMediaCategory: "IMAGE"` + `media[].media = assetUrn`.
+     - Video posty v této verzi **nejsou podporovány** (vyžadují samostatný `/v2/videos` flow); publisher vrátí jasnou chybu „LinkedIn v této verzi nepodporuje video příspěvky…".
+     - LinkedIn vrací `201 Created`; finální URN je v hlavičce `x-restli-id`.
+  4. **`publishToLinkedInAction(...)`** – veřejný vstupní bod. Ověří `platform_id`, zavolá `getValidLinkedInAccessToken`, sestaví `finalContent` (content + 📍 lokace + #hashtagy, oříznuté na 3000 znaků – LinkedIn hard limit `shareCommentary.text`) a publikuje. Vrací `{ success, externalId, error? }` ve stejném tvaru jako ostatní publishery.
+  5. **Defense-in-depth guard** – pokud `existingExternalId` je předáno neprázdné, publish se odmítne (zabraňuje duplicitnímu uploadu i v případě, že by v budoucnu nějaký caller obešel vysokoúrovňový guard v `publishPost`).
+- **3) [`src/lib/actions/publish.ts`](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts)** – přidána nová větev `if (targetPlatform === "linkedin")` jak do `publishPost()`, tak do `publishAdditionalPlatforms()`. Větev:
+  - Načte LinkedIn účet přes `supabaseAdmin` se selectem `id, user_id, platform, access_token, token_expires_at, metadata, platform_id`.
+  - Zavolá `publishToLinkedInAction(...)` s `existingExternalId` z `alreadyPublishedRow` guardu.
+  - Při úspěchu `handlePublishSuccess(... "linkedin")` → `post_platforms.status="published"`, `published_at`, `external_id=urn:li:ugcPost:...`, `publish_error=null` (stejný helper jako FB/IG/YT).
+  - Při chybě `handlePublishError(... "linkedin")` → `post_platforms.status="failed"`, `publish_error=<důvod>`.
+  - V obou případech se zavolá `revalidateAllLocales("/calendar"|"/posts"|"/dashboard")`.
+  - **Token expirace**: kontrola probíhá uvnitř `getValidLinkedInAccessToken` – pokud access token vypršel, refresh se provede transparentně ještě před samotným uploadem, takže scheduled posty v cronu nikdy nezkolabují na 401 z LinkedIn API.
+- **4) [`supabase/functions/process-scheduled-posts/index.ts`](file:///c:/VS_Code/Postio/supabase/functions/process-scheduled-posts/index.ts)** – Deno port LinkedIn publisheru (musí být v sync s Next.js helperem, protože edge funkce běží v Deno runtime a nemůže importovat `@/lib/...`):
+  - Nový `refreshLinkedInAccessToken(refreshToken)` – Deno ekvivalent `exchangeRefreshToken` (čte `LINKEDIN_CLIENT_ID/SECRET` z `Deno.env.get(...)`).
+  - Nový `getValidLinkedInAccessToken({ supabaseAdmin, userId })` – Deno ekvivalent Next.js helperu (stejná logika jako YouTube varianta).
+  - Nový `registerLinkedInImageAsset(...)` – Deno port asset registrace.
+  - Nový `buildLinkedInContent(...)` – Deno ekvivalent caption builderu.
+  - Nový `publishToLinkedIn(...)` – identický algoritmus (UGC Posts).
+  - V hlavním `for` loopu přidána větev `else if (targetPlatform === "linkedin")`: `getValidLinkedInAccessToken` → `publishToLinkedIn`. Výsledek (`externalId` + případný `publishError`) se pak předá do stejného update bloku `post_platforms.status="published|failed"` jako pro FB/IG/YT.
+  - Buffer 24 hodin (`LINKEDIN_REFRESH_BUFFER_MS = 24 * 60 * 60 * 1000`).
+- **5) [`src/components/post-preview.tsx`](file:///c:/VS_Code/Postio/src/components/post-preview.tsx)** – LinkedIn preview:
+  - Typ `Platform` rozšířen o `"linkedin"` + přidán `PLATFORM_ACCENTS.linkedin = "#0A66C2"` (LinkedIn brand blue) jako jediný zdroj pravdy pro barvy aktivního tabu.
+  - Přidána prop `linkedinProfile?: PostPreviewProfile | null` + volitelný label `linkedinTab` v `labels`.
+  - Nový `LinkedInPreview` sub-renderer – věrná reprodukce LinkedIn mobilního feed share card:
+    - Světlé LinkedIn pozadí `#f3f2ef` (LinkedIn klasika) s bílou kartou uprostřed, modrý „in" logo v headeru.
+    - Header: kulatý avatar (44px) + jméno + „Professional · 1. stupeň" + „Právě teď · 🌐" + „⋯" menu.
+    - Caption: text příspěvku, `whitespace-pre-wrap` (LinkedIn word wrap).
+    - Media: obrázek v 4:3 framu (pokud existuje), zarovnaný na celou šířku karty.
+    - Social proof: „👍❤️👏 0" vlevo, „0 komentářů" vpravo.
+    - Divider + reaction row: To se mi líbí / Komentář / Repost / Poslat (4-sloupcová mřížka, lokální LinkedIn texty).
+  - `activeProfile` resolver rozšířen o LinkedIn větev.
+  - `tabDescriptors` resolver přidán nový case pro `"linkedin"` (s fallbackem na string `"LinkedIn"` pokud chybí `labels.linkedinTab`).
+  - Hlavní render switch přidán `LinkedInPreview` mezi YouTube a Instagram.
+- **6) [`src/components/edit-post-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/edit-post-dialog.tsx)** – propojení s dialogem:
+  - Přidán `linkedinProfile` state.
+  - `loadProfiles` useEffect nyní tahá FB / IG **/ YT / LinkedIn** v jednom dotazu (`social_accounts` `.in("platform", ["facebook", "instagram", "youtube", "linkedin"])`). LinkedIn profil se v DB ukládá pod stejným schématem (`account_name` = `userInfo.name ?? `${given_name} ${family_name}`` fallback, `avatar_url` = `userInfo.picture`).
+  - Nový `availablePreviewPlatforms` `useMemo` – sjednotí `platforms` (form state) + `post.platforms` (perzistentní) + `post.post_platforms` (včetně published) a vyfiltruje jen ty, které PostPreview umí renderovat (FB / IG / YT / **LinkedIn**). Ostatní platformy (Twitter/X, TikTok) jsou záměrně vynechány, dokud jejich preview renderery nepřibudou.
+  - `<PostPreview>` dostal `linkedinProfile` + `availablePlatforms={availablePreviewPlatforms}` (typ rozšířen o `"linkedin"`).
+  - `previewLabels.useMemo` přidán `linkedinTab: tLabels.previewLinkedinTab ?? "LinkedIn"`.
+  - Typ `tLabels` rozšířen o `previewLinkedinTab?: string`.
+- **7) Překlady** `src/messages/{cs,en,uk}.json` – přidán klíč `previewLinkedinTab: "LinkedIn"` (ve všech třech jazycích). Ostatní `preview*` klíče zůstávají; volání v `EditPostDialog` mají hardcoded fallbacky, takže LinkedIn tab funguje i bez načtení messages.
+- **Specifika LinkedIn dodržená** (dle CLAUDE.md pravidel):
+  - ✅ Žádné PDF karusely (publisher podporuje jen `shareMediaCategory: "NONE" | "IMAGE"`).
+  - ✅ `@mention` je prostý text – žádná speciální entita (publisher posílá text tak, jak ho uživatel napsal, bez parsování `@nickname`).
+  - ✅ Editace textu po publikování není podporována – `updateOnPlatformAction` pro LinkedIn vrací placeholder chybu „Úprava na LinkedIn zatím není implementována" (stejně jako dosud), ale `deleteFromMeta` pro LinkedIn bude fungovat (LinkedIn `DELETE /v2/ugcPosts/{id}` podporuje).
+  - ✅ Video příspěvky: v1 publisher vrátí jasnou chybu – uživatel dostane zprávu, že LinkedIn video v této verzi nepodporuje.
+- **Bezpečnost / Data**:
+  - **Žádná DB migrace** – `social_accounts.metadata` (JSONB) a `token_expires_at` již existují z migrací 027 a 029.
+  - **Žádné nové npm/Deno závislosti** – vše na nativním `fetch` + `URLSearchParams`.
+  - **`refresh_token` ochrana**: ukládá se do `metadata` JSONB (sloupec `refresh_token` v tabulce neexistuje); při refreshi se nikdy nepřepisuje, pokud LinkedIn nevrátí nový (LinkedIn rotuje refresh_token na každém úspěšném refreshi, ale pokud nevrátí, ponechá se stávající).
+  - **Žádné nové API routes** – LinkedIn publish se spouští buď přes existující `publishPost()` / `publishAdditionalPlatforms()` (button „Publikovat teď") nebo přes plánovanou edge funkci `process-scheduled-posts`.
+  - **Author URN**: `urn:li:person:{openIdSub}` – používáme `platform_id` uložené v OAuth callbacku (= OpenID subject z `/v2/userinfo`).
+  - **X-Restli-Protocol-Version**: VŽDY se posílá `2.0.0` (LinkedIn API striktně vyžaduje, jinak vrací 400).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Po připojení LinkedIn účtu (viz OAuth záznamy) lze vytvořit příspěvek s alespoň jedním textem nebo obrázkem, zvolit LinkedIn jako cílovou platformu a kliknout „Publikovat". Systém transparentně obnoví token (pokud vypršel) a publikuje příspěvek přes LinkedIn UGC Posts API.
+  - Plánované LinkedIn posty (cron přes `process-scheduled-posts`) projdou stejnou logikou v Deno edge funkci – cron nikdy nezkolabuje na 401, protože `getValidLinkedInAccessToken` refreshne token před publikováním.
+  - Po úspěšném publikování se v databázi uloží LinkedIn post URN (`urn:li:ugcPost:...`) do `post_platforms.external_id`. UI v budoucnu může zobrazit odkaz `https://www.linkedin.com/feed/update/{urn}` a tlačítko pro smazání.
+  - V editoru (`EditPostDialog`) se v pravém sloupci náhledu objeví **LinkedIn tab** (když je LinkedIn mezi cílovými platformami), který zobrazuje věrnou mobilní feed kartu s LinkedIn-specifickým designem.
+- **Postup pro testování po nasazení**:
+  1. Spustit `npm run dev`.
+  2. Přihlásit se jako existující Postio uživatel s LinkedIn účtem.
+  3. Jít na `/cs/posts/new` nebo upravit existující draft.
+  4. Ověřit, že v pravém sloupci náhledu se objeví tab **LinkedIn** (vedle Facebook / Instagram / YouTube).
+  5. Přepnout na LinkedIn tab – měla by se zobrazit bílá feed karta s LinkedIn designem.
+  6. Vyplnit text, přidat obrázek (volitelně), kliknout „Publikovat".
+  7. **Očekávaný výsledek**: po 1-3 sekundách toast o úspěchu, v seznamu příspěvků se příspěvek objeví jako `published` na LinkedIn, v `post_platforms.external_id` je `urn:li:ugcPost:...`.
+  8. Ověřit na LinkedInu: příspěvek se objevil ve feedu.
+  9. **Edge case**: Naplánovat příspěvek na 1 minutu dopředu, počkat, spustit `process-scheduled-posts` edge funkci (nebo cron job) – příspěvek by měl být publikován na LinkedIn.
+  10. **Refresh token test**: manuálně nastavit `token_expires_at` v Supabase na `now() - 1 hour` pro daný LinkedIn účet, poté publikovat – publisher by měl automaticky zavolat refresh endpoint a publikovat úspěšně.
+- **Možné rozšíření (mimo scope tohoto commitu)**:
+  - UI tlačítko „Otevřít na LinkedIn" + „Smazat z LinkedIn" (využívá uložené `external_id`).
+  - LinkedIn video publisher (`/v2/videos` flow + asset recipe `urn:li:digitalmediaRecipe:feedshare-video`).
+  - Editace titulku/description (LinkedIn API to nepodporuje dle pravidel – zůstane neimplementováno).
+
+### Fix – a11y warning v `ConnectAccountModal` (chybějící `DialogDescription`)
+
+- **Problém**: Při prvním testovacím spuštění LinkedIn OAuth flow se v prohlížečové konzoli objevil Radix UI warning: `Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.` Dialog se vizuálně zobrazil správně (LinkedIn dlaždice → modal → tlačítko Propojit → redirect na LinkedIn consent screen – `GET /api/accounts/linkedin?state=…&locale=cs` vrátil `307`), ale Radix UI odmítá render bez popisu kvůli přístupnosti.
+- **Příčina**: [`src/components/connect-account-modal.tsx`](file:///c:/VS_Code/Postio/src/components/connect-account-modal.tsx) měl uvnitř `DialogContent` pouze `<DialogTitle className="sr-only">`. Chyběl buď `<DialogDescription>`, nebo explicitní `aria-describedby` na `DialogContent`. Radix UI to považuje za chybu (WCAG – dialog by měl mít titulek + popis).
+- **Oprava**: Přidán `<DialogDescription className="sr-only">` hned za `<DialogTitle>`. Text popisu je `"{title} – {warningDesc}"` – tedy kombinace názvu dialogu (např. „Propojit LinkedIn") a kontextového varování (např. „LinkedIn token platí 60 dní..."). Tím se:
+  1. Splní Radix UI požadavek na přístupnost (warning v konzoli zmizí).
+  2. Screen readerům poskytne kontext o účelu dialogu + důležité bezpečnostní upozornění.
+  3. Vizuální vzhled zůstane nezměněný – popis je skrytý (`sr-only`).
+- **Konkrétní soubory**:
+  - [`src/components/connect-account-modal.tsx`](file:///c:/VS_Code/Postio/src/components/connect-account-modal.tsx) – import `DialogDescription` (vedle `DialogTitle` ze stejného modulu), přidání `<DialogDescription>` elementu s vysvětlujícím JSDoc komentářem.
+- **Dopad**: Po této opravě se při otevření libovolného OAuth propojovacího dialogu (LinkedIn, Facebook, Instagram, YouTube) již nezobrazuje Radix UI warning. Dialog zůstává pro uživatele vizuálně identický.
+- **Bezpečnost / Data**: Žádná DB migrace. Žádné nové API routes. Žádné nové npm závislosti. Čistě a11y oprava.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+
+### Feature – LinkedIn OAuth: dokončení UX notifikací po připojení
+
+- **Kontext**: OAuth backend pro LinkedIn (`/api/accounts/linkedin`) byl implementovaný již dříve (OpenID Connect, scope `w_member_social openid profile email`, fetch `/v2/userinfo`, upsert do `social_accounts` s `platform="linkedin"` a `token_expires_at=+60 dní`). Tlačítko LinkedIn v `accounts/page.tsx` také již správně otevíralo `ConnectAccountModal` a odkazovalo na tuto route. **Chyběl pouze poslední krok**: signalizace úspěchu v UI po návratu z LinkedIn – uživatel sice účet v databázi měl a po refreshi se mu zobrazil, ale nedostal toast o úspěšném připojení, jako je tomu u YouTube (`?yt=connected` → `toast.success(t("ytConnectedShort"))`).
+- **[`src/app/api/accounts/linkedin/route.ts`](file:///c:/VS_Code/Postio/src/app/api/accounts/linkedin/route.ts)** – přidán success signal `?li=connected` k post-auth redirectu:
+  1. Nový helper `appendSuccessParam(target, key, value)` – appenduje `?key=value` (nebo `&key=value` pokud URL již obsahuje query string). Univerzální – podporuje cesty s i bez hosta (např. `/cs/accounts` i plné URL).
+  2. `redirectOnSuccess` se nyní staví jako `appendSuccessParam(baseRedirect, "li", "connected")`, kde `baseRedirect` je původní `state` (typicky `/{locale}/accounts`).
+  3. `errorRedirect(msg)` factory – připravuje cestu pro případné budoucí rozšíření, kdy by se do chybového redirectu přidal konkrétní důvod (např. `?error=Token+exchange+failed`). Aktuálně se stále posílá generická zpráva „LinkedIn connection failed", aby se zachovalo původní chování.
+  4. Zdokumentován celý tok v JSDoc komentáři nad `redirectOnSuccess` (včetně popisu, že `?li=connected` je „sister signal" k YouTube `?yt=connected`).
+- **[`src/app/[locale]/(dashboard)/accounts/page.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/accounts/page.tsx)** – rozšířen OAuth callback handler:
+  1. Sjednocen useEffect pro YouTube + LinkedIn + obecné chyby (YouTube měl vlastní useEffect; LinkedIn neměl žádný).
+  2. Nový `liSignal = searchParams.get("li")` vedle existujícího `ytSignal` a `errorSignal`.
+  3. Po `?li=connected` se provede `fetchAccounts()` + `toast.success(t("liConnectedShort"))` a query param se okamžitě odstraní z URL (`router.replace(window.location.pathname)`) – stejný anti-loop pattern jako u YouTube.
+  4. Pokud selže OAuth (token exchange, `/userinfo`, DB upsert, …), zachová se stávající chování – `?error=<msg>` → `toast.error(t("connectionError", { error }))`.
+  5. Závislosti useEffectu aktualizovány na `[ytSignal, liSignal, errorSignal, router, t]`.
+- **Překlady** `src/messages/{cs,en,uk}.json` – přidány tři klíče v každém jazyce:
+  - `liConnected`: „LinkedIn účet „{name}" byl úspěšně propojen s Postiem." (cs) / ekvivalenty v en a uk.
+  - `liConnectedShort`: „LinkedIn účet byl úspěšně propojen s Postiem." (generický toast, cs).
+  - `liDisconnected`: „LinkedIn účet „{name}" byl odpojen." (pro budoucí disconnect toasts).
+- **Ověření odpojení**: `handleDeleteConnectedAccount` v accounts page je **obecný** (`supabase.from("social_accounts").delete().eq("id", ...)`), tlačítko Trash v kartě každého aktivního účtu se renderuje pro všechny platformy (včetně LinkedIn). Smazání funguje konzistentně s ostatními platformami – žádné změny nebyly potřeba.
+- **Bezpečnost / Data**:
+  - Žádná DB migrace (sloupec `token_expires_at` a constraint `platform IN ('linkedin', ...)` již existují z migrací 027 a 012).
+  - Žádné nové API routes ani nové npm závislosti.
+  - Žádné změny OAuth protokolu ani scopes.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Postup pro testování** (po commitnutí a pushnutí na Vercel preview nebo lokálně):
+  1. Spustit `npm run dev`.
+  2. Přihlásit se jako existující Postio uživatel.
+  3. Jít na `/cs/accounts` (nebo jiný locale).
+  4. Kliknout na dlaždici **LinkedIn** → otevře se `ConnectAccountModal` s textem `warningDescLinkedIn` („LinkedIn token platí 60 dní...").
+  5. Kliknout na hlavní tlačítko „Propojit" → redirect na LinkedIn consent screen.
+  6. Po přihlášení a udělení oprávnění → redirect zpět na `/cs/accounts?li=connected`.
+  7. **Očekávaný výsledek**: zobrazí se toast „LinkedIn účet byl úspěšně propojen s Postiem.", URL se ihned vyčistí (žádný `?li=connected`), v seznamu propojených účtů přibude nová karta se jménem z `/v2/userinfo` (fallback `given_name + family_name`) a LinkedIn avatar URL.
+  8. Ověřit odpojení: kliknout na červené tlačítko Trash u LinkedIn karty → potvrzovací dialog → „Smazat" → karta zmizí.
+  9. Ověřit uložení v Supabase: `SELECT * FROM social_accounts WHERE platform='linkedin' AND user_id=<auth.uid>()` – měl by existovat řádek s `is_active=true`, `token_expires_at` ≈ +60 dní od teď.
+
 ## 2026-06-19
+
+### Fix – YouTube synchronizace: false-positive "Odstraněno externě" + ochrana proti duplicitním uploadům (CRITICAL)
+
+- **Problém**: Po úspěšném nahrání videa na YouTube Postio okamžitě označil příspěvek jako `removed_externally`. Tento stav způsobil, že:
+  1. UI nabídlo uživateli tlačítko pro opětovné publikování.
+  2. Uživatel klikl na "Publikovat" znovu.
+  3. `publishPost()` vzal příspěvek znovu do fronty a video se na YouTube nahrálo podruhé → **duplicita na kanálu**.
+
+- **Příčina** (dvě na sobě nezávislé chyby):
+  1. **Sync rutina používala Facebook Graph API i pro YouTube.** Funkce `syncPostStatus` a `syncPublishedPosts` v [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts) posílaly YouTube video ID na `https://graph.facebook.com/v20.0/${externalId}`. YouTube ID tam samozřejmě neexistuje → Meta vrátila 404 → Postio příspěvek chybně označil jako `removed_externally`. **Horší**: i kdyby video čerstvě prošlo stavem `processing` nebo `uploaded` (legitimní stav YouTube mezi upload konečného `id` a úplným zpracováním), `videos.list` ho stále vrací. Kdyby Postio v tomto okně zavolal sync, stále by skončil s `removed_externally`.
+  2. **Žádná ochrana proti duplicitnímu uploadu.** `publishPost()` v [src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts) filtroval `unpublishedPlatforms` jako `post_platforms.filter(p => p.status !== "published")`. `removed_externally` mezi ně patří → `targetPlatform = "youtube"` se dostal do YouTube větve znovu a `publishToYouTubeAction` bez další kontroly zavolal resumable upload. V `publishAdditionalPlatforms()` byla jednoduchá kontrola `publishedPlatformNames.includes(platform)`, která se spoléhala jen na `status="published"` bez ověření `external_id`.
+
+- **Oprava** (tři vrstvy):
+  1. **Nový helper `checkYouTubeVideoExists` v [src/lib/actions/publish-youtube.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-youtube.ts)** – YouTube Data API v3 `videos.list?id={videoId}&part=status` s `Authorization: Bearer {accessToken}`. Vrací tři stavy:
+     - `exists: true` + `uploadStatus` – video existuje (jakýkoliv `uploadStatus`, včetně `processing`/`uploaded`).
+     - `exists: false` (404 nebo prázdné `items[]`) – video bylo skutečně smazáno.
+     - `exists: null` (síťová/chybová odpověď) – ponechá `status="published"` a počká na další sync.
+  2. **YouTube větev v `syncPostStatus` a `syncPublishedPosts`**:
+     - Načte se celý `social_accounts` řádek (kvůli `token_expires_at` + `metadata.refresh_token`).
+     - Zavolá se `getValidYouTubeAccessToken` pro transparentní refresh tokenu (YouTube access tokeny expirují po ~1 hodině; bez refreshe by 401 z `videos.list` vedlo ke stejnému false positive).
+     - Zavolá se `checkYouTubeVideoExists`.
+     - Jen `exists === false` mění stav na `removed_externally`. Jakýkoliv jiný výsledek (včetně `processing`) ponechá `status="published"` a aktualizuje `last_sync_at` (throttling 30 min).
+     - `syncPublishedPosts` navíc projde **všechny** `status="published"` řádky (ne jen první), přednačte všechny `social_accounts` do `Map` (žádný N+1) a cachuje obnovené YouTube tokeny v rámci batche.
+  3. **Ochrana proti duplicitnímu uploadu (tři úrovně)**:
+     - **`publishPost()` – guard hned po určení `targetPlatform`**: pokud `post_platforms` pro `(postId, targetPlatform)` je v `status="published"` s neprázdným `external_id`, funkce vrátí `{ success: false, error: "Příspěvek je již publikován na {platform}. Duplicitní nahrávání je blokováno." }` **bez** spuštění jakéhokoliv uploadu. Stejný guard v `publishAdditionalPlatforms()`.
+     - **`publishToYouTubeAction`** – nový volitelný parametr `existingExternalId`. Pokud je předáno neprázdné ID, helper vrátí chybu a YouTube upload se **vůbec nespustí** (aniž by se stahovalo video, aniž by se volal resumable init). Oba publish routery předávají `existingYtExternalId` z předchozího guardu.
+     - **(Fallback)** `publishedPlatformNames.includes(input.platform)` v `publishAdditionalPlatforms` zůstává pro starší `status="published"` řádky bez `external_id` (nemůže se v praxi stát, ale zachovává zpětnou kompatibilitu).
+
+- **Konkrétní soubory**:
+  - [src/lib/actions/publish-youtube.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-youtube.ts) – nový `checkYouTubeVideoExists`, rozšířený `publishToYouTubeAction` o `existingExternalId`.
+  - [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts) – YouTube větev v `syncPostStatus` + kompletní přepracování `syncPublishedPosts` (YouTube branch, procházení všech published řádků, batch caching tokenů).
+  - [src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts) – `alreadyPublishedRow` guard v `publishPost` i `publishAdditionalPlatforms`, předávání `existingYtExternalId` do YouTube helperu.
+- **Dopad**:
+  - Čerstvě publikované YouTube video: `status` zůstane `published` (YouTube Data API v3 potvrdí existenci i během `processing`). Žádný false positive → tlačítko pro opětovné publikování se **neobjeví**.
+  - I kdyby se v budoucnu objevil jiný důvod pro `removed_externally`, `publishPost` i `publishAdditionalPlatforms` odmítnou znovu nahrát, protože `post_platforms.external_id` (YouTube video ID) je v DB.
+  - Všechny tři kontroly selhávají nezávisle – i kdyby se guard v routeru obešel (např. nový caller z cronu), `publishToYouTubeAction` sám odmítne upload.
+- **Edge funkce** `process-scheduled-posts/index.ts` (Deno port) nebyla v tomto commitu měněna, protože YouTube publisher v Deno zatím nepoužívá `postId` pro lookup `external_id`. Pokud se v budoucnu přidá scheduled YouTube upload, doporučuje se přidat stejný guard (DB lookup `post_platforms.external_id` podle `postId` + `platform`).
+- **Bezpečnost / Data**: Žádná DB migrace. Žádné nové API routes. Žádné nové npm závislosti. Čistě logické opravy ve stávajících akcích.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Postup pro testování po nasazení**:
+  1. Smazat duplicity na YouTube kanálu (mimo Postio).
+  2. Vytvořit nový příspěvek s videem, zvolit YouTube jako cílovou platformu, kliknout "Publikovat".
+  3. Ověřit, že `post_platforms.status` zůstane `published` (ne `removed_externally`).
+  4. Ověřit, že se v UI neobjeví tlačítko pro opětovné publikování / oranžový warning.
+  5. Zkusit manuálně vynutit sync (např. zavolat `syncPostStatus` z konzole) – nesmí příspěvek přehodit na `removed_externally`.
+
+### Fix – YouTube tab chyběl v náhledu příspěvku (Preview)
+
+- **Problém**: Když měl příspěvek v `Vybrat platformy` YouTube (nebo už na něm byl publikovaný), živý náhled vpravo v `EditPostDialog` zobrazoval jen Facebook a Instagram. Chyběl YouTube tab, takže uživatel neměl možnost vizuálně ověřit, jak bude příspěvek na YouTube vypadat (titulek, popis, banner kanálu, 16:9 video frame) – navzdory tomu, že backend už YouTube umí publikovat (viz záznam „YouTube publisher: reálné nahrávání videí" výše).
+- **Příčina**: [`src/components/post-preview.tsx`](file:///c:/VS_Code/Postio/src/components/post-preview.tsx) měl typ `Platform = "facebook" | "instagram"` natvrdo a `PlatformTabs` vykresloval jen dvě tlačítka. Žádná větev pro YouTube v komponentě neexistovala.
+- **Oprava**:
+  1. **Typ `Platform` rozšířen o `"youtube"`** + přidán `PLATFORM_ACCENTS` (YouTube = `#FF0000`) jako jediný zdroj pravdy pro barvy aktivního tabu.
+  2. **`availablePlatforms?: Platform[]` prop** – seznam dostupných tabů nyní vlastní rodič (`EditPostDialog`). Když prop chybí, komponenta spadne na `DEFAULT_AVAILABLE_PLATFORMS = ["facebook", "instagram"]` (backward compatible).
+  3. **Nový `YouTubePreview` sub-renderer** – věrná reprodukce YouTube mobilního watch feedu:
+     - Tmavý `#0f0f0f` header s červeným ▶ + textem „YouTube".
+     - **16:9 video frame** (`MediaArea` nyní podporuje `aspect: "video"`) – placeholder "Žádná média" je v 16:9 i pro prázdný stav, aby se vizuálně komunikoval video slot.
+     - **Title** (2 řádky, `line-clamp-2`) – text příspěvku, stejně jako v `publish-youtube.ts` kde `snippet.title = post.content`.
+     - **Channel row** – kulatý avatar + název kanálu + „0 subscribers" + červené tlačítko „Subscribe" (dekorativní, bez handleru).
+     - **Description chip** – „0 views · just now" + tělo příspěvku.
+     - **Action bar** – Like / Dislike / Share, stejné rozložení jako YT mobile.
+  4. **`PlatformTabs` dynamický** – dříve měl natvrdo FB/IG tlačítka, nyní iteruje přes `tabs: { id, label, accent }[]` z rodiče. Přidán `flex-wrap justify-end`, aby se tři případné taby (FB / IG / YT) nezalomily nečitelně.
+  5. **Anti-pattern refactor**: odebrán `useEffect`, který v případě zúžení `availablePlatforms` snapoval `platform` zpět na první tab – nahradil jsem ho čistě derivovanou hodnotou `effectivePlatform` (`tabs.includes(platform) ? platform : firstTab`). Vyhnutí se `react-hooks/set-state-in-effect` (lint error), méně kaskádových renderů.
+  6. **[`src/components/edit-post-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/edit-post-dialog.tsx)** – propojení s dialogem:
+     - Přidán `youtubeProfile` state.
+     - `loadProfiles` useEffect nyní tahá FB / IG **i YT** v jednom dotazu (`social_accounts` `.in("platform", ["facebook", "instagram", "youtube"])`). YT channel se v DB ukládá pod stejným schématem (`account_name` = `snippet.title`, `avatar_url` = `snippet.thumbnails.high`).
+     - Nový `availablePreviewPlatforms` `useMemo` – sjednotí `platforms` (form state) + `post.platforms` (perzistentní) + `post.post_platforms` (včetně published) a vyfiltruje jen ty, které PostPreview umí renderovat (FB / IG / YT). Ostatní platformy (LinkedIn, Twitter/X, TikTok) jsou záměrně vynechány, dokud jejich preview renderery nepřibudou.
+     - `<PostPreview>` dostal `youtubeProfile` + `availablePlatforms={availablePreviewPlatforms}`.
+  7. **Překlady** `src/messages/{cs,en,uk}.json` – přidán klíč `previewYoutubeTab: "YouTube"` (ve všech třech jazycích). Ostatní `preview*` klíče zůstávají; volání v `EditPostDialog` mají hardcoded fallbacky, takže YouTube tab funguje i bez načtení messages (YouTube název je vlastní, fallbackuje na string `"YouTube"`).
+- **Dopad**:
+  - Příspěvek, který má v `Vybrat platformy` YouTube (nebo už na YT vyšel), nyní v náhledu vpravo zobrazí tři taby: **Facebook / Instagram / YouTube**.
+  - YouTube tab ukazuje kanál připojený přes OAuth (jméno + avatar), 16:9 video frame s první přílohou, titulek z textu příspěvku a dekorativní YT prvky (Subscribe, Like/Dislike/Share).
+  - Pokud YouTube v seznamu cílových platforem není, YouTube tab se vůbec nevykreslí (žádný prázdný placeholder).
+- **Bezpečnost / Data**: Žádná DB migrace. Žádné nové API routes. Žádné nové npm závislosti. Čistě UI rozšíření stávajícího renderovacího pipeline.
+- **Build**:
+  - `npx tsc --noEmit` prošel ✅ 0 chyb.
+  - `npx eslint src/components/post-preview.tsx` prošel ✅ 0 problémů (žádné nové warningy, žádné `react-hooks/set-state-in-effect`).
+
+### Feature – YouTube publisher: reálné nahrávání videí (DONE)
+
+- **Cíl**: YouTube kanál lze od dneška v Postiu úspěšně propojit (viz předchozí HOTFIX záznam), ale publikování videí zatím nebylo implementované – `publishPost()` a plánovaná edge funkce `process-scheduled-posts` neměly YouTube větev. Tento commit zavírá celý end-to-end flow: klik na „Publikovat" nebo naplánování příspěvku na YouTube skutečně nahraje video přes YouTube Data API v3 a uloží `external_id` (YouTube video ID) do `post_platforms.external_id` pro pozdější odkaz/smazání.
+- **Nový modul [`src/lib/actions/publish-youtube.ts`](file:///c:/VS_Code/Postio/src/lib/actions/publish-youtube.ts)** – zapouzdřuje vše specifické pro YouTube:
+  1. **`getValidYouTubeAccessToken({ account })`** – kontrola `token_expires_at` s 5minutovým bezpečnostním bufferem; pokud token vypršel (nebo se blíží expirace), zavolá `exchangeRefreshToken(refreshToken)` na `https://oauth2.googleapis.com/token` s `grant_type=refresh_token`, uloží nový `access_token` + `token_expires_at` zpět do `social_accounts` přes admin klienta (kvůli RLS) a vrátí čerstvý token. Důležité: nepřepisuje `metadata.refresh_token` – Google ho při refresh-exchange zpět neposílá a my nechceme zničit stále platný refresh token.
+  2. **`publishToYouTube({ accessToken, videoUrl, title, description })`** – implementuje resumable upload protokol YouTube Data API v3:
+     - Stáhne video z URL (Postio ukládá do Supabase Storage, takže URL je veřejná).
+     - POST na `https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` s JSON metadata (title = text příspěvku, description = text + lokace + hashtagy + `#Shorts` hint, `categoryId="22"`, `status.privacyStatus="public"`, `selfDeclaredMadeForKids=false`, `embeddable=true`). Hlavičky: `Authorization: Bearer`, `Content-Type: application/json`, `X-Upload-Content-Length`, `X-Upload-Content-Type: video/mp4`.
+     - Z `Location` headeru získá jednorázovou session URI.
+     - PUT na session URI s binárními daty videa. Úspěch → `{ id }` = YouTube video ID.
+  3. **`publishToYouTubeAction({ account, content, mediaUrls, location, tags })`** – veřejný vstupní bod. Ověří, že médium je video (koncovka `.mp4/.mov/.m4v/.webm/.mkv`), zavolá `getValidYouTubeAccessToken`, sestaví description a nahraje video. Vrací `{ success, externalId, error? }` ve stejném tvaru jako Instagram/Facebook publishery.
+- **`src/lib/actions/publish.ts`** – přidána nová větev `if (targetPlatform === "youtube")` jak do `publishPost()`, tak do `publishAdditionalPlatforms()`. Větev:
+  - Načte YouTube účet přes `supabaseAdmin` se selectem `id, user_id, platform, access_token, token_expires_at, metadata` (vše potřebné pro refresh logiku).
+  - Zavolá `publishToYouTubeAction(...)`.
+  - Při úspěchu `handlePublishSuccess(... "youtube")` → `post_platforms.status="published"`, `published_at`, `external_id=videoId`, `publish_error=null` (stejný helper jako FB/IG).
+  - Při chybě `handlePublishError(... "youtube")` → `post_platforms.status="failed"`, `publish_error=<důvod>`.
+  - V obou případech se zavolá `revalidateAllLocales("/calendar"|"/posts"|"/dashboard")`.
+  - **Token expirace**: kontrola probíhá uvnitř `getValidYouTubeAccessToken` – pokud access token vypršel, refresh se provede transparentně ještě před samotným uploadem, takže scheduled posty v cronu nikdy nezkolabují na 401 z Google API.
+- **[`supabase/functions/process-scheduled-posts/index.ts`](file:///c:/VS_Code/Postio/supabase/functions/process-scheduled-posts/index.ts)** – Deno port YouTube publisheru (musí být v sync s Next.js helperem, protože edge funkce běží v Deno runtime a nemůže importovat `@/lib/...`):
+  - Nový `refreshYouTubeAccessToken(refreshToken)` – Deno ekvivalent `exchangeRefreshToken` (čte `GOOGLE_CLIENT_ID/SECRET` z `Deno.env.get(...)`).
+  - Nový `getValidYouTubeAccessToken({ supabaseAdmin, userId })` – Deno ekvivalent Next.js helperu. Typ `DenoSupabaseClient = any` (alias kvůli generickým parametrům Deno Supabase portu vs. návratového typu `createClient`).
+  - Nový `publishToYouTube(...)` – identický algoritmus (resumable upload).
+  - V hlavním `for` loopu přidána větev `else if (targetPlatform === "youtube")`: pokud má post video médium, zavolá se `getValidYouTubeAccessToken` → `publishToYouTube`. Výsledek (`externalId` + případný `publishError`) se pak předá do stejného update bloku `post_platforms.status="published|failed"` jako pro FB/IG. V description se přidá `#Shorts` hint pro YouTube Shorts auto-detekci.
+- **Metadata videa (dle zadání)**:
+  - **Název (`snippet.title`)**: text příspěvku (`post.content`), oříznutý na 100 znaků (YouTube hard limit).
+  - **Status (`status.privacyStatus`)**: `"public"` dle zadání.
+  - **Shorts**: video se automaticky zpracuje jako Short, pokud je ≤ 60 s a vertikální (YouTube classifier). Pomáháme si přidáním `#Shorts` na konec description (dokumentovaný hint).
+  - **Description**: text + 📍 lokace + `#tagy` + `#Shorts`, oříznuté na 5000 znaků.
+- **Zpětná vazba do databáze**: Po úspěšném `videos.insert` se vrací `id` (YouTube video ID, 11 znaků, např. `dQw4w9WgXcQ`). Ten se ukládá do `post_platforms.external_id` přes `handlePublishSuccess`, takže Postio ho může později použít pro:
+  - zobrazení odkazu `https://youtu.be/<id>` v detailu příspěvku,
+  - budoucí smazání (`videos.delete` přes YouTube Data API v3),
+  - analytiku (volání `videos.list?part=statistics` pro zobrazení views/likes).
+- **Bezpečnost / Data**:
+  - **Žádná DB migrace** – `social_accounts.metadata` (JSONB) a `token_expires_at` již existují z migrací 027 a 029.
+  - **Žádné nové npm/Deno závislosti** – vše na nativním `fetch` + `URLSearchParams`.
+  - **`refresh_token` ochrana**: při refreshi se nikdy nepřepisuje `metadata.refresh_token` (Google ho na refresh-exchange zpět neposílá a my nechceme zničit stále platný token).
+  - **Žádné nové API routes** – YouTube publish se spouští buď přes existující `publishPost()` (button „Publikovat teď") nebo přes plánovanou edge funkci `process-scheduled-posts`.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Po připojení YouTube kanálu (viz předchozí záznam) lze vytvořit příspěvek s alespoň jedním videem, zvolit YouTube jako cílovou platformu a kliknout „Publikovat". Systém transparentně obnoví token (pokud vypršel) a nahraje video přes YouTube Data API v3.
+  - Plánované YouTube posty (cron přes `process-scheduled-posts`) projdou stejnou logikou v Deno edge funkci – cron nikdy nezkolabuje na 401, protože `getValidYouTubeAccessToken` refreshne token před uploadem.
+  - Po úspěšném uploadu se v databázi uloží YouTube video ID do `post_platforms.external_id`. UI v budoucnu může zobrazit odkaz na video a tlačítko pro smazání.
+- **Možné rozšíření (mimo scope tohoto commitu)**:
+  - UI tlačítko „Otevřít na YouTube" + „Smazat z YouTube" (využívá uložené `external_id`).
+  - Editace titulku/description přes `videos.update` (YouTube API to podporuje; scope `youtube.upload` stačí).
+  - Zobrazení statistik videa (views/likes) přes `videos.list?part=statistics` v analytics dashboardu.
+
+### Fix – YouTube OAuth: přidání `youtube.readonly` scope pro `channels.list` (HOTFIX)
+
+- **Problém**: Po úspěšném Google OAuth flow (consent screen → redirect zpět) YouTube připojení končilo na `/accounts?error=Failed%20to%20load%20YouTube%20channel`. V terminálu se objevila chyba 403 z YouTube Data API v3:
+  ```
+  Request had insufficient authentication scopes.
+  reason: insufficientPermissions
+  ACCESS_TOKEN_SCOPE_INSUFFICIENT
+  service: youtube.googleapis.com
+  method: youtube.api.v3.V3DataChannelService.List
+  ```
+- **Příčina**: V [`src/app/api/auth/google/route.ts`](file:///c:/VS_Code/Postio/src/app/api/auth/google/route.ts) se do Google OAuth URL posílal pouze scope `https://www.googleapis.com/auth/youtube.upload`. Tento scope je ale **write-only** – umožní volat `videos.insert`, ale **nepostačuje** pro čtení kanálu přes `channels.list?mine=true`. YouTube Data API v3 vyžaduje pro čtení jeden z: `youtube`, `youtube.readonly` nebo `youtube.force-ssl`. Token exchange sám o sobě proběhl úspěšně (access + refresh token získány, scopes v odpovědi: `email profile …/youtube.upload …/userinfo.profile …/userinfo.email openid`), ale hned první read dotaz `channels.list?mine=true` selhal na chybějících oprávněních.
+- **Oprava**: Přidán scope `https://www.googleapis.com/auth/youtube.readonly` do pole `GOOGLE_SCOPES` v [`src/app/api/auth/google/route.ts`](file:///c:/VS_Code/Postio/src/app/api/auth/google/route.ts#L4-L19). Výsledná kombinace je minimální nutná pro Postio:
+  - `youtube.upload` – umožní později volat `videos.insert` (budoucí YouTube publisher).
+  - `youtube.readonly` – umožní volat `channels.list?mine=true` v callbacku pro získání channel ID a snippetu (nyní i v budoucnu pro čtení statistik videí).
+  - `openid` + `userinfo.profile` – zůstávají pro graceful fallback identity, kdyby YouTube API selhalo.
+- **Dopad**: Po této opravě YouTube OAuth flow projde celý:
+  1. Consent screen nyní žádá o oba scopes (write + read).
+  2. Token exchange vrátí access + refresh token s oběma scopes v `scope` poli odpovědi.
+  3. `channels.list?mine=true` vrátí kanál místo 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT.
+  4. Callback uloží kanál do `social_accounts` a přesměruje na `/accounts?yt=connected`.
+- **Důležitá poznámka pro Google Cloud Console**: Scope přibyl do OAuth URL, takže se při dalším spuštění flow zobrazí consent screen s novým scopen `youtube.readonly`. Google účet, který již dříve udělil pouze `youtube.upload`, bude požádán o rozšíření oprávnění. Díky `prompt=consent` v URL (z předchozího commitu) se consent screen vždy zobrazí – žádný tichý re-consent, kde by si uživatel nevšiml, že nová práva uděluje.
+- **Bezpečnost / Data**: Žádná DB migrace. Žádné nové API routes. Žádné nové npm závislosti. Pouze přidání jednoho scope stringu do pole + aktualizace JSDoc komentáře.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Ověření**: YouTube kanál se nyní úspěšně připojí přes `/accounts` → dlaždice YouTube → Google OAuth → kanál se objeví v seznamu připojených účtů se jménem (`snippet.title`) a avatarem (`snippet.thumbnails.high`).
+
+### Debug – YouTube OAuth callback: rozšířené logování pro diagnostiku (HOTFIX)
+
+- **Problém**: Uživatelé procházejí celým Google OAuth flow (klik na dlaždici YouTube v `/accounts` → consent screen → udělení všech práv → redirect zpět), ale YouTube kanál se v seznamu připojených účtů neobjeví. Bez diagnostických logů nebylo možné zjistit, ve kterém kroku flow selhává – chyba se tiše přesměrovala na `/accounts` bez zobrazení příčiny.
+- **Cíl**: Do [`handleYouTubeCallback`](file:///c:/VS_Code/Postio/src/app/auth/callback/route.ts#L83-L294) přidat podrobné `console.log` / `console.error` výpisy, které odhalí přesné místo selhání (chybějící kód, neúspěšný token exchange, prázdná odpověď z YouTube API, chyba v Postgres upsertu).
+- **Přidané DEBUG logy** v [`src/app/auth/callback/route.ts`](file:///c:/VS_Code/Postio/src/app/auth/callback/route.ts):
+  1. **`🔍 DEBUG: Začínám zpracování YouTube callbacku`** – hned na začátku `handleYouTubeCallback`, potvrzuje že callback vůbec dorazil.
+  2. **`🔍 DEBUG: Query parametry: {...}`** – kompletní dictionary všech query parametrů z URL (code, state, scope, error, error_description…). Pomůže odhalit, jestli Google vrátil `error=access_denied` místo `code`.
+  3. **`🔍 DEBUG: Access Token získán: ano/ne`** + `Refresh Token získán: ano/ne` + `Expires in (s)` + `Scope` – po úspěšném token exchange. Ukáže jestli Google vrátil access token a jestli má správné scopes.
+  4. **`🔍 DEBUG: Odpověď z YouTube API (channels list): {…kompletní JSON…}`** – celý `items` objekt z YouTube Data API, vytištěný přes `JSON.stringify(..., null, 2)` pro čitelnost.
+- **Vylepšené chybové logy**:
+  - Když `items` z YouTube API je prázdné (kanál neexistuje nebo scope nestačí): přidán **⚠️ CHYBA: Google nevrátil žádný YouTube kanál pro tento účet** + výpis počtu položek + tipy na možné příčiny (účet nemá YouTube kanál, scope `youtube.upload` nestačí na `channels.list` – potřeba `youtube.readonly` nebo `youtube.force-ssl`).
+  - Když selže DB upsert: původní jednořádkový `console.error` nahrazen **detailním výpisem všech polí Postgres chyby** – `message`, `code`, `details`, `hint` + kompletní `JSON.stringify(dbError)`. Důvod: objekt PostgrestError v konzoli často zobrazí jen `[object Object]` bez detailů.
+- **Dočasné přesměrování při chybě**: Každý `errorRedirect()` nyní v URL předává i konkrétní kód chyby (např. `?error=Google+nevrátil+žádný+YouTube+kanál+pro+tento+účet+(no_youtube_channel)` nebo `?error=Failed+to+save+YouTube+account:+<Postgres+message>+(db_error)`). Stávající `useEffect` v accounts page (z předchozího commitu) tyto query parametry čte a zobrazí je přes `toast.error(t("connectionError", { error }))` – takže se chyba uživateli zobrazí v toastu, ne jen v terminálu.
+- **Bezpečnost / Data**: Žádné DB migrace. Žádné nové API routes. Žádné nové npm závislosti. Přidány pouze `console.log`/`console.error` a upraven text v `errorRedirect()`. `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Diagnostický postup pro uživatele**:
+  1. Spustit `npm run dev` a mít otevřený terminál.
+  2. V novém okně (anonymní režim) projít YouTube OAuth flow.
+  3. Po návratu na `/accounts` zkopírovat výstup z terminálu – uvidíme přesně, ve kterém kroku se to zastavilo:
+     - Chybí `🔍 DEBUG: Začínám zpracování YouTube callbacku` → callback vůbec nedorazil (problém v `redirect_uri` v Google Cloud Console, scopes, nebo `GOOGLE_CLIENT_ID`).
+     - Chybí `Access Token získán: ano` → token exchange selhal (špatný `client_secret`, vypršelý `code`, nebo chybný `redirect_uri`).
+     - `channels.list` v odpovědi vrací prázdné `items[]` → buď Google účet nemá YouTube kanál, nebo scope `youtube.upload` nestačí (typicky je potřeba `youtube.readonly` pro `channels.list?mine=true`).
+     - `⚠️ CHYBA: Supabase DB upsert selhal` → RLS/constraint chyba v Postgresu – výpis `code`/`message`/`hint` ukáže přesnou příčinu.
+
+## 2026-06-19
+
+### Fix – Chybějící `NEXT_PUBLIC_SUPABASE_URL` v `.env.local` (HOTFIX)
+
+- **Problém**: Po checkoutu větve `feature/youtube-integration` spadl `next dev` s chybou `@supabase/ssr: Your project's URL and API key are required to create a Supabase client!` na všech stránkách (`/cs/login`, `/cs/accounts`, `/cs`, `/api/accounts/facebook/select`, …). Chyba se opakovala v `src/lib/supabase/client.ts` (řádek 8), `CookieConsent`, `SetupGuide`, `AccountsPage`, `LocaleLayout` – tedy v každém místě, které lazy-inicializuje browser Supabase client.
+- **Příčina**: V [`.env.local`](file:///c:/VS_Code/Postio/.env.local) chyběla proměnná `NEXT_PUBLIC_SUPABASE_URL`. Soubor obsahoval `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` i `SUPABASE_SERVICE_ROLE_KEY`, ale URL bylo úplně pryč – pravděpodobně smazáno při předchozích úpravách. `src/lib/supabase/client.ts` pak posílal `undefined` do `createBrowserClient(..., undefined!)`, což `@supabase/ssr` odmítá.
+- **Detekce**: Supabase hostname `rfgortcdptfmmonsqjtp.supabase.co` je v projektu natvrdo dvakrát – v [`next.config.ts`](file:///c:/VS_Code/Postio/next.config.ts) (`images.remotePatterns`) a v CHANGELOGu (URL `process-scheduled-posts` edge function). Z toho se dala rekonstruovat plná URL `https://rfgortcdptfmmonsqjtp.supabase.co`. Middleware navíc dělá `placeholder` check, takže placeholder by znamenal `isSupabaseConfigured = false` → graceful fallback na `/login`. Proto musí jít o reálnou URL.
+- **Oprava**: Přidán řádek `NEXT_PUBLIC_SUPABASE_URL=https://rfgortcdptfmmonsqjtp.supabase.co` na úplný začátek [`.env.local`](file:///c:/VS_Code/Postio/.env.local), těsně před `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Žádné další env vars se neměnily.
+- **Bezpečnost / Data**: Žádné DB migrace. Žádné změny kódu – pouze jeden řádek v `.env.local` (soubor v `.gitignore`, takže se necommitne). Žádné nové API routes ani npm závislosti.
+- **Dopad**: `next dev` by měl znovu naběhnout bez chyb. Všechna místa, která inicializují Supabase client (`AccountsPage`, `CookieConsent`, `SetupGuide`, `LocaleLayout`, `auth/callback` route, `email-signin`, `google-signin-button`, middleware), dostanou platnou URL a `@supabase/ssr` již nevyhodí runtime chybu. Auth, session refresh a DB dotazy se obnoví. Pokud by se po této opravě stále zobrazovala chyba, zkontroluj, že `next dev` opravdu znovu načetl `.env.local` (Next.js jej čte při startu, takže je třeba `npm run dev` restartovat).
+
+## 2026-06-19
+
+### Feature – YouTube integrace: UI propojení (DONE)
+
+- **Cíl**: Backend OAuth flow pro YouTube (`/api/auth/google` + `/auth/callback?provider=youtube`) byl hotový z předešlého commitu, ale v UI na stránce `/accounts` tlačítko YouTube stále padalo do legacy manuálního formuláře (accountName + accessToken). Tento commit dokončuje celý user-flow: klik na dlaždici YouTube → univerzální modal → Google OAuth → redirect zpět → toast + kanál v seznamu.
+- **`src/app/[locale]/(dashboard)/accounts/page.tsx`**:
+  1. **OAuth platform check**: v `onClick` tlačítka platformy rozšířen seznam platforem, které otevírají `ConnectAccountModal` (`instagram`, `facebook`, `linkedin`, `youtube`). YouTube tlačítko se již nepropadne do manuálního formuláře.
+  2. **YouTube OAuth branch v `onConnect`**: nový `else if (connectModalPlatform.id === "youtube")` – sestaví URL `/api/auth/google?state=<next>&locale=<locale>` (stejný vzor jako LinkedIn) a přesměruje na ni. Backend route sama přidá `provider=youtube` do interního `redirect_uri`, takže callback ví, že nemá spustit Supabase Auth `exchangeCodeForSession`.
+  3. **YouTube-specific warning v modalu**: v ternárním `warningDesc` přidána větev pro YouTube → `t("connectModal.warningDescYouTube")`. Text říká uživateli, že bude přesměrován na Google a že tokeny držíme v bezpečí.
+  4. **Nový `useEffect` pro `?yt=connected` a `?error=`**: callback route po úspěšném připojení přesměruje na `?yt=connected`, po chybě na `?error=<msg>`. Tento useEffect:
+     - Okamžitě odstraní query parametry z URL přes `router.replace(window.location.pathname)` – ochrana proti opakovanému spuštění při manuálním refresh.
+     - Při `?yt=connected`: zavolá `fetchAccounts()` (refreshne seznam) a zobrazí `toast.success(t("ytConnectedShort"))`.
+     - Při `?error=…`: zobrazí `toast.error(t("connectionError", { error }))`.
+     - Závislosti: `[ytSignal, errorSignal, router, t]` – při změně searchParams nebo při změně překladů se efekt znovu vyhodnotí.
+  5. **YouTube handle v kartě připojeného účtu**: nový Badge pod jménem kanálu zobrazuje `metadata.custom_url` (např. `@pepa`) – stejný vizuální vzor jako `metadata.category` u Facebook Pages. Badge má `title` atribut pro accessibility.
+  6. **Rozšíření `SocialAccount.metadata` typu**: přidána pole `refresh_token?: string | null` (pro plánované obnovování přístupu v `process-scheduled-posts`) a `custom_url?: string | null` (UI handle). Zpětně kompatibilní – `category` a `access_token` pro FB zůstávají nedotčeny.
+- **`src/components/connect-account-modal.tsx`** – beze změn. Komponenta je od začátku platform-agnostická (`platformName`, `PlatformIcon` a `t.warningDesc` se předávají jako props).
+- **Překlady** (`cs.json`, `en.json`, `uk.json`) v sekci `accounts`:
+  - `connectModal.warningDescYouTube` – YouTube-specific upozornění v OAuth modalu.
+  - `ytConnected` (ICU s `{name}`) – plná zpráva s názvem kanálu, připraveno pro budoucí použití.
+  - `ytConnectedShort` – krátká verze bez placeholderu pro toast (jméno kanálu je vidět v seznamu hned vedle).
+  - `ytDisconnected` (ICU s `{name}`) – pro případné budoucí toast po odpojení.
+  - `connectionError` (ICU s `{error}`) – pro zobrazení chybových zpráv z OAuth callbacku.
+- **Smazání YouTube účtu**: `handleDeleteConnectedAccount` maže obecně podle `account.id` (RLS chrání), YouTube tedy funguje stejně jako ostatní platformy – **žádná změna potřeba**.
+- **Bezpečnost / Data**: Žádná DB migrace. Žádné nové API routes. Žádné nové npm závislosti (`toast` ze `sonner` už v projektu je).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Dopad**:
+  - Uživatel klikne na dlaždici **YouTube** v `/accounts` → otevře se `ConnectAccountModal` (stejný vizuál jako pro FB/IG/LinkedIn) → klikne „Propojit" → přesměrování na Google consent screen → po souhlasu Google vrátí `code` do `/api/auth/google` → ten přesměruje na `/auth/callback?provider=youtube` → callback provede token exchange + `channels.list` + upsert do `social_accounts` → redirect na `/cs/accounts?yt=connected` → UI refetchne seznam, zobrazí toast, vyčistí URL.
+  - YouTube kanál se v seznamu připojených účtů zobrazí se svým **názvem** (`snippet.title`) a **avatarem** (`snippet.thumbnails.high/medium/default`). Handle (`@…`) je v badge pod jménem.
+  - **Smazání**: tlačítko koš → potvrzovací dialog → DELETE na `social_accounts` → kanál zmizí ze seznamu. Funguje identicky jako u ostatních platforem.
+
+## 2026-06-19
+
+### Feature – YouTube integrace: Google OAuth + uložení kanálu (DONE)
+
+- **Cíl**: Umožnit uživatelům připojit YouTube kanál k Postiu stejným způsobem jako Facebook/Instagram/LinkedIn. Scope musí zahrnovat `youtube.upload` (pro budoucí publikování videí) a vyžadujeme `refresh_token`, protože Google access tokeny expirují po 1 hodině.
+- **Nový endpoint `GET /api/auth/google`** ([route.ts](file:///c:/VS_Code/Postio/src/app/api/auth/google/route.ts)):
+  - GET handler, dva módy:
+    1. **Bez `code`**: přesměruje uživatele na Google consent screen (`https://accounts.google.com/o/oauth2/v2/auth`) se scopes `openid`, `https://www.googleapis.com/auth/userinfo.profile`, `https://www.googleapis.com/auth/youtube.upload`. Důležité parametry: `access_type=offline` + `prompt=consent` (zajistí, že Google vrátí `refresh_token` i při opakovaném připojení) a `include_granted_scopes=true` (přidá již dříve udělené scopes, ať se consent screen neptá znovu).
+    2. **S `code`**: přesměruje na `/auth/callback?provider=youtube&code=…&state=…`. Výměna tokenů se **schválně neděje zde** – zůstává v jednom místě (callbacku), konzistentně s ostatními Postio OAuth flow.
+  - `redirect_uri` je natvrdo `${origin}/auth/callback?provider=youtube` – **musí se přesně shodovat** s tím, co je nastavené v Google Cloud Console → Credentials.
+  - `state` nese cestu kam se vrátit po úspěchu (např. `/cs/accounts`), locale se odvodí ze `state` nebo z `referer` headru.
+- **`src/app/auth/callback/route.ts` – nová větev `provider === "youtube"`**:
+  - Větev je **před** Supabase Auth `exchangeCodeForSession`, aby se YouTube flow nepomísil s přihlášením (jinak by Supabase zkusil uživatele přihlásit jako Google identitu a ignoroval by YouTube scope).
+  - Nová privátní async funkce `handleYouTubeCallback(request)`:
+    1. Ověří přihlášeného Postio uživatele přes `createClient().auth.getUser()` – YouTube nelze připojit bez aktivní session. Pokud není přihlášený, redirect na `/[locale]/login?error=...`.
+    2. **Token exchange** na `https://oauth2.googleapis.com/token` (POST, `application/x-www-form-urlencoded`, `grant_type=authorization_code`). `redirect_uri` se posílá **včetně `?provider=youtube`** query – musí přesně odpovídat tomu, co šlo do Google v kroku 1.
+    3. **YouTube Data API**: `GET https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&maxResults=1` s `Authorization: Bearer <access_token>`. Vezme se první položka z `items[]`.
+    4. **Uložení do `social_accounts`** přes `createAdminClient()` (kvůli RLS), upsert s `onConflict: "user_id,platform,platform_id"` – stejný vzor jako LinkedIn/FB.
+    5. Redirect na `/[locale]/accounts?yt=connected` (signál pro UI, že připojení proběhlo).
+  - **Refresh token**: uloží se do `metadata.refresh_token` (JSONB sloupec z migrace 029). **Podmíněně** – Google vrací `refresh_token` jen při prvním exchange nebo když `prompt=consent` je v OAuth URL. Při re-connectu bez nového refresh_tokenu se **původní v metadata NEPŘEPÍŠE** (`...(refreshToken ? { refresh_token: refreshToken } : {})`), aby se nezničil stále platný token.
+  - **Další uložená metadata**: `custom_url` (handle kanálu, např. `@pepa`) – pro budoucí UI zobrazení.
+  - **Token expirace**: `token_expires_at = Date.now() + expires_in * 1000`. Když Google z nějakého důvodu nevrátí `expires_in`, padneme na 1 hodinu (`3600 * 1000`).
+  - **Channel info**: `platform_id` = YouTube channel ID (`UC…`), `account_name` = `snippet.title`, `avatar_url` = největší dostupný thumbnail (high → medium → default).
+- **`.env.local`** (nový soubor, v `.gitignore`):
+  - Přidány placeholdery `GOOGLE_CLIENT_ID=` a `GOOGLE_CLIENT_SECRET=` (uživatel doplní z Google Cloud Console).
+  - Ponechány ostatní existující env vars (Supabase, App URL) beze změny.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Bezpečnost / Data**:
+  - **Žádná DB migrace** – constraint na `social_accounts.platform` již `youtube` povoluje (z migrací 012 a 013, kdy se připravovaly constrainty pro budoucí platformy).
+  - **Žádné nové npm závislosti** – vše na nativním `fetch`.
+  - **OAuth state** se posílá jen jako relativní cesta (`/cs/accounts`); validuje se `startsWith("/")` aby nešlo podstrčit externí URL.
+  - **Refresh token** se ukládá v JSONB – není vidět v běžných SELECTech bez explicitního `select("metadata")`, ale admin klient ho čte. Pokud by bylo potřeba sloupce (např. pro `findExpiredChannels()`), přidá se samostatná migrace.
+  - **Chybové stavy**: každý krok (token exchange, channels.list, DB upsert) má vlastní catch a přesměruje na `?error=…` – uživatel nikdy neuvízne na bílé obrazovce.
+- **Dopad**:
+  - YouTube kanály lze nyní připojit OAuth flow (YouTube tlačítko v `/accounts` stránce již existuje, toto je backend půlka flow).
+  - `access_token` v DB platí 1 hodinu; `metadata.refresh_token` umožní pozdější obnovu v `process-scheduled-posts` nebo v novém YouTube publisheru.
+  - `platform_id` = YouTube channel ID je připravený jako klíč pro budoucí `videos.insert` endpoint.
+  - `metadata.custom_url` je připravený pro UI v `/accounts` (zobrazit `@handle` u kanálu).
+  - Všechny ostatní OAuth flow (Supabase Auth, LinkedIn, Facebook) zůstávají nedotčeny – větev `provider === "youtube"` se spustí **pouze** pro YouTube requesty.
 
 ### UX – Šablony: celá karta klikací, přirozené texty, decentní smazání (DONE)
 

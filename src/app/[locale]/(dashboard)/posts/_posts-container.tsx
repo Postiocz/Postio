@@ -22,6 +22,7 @@ export function PostsContainer({
   tStatusPublished,
   tStatusFailed,
   tStatusRemovedExternally,
+  tStatusArchived,
   tNoPosts,
   tNoPostsSubtitle,
   tScheduledAt,
@@ -32,6 +33,17 @@ export function PostsContainer({
   tDeleteCancel,
   tRepublish,
   tRemovedExternallyMsg,
+  tLinkedInRestoreConfirmTitle,
+  tLinkedInRestoreConfirmDesc,
+  tLinkedInRestoreConfirmAction,
+  tLinkedInArchiveBanner,
+  tLinkedInArchiveBannerSubtext,
+  tLinkedInRestoreSuccess,
+  tLinkedInArchiveSuccess,
+  tLinkedInRestoreError,
+  tLinkedInArchiveError,
+  tLinkedInRestoreWarningLine1,
+  tLinkedInRestoreWarningLine2,
   tLabels,
   tAi,
   tFilterByTag,
@@ -51,6 +63,7 @@ export function PostsContainer({
   tStatusPublished: string;
   tStatusFailed: string;
   tStatusRemovedExternally: string;
+  tStatusArchived: string;
   tNoPosts: string;
   tNoPostsSubtitle: string;
   tScheduledAt: string;
@@ -61,6 +74,17 @@ export function PostsContainer({
   tDeleteCancel: string;
   tRepublish: string;
   tRemovedExternallyMsg: string;
+  tLinkedInRestoreConfirmTitle: string;
+  tLinkedInRestoreConfirmDesc: string;
+  tLinkedInRestoreConfirmAction: string;
+  tLinkedInArchiveBanner: string;
+  tLinkedInArchiveBannerSubtext: string;
+  tLinkedInRestoreSuccess: string;
+  tLinkedInArchiveSuccess: string;
+  tLinkedInRestoreError: string;
+  tLinkedInArchiveError: string;
+  tLinkedInRestoreWarningLine1: string;
+  tLinkedInRestoreWarningLine2: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -200,6 +224,7 @@ export function PostsContainer({
           statusPublishedLabel={tStatusPublished}
           statusFailedLabel={tStatusFailed}
           statusRemovedExternallyLabel={tStatusRemovedExternally}
+          statusArchivedLabel={tStatusArchived}
           tagValue={activeTag}
           tagOptions={tags}
           tagLabel={tFilterByTag}
@@ -252,6 +277,7 @@ export function PostsContainer({
               tStatusPublished={tStatusPublished}
               tStatusFailed={tStatusFailed}
               tStatusRemovedExternally={tStatusRemovedExternally}
+              tStatusArchived={tStatusArchived}
               tScheduledAt={tScheduledAt}
               tEditPost={tEditPost}
               tDeleteConfirmTitle={tDeleteConfirmTitle}
@@ -260,6 +286,17 @@ export function PostsContainer({
               tDeleteCancel={tDeleteCancel}
               tRepublish={tRepublish}
               tRemovedExternallyMsg={tRemovedExternallyMsg}
+              tLinkedInRestoreConfirmTitle={tLinkedInRestoreConfirmTitle}
+              tLinkedInRestoreConfirmDesc={tLinkedInRestoreConfirmDesc}
+              tLinkedInRestoreConfirmAction={tLinkedInRestoreConfirmAction}
+              tLinkedInArchiveBanner={tLinkedInArchiveBanner}
+              tLinkedInArchiveBannerSubtext={tLinkedInArchiveBannerSubtext}
+              tLinkedInRestoreSuccess={tLinkedInRestoreSuccess}
+              tLinkedInArchiveSuccess={tLinkedInArchiveSuccess}
+              tLinkedInRestoreError={tLinkedInRestoreError}
+              tLinkedInArchiveError={tLinkedInArchiveError}
+              tLinkedInRestoreWarningLine1={tLinkedInRestoreWarningLine1}
+              tLinkedInRestoreWarningLine2={tLinkedInRestoreWarningLine2}
               tLabels={tLabels}
               tAi={tAi}
               onDeleted={handleDeleted}

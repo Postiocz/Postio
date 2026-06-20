@@ -50,6 +50,10 @@ export default async function PostsPage({
     else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+    // `archived` only wins when ALL platforms are archived.
+    else if (statuses.length > 0 && statuses.every((s: string) => s === "archived")) {
+      computedStatus = "archived";
+    }
 
     // Normalize post_tags → flat array of { id, name, color }.
     // Supabase returns the join as [{ tags: { id, name, color } | null }].
@@ -102,6 +106,7 @@ export default async function PostsPage({
           tStatusPublished={t("statusPublished")}
           tStatusFailed={t("statusFailed")}
           tStatusRemovedExternally={t("statusRemovedExternally")}
+          tStatusArchived={t("statusArchived")}
           tNoPosts={t("noPosts")}
           tNoPostsSubtitle={t("noPostsSubtitle")}
           tScheduledAt={t("scheduledAt")}
@@ -112,6 +117,17 @@ export default async function PostsPage({
           tDeleteCancel={t("deleteCancel")}
           tRepublish={t("republish")}
           tRemovedExternallyMsg={t("removedExternallyMsg")}
+          tLinkedInRestoreConfirmTitle={t("linkedInRestoreConfirmTitle")}
+          tLinkedInRestoreConfirmDesc={t("linkedInRestoreConfirmDesc")}
+          tLinkedInRestoreConfirmAction={t("linkedInRestoreConfirmAction")}
+          tLinkedInArchiveBanner={t("linkedInArchiveBanner")}
+          tLinkedInArchiveBannerSubtext={t("linkedInArchiveBannerSubtext")}
+          tLinkedInRestoreSuccess={t("linkedInRestoreSuccess")}
+          tLinkedInArchiveSuccess={t("linkedInArchiveSuccess")}
+          tLinkedInRestoreError={t("linkedInRestoreError")}
+          tLinkedInArchiveError={t("linkedInArchiveError")}
+          tLinkedInRestoreWarningLine1={t("linkedInRestoreWarningLine1")}
+          tLinkedInRestoreWarningLine2={t("linkedInRestoreWarningLine2")}
           tFilterByTag={t("filterByTag")}
           tAllTags={t("allTags")}
           tNoTagsAvailable={t("noTagsAvailable")}

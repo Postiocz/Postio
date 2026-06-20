@@ -3,6 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { setPostTags } from "@/lib/actions/tag-actions";
+import {
+  checkYouTubeVideoExists,
+  getValidYouTubeAccessToken,
+} from "@/lib/actions/publish-youtube";
+import { getValidLinkedInAccessToken } from "@/lib/actions/publish-linkedin";
 
 const LOCALES = ["cs", "en", "uk"];
 
@@ -337,9 +342,19 @@ export async function deletePost(id: string) {
 }
 
 /**
- * Sync post status with Meta API.
- * Checks if a published post still exists on the external platform.
- * If not, marks it as 'removed_externally'.
+ * Sync post status with the external platform.
+ * Checks if a published post still exists on the platform it was
+ * uploaded to. If not, marks it as 'removed_externally'.
+ *
+ * Platform-specific check:
+ *   - facebook / instagram → Meta Graph API `GET /{external_id}?fields=id`
+ *   - youtube             → YouTube Data API v3 `videos.list?id=…&part=status`
+ *
+ * YouTube handling is critical: a freshly uploaded video goes through
+ * `processing` before becoming `uploaded`. During this window the video
+ * DOES exist on YouTube but its `uploadStatus` is not "uploaded" yet.
+ * We must NOT treat that as external removal – doing so would let the
+ * user re-publish and the same video would be uploaded twice.
  */
 export async function syncPostStatus(id: string): Promise<{
   success: boolean;
@@ -375,6 +390,92 @@ export async function syncPostStatus(id: string): Promise<{
     return { success: true };
   }
 
+  const nowIso = new Date().toISOString();
+
+  // --- YouTube branch ---
+  // YouTube access tokens expire after ~1 hour. Refresh transparently
+  // before calling videos.list, otherwise we would hit a 401 and mark
+  // the post as removed_externally (false positive).
+  if (targetPlatform === "youtube") {
+    const { data: ytAccounts } = await supabase
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata")
+      .eq("user_id", user.id)
+      .ilike("platform", "youtube")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const ytAccount = ytAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+        }
+      | undefined;
+
+    if (!ytAccount?.access_token) {
+      // No token at all – skip this iteration, do NOT flip status.
+      return { success: false, error: "Missing YouTube access token." };
+    }
+
+    const tokenResult = await getValidYouTubeAccessToken({ account: ytAccount });
+    if (!tokenResult.success) {
+      console.error(`[syncPostStatus] YouTube token refresh failed for post ${id}:`, tokenResult.error);
+      return { success: true };
+    }
+
+    const check = await checkYouTubeVideoExists({
+      accessToken: tokenResult.accessToken,
+      videoId: externalId,
+    });
+
+    if (check.exists === false) {
+      console.log(`[syncPostStatus] YouTube video ${externalId} no longer exists (post ${id})`);
+
+      const { error: updateError } = await supabase
+        .from("post_platforms")
+        .update({
+          status: "removed_externally",
+          removed_at: nowIso,
+          last_sync_at: nowIso,
+        })
+        .eq("post_id", id)
+        .eq("platform", "youtube");
+
+      if (updateError) {
+        console.error("Error marking YouTube post as removed_externally:", updateError);
+        return { success: false, error: updateError.message };
+      }
+
+      revalidateAllLocales("/dashboard");
+      revalidateAllLocales("/calendar");
+      revalidateAllLocales("/posts");
+      return { success: true, removedExternally: true };
+    }
+
+    // Video still exists (uploadStatus may be "processing" – that is OK).
+    // Just stamp last_sync_at so we don't hammer YouTube on every tick.
+    if (check.exists === true) {
+      console.log(`[syncPostStatus] YouTube video ${externalId} OK (uploadStatus=${check.uploadStatus}) for post ${id}`);
+      await supabase
+        .from("post_platforms")
+        .update({ last_sync_at: nowIso })
+        .eq("post_id", id)
+        .eq("platform", "youtube");
+    } else {
+      // exists === null – network / auth failure – leave status as-is,
+      // do NOT mark as removed_externally.
+      console.warn(`[syncPostStatus] YouTube check inconclusive for post ${id}:`, check.error);
+    }
+
+    return { success: true };
+  }
+
+  // --- Meta branch (facebook / instagram) ---
   const { data: accounts } = await supabase
     .from("social_accounts")
     .select("access_token")
@@ -393,7 +494,7 @@ export async function syncPostStatus(id: string): Promise<{
     return { success: false, error: `Missing access token for ${targetPlatform}.` };
   }
 
-  // GET request to check if the post still exists
+  // GET request to check if the post still exists on Meta
   const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`);
   graphUrl.searchParams.set("access_token", accessToken);
   graphUrl.searchParams.set("fields", "id");
@@ -402,7 +503,12 @@ export async function syncPostStatus(id: string): Promise<{
     const res = await fetch(graphUrl, { method: "GET", cache: "no-store" });
 
     if (res.ok) {
-      // Post still exists on the platform – nothing to do
+      // Post still exists on Meta – update last_sync_at so we throttle.
+      await supabase
+        .from("post_platforms")
+        .update({ last_sync_at: nowIso })
+        .eq("post_id", id)
+        .eq("platform", targetPlatform);
       return { success: true };
     }
 
@@ -424,7 +530,8 @@ export async function syncPostStatus(id: string): Promise<{
         .from("post_platforms")
         .update({
           status: "removed_externally",
-          removed_at: new Date().toISOString(),
+          removed_at: nowIso,
+          last_sync_at: nowIso,
         })
         .eq("post_id", id)
         .eq("platform", targetPlatform);
@@ -503,6 +610,170 @@ export async function resetPostStatus(id: string): Promise<{
   return { success: true };
 }
 
+// ---------------------------------------------------------------------
+// LinkedIn-specific soft delete (archive) helpers
+// ---------------------------------------------------------------------
+// Context: LinkedIn blocks Community Management API access for apps
+// that already expose "Share on LinkedIn". This means we cannot verify
+// whether a LinkedIn post still exists on the platform, nor can we
+// delete it via API. To prevent accidental duplicate publishes and to
+// preserve history, we offer a soft-delete ("archive") flow that keeps
+// the post row in the DB with a clear status and timestamps.
+// ---------------------------------------------------------------------
+
+/**
+ * Archive (soft-delete) the LinkedIn row of a published post from Postio.
+ *
+ * Unlike `deletePost`, this does NOT touch other platforms (Facebook,
+ * Instagram, YouTube, …) – only the `linkedin` row in `post_platforms`.
+ * The row keeps its `published_at` and `external_id` so the user can
+ * see when it was originally published and restore it later if needed.
+ *
+ * Idempotent: calling twice on the same row is a no-op (returns success
+ * with `alreadyArchived: true`).
+ */
+export async function archiveLinkedInPlatformRow(postId: string): Promise<{
+  success: boolean;
+  error?: string;
+  alreadyArchived?: boolean;
+}> {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { success: false, error: "You must be logged in." };
+  }
+
+  // Fetch the post + its LinkedIn row, scoped to the current user.
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, post_platforms(*)")
+    .eq("id", postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found." };
+  }
+
+  const linkedinRow = (post.post_platforms || []).find(
+    (p: any) => p.platform === "linkedin",
+  );
+
+  if (!linkedinRow) {
+    return { success: false, error: "This post has no LinkedIn platform row." };
+  }
+
+  // Idempotency: if already archived, do nothing.
+  if (linkedinRow.status === "archived") {
+    return { success: true, alreadyArchived: true };
+  }
+
+  // Only published / removed_externally rows can be archived.
+  // A draft/ scheduled/ failed row has nothing to "soft-delete" – the
+  // user should just leave it as a draft or hard-delete the post.
+  if (linkedinRow.status !== "published" && linkedinRow.status !== "removed_externally") {
+    return {
+      success: false,
+      error: `Cannot archive a post that is in status "${linkedinRow.status}". Only published or removed_externally rows can be archived.`,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("post_platforms")
+    .update({
+      status: "archived",
+      archived_at: now,
+      archive_reason: "user_archived_from_app",
+    })
+    .eq("id", linkedinRow.id);
+
+  if (updateError) {
+    console.error(`[archiveLinkedInPlatformRow] Failed for post ${postId}:`, updateError);
+    return { success: false, error: updateError.message };
+  }
+
+  console.log(`[archiveLinkedInPlatformRow] LinkedIn row archived for post ${postId} (was status=${linkedinRow.status})`);
+
+  revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  return { success: true };
+}
+
+/**
+ * Restore an archived LinkedIn row back to draft so the user can
+ * republish it. Clears `external_id` (we cannot guarantee it is still
+ * valid – the post might have been deleted on the platform too) and
+ * removes the archive metadata. The post can then be re-published via
+ * the standard "Publikovat" flow.
+ */
+export async function restoreArchivedLinkedInPost(postId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { success: false, error: "You must be logged in." };
+  }
+
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id, post_platforms(*)")
+    .eq("id", postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found." };
+  }
+
+  const linkedinRow = (post.post_platforms || []).find(
+    (p: any) => p.platform === "linkedin",
+  );
+
+  if (!linkedinRow) {
+    return { success: false, error: "This post has no LinkedIn platform row." };
+  }
+
+  if (linkedinRow.status !== "archived") {
+    return {
+      success: false,
+      error: `Only archived rows can be restored. Current status: "${linkedinRow.status}".`,
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("post_platforms")
+    .update({
+      status: "draft",
+      archived_at: null,
+      archive_reason: null,
+      // Clear external_id – we cannot guarantee the original URN is
+      // still valid (the post may have been deleted on the platform
+      // too, in which case republishing would otherwise fail or
+      // create a duplicate). The user can re-publish via the normal
+      // flow which will get a fresh URN.
+      external_id: null,
+    })
+    .eq("id", linkedinRow.id);
+
+  if (updateError) {
+    console.error(`[restoreArchivedLinkedInPost] Failed for post ${postId}:`, updateError);
+    return { success: false, error: updateError.message };
+  }
+
+  console.log(`[restoreArchivedLinkedInPost] LinkedIn row restored to draft for post ${postId}`);
+
+  revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  return { success: true };
+}
+
 export async function getPosts(status?: string) {
   const supabase = await createClient();
 
@@ -528,6 +799,14 @@ export async function getPosts(status?: string) {
     else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+    // `archived` only wins when NOTHING is published, scheduled or
+    // currently being processed – i.e. the post is purely historical.
+    // If at least one platform is still live (published/scheduled/etc.)
+    // we keep the more informative status and the per-platform badge
+    // surfaces the archive detail to the user.
+    else if (statuses.length > 0 && statuses.every((s: string) => s === "archived")) {
+      computedStatus = "archived";
+    }
 
     // Normalize post_tags → flat array of { id, name, color }.
     // Supabase returns the join as [{ tags: { id, name, color } | null }].
@@ -608,69 +887,249 @@ export async function syncPublishedPosts(): Promise<{
 
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
+  // Pre-fetch all social_accounts once – avoids N+1 and lets us cache the
+  // refreshed YouTube tokens across many posts for the same channel.
+  // `platform_id` is required by `getValidLinkedInAccessToken` (author URN)
+  // and included here even though only the LinkedIn sync branch needs it.
+  const { data: accountsData } = await supabase
+    .from("social_accounts")
+    .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+
+  type AccountRow = {
+    id: string;
+    user_id: string;
+    platform: string;
+    access_token: string | null;
+    token_expires_at: string | null;
+    metadata: Record<string, unknown> | null;
+    platform_id: string | null;
+  };
+  const accountsByPlatform = new Map<string, AccountRow>();
+  for (const a of (accountsData ?? []) as AccountRow[]) {
+    if (!accountsByPlatform.has(a.platform)) {
+      accountsByPlatform.set(a.platform, a);
+    }
+  }
+  // Cache of refreshed YouTube access tokens keyed by account.id so we
+  // don't burn Google's refresh-token quota on every post in the batch.
+  const refreshedYouTubeTokens = new Map<string, string>();
+
   // Find published posts with external_ids that haven't been synced in 30 min
   const { data: postsData, error: queryError } = await supabase
     .from("posts")
     .select("id, post_platforms(*)")
     .eq("user_id", user.id);
-  // Post-filter to find published ones
-  const posts = (postsData || []).filter(p => {
-    return (p.post_platforms || []).some(pp => pp.status === 'published' && pp.external_id && (!pp.last_sync_at || new Date(pp.last_sync_at) < new Date(thirtyMinAgo)));
-  });
 
-  if (queryError || !posts) {
+  if (queryError || !postsData) {
     console.error("Error fetching posts for sync:", queryError);
     return { success: false, error: queryError?.message ?? "Query failed" };
   }
 
-  if (posts.length === 0) {
+  type PostPlatformRow = {
+    id?: string;
+    platform: string;
+    status: string;
+    external_id: string | null;
+    last_sync_at?: string | null;
+  };
+
+  // Flatten: one item per (post_id, platform) pair we need to check.
+  type SyncItem = { postId: string; pp: PostPlatformRow };
+  const toSync: SyncItem[] = [];
+  for (const post of postsData) {
+    for (const pp of (post.post_platforms ?? []) as PostPlatformRow[]) {
+      if (pp.status !== "published") continue;
+      if (!pp.external_id) continue;
+      if (pp.last_sync_at && new Date(pp.last_sync_at) >= new Date(thirtyMinAgo)) continue;
+      toSync.push({ postId: post.id, pp });
+    }
+  }
+
+  if (toSync.length === 0) {
     return { success: true, removedIds: [] };
   }
 
-  console.log(`[syncPublishedPosts] Syncing ${posts.length} published post(s)`);
+  console.log(`[syncPublishedPosts] Syncing ${toSync.length} published platform row(s)`);
 
   const removedIds: string[] = [];
   const now = new Date().toISOString();
 
-  // Process each post – check if it still exists on the external platform
-  for (const post of posts) {
-    const pp = post.post_platforms.find((p: any) => p.status === 'published' && p.external_id && (!p.last_sync_at || new Date(p.last_sync_at) < new Date(thirtyMinAgo)));
-    if (!pp) continue;
+  for (const { postId, pp } of toSync) {
     const targetPlatform = pp.platform;
     const externalId = pp.external_id;
-
-    // Get access token for the target platform
-    const { data: accounts } = await supabase
-      .from("social_accounts")
-      .select("access_token")
-      .eq("user_id", user.id)
-      .ilike("platform", targetPlatform)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const accessToken =
-      typeof accounts?.[0]?.access_token === "string" && accounts[0].access_token.trim()
-        ? accounts[0].access_token.trim()
-        : null;
-
-    if (!accessToken) {
-      console.warn(`[syncPublishedPosts] No access token for ${targetPlatform}, skipping post ${post.id}`);
-      continue;
-    }
-
-    // Check if post still exists on Meta
-    const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`);
-    graphUrl.searchParams.set("access_token", accessToken);
-    graphUrl.searchParams.set("fields", "id");
+    if (!externalId) continue;
 
     try {
+      // --- YouTube branch ---
+      if (targetPlatform === "youtube") {
+        const ytAccount = accountsByPlatform.get("youtube");
+        if (!ytAccount?.access_token) {
+          console.warn(`[syncPublishedPosts] No YouTube account for user, skipping post ${postId}`);
+          continue;
+        }
+
+        let accessToken = refreshedYouTubeTokens.get(ytAccount.id);
+        if (!accessToken) {
+          const tokenResult = await getValidYouTubeAccessToken({ account: ytAccount });
+          if (!tokenResult.success) {
+            console.warn(`[syncPublishedPosts] YouTube token refresh failed for post ${postId}:`, tokenResult.error);
+            continue;
+          }
+          accessToken = tokenResult.accessToken;
+          refreshedYouTubeTokens.set(ytAccount.id, accessToken);
+        }
+
+        const check = await checkYouTubeVideoExists({
+          accessToken,
+          videoId: externalId,
+        });
+
+        if (check.exists === false) {
+          console.log(`[syncPublishedPosts] YouTube video ${externalId} no longer exists (post ${postId})`);
+          await supabase
+            .from("post_platforms")
+            .update({
+              status: "removed_externally",
+              removed_at: now,
+              last_sync_at: now,
+            })
+            .eq("post_id", postId)
+            .eq("platform", "youtube");
+          removedIds.push(postId);
+        } else if (check.exists === true) {
+          // Still exists – stamp last_sync_at so we don't hammer YouTube.
+          await supabase
+            .from("post_platforms")
+            .update({ last_sync_at: now })
+            .eq("post_id", postId)
+            .eq("platform", "youtube");
+        } else {
+          // exists === null – inconclusive (network/auth) – leave alone.
+          console.warn(`[syncPublishedPosts] YouTube check inconclusive for post ${postId}:`, check.error);
+        }
+        continue;
+      }
+
+      // --- LinkedIn branch ---
+      // Without this branch LinkedIn posts fall through to the Meta branch
+      // below, which queries `graph.facebook.com` – Meta obviously has no
+      // record of a LinkedIn URN and replies 404, so every freshly
+      // published LinkedIn post gets falsely flagged as
+      // `removed_externally` within a few minutes.
+      //
+      // LinkedIn exposes two endpoints depending on the URN format we got
+      // back from the publish call:
+      //   - `urn:li:ugcPost:{id}` → `GET /v2/ugcPosts/{id}`
+      //   - `urn:li:share:{id}`   → `GET /v2/shares/{id}` (legacy but
+      //                             still returned by the current
+      //                             ugcPosts API as `x-restli-id`)
+      // Both return 200 when the post is live and 404 once the author (or
+      // LinkedIn itself) removes it. 401/403/5xx are treated as
+      // inconclusive – we don't want to false-positive a token issue.
+      if (targetPlatform === "linkedin") {
+        const liAccount = accountsByPlatform.get("linkedin");
+        if (!liAccount) {
+          console.warn(`[syncPublishedPosts] No LinkedIn account for user, skipping post ${postId}`);
+          continue;
+        }
+
+        const tokenResult = await getValidLinkedInAccessToken({ account: liAccount });
+        if (!tokenResult.success) {
+          console.warn(`[syncPublishedPosts] LinkedIn token refresh failed for post ${postId}:`, tokenResult.error);
+          continue;
+        }
+        const accessToken = tokenResult.accessToken;
+
+        let endpoint: string | null = null;
+        if (externalId.startsWith("urn:li:ugcPost:")) {
+          endpoint = `https://api.linkedin.com/v2/ugcPosts/${encodeURIComponent(externalId)}`;
+        } else if (externalId.startsWith("urn:li:share:")) {
+          endpoint = `https://api.linkedin.com/v2/shares/${encodeURIComponent(externalId)}`;
+        } else {
+          console.warn(`[syncPublishedPosts] LinkedIn URN format not recognized for post ${postId}: ${externalId}`);
+          continue;
+        }
+
+        const res = await fetch(endpoint, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "X-Restli-Protocol-Version": "2.0.0",
+          },
+          cache: "no-store",
+        });
+
+        if (res.status === 404) {
+          console.log(`[syncPublishedPosts] Post ${postId} removed on linkedin`);
+          await supabase
+            .from("post_platforms")
+            .update({
+              status: "removed_externally",
+              removed_at: now,
+              last_sync_at: now,
+            })
+            .eq("post_id", postId)
+            .eq("platform", "linkedin");
+          removedIds.push(postId);
+        } else if (res.ok) {
+          await supabase
+            .from("post_platforms")
+            .update({ last_sync_at: now })
+            .eq("post_id", postId)
+            .eq("platform", "linkedin");
+        } else if (res.status === 403) {
+          // LinkedIn blocks `Community Management API` (read endpoints
+          // /v2/ugcPosts, /v2/shares) for apps that only have the
+          // `Share on LinkedIn` product. This is a platform-level
+          // restriction we cannot bypass without applying for CM API
+          // access, which LinkedIn rejects for apps that already
+          // expose Share on LinkedIn. Treat this as a known
+          // limitation: silently assume the post still exists and
+          // stamp `last_sync_at` so we don't hammer the endpoint
+          // every 30 minutes.
+          console.log(`[syncPublishedPosts] LinkedIn sync skipped: CM API not available for this app scope. (post ${postId})`);
+          await supabase
+            .from("post_platforms")
+            .update({ last_sync_at: now })
+            .eq("post_id", postId)
+            .eq("platform", "linkedin");
+        } else {
+          // 401, 5xx, network – genuine API problem, treat as
+          // inconclusive but stamp `last_sync_at` so we don't loop
+          // forever on the same failing call.
+          console.warn(`[syncPublishedPosts] LinkedIn check inconclusive (HTTP ${res.status}) for post ${postId}`);
+          await supabase
+            .from("post_platforms")
+            .update({ last_sync_at: now })
+            .eq("post_id", postId)
+            .eq("platform", "linkedin");
+        }
+        continue;
+      }
+
+      // --- Meta branch (facebook / instagram) ---
+      const metaAccount = accountsByPlatform.get(targetPlatform);
+      const accessToken =
+        typeof metaAccount?.access_token === "string" && metaAccount.access_token.trim()
+          ? metaAccount.access_token.trim()
+          : null;
+
+      if (!accessToken) {
+        console.warn(`[syncPublishedPosts] No access token for ${targetPlatform}, skipping post ${postId}`);
+        continue;
+      }
+
+      const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`);
+      graphUrl.searchParams.set("access_token", accessToken);
+      graphUrl.searchParams.set("fields", "id");
+
       const res = await fetch(graphUrl, { method: "GET", cache: "no-store" });
 
       if (!res.ok && (res.status === 404 || res.status === 400)) {
-        // Post was removed externally
-        console.log(`[syncPublishedPosts] Post ${post.id} removed on ${targetPlatform}`);
-
+        // Post was removed externally on Meta
+        console.log(`[syncPublishedPosts] Post ${postId} removed on ${targetPlatform}`);
         await supabase
           .from("post_platforms")
           .update({
@@ -678,20 +1137,19 @@ export async function syncPublishedPosts(): Promise<{
             removed_at: now,
             last_sync_at: now,
           })
-          .eq("post_id", post.id)
+          .eq("post_id", postId)
           .eq("platform", targetPlatform);
-
-        removedIds.push(post.id);
+        removedIds.push(postId);
       } else {
         // Post still exists – just update last_sync_at
         await supabase
           .from("post_platforms")
           .update({ last_sync_at: now })
-          .eq("post_id", post.id)
+          .eq("post_id", postId)
           .eq("platform", targetPlatform);
       }
     } catch (e) {
-      console.error(`[syncPublishedPosts] Network error for post ${post.id}:`, e);
+      console.error(`[syncPublishedPosts] Error for post ${postId} on ${targetPlatform}:`, e);
     }
   }
 

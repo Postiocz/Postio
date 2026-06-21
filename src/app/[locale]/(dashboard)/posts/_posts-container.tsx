@@ -33,17 +33,6 @@ export function PostsContainer({
   tDeleteCancel,
   tRepublish,
   tRemovedExternallyMsg,
-  tLinkedInRestoreConfirmTitle,
-  tLinkedInRestoreConfirmDesc,
-  tLinkedInRestoreConfirmAction,
-  tLinkedInArchiveBanner,
-  tLinkedInArchiveBannerSubtext,
-  tLinkedInRestoreSuccess,
-  tLinkedInArchiveSuccess,
-  tLinkedInRestoreError,
-  tLinkedInArchiveError,
-  tLinkedInRestoreWarningLine1,
-  tLinkedInRestoreWarningLine2,
   tLabels,
   tAi,
   tFilterByTag,
@@ -74,17 +63,6 @@ export function PostsContainer({
   tDeleteCancel: string;
   tRepublish: string;
   tRemovedExternallyMsg: string;
-  tLinkedInRestoreConfirmTitle: string;
-  tLinkedInRestoreConfirmDesc: string;
-  tLinkedInRestoreConfirmAction: string;
-  tLinkedInArchiveBanner: string;
-  tLinkedInArchiveBannerSubtext: string;
-  tLinkedInRestoreSuccess: string;
-  tLinkedInArchiveSuccess: string;
-  tLinkedInRestoreError: string;
-  tLinkedInArchiveError: string;
-  tLinkedInRestoreWarningLine1: string;
-  tLinkedInRestoreWarningLine2: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -161,6 +139,28 @@ export function PostsContainer({
   useEffect(() => {
     setPosts(initialPosts);
   }, [initialPosts]);
+
+  // Force a fresh server-component fetch on every mount of the /posts page.
+  //
+  // Why this is necessary:
+  // After publishing from /posts/{id} or /posts/new, those callers navigate
+  // back to /posts via `router.push(...)`. The server action calls
+  // `revalidatePath("/posts", ...)` which clears the SERVER-side fetch cache,
+  // but Next.js App Router keeps a CLIENT-side RSC payload cache for the
+  // /posts route. Without a fresh `router.refresh()` the navigation can
+  // reuse the stale RSC payload and the new "published" status of the post
+  // is NOT reflected in the UI, even though the DB was updated correctly.
+  //
+  // PostsContainer is rendered inside posts/page.tsx (not the dashboard
+  // layout), so it mounts/unmounts on every navigation to /posts – that is
+  // the right hook for forcing a server refresh.
+  useEffect(() => {
+    router.refresh();
+    // We intentionally only refresh on mount. Re-running on every render
+    // (e.g. when `initialPosts` changes after a refresh) would cause an
+    // infinite refresh loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFilterChange = useCallback((platform: string, status: string) => {
     setActivePlatform(platform);
@@ -286,17 +286,6 @@ export function PostsContainer({
               tDeleteCancel={tDeleteCancel}
               tRepublish={tRepublish}
               tRemovedExternallyMsg={tRemovedExternallyMsg}
-              tLinkedInRestoreConfirmTitle={tLinkedInRestoreConfirmTitle}
-              tLinkedInRestoreConfirmDesc={tLinkedInRestoreConfirmDesc}
-              tLinkedInRestoreConfirmAction={tLinkedInRestoreConfirmAction}
-              tLinkedInArchiveBanner={tLinkedInArchiveBanner}
-              tLinkedInArchiveBannerSubtext={tLinkedInArchiveBannerSubtext}
-              tLinkedInRestoreSuccess={tLinkedInRestoreSuccess}
-              tLinkedInArchiveSuccess={tLinkedInArchiveSuccess}
-              tLinkedInRestoreError={tLinkedInRestoreError}
-              tLinkedInArchiveError={tLinkedInArchiveError}
-              tLinkedInRestoreWarningLine1={tLinkedInRestoreWarningLine1}
-              tLinkedInRestoreWarningLine2={tLinkedInRestoreWarningLine2}
               tLabels={tLabels}
               tAi={tAi}
               onDeleted={handleDeleted}

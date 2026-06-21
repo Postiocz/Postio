@@ -5,15 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Archive, History } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X } from "lucide-react";
 import {
   Instagram,
   Facebook,
@@ -24,9 +16,9 @@ import {
 } from "@/components/ui/social-icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deletePost, resetPostStatus, smartDeletePost, archiveLinkedInPlatformRow, restoreArchivedLinkedInPost } from "@/lib/actions/posts";
+import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
 import { deleteFromMeta } from "@/lib/actions/publish";
-import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
+import { EditPostDialog } from "@/components/edit-post-dialog";
 import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
 import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
 import { toast } from "sonner";
@@ -109,17 +101,6 @@ export function PostCard({
   tDeleteCancel,
   tRepublish,
   tRemovedExternallyMsg,
-  tLinkedInRestoreConfirmTitle,
-  tLinkedInRestoreConfirmDesc,
-  tLinkedInRestoreConfirmAction,
-  tLinkedInArchiveBanner,
-  tLinkedInArchiveBannerSubtext,
-  tLinkedInRestoreSuccess,
-  tLinkedInArchiveSuccess,
-  tLinkedInRestoreError,
-  tLinkedInArchiveError,
-  tLinkedInRestoreWarningLine1,
-  tLinkedInRestoreWarningLine2,
   onDeleted,
   animationDelay = 0,
   tLabels,
@@ -140,25 +121,15 @@ export function PostCard({
   tDeleteConfirmAction: string;
   tDeleteCancel: string;
   tRepublish: string;
+  /**
+   * Banner text shown for posts whose `post_platforms.status` is
+   * `removed_externally` (i.e. the automatic sync verified that the
+   * post is gone on the platform). This banner is currently rendered
+   * only for YouTube and Facebook, where the sync branch actually
+   * works. LinkedIn is intentionally NOT included – it has no working
+   * sync and the row never enters `removed_externally`.
+   */
   tRemovedExternallyMsg: string;
-  /** Confirmation dialog title before restoring an archived LinkedIn post. */
-  tLinkedInRestoreConfirmTitle: string;
-  /** Confirmation dialog body before restoring an archived LinkedIn post. */
-  tLinkedInRestoreConfirmDesc: string;
-  /** Primary CTA label in the restore confirmation dialog. */
-  tLinkedInRestoreConfirmAction: string;
-  /** Short banner line shown under the archived LinkedIn row in the card. */
-  tLinkedInArchiveBanner: string;
-  /** Subtext under the banner explaining the soft-delete nature. */
-  tLinkedInArchiveBannerSubtext: string;
-  tLinkedInRestoreSuccess: string;
-  tLinkedInArchiveSuccess: string;
-  tLinkedInRestoreError: string;
-  tLinkedInArchiveError: string;
-  /** Warning line 1 in the restore dialog – warns about duplicate on platform. */
-  tLinkedInRestoreWarningLine1: string;
-  /** Warning line 2 in the restore dialog – confirms the user wants to proceed. */
-  tLinkedInRestoreWarningLine2: string;
   onDeleted?: (id: string) => void;
   animationDelay?: number;
   tLabels: {
@@ -224,18 +195,7 @@ export function PostCard({
   const [smartDeleteOpen, setSmartDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
-  // LinkedIn-specific soft-delete ("archive") UI state. The
-  // confirmation dialog protects the user from accidentally
-  // republishing a post that might still be live on LinkedIn.
-  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
   const router = useRouter();
-
-  // LinkedIn archived row helper – per-post lookup.
-  const linkedinArchivedRow = (post.post_platforms || []).find(
-    (p) => p.platform === "linkedin" && p.status === "archived",
-  );
 
   const statusLabels: Record<string, string> = {
     draft: tStatusDraft,
@@ -258,15 +218,25 @@ export function PostCard({
         let deletedCount = 0;
         let cannotDeletePlatforms: string[] = [];
 
-        // Smazat z vybraných Meta platforem
+        // Delete from selected platforms. Per-platform behaviour:
+        // - Facebook / Instagram / YouTube – real API DELETE (or
+        //   "object not found" treated as success) + reset the row
+        //   to `status="draft"` in Postio.
+        // - LinkedIn – NO API call. `deleteFromMeta` updates the
+        //   LinkedIn row to `status="archived"` (with `external_id`
+        //   cleared) and returns `success: true, cannotDeleteViaApi: true`
+        //   so this loop counts it as "succeeded in Postio" but the
+        //   user still gets the "smazat ručně" reminder toast.
         for (const platform of selectedPlatforms) {
           const result = await deleteFromMeta({ postId: post.id, platform });
           if (result.success) {
             deletedCount++;
           } else if (result.cannotDeleteViaApi) {
-            // Platform does not support API deletion (e.g. Instagram)
-            // Do NOT mark as removed_externally – post still exists on the platform.
-            // Only syncPublishedPosts will mark it after confirming via GET request.
+            // LinkedIn short-circuits to `success: true, cannotDeleteViaApi: true`
+            // above, so this branch now only fires for Instagram
+            // (the only platform whose API call can fail with
+            // "API not supported" after we have an external_id). We
+            // keep the info-toast logic intact for Instagram.
             cannotDeletePlatforms.push(platform);
           } else {
             // Unexpected error
@@ -274,13 +244,14 @@ export function PostCard({
           }
         }
 
-        // Show info toasts for platforms that couldn't be deleted via API
+        // Show info toasts for platforms that couldn't be deleted via API.
+        // Kept intentionally short so the user can act quickly.
         for (const platform of cannotDeletePlatforms) {
           const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
           toast.info(
-            `${platformName} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na ${platformName}. Postio automaticky detekuje odstranění při příští synchronizaci.`,
+            `${platformName} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na ${platformName}.`,
             {
-              duration: 10000,
+              duration: 8000,
               action: {
                 label: 'Rozumím',
                 onClick: () => {}
@@ -289,7 +260,33 @@ export function PostCard({
           );
         }
 
-        // Delete from Postio app if requested
+        // Delete from Postio app if requested.
+        //
+        // Special case: if LinkedIn is in `selectedPlatforms`, the
+        // post must NOT be hard-deleted from Postio. The whole point
+        // of the new flow is to keep the PostCard visible with a
+        // greyed-out LinkedIn icon – a permanent reminder that the
+        // post was once published on LinkedIn. `deleteFromMeta` has
+        // already flipped the LinkedIn row to `status="archived"`
+        // and cleared `external_id`, so the icon will render grey
+        // (no green check, no orange triangle, no red X).
+        if (deleteFromApp && selectedPlatforms.includes("linkedin")) {
+          setDeleteOpen(false);
+          router.refresh();
+          if (deletedCount > 0) {
+            toast.success(
+              `Příspěvek byl odstraněn z ${deletedCount} platformy/platforem. LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.`,
+              { duration: 10000 },
+            );
+          } else {
+            toast.success(
+              "LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.",
+              { duration: 10000 },
+            );
+          }
+          return;
+        }
+
         if (deleteFromApp) {
           const result = await deletePost(post.id);
           if (result.success) {
@@ -367,59 +364,6 @@ export function PostCard({
     setIsRepublishing(false);
   };
 
-  // LinkedIn-specific: archive (soft-delete) the published LinkedIn
-  // row. Called from the DeletePostDialog when the user picks the
-  // "Archivovat v aplikaci" action.
-  const handleArchiveLinkedIn = async () => {
-    setIsArchiving(true);
-    try {
-      const result = await archiveLinkedInPlatformRow(post.id);
-      if (result.success) {
-        setDeleteOpen(false);
-        if (result.alreadyArchived) {
-          toast.info(tLinkedInArchiveSuccess);
-        } else {
-          toast.success(tLinkedInArchiveSuccess);
-        }
-        router.refresh();
-        return;
-      }
-      toast.error(result.error || tLinkedInArchiveError);
-    } catch (e) {
-      console.error("Archive LinkedIn error:", e);
-      toast.error(tLinkedInArchiveError);
-    } finally {
-      setIsArchiving(false);
-    }
-  };
-
-  // Opens the confirmation dialog before restoring an archived
-  // LinkedIn post. The dialog warns the user that re-publishing might
-  // create a duplicate on LinkedIn.
-  const handleRestoreLinkedInClick = () => {
-    setRestoreConfirmOpen(true);
-  };
-
-  // Performs the actual restore after the user confirms.
-  const handleRestoreLinkedInConfirm = async () => {
-    setIsRestoring(true);
-    try {
-      const result = await restoreArchivedLinkedInPost(post.id);
-      if (result.success) {
-        setRestoreConfirmOpen(false);
-        toast.success(tLinkedInRestoreSuccess);
-        router.refresh();
-        return;
-      }
-      toast.error(result.error || tLinkedInRestoreError);
-    } catch (e) {
-      console.error("Restore LinkedIn error:", e);
-      toast.error(tLinkedInRestoreError);
-    } finally {
-      setIsRestoring(false);
-    }
-  };
-
   const localeTag = toLocaleTag(locale);
   const createdDate = new Date(post.created_at).toLocaleDateString(localeTag);
   const scheduledTime = post.scheduled_at
@@ -476,19 +420,6 @@ export function PostCard({
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </>
-        )}
-        {/* LinkedIn archived row – offer one-click restore. */}
-        {linkedinArchivedRow && post.status !== "removed_externally" && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-8 w-8 relative z-[50] cursor-pointer bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-foreground/80 hover:bg-gray-200 dark:hover:bg-white/10"
-            onClick={handleRestoreLinkedInClick}
-            disabled={isRestoring}
-            title="Obnovit a publikovat znovu"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-          </Button>
         )}
         {/* Regular delete button – hidden for removed_externally */}
         {post.status !== "removed_externally" && (
@@ -642,44 +573,6 @@ export function PostCard({
             </div>
           )}
 
-          {/* LinkedIn archived info banner – shows dates of original
-              publish + archive so the user can decide whether to restore. */}
-          {linkedinArchivedRow && (
-            <div className="flex items-start gap-2 mb-3 p-3 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10">
-              <Archive className="h-4 w-4 text-foreground/60 shrink-0 mt-0.5" />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-foreground">
-                  {tLinkedInArchiveBanner}
-                </span>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                  {linkedinArchivedRow.published_at && (
-                    <span className="flex items-center gap-1">
-                      <History className="h-3 w-3" />
-                      Publikováno: {new Date(linkedinArchivedRow.published_at).toLocaleDateString(localeTag, {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </span>
-                  )}
-                  {linkedinArchivedRow.archived_at && (
-                    <span className="flex items-center gap-1">
-                      <Archive className="h-3 w-3" />
-                      Archivováno: {new Date(linkedinArchivedRow.archived_at).toLocaleDateString(localeTag, {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] text-muted-foreground/70 mt-1">
-                  {tLinkedInArchiveBannerSubtext}
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* Footer: date + scheduled time */}
           <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground/50 border-t border-gray-200 dark:border-white/5 pt-3">
             <span>{createdDate}</span>
@@ -723,8 +616,7 @@ export function PostCard({
         post_platforms: post.post_platforms ?? [],
       }}
       onConfirm={handleDeleteConfirm}
-      onArchiveLinkedIn={handleArchiveLinkedIn}
-      isDeleting={isDeleting || isArchiving}
+      isDeleting={isDeleting}
     />
 
     <SmartDeleteDialog
@@ -733,69 +625,6 @@ export function PostCard({
       onConfirm={handleSmartDelete}
       isDeleting={isDeleting}
     />
-
-    {/* Restore confirmation dialog – warns the user about potential
-        duplicate publish on LinkedIn before restoring the archived row. */}
-    <Dialog open={restoreConfirmOpen} onOpenChange={(val) => { if (!isRestoring) setRestoreConfirmOpen(val); }}>
-      <DialogContent className="sm:max-w-[480px] bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[24px] shadow-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-              <RotateCcw className="h-5 w-5" />
-            </div>
-            {tLinkedInRestoreConfirmTitle}
-          </DialogTitle>
-          <DialogDescription className="text-base pt-2 text-foreground/80 whitespace-pre-line">
-            {tLinkedInRestoreConfirmDesc
-              .replace("__publishedAt__", linkedinArchivedRow?.published_at
-                ? new Date(linkedinArchivedRow.published_at).toLocaleDateString(localeTag, {
-                    day: "numeric", month: "long", year: "numeric",
-                  })
-                : "—")
-              .replace("__archivedAt__", linkedinArchivedRow?.archived_at
-                ? new Date(linkedinArchivedRow.archived_at).toLocaleDateString(localeTag, {
-                    day: "numeric", month: "long", year: "numeric",
-                  })
-                : "—")
-            }
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3 py-3">
-          <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/10">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="flex flex-col text-sm text-foreground/80">
-              <span className="font-medium text-amber-700 dark:text-amber-300">
-                {tLinkedInRestoreWarningLine1}
-              </span>
-              <span className="text-xs text-muted-foreground mt-1">
-                {tLinkedInRestoreWarningLine2}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="sm:flex-row sm:justify-end gap-2 mt-4">
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-xl border-black/10 dark:border-white/10"
-            onClick={() => setRestoreConfirmOpen(false)}
-            disabled={isRestoring}
-          >
-            {tDeleteCancel}
-          </Button>
-          <Button
-            type="button"
-            className="rounded-xl shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white"
-            onClick={handleRestoreLinkedInConfirm}
-            disabled={isRestoring}
-          >
-            {isRestoring ? "Obnovuji…" : tLinkedInRestoreConfirmAction}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
     </>
   );
 }
@@ -817,17 +646,6 @@ export function PostsList({
   tDeleteCancel,
   tRepublish,
   tRemovedExternallyMsg,
-  tLinkedInRestoreConfirmTitle,
-  tLinkedInRestoreConfirmDesc,
-  tLinkedInRestoreConfirmAction,
-  tLinkedInArchiveBanner,
-  tLinkedInArchiveBannerSubtext,
-  tLinkedInRestoreSuccess,
-  tLinkedInArchiveSuccess,
-  tLinkedInRestoreError,
-  tLinkedInArchiveError,
-  tLinkedInRestoreWarningLine1,
-  tLinkedInRestoreWarningLine2,
   tLabels,
   tAi,
   onDeleted,
@@ -848,17 +666,6 @@ export function PostsList({
   tDeleteCancel: string;
   tRepublish: string;
   tRemovedExternallyMsg: string;
-  tLinkedInRestoreConfirmTitle: string;
-  tLinkedInRestoreConfirmDesc: string;
-  tLinkedInRestoreConfirmAction: string;
-  tLinkedInArchiveBanner: string;
-  tLinkedInArchiveBannerSubtext: string;
-  tLinkedInRestoreSuccess: string;
-  tLinkedInArchiveSuccess: string;
-  tLinkedInRestoreError: string;
-  tLinkedInArchiveError: string;
-  tLinkedInRestoreWarningLine1: string;
-  tLinkedInRestoreWarningLine2: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -940,17 +747,6 @@ export function PostsList({
             tDeleteCancel={tDeleteCancel}
             tRepublish={tRepublish}
             tRemovedExternallyMsg={tRemovedExternallyMsg}
-            tLinkedInRestoreConfirmTitle={tLinkedInRestoreConfirmTitle}
-            tLinkedInRestoreConfirmDesc={tLinkedInRestoreConfirmDesc}
-            tLinkedInRestoreConfirmAction={tLinkedInRestoreConfirmAction}
-            tLinkedInArchiveBanner={tLinkedInArchiveBanner}
-            tLinkedInArchiveBannerSubtext={tLinkedInArchiveBannerSubtext}
-            tLinkedInRestoreSuccess={tLinkedInRestoreSuccess}
-            tLinkedInArchiveSuccess={tLinkedInArchiveSuccess}
-            tLinkedInRestoreError={tLinkedInRestoreError}
-            tLinkedInArchiveError={tLinkedInArchiveError}
-            tLinkedInRestoreWarningLine1={tLinkedInRestoreWarningLine1}
-            tLinkedInRestoreWarningLine2={tLinkedInRestoreWarningLine2}
             animationDelay={Math.min(index * 0.04, 0.2)}
             onDeleted={onDeleted}
             tLabels={tLabels}

@@ -3,18 +3,475 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-06-21
+
+### ✅ Hotovo – LinkedIn soft-archive (šedá ikona) + zkrácení toast hlášky
+
+- **Kontext (uživatel)**: Po 30 minutách manuálního testu se potvrdilo, že **LinkedIn API vidí příspěvek i po jeho smazání na platformě** – nedá se spolehnout na žádný automatický sync. Uživatel proto chtěl upravit flow tak, aby:
+  1. Toast hláška pro `cannotDeleteViaApi` platformy byla **stručná** (původní: *„… Postio bude příspěvek nadále zobrazovat jako publikovaný, dokud platforma nepotvrdí smazání."* je matoucí, protože to vyvolává dojem, že se stane něco dalšího). Nový text: jen *„{Platform} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na {Platform}."*
+  2. **Po kliknutí „Smazat" v DeletePostDialog + zaškrtnutí „Smazat z LinkedIn" se příspěvek v Postiu nesmazal celý**, ale **zachoval se PostCard se zašedlou LinkedIn ikonou** (= trvalá vizuální památka, že tam ten příspěvek byl publikovaný). Toto pravidlo platí **bez ohledu na stav checkboxu „Trvale smazat z aplikace"** – když je v `selectedPlatforms` LinkedIn, příspěvek nikdy nezmizí z Postia celý (jinak by šedá ikona nemohla existovat).
+- **Co bylo implementováno**:
+  1. **[`deleteFromMeta`](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts#L1220) – LinkedIn větev přepracována**:
+     - **Místo vrácení `success: false` nyní vrací `success: true, cannotDeleteViaApi: true`** a v databázi aktualizuje `post_platforms` řádek pro LinkedIn na `status="archived"` + `archived_at=now` + `archive_reason="user_removed_manually"` + `external_id=null`. Původně se vracelo `success: false` a nic se neměnilo – to se ukázalo jako špatné řešení, protože ikona zůstala barevná (status="published" → zelená).
+     - **Mazání `external_id`** – podle manuálního testu uživatele vrací LinkedIn API po smazání příspěvku stále stejný UGN, takže by zde zůstával jen klamavý metadata. Po archivaci se tedy URN smaže; zbytek (text, datum publikace, interní štítky) zůstává.
+     - **Synchronizace `posts.status`**: po archivaci LinkedInu se kontroluje, zda existují další `status="published"` platformy. Pokud **ne**, nastaví se `posts.status="draft"` (který je v `posts.status` CHECK constraintu, takže žádná DB migrace není potřeba). Tím se zabrání nekonzistentnímu stavu, kdy by PostCard zobrazoval badge „Publikované" se šedými ikonami.
+     - **Důležité**: žádný API call na LinkedIn, žádná mutace `external_id`, žádné smazání `post_platforms` řádku. Pouze `status` přechází na „archived".
+  2. **[`_post-card.tsx → handleDeleteConfirm`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/_post-card.tsx#L218) upraven**:
+     - **Nová větev**: pokud `deleteFromApp=true` **a** `selectedPlatforms.includes("linkedin")`, **příspěvek se nikdy nesmaže celý** – `deletePost(post.id)` se v tom případě nevolá. Místo toho se zavolá `setDeleteOpen(false)`, `router.refresh()` a zobrazí se success toast: *„Příspěvek byl odstraněn z X platformy/platforem. LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu."* (pokud bylo smazáno i jiná platforma), nebo jen *„LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu."* (pokud LinkedIn je jediná platforma).
+     - **Smazání FB / Instagram / YouTube v rámci stejného dialogu** funguje beze změny – `deleteFromMeta` pro ně dělá skutečný API DELETE + reset na `draft`. Po smazání FB + archivaci LinkedInu se ikona FB zobrazí šedá (status="draft") a ikona LinkedIn rovněž šedá (status="archived"). `post.status` se automaticky přepne na `draft` (viz bod 1).
+     - **Toast pro `cannotDeletePlatforms` zkrácen**: z *„{Platform} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na {Platform}. Postio bude příspěvek nadále zobrazovat jako publikovaný, dokud platforma nepotvrdí smazání."* na pouze *„{Platform} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na {Platform}."* + zkrácena doba zobrazení z 10s na 8s. V současném kódu tato větev teorie fakticky zasáhne jen Instagram (protože LinkedIn se krátce vrátí `success: true`), ale necháváme ji pro případnou budoucí expanzi.
+  3. **PostCard ikony**: žádná změna v render logice – kaskáda `published → green/Check, failed → red/X, removed_externally → orange/AlertTriangle, jinak (draft, archived) → grey/opacity-60` fungovala správně. Nové chování „LinkedIn po archivaci = šedá ikona" je tedy důsledkem toho, že `post_platforms.status="archived"` již existuje a PostCard ho vždy vykresloval šedě. Žádná změna v JSX.
+  4. **Texty v `DeletePostDialog`**: beze změny z předchozího commitu. Stále platí, že „Smazat z LinkedIn" je **information-only checkbox** a řetězec *„…smazat příspěvek ručně přímo na LinkedInu"* se zobrazuje v toastu, ne v dialogu.
+- **Dopad na chování**:
+  - **YouTube / Facebook**: chování beze změny. `syncPublishedPosts` detekuje smazání, nastaví `status="removed_externally"`, PostCard zobrazí oranžový `tRemovedExternallyMsg` banner + tlačítka Chytré mazání (🗑) a Publikovat znovu (↻). API delete z Postia funguje.
+  - **LinkedIn**:
+    - **DeletePostDialog → „Smazat" + „Smazat z LinkedIn" + libovolný stav „Trvale smazat z aplikace"**:
+      1. Zobrazí se info toast: *„Linkedin nepodporuje smazání přes API. Smažte příspěvek ručně přímo na Linkedin."* (8s).
+      2. `deleteFromMeta` aktualizuje LinkedIn řádek v DB: `status="archived"`, `external_id=null`, `archived_at=now`. Pokud šlo o jedinou publikovanou platformu, `posts.status` se přepne na `draft`.
+      3. PostCard **zůstane zobrazen** (příspěvek se nikdy nesmaže celý) s LinkedIn ikonou zašedlou. Pokud byly zaškrtnuty i jiné platformy, jejich ikony se rovněž zašednou (po API delete) a `post.status` se přepne na `draft`.
+      4. Success toast (10s): *„Příspěvek byl odstraněn z X platformy/platforem. LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu."* nebo jeho single-platform varianta.
+    - **Sync ostatních platforem** příspěvku (FB / YouTube) – pokud má post další publikované platformy, fungují dál normálně. Pokud po archivaci LinkedInu nezůstává žádná další publikovaná platforma, `post.status="draft"` řekne `syncPublishedPosts`, že post neexistuje jako published, a ten ho přeskočí.
+    - **Opakované kliknutí na „Smazat z LinkedIn"**: nelze – `deleteFromMeta` kontroluje, že cílový řádek je `status="published"`. Po archivaci tato podmínka selže a vrátí se `error: "LinkedIn řádek nenalezen nebo již není publikovaný."`.
+  - **Instagram**: chování beze změny.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení (LinkedIn flow)**:
+  1. Otevři libovolný post publikovaný na LinkedInu (single-platform post).
+  2. Klikni **Smazat** (červený koš vpravo nahoře).
+  3. V dialogu zaškrtni **Smazat z LinkedIn**, **ponech** „Trvale smazat z aplikace" zapnuté → Potvrdit.
+  4. Objeví se:
+     - **Info toast**: *„Linkedin nepodporuje smazání přes API. Smažte příspěvek ručně přímo na Linkedin."* (8s).
+     - **Success toast**: *„LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu."* (10s).
+  5. PostCard **zůstane zobrazen**, ale:
+     - LinkedIn ikona je **šedá** (žádný zelený check, žádný oranžový trojúhelník).
+     - Hlavní badge se změnil z „Publikované" na **„Koncept"** (protože `post.status="draft"`).
+  6. **Multi-platformní post** (FB + LinkedIn): proveď totéž se zaškrtnutím obou platforem → obě ikony zešednou, post se nesmaže celý, badge „Koncept".
+  7. V Supabase: `post_platforms` řádek pro LinkedIn bude mít `status="archived"`, `external_id=null`, `archived_at=<now>`, `archive_reason="user_removed_manually"`. `posts.status="draft"`.
+- **Dopad na dokumentaci** (CLAUDE.md): Žádná změna nutná. Pravidlo „co je smazáno přes chytré mazání zůstane vidět šedá ikona" z Bibla pravidel stále platí – nyní se ale používá i pro **běžné mazání přes DeletePostDialog** u platforem, které Postio nedokáže smazat přes API (LinkedIn). Pravidlo pro Instagram se nemění.
+
+## 2026-06-21
+
+### ✅ Hotovo – Zjednodušení LinkedIn mazání (Instagram-like flow + odstranění manuální synchronizace)
+
+- **Kontext (uživatel)**: Tlačítko pro manuální „Smazáno na platformě?" (oranžová ikona ⛓️‍💥 na kartě publikovaného LinkedIn postu) a velký banner „LinkedIn příspěvek byl archivován v aplikaci" nedávaly smysl. Uživatel chtěl:
+  1. **Tlačítko ⛓️‍💥 úplně odstranit** – synchronizace se nemá dělat manuálně, hlášky „odstraněno z platformy" mají zůstat jen u platforem, kde sync funguje (YouTube a Facebook).
+  2. **Banner „LinkedIn příspěvek byl archivován v aplikaci" odstranit** – šedá ikona v PostCard je dostatečně jasný signál, že příspěvek byl publikovaný.
+  3. **LinkedIn flow sjednotit s Instagramem**: Postio nemá API, které by umělo potvrdit smazání na LinkedInu (CM API vrací 403), takže se nemá tvářit, že smaže příspěvek. Místo toho dostane uživatel info toast a smaže příspěvek ručně. **Synchronizace s ostatními platformami u příspěvku musí zůstat neustálá** (jinak by FB / YouTube řádek ztratil vazbu na příspěvek, když je tam i LinkedIn).
+- **Co bylo implementováno**:
+  1. **Server action `markAsRemovedExternally` odstraněn** z [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts) (včetně JSDocu a veškerých console.logů) – tlačítko už neexistuje, takže tato akce nemá kdo volat.
+  2. **Server action `restoreArchivedLinkedInPost` odstraněn** z [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts) – banner „archivováno v aplikaci" už neexistuje, takže restore flow nemá smysl. Sekce komentářů v souboru přeformulována na popis nového Instagram-like flow.
+  3. **`deleteFromMeta` v [src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts#L1220) přepracována**:
+     - **LinkedIn short-circuit na začátku** – hned po ověření authu, pokud `input.platform === "linkedin"`, vrátí `{ success: false, cannotDeleteViaApi: true, error: "LinkedIn se v Postiu neodstraní automaticky. Smažte příspěvek ručně přímo na LinkedInu." }`. **Žádný API call, žádná mutace `post_platforms`, žádné `removed_externally`**.
+     - Odstraněn parametr `markArchived` z interface – `deleteFromMeta` nyní vždy dělá jeden clean krok (Facebook / Instagram → API DELETE + reset na `draft`; LinkedIn → nic).
+     - Tím pádem se **zachovává `status="published"` u LinkedIn řádku** (a `external_id` = LinkedIn URN) – ostatní platformy příspěvku (Facebook, YouTube…) se dál synchronizují normálně, protože `syncPublishedPosts` stále dostává konzistentní data.
+  4. **PostCard `_post-card.tsx` zjednodušen**:
+     - Odstraněny: `import { Archive, History, Link2Off, Loader2 }` z `lucide-react` (už nepotřeba), `import { restoreArchivedLinkedInPost, markAsRemovedExternally }` z `@/lib/actions/posts`, `import { Dialog, DialogContent, …, DialogTitle }` z `@/components/ui/dialog` (restore dialog pryč), `import { EditPostData }` z `@/components/edit-post-dialog` (typ nepoužit).
+     - Odstraněny stavy `restoreConfirmOpen`, `isRestoring`, `isMarkingRemoved`.
+     - Odstraněny lookup helpery `linkedinArchivedRow` a `linkedinPublishedRow`.
+     - Odstraněny handlery `handleRestoreLinkedInClick`, `handleRestoreLinkedInConfirm`, `handleMarkRemovedExternally`.
+     - Odstraněn JSX: tlačítko ⛓️‍💥 (Link2Off), restore tlačítko pro archivované LinkedIn řádky, banner „LinkedIn příspěvek byl archivován v aplikaci" (včetně published_at / archived_at datumů a subtextu), celý `<Dialog>` pro restore confirmation.
+     - Odstraněny všechny props `tLinkedInRestore*`, `tLinkedInArchiveBanner*`, `tMarkRemovedOnPlatform*` z `PostCard` i `PostsList`. V props zůstává jen `tRemovedExternallyMsg`, jehož JSDoc nově explicitně říká, že se banner zobrazuje **jen pro YouTube a Facebook** (kde sync funguje).
+     - Zpráva v info toastu pro `cannotDeletePlatforms` upravena z *„Postio automaticky detekuje odstranění při příští synchronizaci"* na upřímnější *„Postio bude příspěvek nadále zobrazovat jako publikovaný, dokud platforma nepotvrdí smazání"*.
+  5. **Propagace v `_posts-container.tsx` a `page.tsx`**: odstraněny všechny `tLinkedIn*` a `tMarkRemovedOnPlatform*` props v signaturách i v JSX (předávané hodnoty z `t(...)`).
+  6. **`DeletePostDialog` texty přeformulovány** v [src/components/dashboard/delete-post-dialog.tsx](file:///c:/VS_Code/Postio/src/components/dashboard/delete-post-dialog.tsx):
+     - Když je příspěvek **jen na LinkedInu**: *„Postio ho neumí smazat z LinkedInu automaticky – zaškrtni ‚Smazat z LinkedIn‘ jen pro potvrzení, že příspěvek smažeš ručně na LinkedInu. Pokud zároveň zaškrtneš ‚Trvale smazat z aplikace‘, příspěvek zmizí i z Postia. Jinak zůstane v Postiu jako publikovaný (dokud LinkedIn nepotvrdí smazání)."*
+     - Když je příspěvek **na více sítích**: *„U Facebooku, Instagramu a YouTube Postio smaže příspěvek z platformy automaticky. LinkedIn je nutné smazat ručně – zaškrtnutí ‚Smazat z LinkedIn‘ ti připomene, že tam musíš příspěvek odstranit sám/sama. Ostatní platformy příspěvku zůstanou publikované a budou se dál synchronizovat."*
+     - Doplňující text pod „Trvale smazat z aplikace" přeformulován z *„Příspěvek zůstane v kalendáři Postio (jako archivovaný – u LinkedInu s možností pozdějšího obnovení)…"* na *„Příspěvek zůstane v kalendáři Postio a bude nadále zobrazen jako publikovaný. Z vybraných platforem bude odstraněn (kde to Postio umí přes API) a u ostatních platforem dostaneš připomínku, že je třeba je smazat ručně."* Tím se ruší i iluze „archivované LinkedIn" varianty, která v novém flow neexistuje.
+     - JSDoc u `onConfirm` callbacku aktualizován – popisuje, že LinkedIn je v seznamu jen jako information-only checkbox.
+  7. **Překlady odstraněny** ze všech tří jazykových souborů: [cs.json](file:///c:/VS_Code/Postio/src/messages/cs.json), [en.json](file:///c:/VS_Code/Postio/src/messages/en.json), [uk.json](file:///c:/VS_Code/Postio/src/messages/uk.json) – konkrétně klíče `linkedInRestoreConfirmTitle`, `linkedInRestoreConfirmDesc`, `linkedInRestoreConfirmAction`, `linkedInArchiveBanner`, `linkedInArchiveBannerSubtext`, `linkedInRestoreSuccess`, `linkedInRestoreError`, `linkedInRestoreWarningLine1`, `linkedInRestoreWarningLine2`, `markRemovedOnPlatformTitle`, `markRemovedOnPlatformSuccess`, `markRemovedOnPlatformError`. **`removedExternallyMsg` ponechán** – používá se stále pro YouTube / Facebook `removed_externally` banner.
+- **Dopad na chování**:
+  - **YouTube / Facebook**: chování beze změny. `syncPublishedPosts` detekuje smazání, nastaví `status="removed_externally"`, PostCard zobrazí oranžový `tRemovedExternallyMsg` banner + tlačítka Chytré mazání (🗑) a Publikovat znovu (↻).
+  - **LinkedIn**:
+    - **DeletePostDialog** → checkbox „Smazat z LinkedIn" slouží jen jako info připomínka. Po potvrzení se zobrazí toast *„LinkedIn nepodporuje smazání přes API. Smažte příspěvek ručně přímo na LinkedIn. Postio bude příspěvek nadále zobrazovat jako publikovaný, dokud platforma nepotvrdí smazání."*
+    - **Postio data se nemění** – `post_platforms` řádek pro LinkedIn zůstane `status="published"` s původním `external_id` (URN). Pokud má post zároveň Facebook / YouTube, jejich řádky se mohou normálně smazat (pokud byly zaškrtnuty) a zbytek příspěvku se chová dál jako „published" na LinkedInu.
+    - **Sync ostatních platforem** příspěvku funguje dál (klíčové: 30min throttle v `syncPublishedPosts` se řídí jen `last_sync_at` + `status="published"`, takže se nic nezměnilo).
+  - **Instagram**: chování beze změny (stále Instagram-like flow, tj. cannotDeleteViaApi: true + žádná mutace).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení (LinkedIn flow)**:
+  1. V Postiu otevři libovolný post publikovaný na LinkedInu.
+  2. V pravém horním rohu PostCard by **již neměla** být oranžová ikona ⛓️‍💥 – zobrazí se jen Edit (tužka) a Trash (koš).
+  3. Pod textem příspěvku **již není** banner „LinkedIn příspěvek byl archivován v aplikaci".
+  4. Klikni **Smazat** → dialog řekne *„U Facebooku, Instagramu a YouTube Postio smaže příspěvek z platformy automaticky. LinkedIn je nutné smazat ručně …"*.
+  5. Zaškrtni „Smazat z LinkedIn" (a libovolně další sítě), ponech „Trvale smazat z aplikace" zapnuté → Potvrdit.
+  6. Po akci se zobrazí toast *„LinkedIn nepodporuje smazání přes API. Smažte příspěvek ručně přímo na LinkedIn. Postio bude příspěvek nadále zobrazovat jako publikovaný …"*. **PostCard se nepřekreslí** – zelený „Publikované" odznak u LinkedInu zůstává. Pokud byl zaškrtnutý Facebook / YouTube, tak ty se smažou (přes API) a jejich ikony zešednou.
+  7. V `post_platforms` zůstane LinkedIn řádek v `status="published"`, s původním `external_id` URN.
+- **Dopad na „příliš mnoho tokenů"** (pravidlo z CLAUDE.md): tento záznam CHANGELOGu by měl sloužit jako hlavní referenční bod pro nový LinkedIn flow. Pokud se v další session pracuje s LinkedIn mazáním / synchronizací, nejdřív si přečti tento záznam – starší texty v CHANGELOG.md (2026-06-20, 2026-06-21) popisují zastaralé chování, které bylo záměrně zrušeno.
+
+## 2026-06-21
+
+### ✅ Hotovo – Manuální „Smazáno na platformě?" tlačítko pro LinkedIn (sync fallback)
+
+- **Kontext**: Pro LinkedIn nemůže `syncPublishedPosts()` automaticky detekovat smazání příspěvku – Community Management API (`GET /v2/ugcPosts/{id}` / `GET /v2/shares/{id}`) vrací **403** pro naši Developer App (LinkedIn zamítá `r_member_social` scope aplikacím, které už mají Share on LinkedIn). Stávající sync kód v [posts.ts:1014–1019](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts#L1014-L1019) na 403 tiše předpokládá, že post stále existuje (a jen aktualizuje `last_sync_at`). Výsledek: pokud uživatel smaže příspěvek **ručně na LinkedInu**, Postio se to **nikdy nedozví** a v `post_platforms` zůstane navždy `status="published"`.
+- **Řešení – varianta 1**: Manuální tlačítko v PostCard, kterým uživatel řekne *„Smazal jsem to na platformě"*. Aplikace pak nastaví `status="removed_externally"` a PostCard automaticky zobrazí **standardní oranžový banner + tlačítko Chytré mazání (🗑)** – stejný vizuální styl jako pro YouTube / Facebook / Instagram.
+- **Co bylo implementováno**:
+  1. **Server action `markAsRemovedExternally` v [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts#L793-L886)**:
+     - Parametry: `{ postId, platform }`.
+     - Ověří RLS (`user_id` filtr) + že post existuje + že cílový `post_platforms` řádek existuje a je ve stavu `published`.
+     - Nastaví `status="removed_externally"`, `removed_at=now`, `last_sync_at=now`.
+     - `external_id` ponechá (uživatel nám řekl, že post je pryč, ale my to neověřujeme přes API – ponechání URN umožní budoucí restore + republish).
+     - `revalidateAllLocales` pro `/dashboard`, `/calendar`, `/posts`.
+     - Console log `[markAsRemovedExternally] Post {id} marked as removed on {platform}` pro support diagnostiku.
+  2. **Tlačítko v PostCard** v [_post-card.tsx](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/_post-card.tsx#L508-L530):
+     - Ikona `Link2Off` z lucide (odtržený řetěz = „odkaz již nefunguje").
+     - Zobrazí se **jen** když existuje `linkedinPublishedRow` (tzn. post má `post_platforms` řádek pro LinkedIn ve stavu `published`).
+     - Oranžové stylování (shodné s tlačítky pro `removed_externally`) – uživatel intuitivně ví, že jde o „tuto akci pro smazané příspěvky".
+     - Během akce se zobrazí `Loader2` spinner.
+     - Tooltip z `tMarkRemovedOnPlatformTitle` vysvětluje **proč** tlačítko existuje (sync to nemůže ověřit).
+  3. **Překlady** přidány do [cs.json](file:///c:/VS_Code/Postio/src/messages/cs.json#L308-L310), [en.json](file:///c:/VS_Code/Postio/src/messages/en.json) a [uk.json](file:///c:/VS_Code/Postio/src/messages/uk.json):
+     - `markRemovedOnPlatformTitle` – tooltip tlačítka.
+     - `markRemovedOnPlatformSuccess` – toast po úspěšném nastavení.
+     - `markRemovedOnPlatformError` – toast při chybě.
+  4. **Propagace props** přes celý stack: `page.tsx` → `_posts-container.tsx` → `PostsList` (interní helper v `_post-card.tsx`) → `PostCard`.
+- **Jak to funguje v praxi**:
+  1. V Postiu na kartě publikovaného LinkedIn příspěvku se nově objeví **oranžová ikona** ⛓️‍💥 vedle běžného koše (trash).
+  2. Uživatel smaže příspěvek ručně na LinkedInu (přes UI LinkedInu).
+  3. V Postiu klikne na tuto ikonu → `markAsRemovedExternally` nastaví `status="removed_externally"` + `removed_at=now`.
+  4. PostCard se **automaticky překreslí**:
+     - Místo zeleného `published` odznaku se zobrazí oranžový `Odstraněno externě`.
+     - Objeví se **standardní varovný banner** („Odstraněno přímo na LinkedIn (datum) – Příspěvek byl odstraněn z platformy. Můžete jej bezpečně smazat z aplikace tlačítkem Chytré mazání (🗑).").
+     - Objeví se **tlačítko Chytré mazání** + **tlačítko Publikovat znovu** (stejné jako u YouTube).
+  5. Uživatel pak může použít Chytré mazání pro úplné odstranění z DB (nebo Publikovat znovu pro nový pokus).
+- **Proč nepoužívám confirm dialog**: Akce je snadno **vratná** přes tlačítko „Publikovat znovu" (`resetPostStatus`), takže přidaný friction v podobě dalšího dialogu by byl zbytečný. Tooltip na tlačítku jasně říká, co se stane.
+- **Proč `external_id` ponechávám**: Uživatel nám řekl, že post smazal. Ale my nemáme API potvrzení. Kdyby ho budoucí restore flow potřeboval (např. kontrola proti archivu), URN zde bude. Pokud se post na LinkedInu skutečně smazal, republish vytvoří nový URN automaticky.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**:
+  1. V Postiu otevři libovolný post publikovaný na LinkedInu (status = „Publikované", zelený odznak).
+  2. V pravém horním rohu PostCard by se **měla nově objevit oranžová ikona ⛓️‍💥** (vedle Edit a Trash).
+  3. Smaž příspěvek ručně na LinkedInu (`https://www.linkedin.com/feed/update/{urn}`).
+  4. V Postiu klikni na oranžovou ikonu.
+  5. V konzoli by se měl objevit `[markAsRemovedExternally] Post {id} marked as removed on linkedin`.
+  6. Toast: *„Příspěvek byl označen jako smazaný na LinkedInu. Můžeš ho teď bezpečně smazat z aplikace tlačítkem Chytré mazání (🗑)."*
+  7. PostCard se překreslí: oranžový odznak „Odstraněno externě", varovný banner, tlačítko Chytré mazání (🗑) + Publikovat znovu (↻).
+  8. Klikni na Chytré mazání → vyber „Smazat z aplikace" → příspěvek zmizí z Postia.
+
+## 2026-06-21
+
+### ✅ Hotovo – LinkedIn archivace jako vedlejší efekt mazání (odstraněna dočasná „Archivovat" logika)
+
+- **Kontext**: V předchozím kroku (záznam z 2026-06-20) se do [DeletePostDialog](file:///c:/VS_Code/Postio/src/components/dashboard/delete-post-dialog.tsx) přidala **dočasná sekce „Archivovat místo smazat?" + tlačítko „Archivovat LinkedIn příspěvek v aplikaci"**, která šla **mimo standardní potvrzovací flow** (měla vlastní callback `onArchiveLinkedIn` na rodiči a vlastní state `isArchiving`). Uživatel nyní požaduje, aby:
+  1. **Dočasná tlačítka a info banner** zmizely z dialogu.
+  2. Logika **odpovídala YouTube vzoru** – tzn. když uživatel smaže z LinkedIn a **NEZAŠKRTNE „Trvale smazat z aplikace"**, příspěvek se v aplikaci **automaticky archivuje** (stejné chování jako dnes u YouTube: v PostCard se zobrazí banner „LinkedIn příspěvek byl archivován v aplikaci / Publikováno: … / Archivováno: … / Fyzicky může na platformě stále existovat…").
+  3. **Vizuální stav `removed_externally`** pro LinkedIn se chová stejně jako pro YouTube – zobrazí se univerzální banner „Odstraněno přímo na LinkedIn (datum)" + doporučení použít tlačítko „Chytré mazání" (🗑). Tato logika v PostCard **již fungovala** (viz `tRemovedExternallyMsg.replace("__platform__", …)` na řádku ~622 `_post-card.tsx`), takže tady stačilo **nic nerozbít**.
+- **Co bylo provedeno**:
+  1. **`deleteFromMeta` – přidán parametr `markArchived`** v [src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts#L1226-L1255). Po úspěšném API DELETE (`204 No Content`) na LinkedInu se nyní:
+     - Když `markArchived === true` → `post_platforms.status="archived"`, `archived_at=now`, `archive_reason="user_archived_from_app"`. `published_at` a `external_id` zůstanou zachované (PostCard archived banner je potřebuje).
+     - Když `markArchived === false` nebo platform != LinkedIn → výchozí flow (`status="draft"`).
+  2. **PostCard `_post-card.tsx`** – v `handleDeleteConfirm()` se pro LinkedIn předává `markArchived: !deleteFromApp`:
+     ```ts
+     const markArchived = platform === "linkedin" && !deleteFromApp;
+     await deleteFromMeta({ postId: post.id, platform, markArchived });
+     ```
+     Tím pádem: **LinkedIn + nezaškrtnuto „Trvale smazat z aplikace"** = API DELETE + archivace v aplikaci → PostCard zobrazí `linkedinArchivedRow` banner.
+  3. **DeletePostDialog** – odstraněny:
+     - `Info` a `Archive` importy z `lucide-react`.
+     - `onArchiveLinkedIn` prop a handler `handleArchiveLinkedIn`.
+     - Celá sekce `hasLinkedInPublished && onArchiveLinkedIn && (…)` (info banner + tlačítko „Archivovat LinkedIn příspěvek v aplikaci").
+     - Příslušné kusy z `descriptionText` (už se nezmiňuje „archívovat v aplikaci" jako alternativa).
+  4. **`archiveLinkedInPlatformRow` odstraněna** z [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts) (byla dead code po přesunutí logiky do `deleteFromMeta`). Záložní komentář nad `restoreArchivedLinkedInPost` dokumentuje, kam se logika přesunula.
+  5. **Překlady** – odstraněny nepoužívané klíče `linkedInArchiveSuccess` a `linkedInArchiveError` z [cs.json](file:///c:/VS_Code/Postio/src/messages/cs.json), [en.json](file:///c:/VS_Code/Postio/src/messages/en.json) a [uk.json](file:///c:/VS_Code/Postio/src/messages/uk.json). Klíče `linkedInArchiveBanner` + `linkedInArchiveBannerSubtext` (zobrazení v PostCard) **zůstávají** – jejich texty odpovídají přesně tomu, co uživatel chtěl.
+  6. **Vizuální banner v PostCard** (`linkedinArchivedRow`, řádky ~648–694 `_post-card.tsx`) **se nemění** – ukazuje přesně text požadovaný uživatelem:
+     > *LinkedIn příspěvek byl archivován v aplikaci*
+     > *Publikováno: 21. června 2026 / Archivováno: 21. června 2026*
+     > *Fyzicky může na platformě stále existovat. Při obnově se vytvoří nový příspěvek (případný duplikát smaž ručně na LinkedInu).*
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení (LinkedIn flow)**:
+  1. V Postiu otevři libovolný post publikovaný na LinkedInu.
+  2. Klikni **Smazat** → dialog by měl **již neobsahovat** tlačítko „Archivovat LinkedIn příspěvek v aplikaci".
+  3. **Varianta A – kompletní smazání**: Zaškrtni „Smazat z LinkedIn" + „Trvale smazat z aplikace" → Potvrdit smazání.
+     - Konzole: `>>> Smazání z linkedin ÚSPĚŠNÉ` + příspěvek zmizí z Postia i LinkedInu.
+  4. **Varianta B – archivace (nový YouTube-like flow)**: Zaškrtni „Smazat z LinkedIn", **odškrtni „Trvale smazat z aplikace"** → Potvrdit smazání.
+     - Konzole: `>>> Smazání z linkedin ÚSPĚŠNÉ` + v `post_platforms` se nastaví `status="archived"`, `archived_at=now`.
+     - Příspěvek **zmizí z LinkedInu**, ale **zůstane v Postiu** – v PostCard se zobrazí banner *„LinkedIn příspěvek byl archivován v aplikaci / Publikováno: … / Archivováno: …"*.
+     - Tlačítko Restore (↻) v PostCard umožní příspěvek obnovit (`restoreArchivedLinkedInPost` → nastaví `status="draft"` a smaže `external_id`, aby se vytvořil nový URN při republishi).
+  5. **Varianta C – smazáno mimo Postio**: Smaž příspěvek ručně na LinkedInu → `syncPublishedPosts` zjistí 404 → nastaví `status="removed_externally"`. PostCard zobrazí univerzální varování *„Odstraněno přímo na LinkedIn (datum) – Příspěvek byl odstraněn z platformy. Můžete jej bezpečně smazat z aplikace tlačítkem Chytré mazání (🗑)."*.
+
 ## 2026-06-20
 
-### Docs – Roadmap: BUDOUCÍ ROZVOJ: LinkedIn Sync & Delete (přidána do CLAUDE.md)
+### ✅ Hotovo – LinkedIn mazání z UI: dialog opraven (LinkedIn checkbox + správné texty)
 
-- **Kontext**: Současné řešení archivace LinkedIn příspěvků (viz záznam níže) je funkční, ale čistě manuální. API delete na LinkedInu je nedostupný kvůli tomu, že Postio nemá přístup k **Community Management API (CM API)** — to vyžaduje registraci na firemním e-mailu na vlastní doméně. Abychom měli jasnou mapu, jak z manuální archivace přejít na plnou synchronizaci se stavem příspěvků na platformě, přidána nová roadmap sekce do CLAUDE.md.
-- **Přidáno v [CLAUDE.md](file:///c:/VS_Code/Postio/CLAUDE.md)** – sekce `## 🚀 BUDOUCÍ ROZVOJ: LinkedIn Sync & Delete (Roadmap)` (těsně před sekci „🗂️ Budoucí úkoly čekající na trigger"). Sekce obsahuje:
-  - **Proč to nyní nejde** — LinkedIn CM API vyžaduje firemní e-mail na vlastní doméně; Postio aktuálně read endpointy vrací HTTP 403.
-  - **Postup povýšení (4 kroky)**: (1) zřízení firemního e-mailu `info@postio.cz`, (2) vytvoření dedikované aplikace **„Postio-Sync"** v LinkedIn Developer Portálu s POUZE produktem „Community Management API", (3) implementace OAuth scopes `r_member_social` a `r_organization_social` (doporučeno přes dva oddělené OAuth flow — publikační vs. sync), (4) náhrada manuální archivace plnou automatizací v `syncPublishedPosts` včetně stavového automatu (2xx / 404 / 401 / 5xx) a migrace stávajících `archived` řádků.
-  - **Architektonická připravenost** — explicitně zdůrazněno, že omezení je **čistě na straně LinkedIn API** a Postio je připraveno na okamžitý přechod: DB model `post_platforms` pokrývá oba stavy (`archived` i `removed_externally`), `syncPublishedPosts` již má 4-větvovou logiku, `getValidLinkedInAccessToken` je připraven na multi-app drivery, `archiveLinkedInPlatformRow`/`restoreArchivedLinkedInPost` zůstanou v kódu jako fallback.
-  - **Trigger pro spuštění implementace** — roadmap **nebude implementována automaticky** (žádný watcher). Spustí se manuálně, jakmile (a) Postio bude mít vlastní doménu a pracovní e-mail, (b) v LinkedIn Developer Portálu bude schválená aplikace „Postio-Sync" s aktivním CM API, (c) uživatel dá vědět.
-- **Bez změn v kódu ani DB** — pouze dokumentační roadmap. Stávající archive flow se nemění.
-- **Po dokončení implementace** (v budoucnu): tato roadmap sekce v CLAUDE.md + sekce „LinkedIn soft-delete (archive) flow" v CHANGELOG.md se přesunou do „Dokončené postponed úkoly (historie)".
+- **Kontext**: Terminálový test v [scripts/test-linkedin-delete.mjs](file:///c:/VS_Code/Postio/scripts/test-linkedin-delete.mjs) potvrdil, že LinkedIn API DELETE funguje (vrátilo `204 No Content` pro `urn:li:share:7474318923950321665`). UI dialog pro mazání příspěvku v Postiu ale **tvrdil opak** – blokoval smazání z LinkedInu přes API a vnucoval jen archivaci.
+- **Co bylo opraveno** v [src/components/dashboard/delete-post-dialog.tsx](file:///c:/VS_Code/Postio/src/components/dashboard/delete-post-dialog.tsx):
+  1. **`metaPlatforms` → `selectablePlatforms`** – LinkedIn je nyní součástí seznamu checkboxů (spolu s Facebookem, Instagramem atd.). Uživatel může zaškrtnout **„Smazat z LinkedIn"** jako kteroukoliv jinou síť.
+  2. **`descriptionText` aktualizován** – odstraněna LEŽ „LinkedIn neumožňuje smazání příspěvků přes API". Místo toho se teď správně říká: *„Tento příspěvek je publikován pouze na LinkedInu. Můžeš ho buď smazat z LinkedInu i aplikace, nebo jen archivovat v aplikaci."*
+  3. **Info banner přeformulován** z *„LinkedIn & smazání přes API"* (lhal) na **„Archivovat místo smazat?"** – teď vysvětluje, **proč** je archivace dobrá **alternativa** (umožní pozdější obnovení), ne že smazání přes API **nejde**.
+  4. **Tlačítko archivace** – popis *„Doporučeno"* změněn na **„Alternativa"**, protože **doporučeno** je teď **skutečné smazání** (kompletní odstranění z LinkedInu i DB), archivace je **sekundární možnost** pro uživatele, kteří chtějí příspěvek zachovat.
+- **Jak to funguje v praxi** (tok po kliknutí na tlačítko **„Potvrdit smazání"**):
+  1. `_post-card.tsx → handleDeleteConfirm()` iteruje přes `selectedPlatforms` a volá `deleteFromMeta({ postId, platform })` **pro každou zaškrtnutou platformu** – včetně LinkedInu.
+  2. `publish.ts → deleteFromMeta()` má **speciální větev pro LinkedIn** (opraveno dříve), která zavolá **LinkedIn API** (`DELETE /v2/ugcPosts/{id}`) s **čerstvým access tokenem** (automaticky se refreshne, pokud je blízko expiraci).
+  3. Při `204 No Content` se v DB aktualizuje `post_platforms.status = "removed_externally"` a `post` se odstraní z aplikace (pokud je zaškrtnuto „Trvale smazat z aplikace").
+- **Test po nasazení**:
+  1. V Postiu otevři libovolný post publikovaný na LinkedInu.
+  2. Klikni **Smazat** → v dialogu by se měl nově zobrazit **checkbox „Smazat z LinkedIn"** (zaškrtnutý defaultně).
+  3. Zaškrtni **„Trvale smazat z aplikace Postio"** a klikni **„Potvrdit smazání"**.
+  4. V terminálu by se mělo objevit `>>> START MAZÁNÍ Z PLATFORMY: linkedin`, `>>> Smazání z linkedin ÚSPĚŠNÉ`.
+  5. Příspěvek by měl zmizet z LinkedInu (ověř na `linkedin.com/feed/update/{urn}`) i z Postia.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+
+### Test – obcházení UI dialogu pro smazání LinkedIn příspěvku (terminálový test script)
+
+- **Kontext**: UI dialog pro smazání LinkedIn příspěvku v Postiu aktuálně **blokuje** skutečné smazání přes API s odůvodněním: *"LinkedIn neumožňuje smazání příspěvků přes API"* (viz snímek uživatele). To je **technicky špatně** – LinkedIn UGC Posts API **podporuje** `DELETE /v2/ugcPosts/{id}` s `w_member_social` scope a vrací 204 No Content. Uživatel potřebuje cestu, jak **otestovat** smazání přes API, aniž by musel měnit UI dialog.
+- **Vytvořen** [scripts/test-linkedin-delete.mjs](file:///c:/VS_Code/Postio/scripts/test-linkedin-delete.mjs) – standalone Node 24 ESM script, který:
+  1. Načte aktivní LinkedIn `social_accounts` řádek z DB přes `SUPABASE_SERVICE_ROLE_KEY`.
+  2. **Refreshne** access token přes LinkedIn `/oauth/v2/accessToken`, pokud se blíží expiraci (< 24 h).
+  3. Ověří `sub` přes `/v2/userinfo` (stejná diagnostika jako v `publish-linkedin.ts`).
+  4. Na `--dry-run` zastaví a **nesmaže nic**; jinak provede `DELETE https://api.linkedin.com/v2/ugcPosts/{externalId}` s `Authorization: Bearer …`, `X-Restli-Protocol-Version: 2.0.0`, `Linkedin-Version: 202510`.
+- **Dry-run test pro `urn:li:share:7474313283974488064`** ✅:
+  - Token platný do `2026-08-20T04:12:05Z` (60 dní).
+  - `/v2/userinfo: status=200, subMatches=true` (token patří účtu Kateřina Nyklová, `DDB1NESj0w`).
+  - DELETE URL správně sestrojená: `https://api.linkedin.com/v2/ugcPosts/urn%3Ali%3Ashare%3A7474313283974488064`.
+  - **Závěr**: Pokud LinkedIn fakt podporuje DELETE (a podle oficiálních docs ano), skutečné smazání by mělo vrátit 204.
+- **Spuštění** (PowerShell, z `c:\VS_Code\Postio`):
+  ```powershell
+  # Suchý test (ověří token, nic nesmaže):
+  node --env-file=.env.local scripts/test-linkedin-delete.mjs urn:li:share:7474313283974488064 --dry-run
+
+  # Skutečné smazání:
+  node --env-file=.env.local scripts/test-linkedin-delete.mjs urn:li:share:7474313283974488064
+  ```
+- **Další krok (po potvrzení funkčnosti)**: Opravit UI dialog v Postiu, aby místo tvrzení "LinkedIn neumožňuje smazání přes API" nabízel **3 možnosti**:
+  1. **Archivovat v aplikaci** (post zůstane, jen zmizí z aktivního seznamu – současné chování).
+  2. **Smazat z LinkedIn + z aplikace** (nová možnost – vyvolá `deleteFromMeta`, která už LinkedIn API správně volá).
+  3. **Smazet jen z aplikace** (post zůstane na LinkedInu, smaže se jen z DB).
+
+### ✅ Hotovo – LinkedIn publish funguje (po přidání `Linkedin-Version: 202510` + ověření Developer App configu)
+
+- **Kontext**: Po přidání hlavičky `Linkedin-Version: 202510` do POST `/v2/ugcPosts` (viz předchozí záznam) se příspěvky na LinkedInu **úspěšně zobrazují** v produkčním režimu.
+- **Co bylo potvrzeno z LinkedIn Developer Portal** (snímek uživatele):
+  - **Typ aplikace**: `Samostatná aplikace` (Core Application) – správný typ pro member-autored posts s `w_member_social`.
+  - **Přístupový token**: `2 měsíce` (5184000 sekund) – odpovídá 60dennímu LinkedIn limitu, náš `getValidLinkedInAccessToken()` to správně pokrývá.
+  - **OAuth 2.0 scopes**: `openid`, `profile`, `w_member_social`, `e-mail` – **přesně** ty, které potřebujeme pro UGC Posts (write). Read scope `r_member_social` chybí záměrně, ale to nám nebrání v publikování.
+  - **Redirect URLs**: `http://localhost:3000/api/accounts/linkedin` a `https://postio-alpha.vercel.app/api/accounts/linkedin` – **správně nastavené** pro OAuth callback.
+- **Root cause** kombinace dvou věcí:
+  1. **Starší verze API** (Linkedin-Version chyběla nebo byla stará) → POST API request se zpracoval, ale nová verze API v roce 2026 ho **odklonila do interního draft storage** místo na produkční feed.
+  2. Přidání `Linkedin-Version: 202510` zarovnalo request na aktuální API verzi → posty se nyní publikují **přímo na produkční LinkedIn feed**.
+- **Důležité**: ponecháme **detailní DEBUG logy** v [publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts) pro budoucí support a diagnostiku. Pokud bude chtít uživatel produkční build bez verbose logů, můžeme je později obalit do `if (process.env.NODE_ENV !== "production")`.
+- **Doporučení do budoucna**: Sledovat LinkedIn API changelog (https://learn.microsoft.com/en-us/linkedin/marketing/community-management/updates) a aktualizovat `LINKEDIN_VERSION` (nebo env proměnnou) minimálně jednou ročně.
+
+### Diagnostika – LinkedIn publish: výsledky testu (token OK, payload OK, post se nezobrazuje)
+
+- **Kontext**: Spuštěn kompletní publish flow s diagnostikou přidanou v předchozím kroku. Výsledky z konzole:
+  - `[LinkedIn] DEBUG /v2/userinfo` → `status: 200`, `sub: 'DDB1NESj0w'`, `expectedSub: 'DDB1NESj0w'`, `subMatches: true` ✅. **Token patří správnému účtu** (Kateřina Nyklová). Teorie o `sub` mismatch je vyloučena.
+  - `[LinkedIn] DEBUG full 201 response` → `status: 201`, `x-restli-id: urn:li:share:7474313283974488064`, `location: /ugcPosts/urn%3Ali%3Ashare%3A7474313283974488064`, `body: '{"id":"urn:li:share:7474313283974488064"}'`. Response **je úspěšný a úplný** – post má platný URN, location hlavičku, správné routing flags.
+  - `[LinkedIn] DEBUG GET ugcPosts/{id} after publish` → `status: 403`, `message: 'Not enough permissions to access: ugcPosts.GET.NO_VERSION'` – **očekávané**, member read scope (`r_member_social`) nemáme.
+  - Uživatel potvrdil: **post se na LinkedIn profilu nezobrazuje**, ani po >15 minutách (LinkedIn processing delay).
+- **Skutečný stav**: Payload, token, OAuth, response hlavičky a route-key jsou všechny v pořádku. API request je **úspěšně přijat a zpracován**. Přesto se post fyzicky **na profilu nezobrazuje**.
+- **Nejpravděpodobnější příčiny (v pořadí podle pravděpodobnosti)**:
+  1. **LinkedIn Developer App v „Development" módu** – API request projde (protože `w_member_social` scope je schválen i v Development), ale posty **se v produkčním LinkedInu nezobrazují**. Řešení: [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps) → tvoje app → záložka **Settings** → přepnout z „Development" na „Live" (případně projít App Reviewem).
+  2. **Nové API verze (202504+) vyžadují `Linkedin-Version` hlavičku** – oficiální `share-on-linkedin` dokumentace ji pro `/v2/ugcPosts` nezmiňuje, ale rok 2026 přinesl nové verze API a některé tiché změny. Přidáno níže.
+  3. **Post vytvořen v interním draft/review stavu** – méně pravděpodobné, ale možné. Tehdy jedině pomůže manuální ověření přes přímý odkaz.
+- **Přidaná vylepšení** v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts):
+  1. **Hlavička `Linkedin-Version: 202510`** (výchozí; overridable přes `LINKEDIN_VERSION` env). Pokud LinkedIn v roce 2026 vyžaduje verzi API pro UGC Posts, mělo by to pomoct.
+  2. **Přímý odkaz na post** přidán do success logu: `https://www.linkedin.com/feed/update/{urn-encoded-externalId}`. Uživatel může **kliknout** a ověřit jedním kliknutím, jestli post existuje:
+     - Pokud vrací **404** → post se fyzicky nikde nezobrazuje (API vytvořil hidden draft).
+     - Pokud se post **zobrazí** → API funguje, ale processing delay nebo Developer App mód brání propagaci na profil/feed.
+- **Co dělat při dalším testu**:
+  1. Publikuj nový post na LinkedIn.
+  2. V konzoli najdi řádek `[LinkedIn] ✅ publish success: { ..., linkedInUrl: '...' }`.
+  3. **Otevři `linkedInUrl` v prohlížeči** (po přihlášení na LinkedIn):
+     - `404 / page not found` → post se vytvořil ve skrytém stavu → kontaktuj LinkedIn support nebo zkus jiný payload.
+     - Post se **zobrazí** → je to processing delay nebo Developer App mód; zkontroluj `linkedin.com/in/{tvuj-profil}/recent-activity/posts/`.
+  4. Ověř **Developer App status**: https://www.linkedin.com/developers/apps → app → **Settings** → **App mode**: musí být „Live" (ne „Development").
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+
+### Fix – Mazání z LinkedIn: oprava „Malformed access token" (Graph API → LinkedIn API + token refresh)
+
+- **Problém**: Při pokusu o smazání příspěvku z LinkedIn přes UI dostával uživatel chybu `Malformed access token AQVHPLUdb0tv2sh28NYE…` (kód 190, typ `OAuthException`). Konzole ukazovala `Mazání příspěvku z linkedin: { externalId: 'urn:li:share:7474188949469446144' }` a pak `META RESPONSE (delete linkedin): { error: { ... 'Malformed access token' ... } }`.
+- **Skutečná příčina**: Funkce [src/lib/actions/publish.ts → deleteFromMeta()](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts) (která se volá z `_post-card.tsx` pro **všechny platformy**) používala **Facebook Graph API** (`https://graph.facebook.com/v20.0/{id}`) i pro LinkedIn. LinkedIn access token je ale **úplně jiný formát** než Facebook token (LinkedIn: JWT-like, Facebook: opaque string), takže Graph API ho vždy odmítla jako malformed.
+  - Sekundární příčina: token v `social_accounts.access_token` mohl být pro starší příspěvky již **expirovaný** (LinkedIn tokeny mají 60-denní platnost, refresh se prováděl jen při publishi – nikoliv při delete).
+- **Oprava** v [src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts) – přidána **speciální větev pro LinkedIn** v `deleteFromMeta()`:
+  ```ts
+  if (input.platform === "linkedin") {
+    // 1) Načti celý social_accounts řádek (refresh token, expiry)
+    // 2) Zavolej getValidLinkedInAccessToken() – transparentně refreshne
+    //    expirovaný token přes /oauth/v2/accessToken
+    // 3) Smaž přes DELETE https://api.linkedin.com/v2/ugcPosts/{id}
+    //    s Authorization: Bearer ... a X-Restli-Protocol-Version: 2.0.0
+    // 4) LinkedIn vrací 204 No Content na success, 404 = post už neexistuje
+    //    (ošetřeno jako "already deleted on platform")
+  } else {
+    // Facebook / Instagram – stávající Graph API kód
+  }
+  ```
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**:
+  1. V Postiu otevři libovolný post publikovaný na LinkedIn (i starší, kde delete dosud selhával).
+  2. Klikni na **Smazat z LinkedIn**.
+  3. V konzoli by se měl objevit `>>> START MAZÁNÍ Z PLATFORMY: linkedin`, `>>> Smazání z linkedin ÚSPĚŠNÉ` a post by měl zmizet z profilu.
+  4. Pokud token expiroval, v konzoli uvidíš navíc `[LinkedIn] refreshing access token` z `getValidLinkedInAccessToken`.
+
+### Debug – LinkedIn publish: přidána detailní diagnostika (payload + token + verify fetch)
+
+- **Kontext**: Uživatel opakovaně hlásí, že příspěvky na LinkedIn API **projdou** (HTTP `201 Created`, URN v `x-restli-id`), ale **na LinkedIn profilu se nezobrazí**. Konzole ukazuje `[LinkedIn] ✅ publish success`, ale `linkedin.com/{user}/recent-activity/posts/...` zůstává prázdný. Předchozí pokusy (`distribution` přidat → 403 ACCESS_DENIED, `distribution` odebrat → API projde ale post se nezobrazí) příčinu neodhalily. Kód v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts) byl v `git log` **pouze jednou commitnutý** (`4710e79 feat: YouTube & LinkedIn integration with safety delete rules`) – všechny "opravy" probíhaly v pracovní kopii.
+- **Provedená kontrola**: Porovnal jsem aktuální kód s oficiální dokumentací [Share on LinkedIn](https://learn.microsoft.com/cs-cz/linkedin/consumer/integrations/self-serve/share-on-linkedin). Payload se **shoduje** s ukázkovým requestem z dokumentace (pro image i text). Hlavičky (`Authorization`, `Content-Type`, `X-Restli-Protocol-Version: 2.0.0`) jsou správné. Registrace assetu (`/v2/assets?action=registerUpload`) i binární upload (`POST uploadUrl`) odpovídají schématu v [Vector Assets API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/vector-asset-api).
+- **Problém**: Statická analýza nestačí – payload je správně, ale post se nezobrazuje. Potřebujeme **runtime data** z LinkedIn API, která dosud nebyla logována:
+  1. **Celý request payload** (ne jen zkrácený souhrn) – pro jistotu, že se neposílá nic neočekávaného.
+  2. **Celá API response** (headers + body) – LinkedIn může vracet varování o draft/review stavu, která dosud zahazujeme.
+  3. **Verify fetch** `GET /v2/ugcPosts/{id}` bezprostředně po publikaci – pokud LinkedIn vytvořil post ve skrytém stavu, měl by tento call vrátit buď 404, nebo post s jiným `lifecycleState`.
+  4. **Token introspection** přes `/v2/userinfo` – ověří, že `sub` v tokenu odpovídá `account.platform_id` (jinak publikujeme pod jiným účtem) a že token má scope `w_member_social`.
+- **Přidaná diagnostika** v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts):
+  - V `publishToLinkedInAction`: `console.log("[LinkedIn] DEBUG /v2/userinfo:", ...)` – loguje status, body preview (safe fields) a porovnává `sub` s `account.platform_id`.
+  - V `publishToLinkedIn`: 
+    - `console.log("[LinkedIn] DEBUG full ugcPosts payload:", JSON.stringify(payload, null, 2))` – celý payload.
+    - Po `201 Created`: dump všech response headers + body přes `console.log("[LinkedIn] DEBUG full 201 response:", ...)`.
+    - Po úspěchu: `GET /v2/ugcPosts/{externalId}` přes `console.log("[LinkedIn] DEBUG GET ugcPosts/{id} after publish:", ...)` – ověří, jestli post na LinkedInu opravdu existuje.
+- **Co dělat při dalším pokusu o publish**:
+  1. Zkusit publikovat libovolný post na LinkedIn (text i image).
+  2. V terminálu vyhledat řádky s prefixem `[LinkedIn] DEBUG`:
+     - `DEBUG /v2/userinfo` → ověří `subMatches: true/false`. Pokud `false`, **token patří jinému LinkedIn účtu**, než je `platform_id` – post se vytvořil pod cizím účtem.
+     - `DEBUG full 201 response` → response body může obsahovat varování (např. `"review"`, `"draft"`, `"PROCESSING"`), které jsme dosud ignorovali.
+     - `DEBUG GET ugcPosts/{id} after publish` → pokud status **200** a post je v něm, je vše OK; pokud **404** nebo jiný lifecycleState, post se vytvořil ve skrytém stavu.
+  3. Podle výstupu diagnostiky navrhnu konkrétní opravu (viz kandidáti níže).
+- **Kandidáti na root cause (a opravu) na základě diagnostiky**:
+  - **`subMatches: false`** → nutné znovu projít OAuth flow v Postiu (smazat `social_accounts` řádek, znovu se připojit přes LinkedIn). V tom případě se dřívější "jednou to šlo" vysvětluje tím, že tenkrát se OAuth provedl správně; pak se uložil špatný `sub`.
+  - **Verify fetch vrací 404 / jiný lifecycleState** → LinkedIn vytvořil post ve stavu, který **není na member feedu** (např. `PUBLISH_REQUESTED` z nového Posts API). Tehdy je potřeba přidat `distribution: { feedDistribution: "MAIN_FEED" }` (přesně podle Posts API Schema, **ne** staré UGC docs). V CHANGELOGu výše je tento pokus dokumentovaný jako neúspěšný – ale test se prováděl bez diagnostiky, takže se mohlo špatně vyhodnotit. Nový test s diagnostikou to potvrdí/vyvrátí.
+  - **Response body obsahuje review/draft warning** → LinkedIn zařadil příspěvek do manuálního review kvůli politice (text flags, image hash). Tehdy je třeba dát uživateli vědět, že publikace proběhla, ale LinkedIn ji pozdržel.
+  - **`/v2/userinfo` vrací `scope` bez `w_member_social`** → OAuth scope chybí, je nutné znovu projít OAuth authorizaci se správným scope (viz [src/app/api/accounts/linkedin/route.ts](file:///c:/VS_Code/Postio/src/app/api/accounts/linkedin/route.ts)).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+
+### Fix – `/posts` stránka nezobrazovala aktualizovaný status po publikování (Next.js RSC client-side cache)
+
+- **Problém**: Po úspěšném publikování příspěvku (LinkedIn i jiné sítě) se na FE stránce `/[locale]/posts` **nic neprojevilo**. Terminál hlásil `[LinkedIn] ✅ publish success`, `✅ ZAPISUJI ÚSPĚCH DO DB: linkedin pro post …`, `🚀 ARCHITEKTURA: Aktualizuji post_platforms linkedin -> published` a `GET /cs/posts 200 in 578ms` – ale post v seznamu zůstával ve starém stavu (např. `draft` nebo `scheduled`).
+- **Skutečná příčina**: Next.js 14 App Router drží **dvě nezávislé cache**:
+  1. **Server-side fetch cache** – invaliduje se přes `revalidatePath(...)` v server action. Tady bylo vše v pořádku.
+  2. **Client-side RSC payload cache** – drží výsledek posledního server-component renderu **na klientu**. Tuto cache `revalidatePath` **neinvaliduje**.
+  
+  Po `publishPost` server action sice zavolala `revalidatePath("/cs/posts", ...)`, ale `posts/[id]/page.tsx` a `posts/new/page.tsx` následně používaly `router.push(\`/\${locale}/posts\`)` **bez `router.refresh()`**. Klient tedy při navigaci na `/posts` **znovu použil starý RSC payload z klientské cache** a server component se vůbec nevykonal – takže se nová data (`post_platforms.status="published"`) nikdy nedostala do `initialPosts`.
+- **Oprava** v [src/app/[locale]/(dashboard)/posts/_posts-container.tsx](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/_posts-container.tsx#L168-L186):
+  ```tsx
+  // Force a fresh server-component fetch on every mount of the /posts page.
+  // PostsContainer is rendered inside posts/page.tsx (not the dashboard layout),
+  // so it mounts/unmounts on every navigation to /posts – that is the right hook
+  // for forcing a server refresh and bypassing the stale client-side RSC cache.
+  useEffect(() => {
+    router.refresh();
+  }, []);
+  ```
+  Tím se při každém příchodu na `/posts` vynutí nový server-component fetch, který načte aktuální data z DB (včetně `status="published"`).
+- **Proč to nezpůsobí refresh smyčku**: dependency `[]` zajistí, že se `router.refresh()` spustí jen jednou při mountu. I když po něm přijde nový `initialPosts`, useEffect se znovu nespustí (jiná závislost než `[initialPosts]`).
+- **Proč je `[]` správná volba**: `PostsContainer` je mountnutý přímo v [src/app/[locale]/(dashboard)/posts/page.tsx](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/page.tsx) (ne v layoutu), takže se při každé navigaci na `/posts` mountne znovu a `useEffect` se spustí právě tehdy, když je potřeba.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**:
+  1. Otevři libovolný post ve stavu `draft` / `scheduled` / `failed`.
+  2. Klikni na **Publikovat** (nebo **Publikovat znovu**) a vyber platformu.
+  3. Po úspěchu se v konzoli zobrazí `[LinkedIn] ✅ publish success` a `✅ ZAPISUJI ÚSPĚCH DO DB`.
+  4. Po návratu na `/cs/posts` by měl být post **ihned viditelný s novým statusem** (např. `published` se zeleným odznakem) – bez nutnosti ručního F5.
+  5. V konzoli by se měl objevit `GET /cs/posts 200` s kratším `application-code`, protože server component běží znovu a načítá fresh data z DB.
+
+### Fix – LinkedIn image upload: změna `PUT` → `POST` (binární soubor se reálně nenahrál, příspěvek bez obrázku)
+
+- **Problém**: Uživatel nahlásil, že příspěvek s obrázkem se v aplikaci tváří jako `published` (LinkedIn API vrátila `201 Created` + URN), ale **na LinkedInu se nezobrazí vůbec**, případně se zobrazí jako text-only (bez připojeného obrázku). Konzole opakovaně hlásila `[LinkedIn] ✅ publish success: { externalId: 'urn:li:share:...' }` a `mediaCategory: 'IMAGE'`, `hasMediaUrn: true` – z logu se zdálo, že vše proběhlo. Po důkladném přečtení oficiální dokumentace **„Share on LinkedIn"** (https://learn.microsoft.com/cs-cz/linkedin/consumer/integrations/self-serve/share-on-linkedin) se ukázalo, že příčina je v **binárním uploadu**.
+- **Skutečná příčina**: V oficiální dokumentaci se jasně píše:
+  > „To upload your image or video, send a `POST` request to the `uploadUrl` with your image or video included as a binary file."
+  
+  Náš kód ale v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts#L383-L431) posílal `method: "PUT"`. LinkedIn **tiše akceptoval PUT request** (vrátil `201 Created` a `uploadUrl` se jevil jako úspěšný), ale binární data se **ve skutečnosti nikdy nepersistovala** – `asset` URN z registrace ukazoval na neexistující binární obsah. Následný `ugcPosts` request s tímto asset URN se buď:
+  1. Vytvořil, ale bez obrázku (prázdný post → na profilu se nezobrazí, nebo se zobrazí jako text-only), **nebo**
+  2. Vytvořil a LinkedIn ho zařadil do "review" fronty kvůli nevalidnímu asset odkazu → na profilu se nezobrazí do manuálního schválení.
+  
+  V obou případech Postio uložil `status="published"` protože API vrátila `201 Created` + URN – ale **na LinkedInu se příspěvek reálně nikdy nepropagoval**. Pro text-only posty (bez média) byl kód správně, takže fungoval. Pro image posty selhával.
+- **Oprava** v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts#L383-L431):
+  ```ts
+  // Before:
+  method: "PUT"
+  // After:
+  method: "POST"
+  ```
+  Plus přidán obsáhlý komentář vysvětlující, proč **MUSÍ** být POST:
+  - Textová dokumentace explicitně říká POST.
+  - Vector Assets API specifikace (https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/vector-asset-api) dokumentuje POST.
+  - cURL příklad v dokumentaci používá `--upload-file`, který curl interně mapuje na PUT – to je **klamavé a v rozporu** s textovými instrukcemi. Vždy se řiďte textem, ne příkladem.
+- **Dopad na text-only posty**: Žádný. PUT→POST se týká pouze `registerLinkedInImageAsset`, která se volá jen když má příspěvek obrázek. Textové posty procházejí nezávislou cestou přes `publishToLinkedIn` a `registerLinkedInImageAsset` vůbec nevolají.
+- **Dopad na stávající image příspěvky**: Příspěvky publikované **před touto opravou** sice získaly URN z LinkedIn API, ale obrázek reálně nebyl nahrán. Na LinkedInu se proto buď nezobrazily, nebo se zobrazily jako text-only. V Postio je `status="published"`. Řešení: **smazat a znovu publikovat** – nově publikované image posty by měly mít obrázek správně.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**:
+  1. V Postiu vytvoř **nový příspěvek** s LinkedIn platformou **a s obrázkem**.
+  2. V konzoli sleduj `asset binary upload` step – po něm by měl přijít `201 Created` a `uploadUrl`.
+  3. Po API callu: `[LinkedIn] ✅ publish success: { externalId: 'urn:li:...', mediaCategory: 'IMAGE' }`.
+  4. Na linkedin.com → profil → příspěvky by se měl příspěvek **zobrazit s obrázkem do 15 minut**.
+  5. Pokud stále ne, ověř v konzoli celý request/response log – `POST {uploadUrl}` by měl vrátit `201 Created`, ne `405 Method Not Allowed` (což by znamenalo, že LinkedIn tuto URL akceptuje jen s POST, ne PUT).
+
+### Fix – LinkedIn publish: vrácení chybně přidaného `distribution` (předešlá oprava selhala s 403 ACCESS_DENIED)
+
+- **Kontext**: Při předchozí opravě (záznam níže – „Fix – LinkedIn publish: přidáno povinné pole `distribution`") jsem chybně dovodil, že `distribution` je pro member-autored ugcPosts povinné. Test na produkci to vyvrátil: LinkedIn API odpověděla `403 ACCESS_DENIED` s chybou `Unpermitted fields present in REQUEST_BODY: Data Processing Exception while processing fields [/distribution]`. Tím pádem **žádný příspěvek publikovaný po oné opravě** neprošel – všechny skončily ve stavu `failed`.
+- **Skutečnost**: Pole `distribution` v LinkedIn UGC Posts API existuje, ale je **povolené POUZE pro organization-autored posts** (`urn:li:organization:*` + scope `w_organization_social` / Marketing Developer Platform). Pro **member-autored posts** (`urn:li:person:*` + `w_member_social` – což je přesně Postio use case) je `distribution` blok **zakázaný** a LinkedIn API ho striktně odmítá. Member příspěvky se publikují na member feed default, žádné `distribution` nepotřebují.
+- **Oprava – vrácení payloadu** v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts#L575-L585):
+  ```ts
+  const payload = {
+    author: authorUrn,                                    // urn:li:person:{openIdSub}
+    lifecycleState: "PUBLISHED",
+    specificContent: { "com.linkedin.ugc.ShareContent": shareContent },
+    visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
+    // distribution: ODSTRANĚNO – způsobovalo 403 ACCESS_DENIED
+  };
+  ```
+- **Dopad na uživatele**: Příspěvky, které selhaly mezi předchozí opravou a touto opravou, zůstávají v DB jako `failed` v `post_platforms`. Uživatel je může **znovu publikovat** – s opraveným payloadem by měly projít.
+- **Skutečná příčina „příspěvek se v aplikaci tváří publikovaný, ale na LinkedInu není vidět"**: Po této opravě by měl member-autored ugcPost s `w_member_social` projít a zobrazit se na feed/profile autora. Pokud se **ani poté** nezobrazí, příčina je **mimo kód Postio**:
+  1. **LinkedIn processing delay** (typicky 5–15 minut, občas i déle, hlavně u nově propojených účtů).
+  2. **Developer app v „Development" / „Test" módu** – API call projde, ale posty se nezobrazují členům v produkci. Řešení: v [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps) → app → záložka **Settings** → přepnout z „Development" na „Live", případně projít App Reviewem.
+  3. **OpenID sub mismatch** – `account.platform_id` v `social_accounts` neodpovídá reálnému uživateli, jehož token byl použit. Detekuje se vizuálně: URN `urn:li:person:{sub}` z logu by měl sedět s LinkedIn profilem, na který se příspěvek očekává.
+- **Diagnostické logování**: Ponecháno a upřesněno – `console.log("[LinkedIn] sending ugcPosts payload (member-autored, no distribution):", ...)` vypíše klíčové informace pro support (author URN, lifecycleState, visibility, mediaCategory, contentLength). Úspěšný log nyní obsahuje i `mediaCategory` pro snazší korelaci s konkrétním příspěvkem.
+- **Oprava ponaučení** v [AGENTS.md](file:///c:/VS_Code/Postio/AGENTS.md#L52-L55): předchozí záznam o „distribution je povinné" byl chybný – opraven na skutečné pravidlo (viz níže).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**:
+  1. V Postiu otevři **dříve publikovaný příspěvek** se statusem `failed` na LinkedInu → klikni na **Publikovat znovu**.
+  2. V konzoli by se **před** API callem měl objevit `[LinkedIn] sending ugcPosts payload (member-autored, no distribution): { author: 'urn:li:person:...', ... }` (bez `distribution` v klíčích).
+  3. Po API callu by se měl objevit `[LinkedIn] ✅ publish success: { externalId: 'urn:li:...', ... }`.
+  4. Na linkedin.com → profil → příspěvky by měl být příspěvek **viditelný do 15 minut**.
+
+### Fix – LinkedIn publish: přidáno povinné pole `distribution` (příspěvky se vytvořily, ale nikde nezobrazily) [CHYBNÁ OPRAVA – viz předchozí záznam] 
+
+- **Problém**: Příspěvek se v aplikaci tvářil jako `published` (LinkedIn API vrátila `201 Created` + URN `urn:li:share:7474174217731821568`), ale **na LinkedIn profilu/feedu se nikdy nezobrazil**. Konzole opakovaně hlásila `[LinkedIn] ✅ publish success`, post se uložil do `post_platforms` jako `published`, ale platforma zůstala prázdná. Sync logika poté zahlásila `[syncPublishedPosts] LinkedIn sync skipped: CM API not available for this app scope.` – což ale s tímto bugem **nesouviselo** (sync jen neumí ověřit existenci, ne že by post neexistoval).
+- **Skutečná příčina**: LinkedIn UGC Posts API od května 2023 vyžaduje v payloadu **explicitní blok `distribution`** pro příspěvky autorizované členem (`urn:li:person:*`). Pokud `distribution` chybí, LinkedIn API:
+  1. Vrátí HTTP `201 Created` + `x-restli-id` URN (vypadá to jako úspěch).
+  2. Interně vytvoří příspěvek ve **skrytém/draft stavu**, který se **nikdy nepropaguje na member feed/profile timeline**.
+  3. Neohlásí chybu – mlčky selže.
+- **Oprava** v [src/lib/actions/publish-linkedin.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-linkedin.ts#L549-L600):
+  ```ts
+  const payload = {
+    author: authorUrn,
+    lifecycleState: "PUBLISHED",
+    specificContent: { "com.linkedin.ugc.ShareContent": shareContent },
+    visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
+    // ✅ NOVĚ – povinné od LinkedIn API 2023-05
+    distribution: {
+      feedDistribution: "MAIN_FEED",
+      targetEntities: [],
+      thirdPartyDistributionChannels: [],
+    },
+  };
+  ```
+  `feedDistribution: "MAIN_FEED"` zajistí, že se příspěvek zobrazí na hlavním feedu autora. `targetEntities: []` a `thirdPartyDistributionChannels: []` jsou povinná prázdná pole (LinkedIn je očekává vždy).
+- **Přidáno diagnostické logování**: Před odesláním payloadu se vypíše `console.log("[LinkedIn] sending ugcPosts payload:", { author, lifecycleState, visibility, feedDistribution, mediaCategory, hasMediaUrn, contentLength })`. Po úspěšném 201 Created se log rozšířil o `feedDistribution: "MAIN_FEED"`, aby šlo v konzoli snadno ověřit, že oprava je aktivní.
+- **Dopad na stávající příspěvky**: Žádný. Tato oprava se týká **pouze nově publikovaných** příspěvků. Příspěvky publikované **před touto opravou** sice získaly URN z LinkedIn API, ale nikdy se reálně nezobrazily – uživatelé je mohou najít v Postio jako `published`, na LinkedInu je bohužel nutné **smazat nebo ručně přepublikovat**. V UI jsme to neřešili (pokryto existujícím "Archivovat" tokem pro staré příspěvky).
+- **Dopad na ostatní platformy**: Žádný. Facebook/Instagram/YouTube/TikTok/X payloady mají vlastní strukturu, LinkedIn `distribution` se jich netýká.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**:
+  1. V Postiu vytvoř nový příspěvek s LinkedIn platformou.
+  2. V konzoli by se **před** API callem měl objevit `[LinkedIn] sending ugcPosts payload: { ..., feedDistribution: "MAIN_FEED" }`.
+  3. Po publikaci ověř na linkedin.com → tvůj profil → příspěvky by měl být příspěvek **viditelný na timeline**.
+  4. Pokud stále ne, ověř že `account.platform_id` (OpenID sub) v `social_accounts` odpovídá author URN ve vygenerovaném payloadu (`urn:li:person:{sub}`).
+
+### Fix – LinkedIn OAuth: odebrání scope `r_member_social` (developer app ho nemá schválený)
+
+- **Problém**: Při pokusu o propojení LinkedIn účtu OAuth okamžitě selhal s chybou `unauthorized_scope_error` a popisem `Scope "r_member_social" is not authorized for your application`. Konzole opakovaně volala `GET /api/accounts/linkedin?error=unauthorized_scope_error&...` – celý OAuth handshake se zasekával ještě před consent obrazovkou, takže uživatel nemohl účet vůbec propojit. Přitom dřív (před přidáním `r_member_social` v rámci sync logiky) to fungovalo bez něj.
+- **Příčina**: Scope `r_member_social` (čtení member sociálních dat) **není součástí produktu „Share on LinkedIn"** v této developer aplikaci, jak se dříve předpokládalo. Přidání read scope navíc vyžaduje **schválení produktu „Community Management API"** LinkedInem, který Postio z právních důvodů nemůže získat (viz předchozí záznam o 403 ACCESS_DENIED). Výsledek: celý OAuth request je odmítnut, protože jeden ze scope není autorizovaný.
+- **Oprava** – odebrání `r_member_social` z OAuth authorize URL v [src/app/api/accounts/linkedin/route.ts](file:///c:/VS_Code/Postio/src/app/api/accounts/linkedin/route.ts#L62-L75):
+  ```ts
+  // Before:
+  scope = "openid profile email w_member_social r_member_social"
+  // After:
+  scope = "openid profile email w_member_social"
+  ```
+  Scope `w_member_social` (publikování) plně dostačuje propojení účtu i následné publikování příspěvků.
+- **Dopad na sync logiku**: Žádný. `syncPublishedPosts` pro LinkedIn už počítá s tím, že read API vrací 403 (viz předchozí záznam o tichém režimu pro CM API) – `last_sync_at` se aktualizuje a `status` zůstává konzervativně `published`. Read scope tam nikdy reálně nefungoval, takže jeho nepřítomnost v tokenu nic nemění.
+- **Dopad na stávající uživatele**: Žádný. Scope `r_member_social` byl v kódu jen jeden den a OAuth kvůli němu vůbec neprošel – **žádný token ho v praxi nezískal**. Databáze `social_accounts` tedy nemá žádné tokeny s tímto scope, které by se musely reauthorizovat.
+- **Přidáno ponaučení** do [AGENTS.md](file:///c:/VS_Code/Postio/AGENTS.md) – pravidlo „OAuth scope přidávej jen pro reálně používaná API volání, jinak OAuth selže kvůli neschválenému produktu".
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení**:
+  1. V Postiu jdi na **Nastavení → Propojené účty → LinkedIn → Připojit**.
+  2. Konzole by měla vypsat `GET /api/accounts/linkedin 307` (redirect na LinkedIn consent screen), **bez** `unauthorized_scope_error`.
+  3. LinkedIn by měl zobrazit consent screen se 4 oprávněními (OpenID + profil + email + w_member_social).
+  4. Po udělení souhlasu redirect zpět na `/cs/accounts?li=connected` a v seznamu účtů se objeví LinkedIn profil.
+
+## 2026-06-20
 
 ### Feature – LinkedIn soft-delete (archive) flow s obnovou a potvrzovacím dialogem
 

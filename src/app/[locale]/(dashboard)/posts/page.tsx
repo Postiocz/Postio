@@ -117,17 +117,6 @@ export default async function PostsPage({
           tDeleteCancel={t("deleteCancel")}
           tRepublish={t("republish")}
           tRemovedExternallyMsg={t("removedExternallyMsg")}
-          tLinkedInRestoreConfirmTitle={t("linkedInRestoreConfirmTitle")}
-          tLinkedInRestoreConfirmDesc={t("linkedInRestoreConfirmDesc")}
-          tLinkedInRestoreConfirmAction={t("linkedInRestoreConfirmAction")}
-          tLinkedInArchiveBanner={t("linkedInArchiveBanner")}
-          tLinkedInArchiveBannerSubtext={t("linkedInArchiveBannerSubtext")}
-          tLinkedInRestoreSuccess={t("linkedInRestoreSuccess")}
-          tLinkedInArchiveSuccess={t("linkedInArchiveSuccess")}
-          tLinkedInRestoreError={t("linkedInRestoreError")}
-          tLinkedInArchiveError={t("linkedInArchiveError")}
-          tLinkedInRestoreWarningLine1={t("linkedInRestoreWarningLine1")}
-          tLinkedInRestoreWarningLine2={t("linkedInRestoreWarningLine2")}
           tFilterByTag={t("filterByTag")}
           tAllTags={t("allTags")}
           tNoTagsAvailable={t("noTagsAvailable")}

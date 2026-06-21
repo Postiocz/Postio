@@ -183,7 +183,7 @@ Každá tabulka má RLS politiky – uživatelé vidí a upravují pouze svá vl
 
 ## 👤 Autor
 
-Vytvořil **Vašek** s pomocí [Claude Code](https://claude.ai/code).
+Vytvořil **Václav** s pomocí [Claude Code](https://claude.ai/code).
 
 ---
 

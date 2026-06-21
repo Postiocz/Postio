@@ -384,11 +384,33 @@ async function registerLinkedInImageAsset(params: {
     };
   }
 
-  // Step 2: PUT the binary image bytes. LinkedIn expects the exact
-  // Content-Type from the registration step (typically image/jpeg or
-  // image/png). We forward `mimeType` as supplied by the caller.
+  // Step 2: POST the binary image bytes to the returned `uploadUrl`.
+  //
+  // CRITICAL – method MUST be POST, NOT PUT.
+  //
+  // Verified against the official Share on LinkedIn documentation:
+  //   https://learn.microsoft.com/cs-cz/linkedin/consumer/integrations/self-serve/share-on-linkedin
+  //   > "To upload your image or video, send a `POST` request to the
+  //   >  `uploadUrl` with your image or video included as a binary file."
+  //
+  // The cURL example in the same page uses `--upload-file`, which curl
+  // internally maps to PUT – this is misleading and contradicts the
+  // explicit text instructions. The Vector Assets API spec
+  // (https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/vector-asset-api)
+  // also documents POST as the upload method. Sending PUT caused LinkedIn
+  // to ACCEPT the request (returning 201 Created and the asset URN from
+  // the registration step), but the binary was never actually persisted –
+  // subsequent ugcPosts referencing the asset URN either failed silently
+  // or were created without the image, which is the root cause of the
+  // "Postio says published, LinkedIn shows nothing" bug reported on
+  // 2026-06-20.
+  //
+  // LinkedIn expects the exact `Content-Type` from the registration step
+  // (typically `image/jpeg` or `image/png`). `Content-Length` is set
+  // explicitly because some servers reject chunked transfers for binary
+  // uploads – we pass the exact byte length to be safe.
   const uploadRes = await fetch(uploadUrl, {
-    method: "PUT",
+    method: "POST",
     headers: {
       "Content-Type": mimeType,
       "Content-Length": String(imageBytes.byteLength),
@@ -549,6 +571,24 @@ async function publishToLinkedIn(params: {
     ];
   }
 
+  // Member-autored ugcPosts (`urn:li:person:*` + `w_member_social`) do
+  // NOT accept a `distribution` block – LinkedIn returns
+  //   403 ACCESS_DENIED: "Unpermitted fields present in REQUEST_BODY:
+  //     Data Processing Exception while processing fields [/distribution]"
+  // (verified 2026-06-20 against the live API). The `distribution` block
+  // is reserved for organization-autored posts (`urn:li:organization:*` +
+  // `w_organization_social`) and the Marketing Developer Platform scope.
+  //
+  // Member posts are published to the member's feed by default. If the
+  // post does not appear on the user's LinkedIn profile/feed, the cause
+  // is almost always one of:
+  //   1. LinkedIn processing delay (5–15 min after first publish), or
+  //   2. LinkedIn developer app in "Development" / "Test" mode – API
+  //      calls succeed but posts are not visible to the member, or
+  //   3. The OpenID `sub` (`account.platform_id`) does not match the
+  //      authenticated user – we cannot detect this from the API
+  //      response, only the user can.
+  // We log the full request context below so support can diagnose (1)–(3).
   const payload = {
     author: authorUrn,
     lifecycleState: "PUBLISHED",
@@ -560,12 +600,34 @@ async function publishToLinkedIn(params: {
     },
   };
 
+  console.log("[LinkedIn] sending ugcPosts payload (member-autored, no distribution):", {
+    author: authorUrn,
+    lifecycleState: "PUBLISHED",
+    visibility: "PUBLIC",
+    mediaCategory,
+    hasMediaUrn: Boolean(mediaUrn),
+    contentLength: content.length,
+  });
+
+  // DEBUG 2026-06-20: log the FULL payload (not just summary fields) so
+  // we can compare against the official docs and see if anything is
+  // missing/wrong. Remove this once the root cause is confirmed.
+  console.log("[LinkedIn] DEBUG full ugcPosts payload:", JSON.stringify(payload, null, 2));
+
+  // 201 Created. Add Linkedin-Version header for 2026+ API versions –
+  // the official share-on-linkedin docs do not mention it for /v2/ugcPosts,
+  // but new LinkedIn versioning (202504+) sometimes silently applies it.
+  // Default to the current latest (202510). Can be overridden by env
+  // variable if LinkedIn ever changes the default.
+  const linkedinVersion = process.env.LINKEDIN_VERSION || "202510";
+
   const res = await fetch(LINKEDIN_UGC_POSTS_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       "X-Restli-Protocol-Version": LINKEDIN_RESTLI_VERSION,
+      "Linkedin-Version": linkedinVersion,
     },
     body: JSON.stringify(payload),
     cache: "no-store",
@@ -581,7 +643,64 @@ async function publishToLinkedIn(params: {
         error: "LinkedIn vrátil 201 Created, ale chybí hlavička x-restli-id.",
       };
     }
-    console.log("[LinkedIn] ✅ publish success:", { externalId });
+
+    // Direct URL to the LinkedIn post (for manual verification). LinkedIn
+    // serves share URNs at /feed/update/{urn-encoded-id}. If clicking this
+    // link gives a 404, the post was NOT actually persisted (the API
+    // accepted the request but LinkedIn created a hidden/draft version).
+    const linkedInUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(externalId)}`;
+    console.log("[LinkedIn] ✅ publish success:", {
+      externalId,
+      author: authorUrn,
+      mediaCategory,
+      linkedInUrl,
+    });
+
+    // DEBUG 2026-06-20: dump all response headers + body for diagnosis.
+    // If the response body has LinkedIn-specific warnings (e.g. "post
+    // scheduled for review", "draft state"), we want to see them.
+    const respHeaders: Record<string, string> = {};
+    res.headers.forEach((v, k) => { respHeaders[k] = v; });
+    const respBody = await res.text().catch(() => "");
+    console.log("[LinkedIn] DEBUG full 201 response:", {
+      status: res.status,
+      headers: respHeaders,
+      body: respBody,
+      externalId,
+    });
+
+    console.log("[LinkedIn] ✅ publish success:", {
+      externalId,
+      author: authorUrn,
+      mediaCategory,
+    });
+
+    // DEBUG 2026-06-20: try to fetch the just-published post back from
+    // LinkedIn. If LinkedIn created the post in a hidden/draft state
+    // (which is what the user is reporting), this call should return
+    // something other than the post itself, or fail. We log the result
+    // without blocking the success path.
+    try {
+      const verifyRes = await fetch(
+        `${LINKEDIN_UGC_POSTS_URL}/${encodeURIComponent(externalId)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "X-Restli-Protocol-Version": LINKEDIN_RESTLI_VERSION,
+          },
+          cache: "no-store",
+        },
+      );
+      const verifyBody = await verifyRes.text().catch(() => "");
+      console.log("[LinkedIn] DEBUG GET ugcPosts/{id} after publish:", {
+        status: verifyRes.status,
+        bodyPreview: verifyBody.slice(0, 800),
+      });
+    } catch (verifyErr) {
+      console.warn("[LinkedIn] DEBUG verify fetch threw:", verifyErr);
+    }
+
     return { success: true, externalId };
   }
 
@@ -656,6 +775,37 @@ export async function publishToLinkedInAction(params: {
     return { success: false, error: tokenResult.error };
   }
 
+  const accessToken = tokenResult.accessToken;
+
+  // DEBUG 2026-06-20: introspect the LinkedIn access token via
+  // /v2/userinfo. This tells us:
+  //   - the OpenID `sub` of the authenticated member (must match
+  //     account.platform_id, otherwise we publish on behalf of someone
+  //     else or the post is created on an empty member profile),
+  //   - the `scope` the token was issued with (must include
+  //     `w_member_social` for member-autored posts).
+  // We log only safe fields (never the token itself).
+  try {
+    const userInfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "X-Restli-Protocol-Version": LINKEDIN_RESTLI_VERSION,
+      },
+      cache: "no-store",
+    });
+    const userInfoBody = await userInfoRes.text().catch(() => "");
+    console.log("[LinkedIn] DEBUG /v2/userinfo:", {
+      status: userInfoRes.status,
+      bodyPreview: userInfoBody.slice(0, 600),
+      expectedSub: account.platform_id,
+      subMatches:
+        account.platform_id &&
+        userInfoBody.includes(`"sub":"${account.platform_id}"`),
+    });
+  } catch (uiErr) {
+    console.warn("[LinkedIn] DEBUG /v2/userinfo threw:", uiErr);
+  }
+
   // 3) Build the final caption – LinkedIn supports plain text only, no
   //    separate hashtag/location fields. We embed them into the share
   //    commentary text in the same way we do for Facebook:
@@ -664,7 +814,7 @@ export async function publishToLinkedInAction(params: {
 
   // 4) Publish via UGC Posts API.
   return publishToLinkedIn({
-    accessToken: tokenResult.accessToken,
+    accessToken,
     authorUrn: `urn:li:person:${account.platform_id}`,
     content: finalContent,
     mediaUrls,

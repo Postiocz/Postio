@@ -61,9 +61,15 @@ export async function GET(request: NextRequest) {
       "redirect_uri",
       `${url.origin}/api/accounts/linkedin`
     );
+    // NOTE: `r_member_social` (read member social) is intentionally NOT
+    // requested – the LinkedIn developer app does not have that product
+    // approved, so LinkedIn rejects the whole authorization request with
+    // `unauthorized_scope_error`. Publishing only needs `w_member_social`
+    // (write/post). Keep this lean – add scopes only when a real feature
+    // needs them, otherwise OAuth fails before the user even consents.
     redirectUrl.searchParams.set(
       "scope",
-      "openid profile email w_member_social r_member_social"
+      "openid profile email w_member_social"
     );
     redirectUrl.searchParams.set("state", state ?? "");
 

@@ -1221,7 +1221,15 @@ export async function updateOnPlatformAction(input: {
  * other published platforms. Also removes the platform from `published_platforms`
  * via RPC `remove_published_platform`.
  *
- * Supports: facebook, instagram (via Meta Graph API)
+ * Supports: facebook, instagram (via Meta Graph API).
+ * LinkedIn is intentionally NOT supported here – we don't have a working
+ * sync for LinkedIn (Community Management API returns 403 for our
+ * Developer App), so we cannot reliably confirm that an API DELETE
+ * actually took effect. Treating LinkedIn like Instagram (manual
+ * deletion on the platform) keeps the UX honest: the user removes the
+ * post on LinkedIn themselves, and Postio keeps showing it as
+ * published (so other platforms of the same post keep syncing
+ * normally).
  */
 export async function deleteFromMeta(input: {
   postId: string;
@@ -1229,7 +1237,10 @@ export async function deleteFromMeta(input: {
 }): Promise<{
   success: boolean;
   error?: string;
-  /** Platform does not support API deletion (e.g. Instagram). Post is marked as removed_externally. */
+  /** Platform does not support API deletion (e.g. Instagram, LinkedIn).
+   *  Post is NOT marked as removed_externally – it stays in
+   *  `status="published"` so the user can keep working with the row
+   *  and other platforms of the same post keep syncing normally. */
   cannotDeleteViaApi?: boolean;
 }> {
   const supabase = await createClient();
@@ -1255,6 +1266,102 @@ export async function deleteFromMeta(input: {
 
   if (postError || !post) {
     return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  // LinkedIn soft-archive: Postio does not call the LinkedIn UGC API
+  // DELETE (it has no working sync, so we cannot reliably confirm
+  // that an API DELETE actually took effect). Instead, the user is
+  // told via toast to remove the post manually on LinkedIn, and
+  // Postio updates the LinkedIn row to `status="archived"` so the
+  // PostCard keeps showing the post with a greyed-out LinkedIn
+  // icon – a visible reminder that the post was once published on
+  // LinkedIn. We also clear `external_id` because (per the user's
+  // manual test) the API still returns the same value even after
+  // the post is gone on the platform, so keeping it would just be
+  // misleading metadata.
+  //
+  // Returns `success: true, cannotDeleteViaApi: true` so the
+  // calling dialog:
+  // - treats it as "succeeded in Postio" (increments deletedCount,
+  //   so the user gets a confirmation toast);
+  // - knows the API was NOT called (so the "smazat ručně" toast
+  //   is still shown).
+  if (input.platform === "linkedin") {
+    const targetRow = (post.post_platforms || []).find(
+      (p: any) => p.platform === "linkedin" && p.status === "published",
+    );
+
+    if (!targetRow) {
+      return {
+        success: false,
+        cannotDeleteViaApi: true,
+        error: "LinkedIn řádek nenalezen nebo již není publikovaný.",
+      };
+    }
+
+    const now = new Date().toISOString();
+    const { error: archiveError } = await supabase
+      .from("post_platforms")
+      .update({
+        status: "archived",
+        archived_at: now,
+        archive_reason: "user_removed_manually",
+        external_id: null,
+        // Keep `published_at` so the user can see when the post was
+        // originally published (used by some analytics / PostCard
+        // date displays).
+      })
+      .eq("id", targetRow.id);
+
+    if (archiveError) {
+      console.error(
+        `[deleteFromMeta] LinkedIn archive failed for post ${input.postId}:`,
+        archiveError,
+      );
+      return { success: false, cannotDeleteViaApi: true, error: archiveError.message };
+    }
+
+    // Keep `posts.status` in sync with reality so the PostCard badge
+    // doesn't say "Publikované" while every platform icon is grey.
+    // If no other platform row is still in `status="published"`, the
+    // post as a whole is no longer published anywhere – flip the
+    // parent row back to `draft`. We deliberately use `draft` (which
+    // IS in the `posts.status` CHECK constraint) instead of
+    // introducing a new `archived` value, so no DB migration is
+    // required. The user can still re-publish from the UI because
+    // the archived LinkedIn row keeps its `published_at` for context.
+    const stillPublished = (post.post_platforms || []).some(
+      (p: any) => p.platform !== "linkedin" && p.status === "published",
+    );
+    if (!stillPublished) {
+      const { error: parentStatusError } = await supabase
+        .from("posts")
+        .update({ status: "draft" })
+        .eq("id", input.postId)
+        .eq("user_id", user.id);
+      if (parentStatusError) {
+        // Non-fatal: PostCard will show a brief "Publikované" badge
+        // with grey icons, which the user can fix by clicking the
+        // post. Log for diagnostics.
+        console.error(
+          `[deleteFromMeta] Failed to flip parent post ${input.postId} to draft after LinkedIn archive:`,
+          parentStatusError,
+        );
+      }
+    }
+
+    console.log(
+      `[deleteFromMeta] LinkedIn row archived (no API DELETE) for post ${input.postId}`,
+    );
+
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+
+    return {
+      success: true,
+      cannotDeleteViaApi: true,
+    };
   }
 
   const postPlatforms = post.post_platforms || [];
@@ -1296,6 +1403,8 @@ export async function deleteFromMeta(input: {
 
   if (externalId) {
     const accessToken = accounts[0].access_token;
+
+    // Facebook / Instagram – standard Graph API path.
     const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
 
     console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${input.platform}`);
@@ -1373,14 +1482,13 @@ export async function deleteFromMeta(input: {
     return { success: false, cannotDeleteViaApi: true, error: `Chybí ID pro smazání z ${input.platform}.` };
   }
 
-
-
-  // Status updates on post_platforms are handled by remove_published_platform RPC or locally
-  // Here we just make sure we update post_platforms status to draft
+  // Status update – only Facebook / Instagram reach this point
+  // (LinkedIn short-circuits above). The platform row goes back to
+  // `draft` so the user can re-publish later if needed.
   await supabase.from("post_platforms").update({
-      status: "draft",
-      published_at: null,
-      external_id: null
+    status: "draft",
+    published_at: null,
+    external_id: null
   }).eq("post_id", input.postId).eq("platform", input.platform);
 
   // Revalidate after successful deletion

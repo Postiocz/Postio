@@ -611,168 +611,25 @@ export async function resetPostStatus(id: string): Promise<{
 }
 
 // ---------------------------------------------------------------------
-// LinkedIn-specific soft delete (archive) helpers
+// LinkedIn-specific helpers
 // ---------------------------------------------------------------------
-// Context: LinkedIn blocks Community Management API access for apps
-// that already expose "Share on LinkedIn". This means we cannot verify
-// whether a LinkedIn post still exists on the platform, nor can we
-// delete it via API. To prevent accidental duplicate publishes and to
-// preserve history, we offer a soft-delete ("archive") flow that keeps
-// the post row in the DB with a clear status and timestamps.
+// LinkedIn UGC Posts API supports DELETE /v2/ugcPosts/{id}, but the
+// user's "Smazat z LinkedIn" request from the DeletePostDialog is now
+// treated as an "API not supported" platform (Instagram-like flow) –
+// the user is asked to remove the post manually on LinkedIn instead.
+// Rationale: (1) Postio has no working automatic sync for LinkedIn
+// (the Community Management API returns 403 for our Developer App), so
+// the user has no reliable way to discover that the post is gone;
+// (2) giving the user a false sense of "deleted everywhere" via a one-
+// click API call would silently leak zombie posts; (3) the same flow is
+// already used for Instagram (`cannotDeleteViaApi: true` branch in
+// `deleteFromMeta`), so we keep the UI consistent. To preserve the
+// "soft delete" UX for the user, the LinkedIn row stays in
+// `status="published"` until the user actually removes it on the
+// platform – then `syncPublishedPosts` would notice (CM API not
+// authorized, so this is best-effort) and the user can use the regular
+// Edit + Delete dialog again afterwards.
 // ---------------------------------------------------------------------
-
-/**
- * Archive (soft-delete) the LinkedIn row of a published post from Postio.
- *
- * Unlike `deletePost`, this does NOT touch other platforms (Facebook,
- * Instagram, YouTube, …) – only the `linkedin` row in `post_platforms`.
- * The row keeps its `published_at` and `external_id` so the user can
- * see when it was originally published and restore it later if needed.
- *
- * Idempotent: calling twice on the same row is a no-op (returns success
- * with `alreadyArchived: true`).
- */
-export async function archiveLinkedInPlatformRow(postId: string): Promise<{
-  success: boolean;
-  error?: string;
-  alreadyArchived?: boolean;
-}> {
-  const supabase = await createClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return { success: false, error: "You must be logged in." };
-  }
-
-  // Fetch the post + its LinkedIn row, scoped to the current user.
-  const { data: post, error: postError } = await supabase
-    .from("posts")
-    .select("id, post_platforms(*)")
-    .eq("id", postId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (postError || !post) {
-    return { success: false, error: postError?.message ?? "Post not found." };
-  }
-
-  const linkedinRow = (post.post_platforms || []).find(
-    (p: any) => p.platform === "linkedin",
-  );
-
-  if (!linkedinRow) {
-    return { success: false, error: "This post has no LinkedIn platform row." };
-  }
-
-  // Idempotency: if already archived, do nothing.
-  if (linkedinRow.status === "archived") {
-    return { success: true, alreadyArchived: true };
-  }
-
-  // Only published / removed_externally rows can be archived.
-  // A draft/ scheduled/ failed row has nothing to "soft-delete" – the
-  // user should just leave it as a draft or hard-delete the post.
-  if (linkedinRow.status !== "published" && linkedinRow.status !== "removed_externally") {
-    return {
-      success: false,
-      error: `Cannot archive a post that is in status "${linkedinRow.status}". Only published or removed_externally rows can be archived.`,
-    };
-  }
-
-  const now = new Date().toISOString();
-  const { error: updateError } = await supabase
-    .from("post_platforms")
-    .update({
-      status: "archived",
-      archived_at: now,
-      archive_reason: "user_archived_from_app",
-    })
-    .eq("id", linkedinRow.id);
-
-  if (updateError) {
-    console.error(`[archiveLinkedInPlatformRow] Failed for post ${postId}:`, updateError);
-    return { success: false, error: updateError.message };
-  }
-
-  console.log(`[archiveLinkedInPlatformRow] LinkedIn row archived for post ${postId} (was status=${linkedinRow.status})`);
-
-  revalidateAllLocales("/dashboard");
-  revalidateAllLocales("/calendar");
-  revalidateAllLocales("/posts");
-  return { success: true };
-}
-
-/**
- * Restore an archived LinkedIn row back to draft so the user can
- * republish it. Clears `external_id` (we cannot guarantee it is still
- * valid – the post might have been deleted on the platform too) and
- * removes the archive metadata. The post can then be re-published via
- * the standard "Publikovat" flow.
- */
-export async function restoreArchivedLinkedInPost(postId: string): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  const supabase = await createClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return { success: false, error: "You must be logged in." };
-  }
-
-  const { data: post, error: postError } = await supabase
-    .from("posts")
-    .select("id, post_platforms(*)")
-    .eq("id", postId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (postError || !post) {
-    return { success: false, error: postError?.message ?? "Post not found." };
-  }
-
-  const linkedinRow = (post.post_platforms || []).find(
-    (p: any) => p.platform === "linkedin",
-  );
-
-  if (!linkedinRow) {
-    return { success: false, error: "This post has no LinkedIn platform row." };
-  }
-
-  if (linkedinRow.status !== "archived") {
-    return {
-      success: false,
-      error: `Only archived rows can be restored. Current status: "${linkedinRow.status}".`,
-    };
-  }
-
-  const { error: updateError } = await supabase
-    .from("post_platforms")
-    .update({
-      status: "draft",
-      archived_at: null,
-      archive_reason: null,
-      // Clear external_id – we cannot guarantee the original URN is
-      // still valid (the post may have been deleted on the platform
-      // too, in which case republishing would otherwise fail or
-      // create a duplicate). The user can re-publish via the normal
-      // flow which will get a fresh URN.
-      external_id: null,
-    })
-    .eq("id", linkedinRow.id);
-
-  if (updateError) {
-    console.error(`[restoreArchivedLinkedInPost] Failed for post ${postId}:`, updateError);
-    return { success: false, error: updateError.message };
-  }
-
-  console.log(`[restoreArchivedLinkedInPost] LinkedIn row restored to draft for post ${postId}`);
-
-  revalidateAllLocales("/dashboard");
-  revalidateAllLocales("/calendar");
-  revalidateAllLocales("/posts");
-  return { success: true };
-}
 
 export async function getPosts(status?: string) {
   const supabase = await createClient();

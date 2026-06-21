@@ -774,6 +774,35 @@ async function handlePublishSuccess(
     console.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
   }
 
+  // ---------------------------------------------------------------
+  // Keep `posts.status` in sync with reality.
+  //
+  // Without this update, a post that was previously archived
+  // (LinkedIn soft-archive from `deleteFromMeta` flips
+  // `posts.status` to "draft") would keep `posts.status="draft"`
+  // even after a successful re-publish. The PostCard then renders a
+  // "Koncept" badge with a freshly-green LinkedIn icon – a confusing
+  // mixed state. We deliberately set `status="published"` here so
+  // the parent row is the single source of truth, in addition to
+  // the dynamic per-post computation in `getPosts` / `getPost`
+  // (which derives the same value from `post_platforms.status`).
+  // ---------------------------------------------------------------
+  const { error: parentStatusError } = await supabase
+    .from("posts")
+    .update({ status: "published" })
+    .eq("id", postId)
+    .eq("user_id", userId);
+
+  if (parentStatusError) {
+    // Non-fatal: the per-post computation in `getPosts` will still
+    // report "published" via the platform rows. We just log so the
+    // inconsistency is visible in production logs.
+    console.error(
+      `handlePublishSuccess: Failed to update parent post ${postId} to status="published":`,
+      parentStatusError.message,
+    );
+  }
+
   // Hard revalidate – clear all Next.js cache
   revalidatePath("/", "layout");
   revalidateAllLocales("/calendar");

@@ -5,6 +5,49 @@
 
 ## 2026-06-21
 
+### 🐛 Oprava – Republish po LinkedIn archivaci nezobrazoval nový stav (PostCard zůstával „Koncept")
+
+- **Kontext (uživatel)**: Po úspěšném nasazení LinkedIn soft-archive (šedá ikona) z předchozího commitu se objevil nový bug. Postup:
+  1. Uživatel smazal publikovaný příspěvek z LinkedInu přes `DeletePostDialog` → PostCard správně zešednul (LinkedIn ikona šedá, badge „Koncept"), `posts.status="draft"` (per deleteFromMeta LinkedIn branch).
+  2. Uživatel otevřel `EditPostDialog`, zaškrtl LinkedIn, klikl **„Publikovat na LinkedIn"** → zobrazil se zelený toast **„Příspěvek byl publikován na linkedin!"**.
+  3. **ALE** PostCard se **neaktualizoval** – LinkedIn ikona zůstala šedá, badge zůstal „Koncept". Ani po `router.refresh()` a dokonce ani po ručním `F5` občas. Po kliknutí na `router.refresh()` z vnějšku (jiná akce) se to najednou projevilo. Diagnostika ukázala dva samostatné problémy.
+- **Příčina 1 – chybějící `posts.status="published"` update v `handlePublishSuccess`**:
+  - `handlePublishSuccess` v [src/lib/actions/publish.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts) se po úspěšném publish stará jen o `post_platforms` (status → `published`, nové `external_id` + `published_at`). **Nikde explicitně nepřepíše `posts.status`**.
+  - `posts.status` se v celém kódu nastavuje na „draft" v [deleteFromMeta](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts#L1310) (LinkedIn soft-archive) a v `deletePost` (klasické smazání) – ale **nikde** se explicitně nepřepíná zpět na „published".
+  - `getPosts` a `getPost` v [src/lib/actions/posts.ts](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts#L634) a server komponenta [page.tsx](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/page.tsx) **počítají `post.status` dynamicky z `post_platforms.status`** – mělo by to fungovat i bez explicitního zápisu.
+  - **ALE**: Po republish flow (LinkedIn: archived → published) se `post_platforms.status` nastaví správně, ale když se React `useEffect(() => setPosts(initialPosts), [initialPosts])` v [PostsContainer](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/_posts-container.tsx#L139) nespustí (typicky proto, že referenční rovnost `initialPosts` zůstane zachovaná kvůli RSC payload memoizaci), PostCard zůstane s `post.status="draft"` a zelenou LinkedIn ikonou vedle sebe – velmi matoucí UX.
+- **Příčina 2 – Next.js RSC payload caching na `/posts` routě**:
+  - `revalidateAllLocales("/posts")` v `handlePublishSuccess` invaliduje **path cache** (HTTP cache vrstvu), ale **Next.js App Router RSC payload cache** je samostatná vrstva, kterou `revalidatePath` v Next.js 14 **automaticky neinvaliduje** pro dynamické routy.
+  - V důsledku toho se `posts/page.tsx` může znovu vykreslit s **původním** `post.status` (tj. „draft"), i když DB už obsahuje `status="published"` na `post_platforms`. Toto je přesně ten případ, kdy „ani po F5 se nic nezměnilo".
+- **Co bylo opraveno**:
+  1. **[`handlePublishSuccess`](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts#L750) – přidán explicitní `posts.status="published"` update**:
+     - Po `post_platforms` updatu se volá `await supabase.from("posts").update({ status: "published" }).eq("id", postId).eq("user_id", userId)`.
+     - Tím se `posts.status` stane **single source of truth** nezávislým na RSC payload cache. I kdyby server komponenta vrátila starý payload, PostCard by po dalším `router.refresh()` dostal nová data s `post.status="published"`.
+     - Chyba při tomto updatu je **nefatální** (loguje se do konzole) – fallback na dynamický výpočet z `post_platforms.status` v `getPosts` stále funguje.
+  2. **[`posts/page.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/page.tsx) – přidán `export const dynamic = "force-dynamic"`**:
+     - Next.js 14 App Router RSC payload cache se opt-outuje pomocí `force-dynamic` segment configu.
+     - Stránka `/posts` se nyní **vždy vykresluje na serveru** při každém requestu, takže se nemůže stát, že by se vrátil starý payload s `post.status="draft"` po republish.
+     - Výkonová režie je minimální – stránka už stejně volá `supabase.auth.getUser()` a `await params`, což ji dělá implicitně dynamickou; `force-dynamic` jen **explicitně zakazuje payload cache**, ne fetch cache.
+- **Dopad na chování**:
+  - **Před opravou**: Po republish z archivovaného stavu se PostCard mohl zobrazit nekonzistentně (šedá ikona + „Koncept" badge, ikony nezezelenaly i po F5).
+  - **Po opravě**:
+    1. Toast „Příspěvek byl publikován na LinkedIn" se zobrazí.
+    2. `handlePublishSuccess` aktualizuje `post_platforms.status="published"` (zelená ikona) **a** `posts.status="published"` (zelený badge).
+    3. `router.refresh()` v `EditPostDialog` (a v `handleDeleteConfirm` v PostCard) **vynutí nový server-render** díky `force-dynamic` na `/posts` – PostCard dostane nová data.
+    4. Uživatel vidí PostCard s **oběma** zelenými ikonami (FB + LinkedIn) a zeleným „Publikované" badgem.
+  - **YouTube / Facebook / Instagram**: beze změny – tato oprava se týká **všech** publish cest, protože `handlePublishSuccess` je sdílený helper. Dopad je pozitivní (konzistentnější stav `posts.status`).
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení (LinkedIn re-publish flow)**:
+  1. Smaž publikovaný příspěvek z LinkedInu (viz předchozí commit) – PostCard zešedne, badge „Koncept".
+  2. Otevři `EditPostDialog`, zaškrtni **LinkedIn**, klikni **„Publikovat na LinkedIn"**.
+  3. Zobrazí se zelený toast „Příspěvek byl publikován na LinkedIn!".
+  4. **Bez F5**: PostCard by se měl **okamžitě** aktualizovat (LinkedIn ikona zezelená, badge se změní na „Publikované").
+  5. **S F5**: Konzistentní stav (oba stavy v DB i v UI).
+  6. V Supabase: `posts.status="published"`, `post_platforms[linkedin].status="published"`, `external_id=<nové UGN>`.
+- **Dopad na dokumentaci (CLAUDE.md)**: Žádná změna nutná. Pravidlo „po smazání z platformy zůstane šedá ikona" platí i nadále – tato oprava řeší pouze **republish** cestu zpět z archivovaného stavu.
+
+## 2026-06-21
+
 ### ✅ Hotovo – LinkedIn soft-archive (šedá ikona) + zkrácení toast hlášky
 
 - **Kontext (uživatel)**: Po 30 minutách manuálního testu se potvrdilo, že **LinkedIn API vidí příspěvek i po jeho smazání na platformě** – nedá se spolehnout na žádný automatický sync. Uživatel proto chtěl upravit flow tak, aby:

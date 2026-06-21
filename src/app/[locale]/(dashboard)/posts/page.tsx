@@ -4,6 +4,17 @@ import { syncPublishedPosts, cleanupAutoDeletedPosts } from "@/lib/actions/posts
 import { getUserTags } from "@/lib/actions/tag-actions";
 import { PostsContainer } from "./_posts-container";
 
+// Force dynamic rendering on every navigation so the freshly-mutated
+// `posts.status` / `post_platforms.status` after a publish / archive
+// / delete is reflected in PostCard without a manual page reload.
+// Without this, Next.js may serve a cached RSC payload that still
+// shows the pre-mutation state (e.g. a "Koncept" badge after the
+// user just re-published to LinkedIn). `revalidateAllLocales("/posts")`
+// in the publish / delete server actions already invalidates the
+// path cache, but RSC payload caching is a separate layer that we
+// opt out of here.
+export const dynamic = "force-dynamic";
+
 export default async function PostsPage({
   params,
 }: {

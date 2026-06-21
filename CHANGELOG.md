@@ -5,6 +5,46 @@
 
 ## 2026-06-21
 
+### 🐛 Oprava – Dnes publikované příspěvky se nezobrazovaly v kalendáři
+
+- **Kontext (uživatel)**: V kalendáři (`/[locale]/calendar`) chyběly příspěvky, které uživatel **právě dnes publikoval** – typicky příspěvky vytvořené jako koncept v předchozích dnech a poté přes „Publikovat nyní" odeslané na sociální sítě. Po akci se v kalendáři nezobrazily v dnešní buňce, takže uživatel ztratil přehled o tom, co ten den skutečně vyšlo.
+- **Příčina – serverový fallback v [`calendar/page.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/calendar/page.tsx)**:
+  - Příspěvek publikovaný přes **„Publikovat nyní"** se vytvoří v [`createPostAction`](file:///c:/VS_Code/Postio/src/lib/actions/posts.ts) s `scheduledAt: null`, takže `post_platforms.scheduled_at` zůstane `null` (nebylo nikdy naplánováno).
+  - Serverový mapovač v calendar page pak fallbackuje: `postPlatforms.find(p => p.scheduled_at)?.scheduled_at || post.created_at`. Protože `scheduled_at` je null, použije se **`post.created_at`** – tedy **datum vytvoření draftu**, ne datum publikování.
+  - Pokud uživatel vytvořil koncept **včera** a publikoval ho **dnes**, server nastavil `scheduled_at = včerejší datum` a příspěvek se zobrazil ve **včerejší** buňce kalendáře. V dnešní buňce chyběl – přesně tento UX problém.
+  - **Stejný bug** se týkal i příspěvků naplánovaných na budoucí datum (např. zítra), které uživatel mezitím ručně publikoval dnes – ty se objevovaly v buňce **původního plánu**, ne v dnešní.
+- **Dopad**:
+  - Kalendář nekonzistentně ukazoval, co bylo skutečně publikováno – uživatel nemohl ověřit, že dnešní „Publikovat nyní" akce proběhla úspěšně.
+  - Plánované datum nesedělo se skutečným datem publikování u manuálně předčasně publikovaných příspěvků.
+- **Co bylo opraveno v [`_calendar-view.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx)**:
+  1. **Nový helper `getPostDisplayDate(post)`** – vrací datum, na které se příspěvek **skutečně** zobrazuje v kalendáři:
+     - Pro příspěvky s alespoň jednou publikovanou platformou (`status === "published" && published_at`) vrátí **nejstarší `published_at`** (kdy příspěvek skutečně vyšel na první platformě).
+     - Jinak vrátí `post.scheduled_at` (server jej plní fallbackem `post.created_at`, takže funguje i pro koncepty).
+     - Krajní případ: `null` → caller zobrazí na dnešní buňce.
+  2. **`getPostsForDayEffective`** – nově filtruje přes `getPostDisplayDate(post)` místo přes `post.scheduled_at`. Příspěvek publikovaný dnes (ale vytvořený včera jako koncept) se nyní správně **přiřadí k dnešní buňce**, ne ke včerejší.
+  3. **Čas v buňkách** (desktop i mobile agenda) – `formatTime` se nově volá nad `getPostDisplayDate(post)` místo `post.scheduled_at`. V buňce dnešního dne se tedy uvidí **čas skutečného publikování** (např. 14:32), ne čas vytvoření draftu (např. včerejší 18:15).
+  4. **Hover preview** u postu – stejná oprava: přebírá `getPostDisplayDate(hoveredPost)`. Dříve se v hoveru mohl objevit čas vytvoření draftu, který nekorespondoval se dnem v kalendáři.
+- **Co zůstává nezměněno (záměrně)**:
+  - **`EditPostDialog`** nadále dostává původní `post.scheduled_at` – při editaci je logicky správné nabízet **původní plánované datum** (uživatel může chtít přeplánovat), ne datum publikování. Pokud by se použilo `published_at`, formulář by po publikaci stále ukazoval „dnes" jako scheduled time.
+  - **`post_platforms.scheduled_at`** se v `handlePublishSuccess` neaktualizuje – toto je záměrné, viz `CLAUDE.md` pravidla. Pomocná hodnota `published_at` je single source of truth pro okamžik publikování.
+  - Server v `calendar/page.tsx` se nezměnil – klientský helper řeší konverzi „display date" deterministicky na základě `post_platforms`, takže není potřeba měnit API kontrakt.
+- **Dopad na chování**:
+  - **Před opravou**: Příspěvek publikovaný dnes přes „Publikovat nyní" se v kalendáři objevil ve špatné buňce (datum vytvoření draftu).
+  - **Po opravě**:
+    1. Uživatel publikuje příspěvek (kdykoliv).
+    2. Server dokončí `handlePublishSuccess` a zapíše `published_at`.
+    3. Kalendář při dalším načtení/refreshi zobrazí příspěvek v buňce **data skutečného publikování**, s časem odpovídajícím `published_at`.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Test po nasazení (publish-now flow)**:
+  1. Na `/posts` (nebo v kalendáři) vytvoř příspěvek a **nezaškrtávej „Naplánovat"**, ulož jako **koncept**.
+  2. Počkej alespoň do dalšího dne (nebo ručně změň `posts.created_at` v Supabase na včerejší datum).
+  3. V `EditPostDialog` klikni **„Publikovat nyní"** – publikuj.
+  4. Otevři `/calendar` → příspěvek by se měl **zobrazit v dnešní buňce** s **časem publikování**, ne ve včerejší.
+  5. V Supabase: `post_platforms.published_at = <dnešní ISO>` → helper `getPostDisplayDate` vrátí toto datum → `getPostsForDayEffective` přiřadí příspěvek ke správné buňce.
+- **Dopad na dokumentaci (CLAUDE.md)**: Žádná změna nutná. Toto je lokální oprava kalendářové logiky; žádná business pravidla v Biblu pravidel nejsou dotčena.
+
+## 2026-06-21
+
 ### 🐛 Oprava – Republish po LinkedIn archivaci nezobrazoval nový stav (PostCard zůstával „Koncept")
 
 - **Kontext (uživatel)**: Po úspěšném nasazení LinkedIn soft-archive (šedá ikona) z předchozího commitu se objevil nový bug. Postup:

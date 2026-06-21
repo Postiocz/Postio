@@ -245,6 +245,24 @@ export function CalendarView({
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   }, []);
 
+  // Returns the date the post should appear on in the calendar grid.
+  // - For published posts: earliest published_at across published platforms
+  //   (a post published "today" but created as a draft "yesterday" must show on today's cell)
+  // - Otherwise: post.scheduled_at (server fills this with post.created_at as fallback)
+  // - Last resort: null (caller falls back to "today")
+  const getPostDisplayDate = useCallback((post: Post): string | null => {
+    const publishedPlatforms = (post.post_platforms ?? []).filter(
+      (p) => p.status === "published" && p.published_at
+    );
+    if (publishedPlatforms.length > 0) {
+      const sorted = publishedPlatforms
+        .map((p) => p.published_at as string)
+        .sort();
+      return sorted[0] ?? null;
+    }
+    return post.scheduled_at ?? null;
+  }, []);
+
   const getBaseUrl = useCallback(() => {
     const pathnames = window.location.pathname.split("/").filter(Boolean);
     const localePart = pathnames[0] || "";
@@ -427,13 +445,18 @@ export function CalendarView({
   const getPostsForDayEffective = useCallback((day: Date) => {
     const today = new Date();
     return effectiveFilteredPosts.filter((post) => {
-      if (!post.scheduled_at) {
+      // For published posts we must look at published_at (not scheduled_at /
+      // created_at fallback), otherwise posts published "today" via
+      // "Publikovat nyní" but created as a draft on a previous day
+      // would never match today's cell.
+      const displayDate = getPostDisplayDate(post);
+      if (!displayDate) {
         return isSameDay(today, day);
       }
-      const postDate = new Date(post.scheduled_at);
+      const postDate = new Date(displayDate);
       return isSameDay(postDate, day);
     });
-  }, [effectiveFilteredPosts]);
+  }, [effectiveFilteredPosts, getPostDisplayDate]);
 
   const monthLabel = months[month];
 
@@ -614,7 +637,8 @@ export function CalendarView({
                 <div className="space-y-1">
                   {dayPosts.slice(0, 3).map((post) => {
                     const platformsToRender = post.post_platforms || [];
-                    const time = post.scheduled_at ? formatTime(post.scheduled_at) : "";
+                    const displayDate = getPostDisplayDate(post);
+                    const time = displayDate ? formatTime(displayDate) : "";
 
                     return (
                       <div
@@ -772,7 +796,8 @@ export function CalendarView({
                   <div className="space-y-2 px-4 pb-3 pl-[52px]">
                     {posts.map((post) => {
                       const platformsToRender = post.post_platforms || [];
-                      const time = post.scheduled_at ? formatTime(post.scheduled_at) : "";
+                      const displayDate = getPostDisplayDate(post);
+                      const time = displayDate ? formatTime(displayDate) : "";
 
                       return (
                         <button
@@ -1170,17 +1195,21 @@ export function CalendarView({
                     ) : null;
                   })}
                 </div>
-                {hoveredPost.scheduled_at && (
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                    <Clock className="h-3 w-3" />
-                    <span>
-                      {new Date(hoveredPost.scheduled_at).toLocaleTimeString(
-                        locale === "cs" ? "cs-CZ" : locale === "uk" ? "uk-UA" : "en-US",
-                        { hour: "2-digit", minute: "2-digit" }
-                      )}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  const hoverDisplayDate = getPostDisplayDate(hoveredPost);
+                  if (!hoverDisplayDate) return null;
+                  return (
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        {new Date(hoverDisplayDate).toLocaleTimeString(
+                          locale === "cs" ? "cs-CZ" : locale === "uk" ? "uk-UA" : "en-US",
+                          { hour: "2-digit", minute: "2-digit" }
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </motion.div>

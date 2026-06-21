@@ -122,7 +122,7 @@ export default async function DashboardLayout({
             <div className="bg-blue-600/5 blur-[120px] w-full h-full absolute -z-10" />
           </div>
 
-          <main className="relative h-full overflow-y-auto bg-background bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px] p-4 md:p-6 pb-24 lg:pb-6">
+          <main className="postio-scrollbar relative h-full overflow-y-auto bg-background bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px] p-4 md:p-6 pb-24 lg:pb-6">
             <div className="relative z-10">
               {children}
             </div>

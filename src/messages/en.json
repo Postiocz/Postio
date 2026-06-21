@@ -291,6 +291,7 @@
     "statusPublished": "Published",
     "statusFailed": "Failed",
     "statusRemovedExternally": "Removed Externally",
+    "statusArchived": "Archived",
     "republish": "Republish",
     "removedExternallyMsg": "Removed directly from __platform__",
     "filterByTag": "Filter by tag",
@@ -301,6 +302,8 @@
     "previewTitle": "Preview",
     "previewFacebookTab": "Facebook",
     "previewInstagramTab": "Instagram",
+    "previewYoutubeTab": "YouTube",
+    "previewLinkedinTab": "LinkedIn",
     "previewNoMedia": "No media",
     "previewPlaceholderName": "Postio",
     "previewCaptionHint": "Write your post text here…"
@@ -363,6 +366,7 @@
       "warningDesc": "This feature requires a Professional account (Business/Creator) or a Facebook Page.",
       "warningDescInstagram": "This feature requires a Professional account (Business/Creator).",
       "warningDescLinkedIn": "LinkedIn tokens expire in 60 days. You will need to reconnect after expiry.",
+      "warningDescYouTube": "You will be redirected to Google to grant Postio access to your YouTube channel (videos and basic profile). We keep your tokens safe and refresh them automatically.",
       "connectButton": "Connect Professional Account",
       "learnMore": "Have a personal account? Learn how to switch"
     },
@@ -385,7 +389,14 @@
     "activateAll": "Activate all found pages ({count})",
     "activatingAll": "Activating all pages…",
     "allActivated": "All {count} pages have been activated successfully.",
-    "someFailed": "Could not activate {failed} pages. Please try again."
+    "someFailed": "Could not activate {failed} pages. Please try again.",
+    "ytConnected": "YouTube channel \"{name}\" has been connected to Postio.",
+    "ytConnectedShort": "YouTube channel has been connected to Postio.",
+    "ytDisconnected": "YouTube channel \"{name}\" has been disconnected.",
+    "liConnected": "LinkedIn account \"{name}\" has been connected to Postio.",
+    "liConnectedShort": "LinkedIn account has been connected to Postio.",
+    "liDisconnected": "LinkedIn account \"{name}\" has been disconnected.",
+    "connectionError": "Could not connect account: {error}"
   },
   "templates": {
     "title": "Templates",
@@ -397,7 +408,10 @@
     "useTemplate": "Use",
     "noTemplates": "No templates",
     "noTemplatesSubtitle": "Create a template for reuse",
-    "errorSaving": "Error saving"
+    "errorSaving": "Error saving",
+    "deleteConfirm": "Are you sure you want to delete this template?",
+    "templateApplied": "Template \"{name}\" applied",
+    "templateLoadError": "Could not load template"
   },
   "analytics": {
     "title": "Analytics",

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 type FacebookPagesResponse = {
   data?: Array<{
@@ -62,8 +62,257 @@ async function graphFetch<T>(
   return (await res.json()) as T;
 }
 
+// ============================================================
+// YouTube (Google OAuth) – Connect a YouTube channel
+// ============================================================
+// Triggered from `/api/auth/google?state=<redirect>` which forwards the
+// `code` here with `?provider=youtube` so we can branch BEFORE the regular
+// Supabase Auth `exchangeCodeForSession` (otherwise Supabase would try to
+// sign the user in with Google and ignore the YouTube scopes).
+type YouTubeChannelSnippet = {
+  title?: string;
+  description?: string;
+  customUrl?: string;
+  thumbnails?: {
+    default?: { url?: string };
+    medium?: { url?: string };
+    high?: { url?: string };
+  };
+};
+
+type YouTubeChannelsResponse = {
+  items?: Array<{ id: string; snippet?: YouTubeChannelSnippet }>;
+};
+
+async function handleYouTubeCallback(request: NextRequest): Promise<NextResponse> {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state") || "/accounts";
+
+  // 🔍 DEBUG: Začínám zpracování YouTube callbacku
+  console.log("🔍 DEBUG: Začínám zpracování YouTube callbacku");
+
+  // 🔍 DEBUG: Query parametry – všechny co Google poslal zpět
+  const allParams: Record<string, string> = {};
+  url.searchParams.forEach((value, key) => {
+    allParams[key] = value;
+  });
+  console.log("🔍 DEBUG: Query parametry:", allParams);
+
+  // Derive locale from the `state` redirect path (set by /api/auth/google).
+  // Fallback chain matches the rest of the file: referer → "cs".
+  const localeFromState = state.match(/^\/(cs|en|uk)(?:\/|$)/)?.[1];
+  const localeFromReferer = request.headers
+    .get("referer")
+    ?.match(/\/(cs|en|uk)(?:\/|$)/)?.[1];
+  const locale = localeFromState ?? localeFromReferer ?? "cs";
+
+  const errorRedirect = (msg: string) =>
+    NextResponse.redirect(
+      new URL(`/${locale}/accounts?error=${encodeURIComponent(msg)}`, request.url)
+    );
+
+  if (!code) {
+    return errorRedirect("Missing OAuth code from Google");
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    console.error("[YouTube OAuth] Missing GOOGLE_CLIENT_ID/SECRET in env");
+    return errorRedirect("Google OAuth not configured");
+  }
+
+  // ── Step 1: Authenticated Postio user is required ───────────────
+  // The user MUST be signed in to Postio before connecting YouTube.
+  // We do not use `supabase.auth.exchangeCodeForSession` because that
+  // would sign the user in as the Google identity and ignore the
+  // YouTube scope – this flow is purely a social-account connection.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(
+      new URL(
+        `/${locale}/login?error=${encodeURIComponent("Pro připojení YouTube se musíte přihlásit")}`,
+        request.url
+      )
+    );
+  }
+
+  // ── Step 2: Exchange authorization code for tokens ──────────────
+  // The redirect_uri MUST match exactly the value we sent to Google
+  // in `/api/auth/google` (including the `provider=youtube` query).
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: `${url.origin}/auth/callback?provider=youtube`,
+    }),
+    cache: "no-store",
+  });
+
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text().catch(() => "");
+    console.error(`[YouTube OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
+    return errorRedirect("Token exchange with Google failed");
+  }
+
+  const tokenData = (await tokenRes.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    token_type?: string;
+    scope?: string;
+    id_token?: string;
+  };
+
+  const accessToken = tokenData.access_token;
+  const refreshToken = tokenData.refresh_token;
+  const expiresIn = tokenData.expires_in;
+
+  // 🔍 DEBUG: Access Token získán
+  console.log("🔍 DEBUG: Access Token získán:", accessToken ? "ano" : "ne");
+  console.log("🔍 DEBUG: Refresh Token získán:", refreshToken ? "ano" : "ne");
+  console.log("🔍 DEBUG: Expires in (s):", expiresIn ?? "neuvedeno");
+  console.log("🔍 DEBUG: Scope:", tokenData.scope ?? "neuvedeno");
+
+  if (!accessToken) {
+    console.error("[YouTube OAuth] No access_token in response");
+    return errorRedirect("Google did not return an access token");
+  }
+
+  // ── Step 3: Fetch the YouTube channel ───────────────────────────
+  // `mine=true` returns the channel owned by the authenticated user.
+  // We need the channel ID (`id`) to use as `platform_id` so we can
+  // later address this channel when publishing videos.
+  const channelsRes = await fetch(
+    "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&maxResults=1",
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    }
+  );
+
+  if (!channelsRes.ok) {
+    const text = await channelsRes.text().catch(() => "");
+    console.error(`[YouTube OAuth] channels.list failed: ${channelsRes.status} ${text}`);
+    return errorRedirect("Failed to load YouTube channel");
+  }
+
+  const channels = (await channelsRes.json()) as YouTubeChannelsResponse;
+
+  // 🔍 DEBUG: Kompletní odpověď z YouTube API (channels list)
+  console.log(
+    "🔍 DEBUG: Odpověď z YouTube API (channels list):",
+    JSON.stringify(channels, null, 2)
+  );
+
+  const channel = channels.items?.[0];
+
+  if (!channel?.id) {
+    // ⚠️ CHYBA: Google nevrátil žádný YouTube kanál pro tento účet
+    console.error(
+      "⚠️ CHYBA: Google nevrátil žádný YouTube kanál pro tento účet."
+    );
+    console.error(
+      "⚠️ CHYBA: Počet položek v items:",
+      channels.items?.length ?? 0
+    );
+    console.error(
+      "⚠️ CHYBA: Pravděpodobné příčiny: (1) Google účet nemá vytvořený YouTube kanál, (2) scope youtube.upload nestačí na channels.list – zkuste přidat https://www.googleapis.com/auth/youtube.readonly nebo https://www.googleapis.com/auth/youtube.force-ssl"
+    );
+    return errorRedirect(
+      "Google nevrátil žádný YouTube kanál pro tento účet (no_youtube_channel)"
+    );
+  }
+
+  const channelId = channel.id;
+  const channelTitle = channel.snippet?.title ?? "YouTube Channel";
+  const customUrl = channel.snippet?.customUrl ?? null;
+  const channelAvatar =
+    channel.snippet?.thumbnails?.high?.url ??
+    channel.snippet?.thumbnails?.medium?.url ??
+    channel.snippet?.thumbnails?.default?.url ??
+    null;
+
+  // Google access tokens expire after 1 hour, so the `token_expires_at`
+  // is always short-lived. The refresh token (if present) is what we
+  // rely on for long-term access; we store it in `metadata` so we do
+  // not need a new DB column.
+  const tokenExpiresAt = expiresIn
+    ? new Date(Date.now() + expiresIn * 1000).toISOString()
+    : new Date(Date.now() + 3600 * 1000).toISOString();
+
+  // ── Step 4: Persist the channel in social_accounts ─────────────
+  // Uses the admin client so the upsert is not blocked by RLS – this
+  // matches the pattern used by the LinkedIn and Facebook flows.
+  const supabaseAdmin = createAdminClient();
+  const { error: dbError } = await supabaseAdmin
+    .from("social_accounts")
+    .upsert(
+      {
+        user_id: user.id,
+        platform: "youtube",
+        account_name: channelTitle,
+        access_token: accessToken,
+        platform_id: channelId,
+        avatar_url: channelAvatar,
+        token_expires_at: tokenExpiresAt,
+        is_active: true,
+        metadata: {
+          // Google only returns `refresh_token` on the first exchange
+          // (or when `prompt=consent` is sent). When the user re-connects
+          // and no new refresh_token comes back, we keep the previously
+          // stored one – this is standard Google OAuth behavior and we
+          // do not want to overwrite a still-valid token with undefined.
+          ...(refreshToken ? { refresh_token: refreshToken } : {}),
+          custom_url: customUrl,
+        },
+      },
+      {
+        onConflict: "user_id,platform,platform_id",
+      }
+    );
+
+  if (dbError) {
+    // ⚠️ CHYBA: Detailní výpis Postgres chyby pro diagnostiku
+    console.error("⚠️ CHYBA: Supabase DB upsert selhal");
+    console.error("⚠️ CHYBA: dbError.message:", dbError.message);
+    console.error("⚠️ CHYBA: dbError.code:", dbError.code);
+    console.error("⚠️ CHYBA: dbError.details:", dbError.details);
+    console.error("⚠️ CHYBA: dbError.hint:", dbError.hint);
+    console.error("⚠️ CHYBA: kompletní objekt:", JSON.stringify(dbError, null, 2));
+    return errorRedirect(
+      `Failed to save YouTube account: ${dbError.message} (db_error)`
+    );
+  }
+
+  console.log(
+    `[YouTube OAuth] Connected channel "${channelTitle}" (${channelId}) for user ${user.id}`
+  );
+
+  // ── Step 5: Redirect back to /accounts ─────────────────────────
+  return NextResponse.redirect(
+    new URL(`/${locale}/accounts?yt=connected`, request.url)
+  );
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
+
+  // YouTube connection flow MUST be handled BEFORE the Supabase Auth
+  // exchange, otherwise Supabase would try to sign the user in via
+  // Google and discard the YouTube-specific scope.
+  if (requestUrl.searchParams.get("provider") === "youtube") {
+    return handleYouTubeCallback(request);
+  }
+
   const code = requestUrl.searchParams.get("code");
   const nextParam = requestUrl.searchParams.get("next") || "/accounts";
 

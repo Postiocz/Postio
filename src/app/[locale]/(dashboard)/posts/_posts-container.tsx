@@ -22,6 +22,7 @@ export function PostsContainer({
   tStatusPublished,
   tStatusFailed,
   tStatusRemovedExternally,
+  tStatusArchived,
   tNoPosts,
   tNoPostsSubtitle,
   tScheduledAt,
@@ -51,6 +52,7 @@ export function PostsContainer({
   tStatusPublished: string;
   tStatusFailed: string;
   tStatusRemovedExternally: string;
+  tStatusArchived: string;
   tNoPosts: string;
   tNoPostsSubtitle: string;
   tScheduledAt: string;
@@ -138,6 +140,28 @@ export function PostsContainer({
     setPosts(initialPosts);
   }, [initialPosts]);
 
+  // Force a fresh server-component fetch on every mount of the /posts page.
+  //
+  // Why this is necessary:
+  // After publishing from /posts/{id} or /posts/new, those callers navigate
+  // back to /posts via `router.push(...)`. The server action calls
+  // `revalidatePath("/posts", ...)` which clears the SERVER-side fetch cache,
+  // but Next.js App Router keeps a CLIENT-side RSC payload cache for the
+  // /posts route. Without a fresh `router.refresh()` the navigation can
+  // reuse the stale RSC payload and the new "published" status of the post
+  // is NOT reflected in the UI, even though the DB was updated correctly.
+  //
+  // PostsContainer is rendered inside posts/page.tsx (not the dashboard
+  // layout), so it mounts/unmounts on every navigation to /posts – that is
+  // the right hook for forcing a server refresh.
+  useEffect(() => {
+    router.refresh();
+    // We intentionally only refresh on mount. Re-running on every render
+    // (e.g. when `initialPosts` changes after a refresh) would cause an
+    // infinite refresh loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleFilterChange = useCallback((platform: string, status: string) => {
     setActivePlatform(platform);
     setActiveStatus(status);
@@ -200,6 +224,7 @@ export function PostsContainer({
           statusPublishedLabel={tStatusPublished}
           statusFailedLabel={tStatusFailed}
           statusRemovedExternallyLabel={tStatusRemovedExternally}
+          statusArchivedLabel={tStatusArchived}
           tagValue={activeTag}
           tagOptions={tags}
           tagLabel={tFilterByTag}
@@ -252,6 +277,7 @@ export function PostsContainer({
               tStatusPublished={tStatusPublished}
               tStatusFailed={tStatusFailed}
               tStatusRemovedExternally={tStatusRemovedExternally}
+              tStatusArchived={tStatusArchived}
               tScheduledAt={tScheduledAt}
               tEditPost={tEditPost}
               tDeleteConfirmTitle={tDeleteConfirmTitle}

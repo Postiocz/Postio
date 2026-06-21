@@ -395,6 +395,7 @@ export function PostFiltersRow({
   statusPublishedLabel,
   statusFailedLabel,
   statusRemovedExternallyLabel,
+  statusArchivedLabel,
   platformLabel = "Platforma",
   statusLabel = "Stav",
   tagValue = "",
@@ -414,6 +415,7 @@ export function PostFiltersRow({
   statusPublishedLabel: string;
   statusFailedLabel: string;
   statusRemovedExternallyLabel?: string;
+  statusArchivedLabel?: string;
   platformLabel?: string;
   statusLabel?: string;
   tagValue?: string;
@@ -441,6 +443,9 @@ export function PostFiltersRow({
     { value: "failed", label: statusFailedLabel || "Neúspěšné" },
     ...(statusRemovedExternallyLabel
       ? [{ value: "removed_externally", label: statusRemovedExternallyLabel }]
+      : []),
+    ...(statusArchivedLabel
+      ? [{ value: "archived", label: statusArchivedLabel }]
       : []),
   ];
 

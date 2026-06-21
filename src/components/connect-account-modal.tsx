@@ -1,6 +1,11 @@
 "use client";
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Check, Sparkles, BarChart3, AlertTriangle, ExternalLink, X } from "lucide-react";
 import type { ComponentType } from "react";
@@ -40,6 +45,17 @@ export function ConnectAccountModal({
         <DialogTitle className="sr-only">
           {t.title.replace("[platform]", platformName)}
         </DialogTitle>
+        {/* Radix UI requires either a `DialogDescription` child or an
+            explicit `aria-describedby` on `DialogContent`. Without it the
+            dev console prints a warning and screen readers lose important
+            context. We keep the description visually hidden (sr-only) but
+            expose the platform name and key permissions to assistive tech
+            so the dialog is fully accessible. The visible body still
+            contains the same info as the existing feature list + warning
+            banner – this hidden copy is purely for a11y. */}
+        <DialogDescription className="sr-only">
+          {t.title.replace("[platform]", platformName)} – {t.warningDesc}
+        </DialogDescription>
 
         {/* Close button */}
         <button

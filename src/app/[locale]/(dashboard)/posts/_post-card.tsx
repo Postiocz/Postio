@@ -7,14 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
 import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Instagram,
   Facebook,
   Linkedin,
@@ -26,7 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
 import { deleteFromMeta } from "@/lib/actions/publish";
-import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
+import { EditPostDialog } from "@/components/edit-post-dialog";
 import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
 import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
 import { toast } from "sonner";
@@ -38,6 +30,7 @@ const STATUS_STYLES: Record<string, string> = {
   published: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30",
   failed: "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30",
   removed_externally: "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/30",
+  archived: "bg-gray-100 text-gray-700 border border-gray-200 dark:bg-white/5 dark:text-gray-300 dark:border-white/10",
 };
 
 const platformIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -59,6 +52,10 @@ export type PostPlatform = {
   published_at: string | null;
   external_id: string | null;
   publish_error: string | null;
+  /** Timestamp when the user archived (soft-deleted) this platform row from Postio. NULL for active rows. */
+  archived_at?: string | null;
+  /** Why the row was archived. Common values: user_archived_from_app, auto_cleanup. */
+  archive_reason?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -95,6 +92,7 @@ export function PostCard({
   tStatusPublished,
   tStatusFailed,
   tStatusRemovedExternally,
+  tStatusArchived,
   tScheduledAt,
   tEditPost,
   tDeleteConfirmTitle,
@@ -115,6 +113,7 @@ export function PostCard({
   tStatusPublished: string;
   tStatusFailed: string;
   tStatusRemovedExternally: string;
+  tStatusArchived: string;
   tScheduledAt: string;
   tEditPost: string;
   tDeleteConfirmTitle: string;
@@ -122,6 +121,14 @@ export function PostCard({
   tDeleteConfirmAction: string;
   tDeleteCancel: string;
   tRepublish: string;
+  /**
+   * Banner text shown for posts whose `post_platforms.status` is
+   * `removed_externally` (i.e. the automatic sync verified that the
+   * post is gone on the platform). This banner is currently rendered
+   * only for YouTube and Facebook, where the sync branch actually
+   * works. LinkedIn is intentionally NOT included – it has no working
+   * sync and the row never enters `removed_externally`.
+   */
   tRemovedExternallyMsg: string;
   onDeleted?: (id: string) => void;
   animationDelay?: number;
@@ -196,6 +203,7 @@ export function PostCard({
     published: tStatusPublished,
     failed: tStatusFailed,
     removed_externally: tStatusRemovedExternally,
+    archived: tStatusArchived,
   };
 
   const statusLabel = statusLabels[post.status] ?? post.status;
@@ -210,15 +218,25 @@ export function PostCard({
         let deletedCount = 0;
         let cannotDeletePlatforms: string[] = [];
 
-        // Smazat z vybraných Meta platforem
+        // Delete from selected platforms. Per-platform behaviour:
+        // - Facebook / Instagram / YouTube – real API DELETE (or
+        //   "object not found" treated as success) + reset the row
+        //   to `status="draft"` in Postio.
+        // - LinkedIn – NO API call. `deleteFromMeta` updates the
+        //   LinkedIn row to `status="archived"` (with `external_id`
+        //   cleared) and returns `success: true, cannotDeleteViaApi: true`
+        //   so this loop counts it as "succeeded in Postio" but the
+        //   user still gets the "smazat ručně" reminder toast.
         for (const platform of selectedPlatforms) {
           const result = await deleteFromMeta({ postId: post.id, platform });
           if (result.success) {
             deletedCount++;
           } else if (result.cannotDeleteViaApi) {
-            // Platform does not support API deletion (e.g. Instagram)
-            // Do NOT mark as removed_externally – post still exists on the platform.
-            // Only syncPublishedPosts will mark it after confirming via GET request.
+            // LinkedIn short-circuits to `success: true, cannotDeleteViaApi: true`
+            // above, so this branch now only fires for Instagram
+            // (the only platform whose API call can fail with
+            // "API not supported" after we have an external_id). We
+            // keep the info-toast logic intact for Instagram.
             cannotDeletePlatforms.push(platform);
           } else {
             // Unexpected error
@@ -226,13 +244,14 @@ export function PostCard({
           }
         }
 
-        // Show info toasts for platforms that couldn't be deleted via API
+        // Show info toasts for platforms that couldn't be deleted via API.
+        // Kept intentionally short so the user can act quickly.
         for (const platform of cannotDeletePlatforms) {
           const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
           toast.info(
-            `${platformName} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na ${platformName}. Postio automaticky detekuje odstranění při příští synchronizaci.`,
+            `${platformName} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na ${platformName}.`,
             {
-              duration: 10000,
+              duration: 8000,
               action: {
                 label: 'Rozumím',
                 onClick: () => {}
@@ -241,7 +260,33 @@ export function PostCard({
           );
         }
 
-        // Delete from Postio app if requested
+        // Delete from Postio app if requested.
+        //
+        // Special case: if LinkedIn is in `selectedPlatforms`, the
+        // post must NOT be hard-deleted from Postio. The whole point
+        // of the new flow is to keep the PostCard visible with a
+        // greyed-out LinkedIn icon – a permanent reminder that the
+        // post was once published on LinkedIn. `deleteFromMeta` has
+        // already flipped the LinkedIn row to `status="archived"`
+        // and cleared `external_id`, so the icon will render grey
+        // (no green check, no orange triangle, no red X).
+        if (deleteFromApp && selectedPlatforms.includes("linkedin")) {
+          setDeleteOpen(false);
+          router.refresh();
+          if (deletedCount > 0) {
+            toast.success(
+              `Příspěvek byl odstraněn z ${deletedCount} platformy/platforem. LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.`,
+              { duration: 10000 },
+            );
+          } else {
+            toast.success(
+              "LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.",
+              { duration: 10000 },
+            );
+          }
+          return;
+        }
+
         if (deleteFromApp) {
           const result = await deletePost(post.id);
           if (result.success) {
@@ -592,6 +637,7 @@ export function PostsList({
   tStatusPublished,
   tStatusFailed,
   tStatusRemovedExternally,
+  tStatusArchived,
   tScheduledAt,
   tEditPost,
   tDeleteConfirmTitle,
@@ -611,6 +657,7 @@ export function PostsList({
   tStatusPublished: string;
   tStatusFailed: string;
   tStatusRemovedExternally: string;
+  tStatusArchived: string;
   tScheduledAt: string;
   tEditPost: string;
   tDeleteConfirmTitle: string;
@@ -691,6 +738,7 @@ export function PostsList({
             tStatusPublished={tStatusPublished}
             tStatusFailed={tStatusFailed}
             tStatusRemovedExternally={tStatusRemovedExternally}
+            tStatusArchived={tStatusArchived}
             tScheduledAt={tScheduledAt}
             tEditPost={tEditPost}
             tDeleteConfirmTitle={tDeleteConfirmTitle}

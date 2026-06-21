@@ -35,6 +35,18 @@ interface DeletePostDialogProps {
     status: string;
     post_platforms?: PostPlatform[];
   };
+  /**
+   * Called when the user confirms the destructive action.
+   * - `selectedPlatforms`: platforms the user wants to be removed
+   *   (Facebook / Instagram / YouTube are actually deleted via the
+   *   platform API; LinkedIn is an information-only selection that
+   *   reminds the user to remove the post manually on LinkedIn).
+   * - `deleteFromApp`: whether to hard-delete the post from the DB.
+   *   When `false`, the post row stays in Postio and the platform
+   *   rows that support API deletion (Facebook / Instagram / YouTube)
+   *   are reset to `draft`. LinkedIn (and Instagram) keep showing as
+   *   `published` so the rest of the post keeps syncing normally.
+   */
   onConfirm: (selectedPlatforms: string[], deleteFromApp: boolean) => Promise<void>;
   isDeleting: boolean;
 }
@@ -88,8 +100,16 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
     }
   }, [open, post.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasPublishedPlatforms = livePlatforms.length > 0;
-  const showSelectiveDelete = hasPublishedPlatforms;
+  // LinkedIn is intentionally included in the selectable platforms
+  // list, but only as an information-only checkbox: Postio does not
+  // call the LinkedIn UGC API DELETE (it has no working sync, so we
+  // cannot reliably confirm that the API actually took effect). The
+  // checkbox just reminds the user to remove the post manually on
+  // LinkedIn – the row in `post_platforms` stays at `status="published"`
+  // so the rest of the post keeps syncing normally.
+  const hasLinkedInPublished = livePlatforms.includes("linkedin");
+  const selectablePlatforms = livePlatforms; // includes LinkedIn
+  const showSelectiveDelete = selectablePlatforms.length > 0;
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms(prev =>
@@ -105,9 +125,29 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
     }
   };
 
+  // Description copy is platform-aware so the user always knows what
+  // they are about to do. LinkedIn is treated the same as Instagram
+  // (Postio does not call any API for it – the user has to remove the
+  // post manually on LinkedIn), so the LinkedIn text now reads as an
+  // informational note rather than a "we'll archive it for you"
+  // promise. YouTube and Facebook keep the normal "delete from
+  // platform via API" UX.
+  const descriptionText = (() => {
+    if (hasLinkedInPublished && livePlatforms.length === 1) {
+      return "Tento příspěvek je publikován pouze na LinkedInu. Postio ho neumí smazat z LinkedInu automaticky – zaškrtni \u201ESmazat z LinkedIn\u201C jen pro potvrzení, že příspěvek smažeš ručně na LinkedInu. Pokud zároveň zaškrtneš \u201ETrvale smazat z aplikace\u201C, příspěvek zmizí i z Postia. Jinak zůstane v Postiu jako publikovaný (dokud LinkedIn nepotvrdí smazání).";
+    }
+    if (hasLinkedInPublished && livePlatforms.length > 1) {
+      return "Tento příspěvek je publikován na více sítích. U Facebooku, Instagramu a YouTube Postio smaže příspěvek z platformy automaticky. LinkedIn je nutné smazat ručně – zaškrtnutí \u201ESmazat z LinkedIn\u201C ti připomene, že tam musíš příspěvek odstranit sám/sama. Ostatní platformy příspěvku zůstanou publikované a budou se dál synchronizovat.";
+    }
+    if (showSelectiveDelete) {
+      return "Tento příspěvek je publikován na sociálních sítích. Vyberte, odkud jej chcete odstranit:";
+    }
+    return "Opravdu chcete tento příspěvek smazat? Tato akce je nevratná.";
+  })();
+
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!isDeleting) onOpenChange(val); }}>
-      <DialogContent className="sm:max-w-[425px] bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[24px] shadow-2xl">
+      <DialogContent className="sm:max-w-[480px] bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[24px] shadow-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400">
@@ -116,9 +156,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
             Smazat příspěvek
           </DialogTitle>
           <DialogDescription className="text-base pt-2 text-foreground/80">
-            {showSelectiveDelete
-              ? "Tento příspěvek je publikován na sociálních sítích. Vyberte, odkud jej chcete odstranit:"
-              : "Opravdu chcete tento příspěvek smazat? Tato akce je nevratná."}
+            {descriptionText}
           </DialogDescription>
         </DialogHeader>
 
@@ -131,8 +169,9 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
               </div>
             ) : (
               <>
-                {/* Platform checkboxes with icons */}
-                {livePlatforms.map(platform => {
+                {/* Platform checkboxes – LinkedIn is included as an
+                    information-only checkbox (no API call). */}
+                {selectablePlatforms.map(platform => {
                   const Icon = PlatformIcon[platform] ?? null;
                   return (
                     <div
@@ -174,13 +213,13 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                     {deleteFromApp && <Check className="h-3.5 w-3.5 text-white" />}
                   </div>
                   <span className="font-semibold text-red-600 dark:text-red-400">
-                    Smazat také z aplikace Postio
+                    Trvale smazat z aplikace Postio
                   </span>
                 </div>
 
                 {!deleteFromApp && (
                   <p className="text-xs text-muted-foreground/70 pt-1">
-                    Příspěvek zůstane v kalendáři Postio, ale bude odstraněn z vybraných sociálních sítí.
+                    Příspěvek zůstane v kalendáři Postio a bude nadále zobrazen jako publikovaný. Z vybraných platforem bude odstraněn (kde to Postio umí přes API) a u ostatních platforem dostaneš připomínku, že je třeba je smazat ručně.
                   </p>
                 )}
               </>

@@ -173,10 +173,20 @@ interface EditPostDialogProps {
     igEditNotSupported?: string;
     publishToSelected?: string;
     additionalPublishSuccess?: string;
-    // Post preview (real-time FB/IG simulation)
+    // Post preview (real-time FB/IG/YT simulation)
     previewTitle?: string;
     previewFacebookTab?: string;
     previewInstagramTab?: string;
+    /**
+     * Label for the YouTube preview tab. Only required when the post
+     * targets YouTube (i.e. `availablePlatforms` includes "youtube").
+     */
+    previewYoutubeTab?: string;
+    /**
+     * Label for the LinkedIn preview tab. Only required when the post
+     * targets LinkedIn (i.e. `availablePlatforms` includes "linkedin").
+     */
+    previewLinkedinTab?: string;
     previewNoMedia?: string;
     previewPlaceholderName?: string;
     previewCaptionHint?: string;
@@ -223,10 +233,13 @@ export function EditPostDialog({
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
-  // Profiles used by the live post preview (FB page name/avatar, IG username/avatar).
-  // Loaded once per dialog open from the `users` + `social_accounts` tables.
+  // Profiles used by the live post preview (FB page name/avatar, IG username/avatar,
+  // YT channel name/thumbnail, LinkedIn profile name/avatar). Loaded once per
+  // dialog open from the `users` + `social_accounts` tables.
   const [facebookProfile, setFacebookProfile] = useState<PostPreviewProfile | null>(null);
   const [instagramProfile, setInstagramProfile] = useState<PostPreviewProfile | null>(null);
+  const [youtubeProfile, setYoutubeProfile] = useState<PostPreviewProfile | null>(null);
+  const [linkedinProfile, setLinkedinProfile] = useState<PostPreviewProfile | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -242,12 +255,16 @@ export function EditPostDialog({
     getUser();
   }, [open, supabase, userId]);
 
-  // Load the user's profile + connected FB/IG accounts for the live preview.
+  // Load the user's profile + connected social accounts for the live preview.
   // Runs once we have a userId. We deliberately fetch BOTH the `users` row
   // (full_name + avatar_url fallback) and the `social_accounts` rows
   // (platform-specific display name + avatar). The social account takes
-  // priority because it reflects the actual page/username that will be shown
-  // on the network; the `users` row is a graceful fallback.
+  // priority because it reflects the actual page/username/channel that will be
+  // shown on the network; the `users` row is a graceful fallback.
+  //
+  // We pull FB / IG / YT / LinkedIn in a single round trip; we deliberately
+  // do NOT pull Twitter/X or TikTok because those platforms don't have a
+  // preview renderer yet. Add them here when their previews land.
   useEffect(() => {
     if (!userId || !open) return;
     let cancelled = false;
@@ -264,13 +281,15 @@ export function EditPostDialog({
             .select("platform, account_name, avatar_url")
             .eq("user_id", userId)
             .eq("is_active", true)
-            .in("platform", ["facebook", "instagram"]),
+            .in("platform", ["facebook", "instagram", "youtube", "linkedin"]),
         ]);
         if (cancelled) return;
         const fallbackName = userRes.data?.full_name ?? tLabels.previewPlaceholderName ?? "Postio";
         const fallbackAvatar = userRes.data?.avatar_url ?? null;
         const fb = accountsRes.data?.find((a) => a.platform === "facebook");
         const ig = accountsRes.data?.find((a) => a.platform === "instagram");
+        const yt = accountsRes.data?.find((a) => a.platform === "youtube");
+        const li = accountsRes.data?.find((a) => a.platform === "linkedin");
         setFacebookProfile({
           displayName: fb?.account_name ?? fallbackName,
           avatarUrl: fb?.avatar_url ?? fallbackAvatar,
@@ -278,6 +297,14 @@ export function EditPostDialog({
         setInstagramProfile({
           displayName: ig?.account_name ?? fallbackName,
           avatarUrl: ig?.avatar_url ?? fallbackAvatar,
+        });
+        setYoutubeProfile({
+          displayName: yt?.account_name ?? fallbackName,
+          avatarUrl: yt?.avatar_url ?? fallbackAvatar,
+        });
+        setLinkedinProfile({
+          displayName: li?.account_name ?? fallbackName,
+          avatarUrl: li?.avatar_url ?? fallbackAvatar,
         });
       } catch {
         // non-fatal – preview falls back to placeholder name
@@ -353,12 +380,40 @@ export function EditPostDialog({
       previewTitle: tLabels.previewTitle ?? "Náhled",
       facebookTab: tLabels.previewFacebookTab ?? "Facebook",
       instagramTab: tLabels.previewInstagramTab ?? "Instagram",
+      youtubeTab: tLabels.previewYoutubeTab ?? "YouTube",
+      linkedinTab: tLabels.previewLinkedinTab ?? "LinkedIn",
       noMedia: tLabels.previewNoMedia ?? "Žádná média",
       placeholderName: tLabels.previewPlaceholderName ?? "Postio",
       captionHint: tLabels.previewCaptionHint ?? "Sem napište text příspěvku…",
     }),
     [tLabels],
   );
+
+  // Decide which preview tabs should be visible. A tab is shown only when
+  // the post actually targets that platform – we union three sources so the
+  // preview stays accurate across all editor states:
+  //  1. `platforms`   – form state (chips toggled in this session)
+  //  2. `post.platforms` – platforms persisted on the post row
+  //  3. `post.post_platforms` – platform rows already created (incl. published)
+  // The list is then mapped to the subset of platforms that PostPreview
+  // knows how to render today (FB / IG / YT / LinkedIn). Other platforms are
+  // deliberately filtered out until their previews are implemented.
+  const availablePreviewPlatforms = useMemo<
+    Array<"facebook" | "instagram" | "youtube" | "linkedin">
+  >(() => {
+    const all = new Set<string>([
+      ...platforms,
+      ...(post?.platforms ?? []),
+      ...(post?.post_platforms ?? []).map((p) => p.platform),
+    ]);
+    const order: Array<"facebook" | "instagram" | "youtube" | "linkedin"> = [
+      "facebook",
+      "instagram",
+      "youtube",
+      "linkedin",
+    ];
+    return order.filter((id) => all.has(id));
+  }, [platforms, post?.platforms, post?.post_platforms]);
 
   // Detect if the published post is on Instagram
   const isInstagramPublished = useMemo(() => {
@@ -933,7 +988,7 @@ export function EditPostDialog({
         {/* Two-column layout: form (left) + live preview (right).
             On screens below `lg` the preview collapses below the form. */}
         <div className="grid grid-cols-1 gap-4 px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 postio-scrollbar">
           {error && (
             <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
@@ -1298,6 +1353,9 @@ export function EditPostDialog({
               media={previewMedia}
               facebookProfile={facebookProfile}
               instagramProfile={instagramProfile}
+              youtubeProfile={youtubeProfile}
+              linkedinProfile={linkedinProfile}
+              availablePlatforms={availablePreviewPlatforms}
               location={location}
               labels={previewLabels}
             />

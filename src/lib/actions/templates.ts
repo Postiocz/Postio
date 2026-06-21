@@ -43,3 +43,33 @@ export async function createTemplate(data: { name: string; content: string }) {
   return { success: true, data: template };
 }
 
+export async function deleteTemplate(id: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  // RLS ensures a user can only delete their own templates; the
+  // explicit user_id filter is belt-and-braces and also gives the
+  // query planner a chance to use the index.
+  const { error } = await supabase
+    .from("templates")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error deleting template:", error);
+    return { success: false, error: error.message };
+  }
+
+  revalidateAllLocales("/templates");
+  return { success: true };
+}
+

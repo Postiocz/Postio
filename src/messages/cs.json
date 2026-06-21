@@ -292,6 +292,7 @@
     "statusPublished": "Publikované",
     "statusFailed": "Neúspěšné",
     "statusRemovedExternally": "Odstraněno externě",
+    "statusArchived": "Archivováno",
     "republish": "Publikovat znovu",
     "removedExternallyMsg": "Odstraněno přímo na __platform__",
     "filterByTag": "Filtr podle štítku",
@@ -302,6 +303,8 @@
     "previewTitle": "Náhled",
     "previewFacebookTab": "Facebook",
     "previewInstagramTab": "Instagram",
+    "previewYoutubeTab": "YouTube",
+    "previewLinkedinTab": "LinkedIn",
     "previewNoMedia": "Žádná média",
     "previewPlaceholderName": "Postio",
     "previewCaptionHint": "Sem napište text příspěvku…"
@@ -364,6 +367,7 @@
       "warningDesc": "Tato funkce vyžaduje Profesionální účet (Business/Creator) nebo Facebook Stránku.",
       "warningDescInstagram": "Tato funkce vyžaduje Profesionální účet (Business/Creator).",
       "warningDescLinkedIn": "LinkedIn token platí 60 dní. Po vypršení budete muset účet znovu propojit.",
+      "warningDescYouTube": "Budete přesměrováni na Google, kde povolíte Postiu přístup k vašemu YouTube kanálu (videa a základní profil). Tokeny pro vás držíme v bezpečí a pravidelně je obnovujeme.",
       "connectButton": "Propojit Professional účet",
       "learnMore": "Máte osobní účet? Zjistěte, jak jej přepnout"
     },
@@ -386,7 +390,14 @@
     "activateAll": "Aktivovat všechny nalezené stránky ({count})",
     "activatingAll": "Aktivuji všechny stránky…",
     "allActivated": "Všech {count} stránek bylo úspěšně aktivováno.",
-    "someFailed": "Nepodařilo se aktivovat {failed} stránek. Zkuste to prosím znovu."
+    "someFailed": "Nepodařilo se aktivovat {failed} stránek. Zkuste to prosím znovu.",
+    "ytConnected": "YouTube kanál „{name}\" byl úspěšně připojen k Postiu.",
+    "ytConnectedShort": "YouTube kanál byl úspěšně připojen k Postiu.",
+    "ytDisconnected": "YouTube kanál „{name}\" byl odpojen.",
+    "liConnected": "LinkedIn účet „{name}\" byl úspěšně propojen s Postiem.",
+    "liConnectedShort": "LinkedIn účet byl úspěšně propojen s Postiem.",
+    "liDisconnected": "LinkedIn účet „{name}\" byl odpojen.",
+    "connectionError": "Nepodařilo se propojit účet: {error}"
   },
   "templates": {
     "title": "Šablony",
@@ -398,7 +409,10 @@
     "useTemplate": "Použít",
     "noTemplates": "Žádné šablony",
     "noTemplatesSubtitle": "Vytvořte šablonu pro opakované použití",
-    "errorSaving": "Chyba při ukládání"
+    "errorSaving": "Chyba při ukládání",
+    "deleteConfirm": "Opravdu chcete smazat tuto šablonu?",
+    "templateApplied": "Šablona „{name}“ byla použita",
+    "templateLoadError": "Šablonu se nepodařilo načíst"
   },
   "analytics": {
     "title": "Analytika",

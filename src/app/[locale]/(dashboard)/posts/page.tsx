@@ -4,6 +4,17 @@ import { syncPublishedPosts, cleanupAutoDeletedPosts } from "@/lib/actions/posts
 import { getUserTags } from "@/lib/actions/tag-actions";
 import { PostsContainer } from "./_posts-container";
 
+// Force dynamic rendering on every navigation so the freshly-mutated
+// `posts.status` / `post_platforms.status` after a publish / archive
+// / delete is reflected in PostCard without a manual page reload.
+// Without this, Next.js may serve a cached RSC payload that still
+// shows the pre-mutation state (e.g. a "Koncept" badge after the
+// user just re-published to LinkedIn). `revalidateAllLocales("/posts")`
+// in the publish / delete server actions already invalidates the
+// path cache, but RSC payload caching is a separate layer that we
+// opt out of here.
+export const dynamic = "force-dynamic";
+
 export default async function PostsPage({
   params,
 }: {
@@ -50,6 +61,10 @@ export default async function PostsPage({
     else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+    // `archived` only wins when ALL platforms are archived.
+    else if (statuses.length > 0 && statuses.every((s: string) => s === "archived")) {
+      computedStatus = "archived";
+    }
 
     // Normalize post_tags → flat array of { id, name, color }.
     // Supabase returns the join as [{ tags: { id, name, color } | null }].
@@ -102,6 +117,7 @@ export default async function PostsPage({
           tStatusPublished={t("statusPublished")}
           tStatusFailed={t("statusFailed")}
           tStatusRemovedExternally={t("statusRemovedExternally")}
+          tStatusArchived={t("statusArchived")}
           tNoPosts={t("noPosts")}
           tNoPostsSubtitle={t("noPostsSubtitle")}
           tScheduledAt={t("scheduledAt")}

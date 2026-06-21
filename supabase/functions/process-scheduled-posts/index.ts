@@ -349,6 +349,822 @@ async function publishToInstagram(
   return { success: true, externalId: creationId };
 }
 
+/**
+ * ============================================================
+ * YouTube Data API v3 – refresh token + upload (Deno port)
+ * ============================================================
+ *
+ * Same logic as `src/lib/actions/publish-youtube.ts` but rewritten for the
+ * Edge runtime (Deno). The two implementations MUST stay in sync.
+ *
+ * Differences vs the Next.js helper:
+ *   - Uses `Deno.env.get(...)` instead of `process.env`.
+ *   - Uses a raw `supabaseAdmin` (already created in this file) instead
+ *     of calling `createAdminClient()` from `@/lib/supabase/server`.
+ *
+ * Token lifecycle is identical: Google access tokens live ~1h, the
+ * `refresh_token` lives in `social_accounts.metadata` (JSONB), and we
+ * transparently refresh before publish if the cached token is within the
+ * safety buffer.
+ */
+const YOUTUBE_REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+async function refreshYouTubeAccessToken(
+  refreshToken: string,
+): Promise<
+  | {
+      success: true;
+      accessToken: string;
+      expiresInSeconds: number;
+    }
+  | { success: false; error: string }
+> {
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+
+  if (!clientId || !clientSecret) {
+    return {
+      success: false,
+      error: "Google OAuth není nakonfigurován (GOOGLE_CLIENT_ID/SECRET).",
+    };
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+
+    const payload = (await res.json().catch(() => ({}))) as {
+      access_token?: string;
+      expires_in?: number;
+      error?: string;
+      error_description?: string;
+    };
+
+    if (!res.ok || !payload.access_token) {
+      const reason =
+        payload.error_description || payload.error || `HTTP ${res.status}`;
+      console.error(">>> [YouTube] refresh failed:", { status: res.status, reason });
+      return { success: false, error: `Google token refresh failed: ${reason}` };
+    }
+
+    return {
+      success: true,
+      accessToken: payload.access_token,
+      expiresInSeconds:
+        typeof payload.expires_in === "number" ? payload.expires_in : 3600,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(">>> [YouTube] refresh network error:", msg);
+    return { success: false, error: `Google token refresh network error: ${msg}` };
+  }
+}
+
+/**
+ * Look up the user's YouTube account row, ensure the access token is
+ * fresh (refreshing via refresh_token if needed), persist the new
+ * value, and return it ready-to-use.
+ *
+ * Note on types: `supabaseAdmin` is typed as the Deno port of the
+ * Supabase client (`SupabaseClient<any, "public", ...>`), while
+ * `ReturnType<typeof createClient>` uses a narrower generic. We
+ * accept the Deno-side type here directly so the function compiles
+ * without the @supabase/supabase-js full Database generic.
+ */
+// deno-lint-ignore no-explicit-any
+type DenoSupabaseClient = any;
+
+async function getValidYouTubeAccessToken(params: {
+  supabaseAdmin: DenoSupabaseClient;
+  userId: string;
+}): Promise<
+  | {
+      success: true;
+      accessToken: string;
+      account: {
+        id: string;
+        access_token: string;
+        token_expires_at: string | null;
+        metadata: Record<string, unknown> | null;
+      };
+    }
+  | { success: false; error: string }
+> {
+  const { supabaseAdmin, userId } = params;
+
+  const { data: accountsRaw, error: lookupError } = await supabaseAdmin
+    .from("social_accounts")
+    .select("id, access_token, token_expires_at, metadata")
+    .eq("user_id", userId)
+    .ilike("platform", "youtube")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const accounts = accountsRaw as Array<{
+    id: string;
+    access_token: string;
+    token_expires_at: string | null;
+    metadata: Record<string, unknown> | null;
+  }> | null;
+
+  if (lookupError || !accounts?.[0]?.access_token) {
+    return {
+      success: false,
+      error: lookupError?.message ?? "Chybí propojený YouTube kanál (access_token).",
+    };
+  }
+
+  const account = accounts[0];
+
+  const now = Date.now();
+  const expiresAtMs = account.token_expires_at
+    ? new Date(account.token_expires_at).getTime()
+    : 0;
+
+  // Fast path – token still safe to use.
+  if (expiresAtMs - now > YOUTUBE_REFRESH_BUFFER_MS) {
+    return { success: true, accessToken: account.access_token, account };
+  }
+
+  // Slow path – need to refresh.
+  const refreshTokenRaw = (account.metadata as Record<string, unknown> | null)?.refresh_token;
+  if (typeof refreshTokenRaw !== "string" || !refreshTokenRaw.trim()) {
+    return {
+      success: false,
+      error:
+        "YouTube access token vypršel a v databázi chybí refresh_token. Uživatel se musí znovu připojit přes Google OAuth.",
+    };
+  }
+
+  const refreshed = await refreshYouTubeAccessToken(refreshTokenRaw);
+  if (!refreshed.success) {
+    return { success: false, error: refreshed.error };
+  }
+
+  const newExpiresAt = new Date(now + refreshed.expiresInSeconds * 1000).toISOString();
+
+  // Persist refreshed token. Do NOT overwrite metadata.refresh_token.
+  const { error: updateError } = await supabaseAdmin
+    .from("social_accounts")
+    .update({
+      access_token: refreshed.accessToken,
+      token_expires_at: newExpiresAt,
+    })
+    .eq("id", account.id);
+
+  if (updateError) {
+    console.warn(">>> [YouTube] failed to persist refreshed token (non-fatal):", updateError.message);
+  }
+
+  return {
+    success: true,
+    accessToken: refreshed.accessToken,
+    account: { ...account, access_token: refreshed.accessToken, token_expires_at: newExpiresAt },
+  };
+}
+
+/**
+ * Upload a single video to YouTube using the resumable upload protocol.
+ * Identical algorithm to the Next.js helper – see comments there.
+ */
+async function publishToYouTube(params: {
+  accessToken: string;
+  videoUrl: string;
+  title: string;
+  description?: string;
+}): Promise<{ success: boolean; externalId?: string; error?: string }> {
+  const { accessToken, videoUrl, title, description } = params;
+
+  // 1) Fetch source video bytes
+  let videoBuffer: ArrayBuffer;
+  try {
+    const srcRes = await fetch(videoUrl);
+    if (!srcRes.ok) {
+      return {
+        success: false,
+        error: `Video soubor na URL ${videoUrl} se nepodařilo stáhnout (HTTP ${srcRes.status}).`,
+      };
+    }
+    videoBuffer = await srcRes.arrayBuffer();
+  } catch (e) {
+    return {
+      success: false,
+      error: `Síťová chyba při stahování videa: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+
+  if (videoBuffer.byteLength === 0) {
+    return { success: false, error: "Video soubor je prázdný (0 bytů)." };
+  }
+
+  const snippet = {
+    title: title.slice(0, 100),
+    description: (description ?? "").slice(0, 5000),
+    categoryId: "22",
+  };
+  const status = {
+    privacyStatus: "public",
+    selfDeclaredMadeForKids: false,
+    embeddable: true,
+  };
+
+  // 2) Initiate resumable upload
+  const initRes = await fetch(
+    "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Length": String(videoBuffer.byteLength),
+        "X-Upload-Content-Type": "video/mp4",
+      },
+      body: JSON.stringify({ snippet, status }),
+    },
+  );
+
+  if (!initRes.ok) {
+    const errPayload = (await initRes.json().catch(() => ({}))) as {
+      error?: { message?: string; errors?: Array<{ message?: string }> };
+    };
+    const reason =
+      errPayload.error?.message ||
+      (Array.isArray(errPayload.error?.errors) && errPayload.error?.errors[0]?.message) ||
+      `YouTube init upload failed (HTTP ${initRes.status})`;
+    console.error(">>> [YouTube] resumable init failed:", { status: initRes.status, reason });
+    return { success: false, error: reason };
+  }
+
+  const sessionUri = initRes.headers.get("Location");
+  if (!sessionUri) {
+    return { success: false, error: "YouTube nevrátil Location header." };
+  }
+
+  // 3) PUT the actual video bytes
+  const uploadRes = await fetch(sessionUri, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "video/mp4",
+      "Content-Length": String(videoBuffer.byteLength),
+    },
+    body: videoBuffer,
+  });
+
+  if (!uploadRes.ok) {
+    const errPayload = (await uploadRes.json().catch(() => ({}))) as {
+      error?: { message?: string; errors?: Array<{ message?: string }> };
+    };
+    const reason =
+      errPayload.error?.message ||
+      (Array.isArray(errPayload.error?.errors) && errPayload.error?.errors[0]?.message) ||
+      `YouTube upload failed (HTTP ${uploadRes.status})`;
+    console.error(">>> [YouTube] upload failed:", { status: uploadRes.status, reason });
+    return { success: false, error: reason };
+  }
+
+  const finalPayload = (await uploadRes.json().catch(() => ({}))) as {
+    id?: string;
+  };
+
+  if (!finalPayload.id) {
+    return { success: false, error: "YouTube upload vrátil 200, ale bez video ID." };
+  }
+
+  console.log(">>> [YouTube] ✅ upload success, videoId:", finalPayload.id);
+  return { success: true, externalId: finalPayload.id };
+}
+
+// ---------------------------------------------------------------------
+// LinkedIn publisher helpers (Deno port of src/lib/actions/publish-linkedin.ts)
+// ---------------------------------------------------------------------
+//
+// LinkedIn UGC Posts API:
+//   - POST https://api.linkedin.com/v2/ugcPosts
+//   - Header: X-Restli-Protocol-Version: 2.0.0 (REQUIRED)
+//   - Author: urn:li:person:{openIdSub} – we already store this in
+//     social_accounts.platform_id (set during OAuth callback).
+//   - For images: POST /v2/assets?action=registerUpload → PUT binary
+//     bytes to the returned uploadUrl → reference urn:li:image:{asset}
+//     in the ugcPost body.
+//   - Video posts are NOT supported in v1 (need a separate /v2/videos
+//     flow). LinkedIn text posts support up to 3000 characters of
+//     shareCommentary.
+
+const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
+const LINKEDIN_UGC_POSTS_URL = "https://api.linkedin.com/v2/ugcPosts";
+const LINKEDIN_ASSETS_URL =
+  "https://api.linkedin.com/v2/assets?action=registerUpload";
+const LINKEDIN_RESTLI_VERSION = "2.0.0";
+// LinkedIn access tokens live for 60 days. 1 day refresh buffer keeps
+// us safely inside that window while not burning refresh quota.
+const LINKEDIN_REFRESH_BUFFER_MS = 24 * 60 * 60 * 1000;
+
+async function refreshLinkedInAccessToken(
+  refreshToken: string,
+): Promise<
+  | {
+      success: true;
+      accessToken: string;
+      expiresInSeconds: number;
+      newRefreshToken?: string;
+    }
+  | { success: false; error: string }
+> {
+  const clientId = Deno.env.get("LINKEDIN_CLIENT_ID");
+  const clientSecret = Deno.env.get("LINKEDIN_CLIENT_SECRET");
+
+  if (!clientId || !clientSecret) {
+    return {
+      success: false,
+      error:
+        "LinkedIn OAuth není nakonfigurován (chybí LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET).",
+    };
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+
+  try {
+    const res = await fetch(LINKEDIN_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+
+    const payload = (await res.json().catch(() => ({}))) as {
+      access_token?: string;
+      expires_in?: number;
+      refresh_token?: string;
+      error?: string;
+      error_description?: string;
+    };
+
+    if (!res.ok || !payload.access_token) {
+      const reason =
+        payload.error_description || payload.error || `HTTP ${res.status}`;
+      console.error(">>> [LinkedIn] refresh failed:", {
+        status: res.status,
+        reason,
+      });
+      return {
+        success: false,
+        error: `LinkedIn token refresh failed: ${reason}`,
+      };
+    }
+
+    return {
+      success: true,
+      accessToken: payload.access_token,
+      expiresInSeconds: typeof payload.expires_in === "number"
+        ? payload.expires_in
+        : 60 * 24 * 60 * 60,
+      newRefreshToken: payload.refresh_token,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(">>> [LinkedIn] refresh network error:", msg);
+    return {
+      success: false,
+      error: `LinkedIn token refresh network error: ${msg}`,
+    };
+  }
+}
+
+/**
+ * Look up the user's LinkedIn account, ensure the access token is fresh
+ * (refreshing via refresh_token if needed), persist the new value, and
+ * return it ready-to-use. Returns the account row so callers can read
+ * `platform_id` to build the author URN.
+ */
+async function getValidLinkedInAccessToken(params: {
+  supabaseAdmin: DenoSupabaseClient;
+  userId: string;
+}): Promise<
+  | {
+      success: true;
+      accessToken: string;
+      account: {
+        id: string;
+        access_token: string;
+        token_expires_at: string | null;
+        metadata: Record<string, unknown> | null;
+        platform_id: string | null;
+      };
+    }
+  | { success: false; error: string }
+> {
+  const { supabaseAdmin, userId } = params;
+
+  const { data: accountsRaw, error: lookupError } = await supabaseAdmin
+    .from("social_accounts")
+    .select("id, access_token, token_expires_at, metadata, platform_id")
+    .eq("user_id", userId)
+    .ilike("platform", "linkedin")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const accounts = accountsRaw as Array<{
+    id: string;
+    access_token: string;
+    token_expires_at: string | null;
+    metadata: Record<string, unknown> | null;
+    platform_id: string | null;
+  }> | null;
+
+  if (lookupError || !accounts?.[0]?.access_token) {
+    return {
+      success: false,
+      error: lookupError?.message ??
+        "Chybí propojený LinkedIn účet (access_token).",
+    };
+  }
+
+  const account = accounts[0];
+
+  const now = Date.now();
+  const expiresAtMs = account.token_expires_at
+    ? new Date(account.token_expires_at).getTime()
+    : 0;
+
+  // Fast path – token still safe to use.
+  if (expiresAtMs - now > LINKEDIN_REFRESH_BUFFER_MS) {
+    return {
+      success: true,
+      accessToken: account.access_token,
+      account,
+    };
+  }
+
+  // Slow path – refresh.
+  const refreshTokenRaw = (account.metadata as Record<string, unknown> | null)
+    ?.refresh_token;
+  if (typeof refreshTokenRaw !== "string" || !refreshTokenRaw.trim()) {
+    return {
+      success: false,
+      error:
+        "LinkedIn access token vypršel a v databázi chybí refresh_token. Uživatel se musí znovu připojit přes LinkedIn OAuth.",
+    };
+  }
+
+  const refreshed = await refreshLinkedInAccessToken(refreshTokenRaw);
+  if (!refreshed.success) {
+    return { success: false, error: refreshed.error };
+  }
+
+  const newExpiresAt = new Date(
+    now + refreshed.expiresInSeconds * 1000,
+  ).toISOString();
+
+  // LinkedIn may rotate the refresh_token. Persist the new one if we
+  // received it; otherwise keep the existing one (do not overwrite with
+  // undefined → null in the JSONB blob).
+  const newMetadata: Record<string, unknown> = {
+    ...((account.metadata as Record<string, unknown> | null) ?? {}),
+  };
+  if (typeof refreshed.newRefreshToken === "string" && refreshed.newRefreshToken.trim()) {
+    newMetadata.refresh_token = refreshed.newRefreshToken;
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("social_accounts")
+    .update({
+      access_token: refreshed.accessToken,
+      token_expires_at: newExpiresAt,
+      metadata: newMetadata,
+    })
+    .eq("id", account.id);
+
+  if (updateError) {
+    console.warn(
+      ">>> [LinkedIn] failed to persist refreshed token (non-fatal):",
+      updateError.message,
+    );
+  }
+
+  return {
+    success: true,
+    accessToken: refreshed.accessToken,
+    account: {
+      ...account,
+      access_token: refreshed.accessToken,
+      token_expires_at: newExpiresAt,
+      metadata: newMetadata,
+    },
+  };
+}
+
+/**
+ * Build the final LinkedIn post text: content + 📍 location + hashtags.
+ * Truncated to 3000 chars (LinkedIn hard limit on shareCommentary.text).
+ */
+function buildLinkedInContent(params: {
+  content: string;
+  location?: string | null;
+  tags?: string[];
+}): string {
+  const parts: string[] = [params.content.trim()];
+
+  if (params.location?.trim()) {
+    parts.push(`📍 ${params.location.trim()}`);
+  }
+
+  const normalizedTags = Array.isArray(params.tags)
+    ? params.tags.filter((t) => typeof t === "string" && t.trim())
+    : [];
+  if (normalizedTags.length > 0) {
+    const hashtagLine = normalizedTags
+      .map((t) => (t.startsWith("#") ? t : `#${t}`))
+      .join(" ");
+    parts.push(hashtagLine);
+  }
+
+  const full = parts.join("\n\n");
+  return full.length > 3000 ? full.slice(0, 2997) + "..." : full;
+}
+
+/**
+ * Register a LinkedIn image asset (the two-step "recipe" + binary PUT
+ * dance) and return the asset URN that must be referenced from the
+ * ugcPost body.
+ */
+async function registerLinkedInImageAsset(params: {
+  accessToken: string;
+  authorUrn: string;
+  imageBytes: ArrayBuffer;
+  mimeType: string;
+}): Promise<{ success: true; assetUrn: string } | { success: false; error: string }> {
+  const { accessToken, authorUrn, imageBytes, mimeType } = params;
+
+  // LinkedIn's `/v2/assets?action=registerUpload` expects `recipes` to be
+  // an ARRAY OF URN STRINGS (not objects!), plus TOP-LEVEL
+  // `serviceRelationships` (an array of `{ identifier, relationshipType }`)
+  // and TOP-LEVEL `supportedUploadMechanism: ["SYNCHRONOUS_UPLOAD"]` for
+  // a single-shot image upload. See the official Vector Assets API docs:
+  // https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/vector-asset-api
+  //
+  // Sending `recipes: [{ relationshipType, recipe }]` (objects) returns
+  // HTTP 403 + `serviceErrorCode 100`:
+  //   "Field Value validation failed in REQUEST_BODY: Data Processing
+  //    Exception while processing fields
+  //    [/registerUploadRequest/recipes/serviceRelationships]"
+  //
+  // This is the Deno port of the Next.js helper
+  // (src/lib/actions/publish-linkedin.ts) – keep them in sync.
+  const registerBody = {
+    registerUploadRequest: {
+      owner: authorUrn,
+      recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+      serviceRelationships: [
+        {
+          identifier: "urn:li:userGeneratedContent",
+          relationshipType: "OWNER",
+        },
+      ],
+      supportedUploadMechanism: ["SYNCHRONOUS_UPLOAD"],
+    },
+  };
+
+  const registerRes = await fetch(LINKEDIN_ASSETS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "X-Restli-Protocol-Version": LINKEDIN_RESTLI_VERSION,
+    },
+    body: JSON.stringify(registerBody),
+  });
+
+  if (!registerRes.ok) {
+    const text = await registerRes.text().catch(() => "");
+    console.error(">>> [LinkedIn] assets.registerUpload failed:", {
+      status: registerRes.status,
+      text,
+    });
+    return {
+      success: false,
+      error: `LinkedIn asset registration failed (HTTP ${registerRes.status}): ${text.slice(0, 300)}`,
+    };
+  }
+
+  const registerPayload = (await registerRes.json().catch(() => ({}))) as {
+    value?: {
+      asset?: string;
+      uploadMechanism?: {
+        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"?: {
+          uploadUrl?: string;
+        };
+      };
+    };
+  };
+
+  const uploadUrl =
+    registerPayload.value?.uploadMechanism?.[
+      "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+    ]?.uploadUrl;
+  const assetUrn = registerPayload.value?.asset;
+
+  if (!uploadUrl || !assetUrn) {
+    return {
+      success: false,
+      error:
+        "LinkedIn asset registration did not return an uploadUrl/asset URN.",
+    };
+  }
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": mimeType,
+      "Content-Length": String(imageBytes.byteLength),
+    },
+    body: imageBytes,
+  });
+
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text().catch(() => "");
+    console.error(">>> [LinkedIn] asset binary upload failed:", {
+      status: uploadRes.status,
+      text,
+    });
+    return {
+      success: false,
+      error: `LinkedIn asset upload failed (HTTP ${uploadRes.status}): ${text.slice(0, 300)}`,
+    };
+  }
+
+  return { success: true, assetUrn };
+}
+
+/**
+ * Publish a single post to LinkedIn via the UGC Posts API.
+ *
+ * Supports:
+ *  - text-only posts
+ *  - single-image posts (first image attachment)
+ *  - video posts are NOT supported in v1
+ */
+async function publishToLinkedIn(params: {
+  accessToken: string;
+  authorUrn: string;
+  content: string;
+  mediaUrls: string[];
+}): Promise<{ success: boolean; externalId?: string; error?: string }> {
+  const { accessToken, authorUrn, content, mediaUrls } = params;
+
+  const firstMedia = mediaUrls.find((u) => typeof u === "string" && u.trim());
+
+  let mediaCategory: "NONE" | "IMAGE" = "NONE";
+  let mediaUrn: string | null = null;
+
+  if (firstMedia) {
+    const urlLower = firstMedia.split("#")[0]?.split("?")[0]?.toLowerCase() ?? "";
+    const isVideo =
+      urlLower.endsWith(".mp4") ||
+      urlLower.endsWith(".mov") ||
+      urlLower.endsWith(".m4v") ||
+      urlLower.endsWith(".webm") ||
+      urlLower.endsWith(".mkv");
+    const isImage =
+      urlLower.endsWith(".jpg") ||
+      urlLower.endsWith(".jpeg") ||
+      urlLower.endsWith(".png") ||
+      urlLower.endsWith(".webp") ||
+      urlLower.endsWith(".gif");
+
+    if (isVideo) {
+      return {
+        success: false,
+        error:
+          "LinkedIn v této verzi nepodporuje video příspěvky. Použijte obrázek nebo text bez médií.",
+      };
+    }
+
+    if (isImage) {
+      // Download the image bytes once and run the LinkedIn asset
+      // registration + binary upload dance.
+      let imageBuffer: ArrayBuffer;
+      try {
+        const srcRes = await fetch(firstMedia);
+        if (!srcRes.ok) {
+          return {
+            success: false,
+            error: `Obrázek na URL ${firstMedia} se nepodařilo stáhnout (HTTP ${srcRes.status}).`,
+          };
+        }
+        imageBuffer = await srcRes.arrayBuffer();
+      } catch (e) {
+        return {
+          success: false,
+          error: `Síťová chyba při stahování obrázku: ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
+
+      if (imageBuffer.byteLength === 0) {
+        return { success: false, error: "Obrázek je prázdný (0 bytů)." };
+      }
+
+      const mimeType = urlLower.endsWith(".png")
+        ? "image/png"
+        : urlLower.endsWith(".webp")
+          ? "image/webp"
+          : urlLower.endsWith(".gif")
+            ? "image/gif"
+            : "image/jpeg";
+
+      const assetResult = await registerLinkedInImageAsset({
+        accessToken,
+        authorUrn,
+        imageBytes: imageBuffer,
+        mimeType,
+      });
+      if (!assetResult.success) {
+        return { success: false, error: assetResult.error };
+      }
+      mediaCategory = "IMAGE";
+      mediaUrn = assetResult.assetUrn;
+    }
+  }
+
+  // Build the ugcPosts payload.
+  const shareContent: Record<string, unknown> = {
+    shareCommentary: { text: content },
+    shareMediaCategory: mediaCategory,
+  };
+
+  if (mediaCategory === "IMAGE" && mediaUrn) {
+    shareContent.media = [
+      {
+        status: "READY",
+        description: { text: content.slice(0, 200) },
+        media: mediaUrn,
+        title: { text: content.slice(0, 100) },
+      },
+    ];
+  }
+
+  const payload = {
+    author: authorUrn,
+    lifecycleState: "PUBLISHED",
+    specificContent: {
+      "com.linkedin.ugc.ShareContent": shareContent,
+    },
+    visibility: {
+      "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+    },
+  };
+
+  const res = await fetch(LINKEDIN_UGC_POSTS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "X-Restli-Protocol-Version": LINKEDIN_RESTLI_VERSION,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  // 201 Created on success. The post URN is in the `x-restli-id` header.
+  if (res.status === 201) {
+    const externalId = res.headers.get("x-restli-id");
+    if (!externalId) {
+      return {
+        success: false,
+        error: "LinkedIn vrátil 201 Created, ale chybí hlavička x-restli-id.",
+      };
+    }
+    console.log(">>> [LinkedIn] ✅ publish success, postUrn:", externalId);
+    return { success: true, externalId };
+  }
+
+  const errPayload = (await res.json().catch(() => ({}))) as {
+    message?: string;
+    status?: number;
+  };
+  const reason = errPayload.message ||
+    `LinkedIn ugcPosts failed (HTTP ${res.status})`;
+  console.error(">>> [LinkedIn] publish failed:", {
+    status: res.status,
+    payload: errPayload,
+  });
+  return { success: false, error: reason };
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -612,6 +1428,98 @@ Deno.serve(async (request: Request) => {
           } else {
             externalId = result.externalId ?? null;
             console.log(`>>> Facebook publish success for post_platforms ${pp.id}`, { externalId });
+          }
+        }
+      } else if (targetPlatform === "youtube") {
+        // --- YouTube publish (scheduled / background) ---
+        // Requires at least one video URL. For scheduled posts the edge
+        // function is invoked by cron, so the access token may have
+        // expired since the user scheduled the post – we therefore
+        // transparently refresh via `getValidYouTubeAccessToken` before
+        // attempting the upload.
+        const firstYouTubeMedia = mediaUrls.find((u: unknown) => typeof u === "string" && (u as string).trim());
+        if (!firstYouTubeMedia) {
+          publishError = "YouTube vyžaduje alespoň jedno video.";
+          console.log(`>>> YouTube skipped for post_platforms ${pp.id}: no video media`);
+        } else {
+          const ytToken = await getValidYouTubeAccessToken({
+            supabaseAdmin,
+            userId: post.user_id,
+          });
+
+          if (!ytToken.success) {
+            publishError = ytToken.error;
+            console.log(`>>> YouTube token error for post_platforms ${pp.id}`, { error: publishError });
+          } else {
+            // Build description: content + location + hashtags + #Shorts hint
+            const descParts: string[] = [rawContent.trim()];
+            if (rawLocation?.trim()) {
+              descParts.push(`📍 ${rawLocation.trim()}`);
+            }
+            if (rawTags.length > 0) {
+              const hashtags = rawTags
+                .map((t: string) => (t.startsWith("#") ? t : `#${t}`))
+                .join(" ");
+              descParts.push(hashtags);
+            }
+            descParts.push("#Shorts");
+
+            const result = await publishToYouTube({
+              accessToken: ytToken.accessToken,
+              videoUrl: firstYouTubeMedia as string,
+              title: rawContent,
+              description: descParts.join("\n"),
+            });
+
+            if (!result.success) {
+              publishError = result.error ?? "YouTube publish failed";
+              console.log(`>>> YouTube publish failed for post_platforms ${pp.id}`, { error: publishError });
+            } else {
+              externalId = result.externalId ?? null;
+              console.log(`>>> YouTube publish success for post_platforms ${pp.id}`, { externalId });
+            }
+          }
+        }
+      } else if (targetPlatform === "linkedin") {
+        // --- LinkedIn publish (scheduled / background) ---
+        // LinkedIn UGC Posts API. Supports:
+        //   - text-only posts
+        //   - single-image posts (first image attachment, see
+        //     publish-linkedin.ts for the asset-recipe + binary-PUT flow)
+        //   - video posts are NOT supported in v1 (would need a separate
+        //     /v2/videos upload flow)
+        // Access tokens live for 60 days, but the cron may run weeks
+        // after the user scheduled the post – we therefore transparently
+        // refresh via `getValidLinkedInAccessToken` before publish so a
+        // scheduled LinkedIn post never silently fails with 401.
+        const liToken = await getValidLinkedInAccessToken({
+          supabaseAdmin,
+          userId: post.user_id,
+        });
+
+        if (!liToken.success) {
+          publishError = liToken.error;
+          console.log(`>>> LinkedIn token error for post_platforms ${pp.id}`, { error: publishError });
+        } else {
+          const liContent = buildLinkedInContent({
+            content: rawContent,
+            location: rawLocation,
+            tags: rawTags,
+          });
+
+          const result = await publishToLinkedIn({
+            accessToken: liToken.accessToken,
+            authorUrn: `urn:li:person:${liToken.account.platform_id ?? ""}`,
+            content: liContent,
+            mediaUrls: mediaUrls as string[],
+          });
+
+          if (!result.success) {
+            publishError = result.error ?? "LinkedIn publish failed";
+            console.log(`>>> LinkedIn publish failed for post_platforms ${pp.id}`, { error: publishError });
+          } else {
+            externalId = result.externalId ?? null;
+            console.log(`>>> LinkedIn publish success for post_platforms ${pp.id}`, { externalId });
           }
         }
       } else {

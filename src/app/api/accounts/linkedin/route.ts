@@ -7,6 +7,19 @@ const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 const LINKEDIN_USERINFO_URL = "https://api.linkedin.com/v2/userinfo";
 
 /**
+ * Appends `?<key>=<value>` (or `&<key>=<value>` when the URL already has a
+ * query string) to `target`. Used to attach the OAuth success signal
+ * (e.g. `?li=connected`) to the post-auth redirect path coming from the
+ * `state` query param. Path-only inputs (no host) are supported – we
+ * intentionally keep it that way so callers can pass through arbitrary
+ * localized paths like `/cs/accounts` without breaking.
+ */
+function appendSuccessParam(target: string, key: string, value: string): string {
+  const separator = target.includes("?") ? "&" : "?";
+  return `${target}${separator}${key}=${value}`;
+}
+
+/**
  * GET /api/accounts/linkedin
  *
  * Two modes:
@@ -18,8 +31,16 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state"); // redirect path after success
   const locale = url.searchParams.get("locale") ?? "cs";
-  const redirectOnSuccess = decodeURIComponent(state ?? `/${locale}/accounts`);
-  const redirectOnError = `/${locale}/accounts?error=${encodeURIComponent("LinkedIn connection failed")}`;
+  // `redirectOnSuccess` is built with `?li=connected` appended to whatever
+  // path the caller passed via `state` (typically `/{locale}/accounts`).
+  // The accounts page watches for that query param and shows a success
+  // toast + refreshes the connected-accounts list. Mirrors the YouTube
+  // flow which uses `?yt=connected`.
+  const baseRedirect = decodeURIComponent(state ?? `/${locale}/accounts`);
+  const redirectOnSuccess = appendSuccessParam(baseRedirect, "li", "connected");
+  const errorRedirect = (msg: string) =>
+    `/${locale}/accounts?error=${encodeURIComponent(msg)}`;
+  const redirectOnError = errorRedirect("LinkedIn connection failed");
 
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
@@ -40,9 +61,15 @@ export async function GET(request: NextRequest) {
       "redirect_uri",
       `${url.origin}/api/accounts/linkedin`
     );
+    // NOTE: `r_member_social` (read member social) is intentionally NOT
+    // requested – the LinkedIn developer app does not have that product
+    // approved, so LinkedIn rejects the whole authorization request with
+    // `unauthorized_scope_error`. Publishing only needs `w_member_social`
+    // (write/post). Keep this lean – add scopes only when a real feature
+    // needs them, otherwise OAuth fails before the user even consents.
     redirectUrl.searchParams.set(
       "scope",
-      "w_member_social openid profile email"
+      "openid profile email w_member_social"
     );
     redirectUrl.searchParams.set("state", state ?? "");
 
@@ -71,11 +98,17 @@ export async function GET(request: NextRequest) {
 
     const tokenData = (await tokenRes.json()) as {
       access_token: string;
+      // LinkedIn returns a long-lived `refresh_token` (separate from the
+      // 60-day access token) alongside every authorization-code exchange.
+      // We MUST persist it so the publisher can mint a fresh access token
+      // when the original one expires (see publish-linkedin.ts → refresh).
+      refresh_token?: string;
       expires_in?: number;
       id_token?: string;
     };
 
     const accessToken = tokenData.access_token;
+    const refreshToken = tokenData.refresh_token ?? null;
     if (!accessToken) {
       console.error("[LinkedIn OAuth] No access_token in response");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
@@ -135,6 +168,16 @@ export async function GET(request: NextRequest) {
           avatar_url: avatarUrl,
           token_expires_at: tokenExpiresAt,
           is_active: true,
+          // Persist `refresh_token` inside `metadata` (JSONB blob) – the
+          // table itself does not have a dedicated `refresh_token`
+          // column. LinkedIn returns the refresh token on the
+          // authorization-code exchange; subsequent refresh exchanges do
+          // NOT return a new one, so when the user reconnects and we get
+          // no fresh value we deliberately KEEP the previously stored one
+          // (mirrors the YouTube pattern in `src/app/api/auth/google/route.ts`).
+          metadata: {
+            ...(refreshToken ? { refresh_token: refreshToken } : {}),
+          },
         },
         {
           onConflict: "user_id,platform,platform_id",

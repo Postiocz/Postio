@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +47,7 @@ export default function NewPostPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
 
   // Get current user ID
   useEffect(() => {
@@ -57,6 +58,50 @@ export default function NewPostPage() {
     };
     getUser();
   }, []);
+
+  // ---------------------------------------------------------------------
+  // Template prefill (?template=<id>)
+  // ---------------------------------------------------------------------
+  // When the user clicks a template card on /templates, we land here with
+  // the template id in the URL. We fetch that template's content from the
+  // DB (RLS ensures we only get our own templates) and prefill the editor.
+  // The `templateAppliedRef` guard makes sure the prefill runs only once –
+  // otherwise re-renders caused by typing would keep clobbering the user's
+  // edits with the original template content.
+  const templateAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const templateId = searchParams.get("template");
+    if (!templateId || !userId) return;
+    if (templateAppliedRef.current === templateId) return;
+
+    let cancelled = false;
+    const supabase = createClient();
+
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("templates")
+        .select("id, name, content")
+        .eq("id", templateId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        templateAppliedRef.current = templateId;
+        toast.error(t("templateLoadError"));
+        return;
+      }
+
+      templateAppliedRef.current = templateId;
+      setContent(data.content);
+      toast.success(t("templateApplied", { name: data.name }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, userId, t]);
 
   const uploadLabels = {
     tooManyFiles: t("tooManyFiles"),

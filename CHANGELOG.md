@@ -5,6 +5,57 @@
 
 ## 2026-06-21
 
+### 🚀 Feature – Prompt 002 – Redesign kalendáře na Dashboard styl
+
+- **Kontext (uživatel)**: Kalendář na `/[locale]/calendar` měl dosud jen dvě view (Month/Week) a chyběl mu profesionální dashboard styl. Uživatel chtěl přeměnit kalendář na plánovací centrum s přehlednými statistikami, přepínačem pohledů, mini-kalendářem v sidebaru a indikátorem aktuálního času. **Striktní pravidla**: zachovat funkčnost (zejm. `getPostDisplayDate`, propojování účtů, AI Vision), Pure Black #000 pozadí, radius 20px, Glassmorphism a překlady ve všech třech jazycích.
+- **Co bylo implementováno (4 nové komponenty + integrace)**:
+  1. **[`StatsCards`](file:///c:/VS_Code/Postio/src/components/calendar/stats-cards.tsx)** – 4 glass karty (Total Published, Total Scheduled, Failed Posts, Drafts) nad kalendářem.
+     - Počítá se z `post.status` (single source of truth = server komponenta `calendar/page.tsx`, která `status` agreguje z `post_platforms.status`).
+     - Jemné barevné gradient ikony (emerald/indigo/red/slate), glassmorphism, radius 20px.
+     - Subtitle „Tento měsíc" konzistentní s ostatními dashboard kartami.
+  2. **[`ViewSwitcher`](file:///c:/VS_Code/Postio/src/components/calendar/view-switcher.tsx)** – Přepínač 5 pohledů (Agenda / Day / Week / Month / Year).
+     - Glassmorphism styl, aktivní mód = indigo→purple gradient.
+     - Typ `CalendarViewMode` exportovaný jako single source of truth pro state v `_calendar-view.tsx`.
+  3. **[`MiniCalendar`](file:///c:/VS_Code/Postio/src/components/calendar/mini-calendar.tsx)** – Sticky sidebarový mini-kalendář (desktop only).
+     - Vlastní měsíční grid 7×6, dnešek = gradient kroužek, vybraný den = indigo outline.
+     - Klik na den = `setCurrentDate(day)` v hlavním kalendáři.
+     - Šipky pro přepínání měsíců, lokalizované zkratky dnů.
+  4. **[`CurrentTimeIndicator`](file:///c:/VS_Code/Postio/src/components/calendar/current-time-indicator.tsx)** – Červená linka pro Day view.
+     - `useEffect` + `setInterval` (30s) pro live update.
+     - Top pozice = `(currentHour + currentMin/60) * hourHeight`; label s aktuálním časem a Clock ikonou.
+- **Integrace do [`_calendar-view.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx)**:
+  - State `view` rozšířen z `"month" | "week"` na `CalendarViewMode` (5 módů).
+  - Nové navigační helpery `previousDay`, `nextDay`, `previousYear`, `nextYear`.
+  - Nové useMemo hooky `yearMonths` (12 měsíců pro year view) a `desktopAgendaDays` (60 dní dopředu pro agenda view).
+  - Desktop layout změněn na 2-sloupcový grid: MiniCalendar vlevo (sticky, 260px), hlavní obsah vpravo.
+  - Všech 5 view módů implementováno s odděleným JSX: Month = stávající měsíční grid, Week = 7 dní v řadě, Day = 24h časová osa s CurrentTimeIndicator, Agenda = dlouhý seznam příspěvků, Year = 12 mini-měsíců v gridu 3×4.
+  - ViewSwitcher nahradil stávající 2-tlačítkový toggle v headeru.
+- **Lokalizace**:
+  - Přidány nové klíče do [`cs.json`](file:///c:/VS_Code/Postio/src/messages/cs.json), [`en.json`](file:///c:/VS_Code/Postio/src/messages/en.json), [`uk.json`](file:///c:/VS_Code/Postio/src/messages/uk.json):
+    - `calendar.day`, `calendar.year`, `calendar.miniCalendar`, `calendar.currentTime`, `calendar.allDay`, `calendar.noPostsInRange`
+    - `calendar.stats.{totalPublished, totalScheduled, failedPosts, drafts, thisMonth}`
+- **Co zůstává nezměněno (záměrně)**:
+  - **Backend**: `calendar/page.tsx` (server komponenta) je nedotčen – všechna data o příspěvcích jsou stále reálná z databáze přes Supabase.
+  - **Logika příspěvků**: `getPostDisplayDate`, `getPostsForDayEffective`, `effectiveFilteredPosts`, hover preview, Edit/Delete dialog, AI Vision, propojování účtů.
+  - **Mobile agenda** (`mobileAgendaDays`): zachována v plném rozsahu (celý aktuální měsíc) jako default pro malé obrazovky.
+  - **Filtry** (`PostFiltersRow`): nezasaženy – `StatsCards` dostává `effectiveFilteredPosts`, takže statistiky respektují aktivní filtry (platforma/status/tag).
+- **Dopad na chování**:
+  - **Před**: Kalendář zobrazil jen měsíční nebo týdenní grid; žádné statistiky, žádný current time indikátor.
+  - **Po**:
+    1. Při načtení `/calendar` se nahoře zobrazí 4 statistické karty (odpovídají aktuálním filtrům).
+    2. Desktop layout = sidebar s MiniCalendar vlevo + kalendář vpravo.
+    3. ViewSwitcher umožňuje přepnout mezi 5 módy (Month, Week, Day, Agenda, Year).
+    4. Day view zobrazí 24h časovou osu s červenou linkou aktuálního času (live update).
+    5. Agenda view zobrazí 60 dní dopředu jako dlouhý seznam.
+    6. Year view zobrazí 12 měsíců aktuálního roku v gridu; klik na den = přepne do month view s focusem na daný den.
+- **Build**: `npx tsc --noEmit` prošel ✅ 0 chyb.
+- **Soubory dotčené**:
+  - **Nové**: `src/components/calendar/stats-cards.tsx`, `src/components/calendar/view-switcher.tsx`, `src/components/calendar/mini-calendar.tsx`, `src/components/calendar/current-time-indicator.tsx`
+  - **Upravené**: `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`, `src/app/[locale]/(dashboard)/calendar/_calendar-client.tsx`, `src/app/[locale]/(dashboard)/calendar/page.tsx`, `src/messages/{cs,en,uk}.json`
+- **Dopad na dokumentaci (CLAUDE.md)**: Žádná změna nutná. Toto je vizuální upgrade kalendáře; žádná business pravidla v Biblu pravidel nejsou dotčena.
+
+## 2026-06-21
+
 ### 🐛 Oprava – Dnes publikované příspěvky se nezobrazovaly v kalendáři
 
 - **Kontext (uživatel)**: V kalendáři (`/[locale]/calendar`) chyběly příspěvky, které uživatel **právě dnes publikoval** – typicky příspěvky vytvořené jako koncept v předchozích dnech a poté přes „Publikovat nyní" odeslané na sociální sítě. Po akci se v kalendáři nezobrazily v dnešní buňce, takže uživatel ztratil přehled o tom, co ten den skutečně vyšlo.

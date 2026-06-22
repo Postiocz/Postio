@@ -100,6 +100,13 @@ export default async function CalendarPage({
           title: t("title"),
           month: t("month"),
           week: t("week"),
+          agenda: t("agenda"),
+          day: t("day"),
+          year: t("year"),
+          miniCalendar: t("miniCalendar"),
+          currentTime: t("currentTime"),
+          allDay: t("allDay"),
+          noPostsInRange: t("noPostsInRange"),
           allPlatforms: t("allPlatforms"),
           noPostsThisDay: t("noPostsThisDay"),
           addPost: t("addPost"),
@@ -141,6 +148,14 @@ export default async function CalendarPage({
           fileTooLargeVideo: t("fileTooLargeVideo"),
           fileDeleted: t("fileDeleted"),
           invalidFileType: t("invalidFileType"),
+          // Stats card labels (Prompt 002)
+          stats: {
+            totalPublished: t("stats.totalPublished"),
+            totalScheduled: t("stats.totalScheduled"),
+            failedPosts: t("stats.failedPosts"),
+            drafts: t("stats.drafts"),
+            thisMonth: t("stats.thisMonth"),
+          },
         }}
         tAi={{
           aiAssistant: tAi("aiAssistant"),

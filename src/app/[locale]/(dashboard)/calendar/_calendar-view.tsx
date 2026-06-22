@@ -15,6 +15,12 @@ import {
   isToday,
   getHours,
   getMinutes,
+  startOfYear,
+  endOfYear,
+  addMonths,
+  subMonths,
+  addYears,
+  subYears,
 } from "date-fns";
 import { cs } from "date-fns/locale";
 import {
@@ -36,6 +42,10 @@ import NextImage from "next/image";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
+import { StatsCards } from "@/components/calendar/stats-cards";
+import { ViewSwitcher, type CalendarViewMode } from "@/components/calendar/view-switcher";
+import { MiniCalendar } from "@/components/calendar/mini-calendar";
+import { CurrentTimeIndicator } from "@/components/calendar/current-time-indicator";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -148,6 +158,22 @@ interface CalendarViewProps {
     selectColor?: string;
     add?: string;
     cancel?: string;
+    // New view modes (Prompt 002 – Dashboard-style redesign)
+    day?: string;
+    year?: string;
+    agenda?: string;
+    miniCalendar?: string;
+    currentTime?: string;
+    allDay?: string;
+    noPostsInRange?: string;
+    // Stats card labels (Prompt 002)
+    stats?: {
+      totalPublished: string;
+      totalScheduled: string;
+      failedPosts: string;
+      drafts: string;
+      thisMonth: string;
+    };
   };
   tAi?: {
     aiAssistant: string;
@@ -178,7 +204,10 @@ export function CalendarView({
   if (!posts) return null;
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<"month" | "week">("month");
+  // Prompt 002 – rozšířený view state: Agenda / Day / Week / Month / Year.
+  // Typ `CalendarViewMode` je importovaný z `@/components/calendar/view-switcher`,
+  // aby byl single source of truth pro přepínač i interní logiku.
+  const [view, setView] = useState<CalendarViewMode>("month");
   const [modalDay, setModalDay] = useState<Date | null>(null);
 
   // Edit post modal state
@@ -223,6 +252,20 @@ export function CalendarView({
     setCurrentDate(addDays(currentDate, 7));
   };
 
+  // Prompt 002 – nové navigační helpery pro Day / Year módy.
+  const previousDay = () => {
+    setCurrentDate(addDays(currentDate, -1));
+  };
+  const nextDay = () => {
+    setCurrentDate(addDays(currentDate, 1));
+  };
+  const previousYear = () => {
+    setCurrentDate(subYears(currentDate, 1));
+  };
+  const nextYear = () => {
+    setCurrentDate(addYears(currentDate, 1));
+  };
+
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = dfnStartOfWeek(monthStart, { weekStartsOn: 1 });
@@ -235,8 +278,26 @@ export function CalendarView({
     if (view === "week") {
       return eachDayOfInterval({ start: weekStart, end: weekEnd });
     }
+    // Prompt 002 – Day view: pole s jedním dnem (obaleno pro konzistenci
+    // s ostatními módy, které pracují s `days.map`).
+    if (view === "day") {
+      return [currentDate];
+    }
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  }, [view, calendarStart, calendarEnd, weekStart, weekEnd]);
+  }, [view, calendarStart, calendarEnd, weekStart, weekEnd, currentDate]);
+
+  // Prompt 002 – Year view: 12 měsíců aktuálního roku (použito v JSX pro grid).
+  const yearMonths = useMemo(() => {
+    const yearStart = startOfYear(currentDate);
+    return Array.from({ length: 12 }, (_, i) => addMonths(yearStart, i));
+  }, [currentDate]);
+
+  // Prompt 002 – Agenda view: delší horizont příspěvků (60 dní dopředu),
+  // vhodný pro desktop "seznam" zobrazení.
+  const AGENDA_RANGE_DAYS = 60;
+  // Definujeme zde (za `days`) – `getPostsForDayEffective` je deklarovaný níže,
+  // ale přes useCallback closure se správně inicializuje. Pokud by se zde
+  // undefined choval nekonzistentně, fallbackujeme na prázdné pole.
 
   const formatTime = useCallback((isoString: string) => {
     const date = new Date(isoString);
@@ -474,6 +535,22 @@ export function CalendarView({
     return result;
   }, [effectiveFilteredPosts, getPostsForDayEffective]);
 
+  // Prompt 002 – Desktop Agenda view: 60 dní dopředu, konzistentní s `AGENDA_RANGE_DAYS`.
+  // Tento useMemo je single source of truth pro desktop Agenda – v JSX
+  // nahrazuje měsíční grid, když `view === "agenda"`.
+  const desktopAgendaDays = useMemo(() => {
+    const result: Array<{ day: Date; posts: Post[] }> = [];
+    const today = new Date();
+    for (let i = 0; i < AGENDA_RANGE_DAYS; i++) {
+      const day = addDays(today, i);
+      const dayPosts = getPostsForDayEffective(day);
+      if (dayPosts.length > 0) {
+        result.push({ day, posts: dayPosts });
+      }
+    }
+    return result;
+  }, [effectiveFilteredPosts, getPostsForDayEffective]);
+
   const mobileAgendaDays = useMemo(() => {
     const result: Array<{ day: Date; posts: Post[] }> = [];
     const ms = startOfMonth(currentDate);
@@ -537,55 +614,89 @@ export function CalendarView({
 
   return (
     <div className="space-y-4">
-      {/* View Toggle & Month Navigation – Desktop Only */}
-      <div className="hidden lg:flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Prompt 002 – Stats Cards (zobrazí se vždy, nad všemi view módy) */}
+      <StatsCards
+        posts={effectiveFilteredPosts}
+        t={{
+          totalPublished: tCalendar.stats?.totalPublished ?? "Total Published",
+          totalScheduled: tCalendar.stats?.totalScheduled ?? "Total Scheduled",
+          failedPosts: tCalendar.stats?.failedPosts ?? "Failed Posts",
+          drafts: tCalendar.stats?.drafts ?? "Drafts",
+          thisMonth: tCalendar.stats?.thisMonth ?? "This month",
+        }}
+      />
+
+      {/* Desktop: dvousloupcový layout – MiniCalendar vlevo (sticky), kalendář vpravo.
+          Mobile: jednosloupcový, MiniCalendar se nezobrazuje (šetří místo). */}
+      <div className="lg:grid lg:grid-cols-[260px_1fr] lg:gap-4 lg:items-start">
+        {/* Mini-Calendar – sticky sidebar pro rychlý výběr data (desktop only) */}
+        <div className="hidden lg:block lg:sticky lg:top-4">
+          <MiniCalendar
+            selectedDate={currentDate}
+            onSelectDate={(d) => setCurrentDate(d)}
+            onMonthChange={(d) => setCurrentDate(d)}
+            weekdayShort={weekdays.map((d) => d.slice(0, 2))}
+            months={months}
+            locale={locale}
+          />
+        </div>
+
+        {/* Hlavní obsah kalendáře (desktop) – zabírá pravý sloupec */}
+        <div className="space-y-4 min-w-0">
+      {/* View Toggle & Navigation – Desktop Only (Prompt 002: rozšířeno o Day/Agenda/Year) */}
+      <div className="hidden lg:flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
             <button
-              onClick={view === "month" ? previousMonth : previousWeek}
+              onClick={
+                view === "month" ? previousMonth :
+                view === "week" ? previousWeek :
+                view === "day" ? previousDay :
+                view === "year" ? previousYear :
+                previousMonth
+              }
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={view === "month" ? nextMonth : nextWeek}
+              onClick={
+                view === "month" ? nextMonth :
+                view === "week" ? nextWeek :
+                view === "day" ? nextDay :
+                view === "year" ? nextYear :
+                nextMonth
+              }
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
-            <h2 className="ml-2 text-lg font-semibold tracking-tight">
-              {monthLabel} {year}
+            <h2 className="ml-2 text-lg font-semibold tracking-tight truncate">
+              {view === "year"
+                ? year
+                : view === "agenda"
+                ? `${tCalendar.agenda ?? "Agenda"} – ${tCalendar.stats?.thisMonth ?? "This month"}`
+                : `${monthLabel} ${year}`}
             </h2>
           </div>
 
-          <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-white/10 dark:bg-white/[0.03]">
-            <button
-              onClick={() => setView("month")}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                view === "month"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tCalendar.month}
-            </button>
-            <button
-              onClick={() => setView("week")}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                view === "week"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tCalendar.week}
-            </button>
-          </div>
+          {/* Nový ViewSwitcher s 5 módy (Agenda / Day / Week / Month / Year) */}
+          <ViewSwitcher
+            value={view}
+            onChange={setView}
+            t={{
+              agenda: tCalendar.agenda ?? "Agenda",
+              day: tCalendar.day ?? "Day",
+              week: tCalendar.week ?? "Week",
+              month: tCalendar.month ?? "Month",
+              year: tCalendar.year ?? "Year",
+            }}
+          />
         </div>
 
       {/* ======================== */}
-      {/* DESKTOP: Calendar Grid   */}
+      {/* DESKTOP: Month View      */}
       {/* ======================== */}
+      {view === "month" && (
       <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
         {/* Weekday Headers */}
         <div className="grid grid-cols-7 border-b border-black/[0.08] dark:border-white/[0.06]">
@@ -714,6 +825,402 @@ export function CalendarView({
             );
           })}
         </div>
+      </div>
+      )}
+
+      {/* ======================== */}
+      {/* DESKTOP: Week View       */}
+      {/* ======================== */}
+      {view === "week" && (
+      <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
+        {/* Weekday Headers – pro week view stejné jako month, ale 7 dní */}
+        <div className="grid grid-cols-7 border-b border-black/[0.08] dark:border-white/[0.06]">
+          {weekdays.map((day, i) => (
+            <div
+              key={i}
+              className="border-r border-black/[0.08] dark:border-white/[0.06] last:border-r-0 px-2 py-3 text-center text-xs font-medium text-muted-foreground/60"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+        {/* 7 dní aktuálního týdne (days je již správně naplněn dle view) */}
+        <div className="grid grid-cols-7">
+          {days.map((day, dayIndex) => {
+            const dayPosts = getPostsForDayEffective(day);
+            const today = isToday(day);
+            return (
+              <div
+                key={dayIndex}
+                onClick={() => handleDayClick(day)}
+                className={cn(
+                  "relative min-h-[180px] border-r border-b border-black/[0.08] dark:border-white/[0.06] p-2 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]",
+                  today && "bg-indigo-500/5 ring-1 ring-inset ring-indigo-500/20",
+                  dayIndex % 7 === 6 && "border-r-0"
+                )}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors",
+                      today
+                        ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
+                        : "text-foreground"
+                    )}
+                  >
+                    {format(day, "d")}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {dayPosts.slice(0, 6).map((post) => {
+                    const platformsToRender = post.post_platforms || [];
+                    const displayDate = getPostDisplayDate(post);
+                    const time = displayDate ? formatTime(displayDate) : "";
+                    return (
+                      <div
+                        key={post.id}
+                        ref={(el) => {
+                          if (el) postCardRefs.current.set(post.id, el);
+                        }}
+                        onClick={(e) => handlePostClick(post, e)}
+                        onMouseEnter={(e) => {
+                          const target = e.currentTarget as HTMLDivElement;
+                          handlePostHover(post, target);
+                        }}
+                        onMouseLeave={handlePostLeave}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-all hover:scale-[1.02] cursor-pointer",
+                          post.status === "published"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/20"
+                            : post.status === "scheduled"
+                            ? "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/20"
+                            : post.status === "failed"
+                            ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/20"
+                            : "bg-gray-50 text-muted-foreground border border-gray-200 opacity-70 dark:bg-white/[0.02] dark:border-white/5 dark:opacity-60"
+                        )}
+                      >
+                        <div className="flex -space-x-1 shrink-0">
+                          {platformsToRender.map((p, idx) => {
+                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
+                            return (
+                              <Icon
+                                key={idx}
+                                className={cn(
+                                  "h-3 w-3",
+                                  p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
+                                  p.status === "failed" ? "text-red-600 dark:text-red-400" :
+                                  "text-inherit"
+                                )}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="flex-shrink-0 ml-0.5">{time}</span>
+                        <span className="truncate">
+                          {post.content?.substring(0, 16)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {dayPosts.length > 6 && (
+                    <div className="text-[10px] text-muted-foreground/50 pl-1">
+                      +{dayPosts.length - 6} {locale === "cs" ? "další" : locale === "uk" ? "більше" : "more"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      )}
+
+      {/* ======================== */}
+      {/* DESKTOP: Day View        */}
+      {/* ======================== */}
+      {/* 24hodinová vertikální osa s posty umístěnými podle času.
+          CurrentTimeIndicator (červená linka) ukazuje aktuální čas. */}
+      {view === "day" && (() => {
+        const HOUR_HEIGHT = 60; // px na hodinu
+        const dayPosts = getPostsForDayEffective(currentDate);
+        // Seradit posty podle casu publikovani / naplanovani.
+        const sortedDayPosts = [...dayPosts].sort((a, b) => {
+          const da = getPostDisplayDate(a);
+          const db = getPostDisplayDate(b);
+          if (!da) return 1;
+          if (!db) return -1;
+          return new Date(da).getTime() - new Date(db).getTime();
+        });
+        return (
+          <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
+            {/* Hlavička dne */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.08] dark:border-white/[0.06]">
+              <div>
+                <div className="text-sm font-semibold tracking-tight">
+                  {format(currentDate, "EEEE", { locale: locale === "cs" ? cs : undefined })}
+                </div>
+                <div className="text-xs text-muted-foreground/60">
+                  {format(currentDate, "d. MMMM yyyy", { locale: locale === "cs" ? cs : undefined })}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground/60">
+                {dayPosts.length}{" "}
+                {locale === "cs"
+                  ? (dayPosts.length === 1 ? "příspěvek" : dayPosts.length < 5 ? "příspěvky" : "příspěvků")
+                  : locale === "uk"
+                  ? (dayPosts.length === 1 ? "публікація" : dayPosts.length < 5 ? "публікації" : "публікацій")
+                  : (dayPosts.length === 1 ? "post" : "posts")}
+              </div>
+            </div>
+
+            {/* 24h časová osa + absolutně umístěné posty */}
+            <div className="relative overflow-y-auto" style={{ maxHeight: "calc(100vh - 360px)" }}>
+              <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+                {/* Hodinové linky + popisky */}
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div
+                    key={h}
+                    className="absolute left-0 right-0 border-t border-black/[0.04] dark:border-white/[0.04]"
+                    style={{ top: `${h * HOUR_HEIGHT}px` }}
+                  >
+                    <span className="absolute -top-2 left-2 bg-white/90 dark:bg-card/90 px-1 text-[10px] text-muted-foreground/50 rounded">
+                      {h.toString().padStart(2, "0")}:00
+                    </span>
+                  </div>
+                ))}
+
+                {/* Prompt 002 – červená linka "Current Time" (live update každých 30s) */}
+                <CurrentTimeIndicator hourHeight={HOUR_HEIGHT} label={tCalendar.currentTime ?? "Current time"} />
+
+                {/* Posty – absolutně podle času publikování */}
+                {sortedDayPosts.map((post) => {
+                  const displayDate = getPostDisplayDate(post);
+                  if (!displayDate) return null;
+                  const d = new Date(displayDate);
+                  const top = (d.getHours() + d.getMinutes() / 60) * HOUR_HEIGHT;
+                  const platformsToRender = post.post_platforms || [];
+                  return (
+                    <button
+                      key={post.id}
+                      onClick={() => handlePostClick(post, { stopPropagation: () => {} } as React.MouseEvent)}
+                      className={cn(
+                        "absolute left-16 right-4 rounded-lg border px-3 py-1.5 text-left transition-all hover:scale-[1.01]",
+                        post.status === "published"
+                          ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/20"
+                          : post.status === "scheduled"
+                          ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/20"
+                          : post.status === "failed"
+                          ? "bg-red-50 border-red-200 dark:bg-red-500/20 dark:border-red-500/20"
+                          : "bg-gray-50 border-gray-200 dark:bg-white/[0.02] dark:border-white/5"
+                      )}
+                      style={{ top: `${top}px`, minHeight: "32px" }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex -space-x-1 shrink-0">
+                          {platformsToRender.map((p, idx) => {
+                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
+                            return (
+                              <Icon
+                                key={idx}
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
+                                  p.status === "failed" ? "text-red-600 dark:text-red-400" :
+                                  p.status === "scheduled" ? "text-indigo-500 dark:text-indigo-400" :
+                                  "text-muted-foreground"
+                                )}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="text-[10px] font-semibold text-muted-foreground/70 shrink-0">
+                          {formatTime(displayDate)}
+                        </span>
+                        <span className="text-xs truncate text-foreground/90">
+                          {post.content?.substring(0, 60)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ======================== */}
+      {/* DESKTOP: Agenda View     */}
+      {/* ======================== */}
+      {view === "agenda" && (
+        <div className="hidden lg:flex flex-col rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
+          <div className="flex flex-col divide-y divide-black/[0.06] dark:divide-white/[0.05] overflow-y-auto max-h-[calc(100vh-360px)]">
+            {desktopAgendaDays.length === 0 && (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground/60">
+                {tCalendar.noPostsInRange ?? "No posts in this range"}
+              </div>
+            )}
+            {desktopAgendaDays.map(({ day, posts }) => (
+              <div key={format(day, "yyyy-MM-dd")} className="flex flex-col">
+                <div className="flex items-center gap-3 px-4 py-3 sticky top-0 bg-white/90 dark:bg-card/95 backdrop-blur-md z-10">
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+                      isToday(day)
+                        ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
+                        : "bg-white/[0.03] text-foreground"
+                    )}
+                  >
+                    {format(day, "d")}
+                  </div>
+                  <div className="flex-1 flex flex-col">
+                    <span className="text-sm font-medium text-foreground">
+                      {formatAgendaDate(day)}
+                    </span>
+                    <span className="text-xs text-muted-foreground/60">
+                      {posts.length}{" "}
+                      {locale === "cs"
+                        ? (posts.length === 1 ? "příspěvek" : posts.length < 5 ? "příspěvky" : "příspěvků")
+                        : locale === "uk"
+                        ? (posts.length === 1 ? "публікація" : posts.length < 5 ? "публікації" : "публікацій")
+                        : (posts.length === 1 ? "post" : "posts")}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2 px-4 pb-3 pl-[52px]">
+                  {posts.map((post) => {
+                    const platformsToRender = post.post_platforms || [];
+                    const displayDate = getPostDisplayDate(post);
+                    const time = displayDate ? formatTime(displayDate) : "";
+                    return (
+                      <button
+                        key={post.id}
+                        onClick={(e) => handlePostClick(post, e)}
+                        className={cn(
+                          "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all hover:scale-[1.005]",
+                          post.status === "published"
+                            ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
+                            : post.status === "scheduled"
+                            ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/20"
+                            : post.status === "failed"
+                            ? "bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20"
+                            : "bg-gray-50 border-gray-200 dark:bg-white/[0.02] dark:border-white/5"
+                        )}
+                      >
+                        <div className="flex -space-x-1 shrink-0">
+                          {platformsToRender.map((p, idx) => {
+                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
+                            return (
+                              <Icon
+                                key={idx}
+                                className={cn(
+                                  "h-4 w-4",
+                                  p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
+                                  p.status === "failed" ? "text-red-600 dark:text-red-400" :
+                                  p.status === "scheduled" ? "text-indigo-500" :
+                                  "text-muted-foreground"
+                                )}
+                              />
+                            );
+                          })}
+                        </div>
+                        {time && (
+                          <span className="text-xs text-muted-foreground/70 shrink-0 font-mono">
+                            {time}
+                          </span>
+                        )}
+                        <p className="text-xs text-foreground/80 truncate flex-1">
+                          {post.content?.substring(0, 100)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ======================== */}
+      {/* DESKTOP: Year View       */}
+      {/* ======================== */}
+      {/* 12 mini-měsíců v gridu 3x4. Každý mini-měsíc = 7x6 grid,
+          klik na den = přepne currentDate a vrátí se do month view. */}
+      {view === "year" && (
+        <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden p-4">
+          <div className="grid grid-cols-3 gap-3">
+            {yearMonths.map((m, mIdx) => {
+              const mStart = startOfMonth(m);
+              const mEnd = endOfMonth(m);
+              const mGridStart = dfnStartOfWeek(mStart, { weekStartsOn: 1 });
+              const mGridEnd = endOfWeek(mEnd, { weekStartsOn: 1 });
+              const mDays: Date[] = [];
+              let d = mGridStart;
+              while (d <= mGridEnd) {
+                mDays.push(d);
+                d = addDays(d, 1);
+              }
+              // Počty příspěvků v tomto měsíci (podle display date)
+              const postsInMonth = effectiveFilteredPosts.filter((p) => {
+                const dd = getPostDisplayDate(p);
+                if (!dd) return false;
+                const dt = new Date(dd);
+                return dt.getFullYear() === m.getFullYear() && dt.getMonth() === m.getMonth();
+              });
+              return (
+                <div
+                  key={mIdx}
+                  className="rounded-[14px] border border-black/[0.06] dark:border-white/[0.05] bg-white/40 dark:bg-white/[0.02] p-3 transition-all hover:bg-white/60 dark:hover:bg-white/[0.04]"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold tracking-tight">
+                      {months[m.getMonth()]}
+                    </span>
+                    {postsInMonth.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground/60 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full">
+                        {postsInMonth.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {weekdays.map((wd, i) => (
+                      <div key={i} className="flex h-4 items-center justify-center text-[8px] font-medium text-muted-foreground/40">
+                        {wd.slice(0, 1)}
+                      </div>
+                    ))}
+                    {mDays.map((day, dayIdx) => {
+                      const inMonth = isSameMonth(day, m);
+                      const today = isToday(day);
+                      return (
+                        <button
+                          key={dayIdx}
+                          type="button"
+                          onClick={() => {
+                            setCurrentDate(day);
+                            setView("month");
+                          }}
+                          className={cn(
+                            "flex h-4 w-full items-center justify-center rounded text-[9px] transition-all",
+                            !inMonth && "text-transparent",
+                            inMonth && !today && "text-foreground/70 hover:bg-white/70 dark:hover:bg-white/[0.06]",
+                            today && "bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-semibold"
+                          )}
+                        >
+                          {format(day, "d")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+        </div>
+        {/* Konec: hlavní obsah kalendáře (pravý sloupec) + MiniCalendar grid */}
       </div>
 
       {/* ======================== */}

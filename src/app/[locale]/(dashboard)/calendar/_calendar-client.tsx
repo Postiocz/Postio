@@ -103,6 +103,22 @@ export function CalendarClient({
     filterByTag?: string;
     allTags?: string;
     noTagsAvailable?: string;
+    // New view modes (Prompt 002 – Dashboard-style redesign)
+    day?: string;
+    year?: string;
+    agenda?: string;
+    miniCalendar?: string;
+    currentTime?: string;
+    allDay?: string;
+    noPostsInRange?: string;
+    // Stats card labels (Prompt 002)
+    stats?: {
+      totalPublished: string;
+      totalScheduled: string;
+      failedPosts: string;
+      drafts: string;
+      thisMonth: string;
+    };
   };
   tAi: {
     aiAssistant: string;

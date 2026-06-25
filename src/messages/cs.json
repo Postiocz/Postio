@@ -156,6 +156,7 @@
     "updateOnSocials": "Aktualizovat na sítích",
     "onlyTextUpdatePossible": "U publikovaného postu lze měnit pouze text. Pro změnu fotky musíte příspěvek smazat a vytvořit znovu.",
     "igEditNotSupported": "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu.",
+    "twEditNotSupported": "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu.",
     "publishToSelected": "Publikovat",
     "additionalPublishSuccess": "Příspěvek byl publikován",
     "saveMetadata": "Uložit interní metadata",
@@ -297,6 +298,7 @@
     "updateOnSocials": "Aktualizovat na sítích",
     "onlyTextUpdatePossible": "U publikovaného postu lze měnit pouze text. Pro změnu fotky musíte příspěvek smazat a vytvořit znovu.",
     "igEditNotSupported": "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu.",
+    "twEditNotSupported": "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu.",
     "publishToSelected": "Publikovat",
     "additionalPublishSuccess": "Příspěvek byl publikován",
     "saveMetadata": "Uložit interní metadata",
@@ -396,6 +398,7 @@
       "warningDescInstagram": "Tato funkce vyžaduje Profesionální účet (Business/Creator).",
       "warningDescLinkedIn": "LinkedIn token platí 60 dní. Po vypršení budete muset účet znovu propojit.",
       "warningDescYouTube": "Budete přesměrováni na Google, kde povolíte Postiu přístup k vašemu YouTube kanálu (videa a základní profil). Tokeny pro vás držíme v bezpečí a pravidelně je obnovujeme.",
+      "warningDescX": "X (Twitter) nepodporuje editaci příspěvků přes API. Publikovaný tweet nelze upravit – lze jej pouze smazat.",
       "connectButton": "Propojit Professional účet",
       "learnMore": "Máte osobní účet? Zjistěte, jak jej přepnout"
     },
@@ -422,9 +425,12 @@
     "ytConnected": "YouTube kanál „{name}\" byl úspěšně připojen k Postiu.",
     "ytConnectedShort": "YouTube kanál byl úspěšně připojen k Postiu.",
     "ytDisconnected": "YouTube kanál „{name}\" byl odpojen.",
-    "liConnected": "LinkedIn účet „{name}\" byl úspěšně propojen s Postiem.",
+    "liConnected": "LinkedIn účet „{name}“ byl úspěšně propojen s Postiem.",
     "liConnectedShort": "LinkedIn účet byl úspěšně propojen s Postiem.",
-    "liDisconnected": "LinkedIn účet „{name}\" byl odpojen.",
+    "liDisconnected": "LinkedIn účet „{name}“ byl odpojen.",
+    "xConnected": "X (Twitter) účet „{name}“ byl úspěšně propojen s Postiem.",
+    "xConnectedShort": "X (Twitter) účet byl úspěšně propojen s Postiem.",
+    "xDisconnected": "X (Twitter) účet „{name}“ byl odpojen.",
     "connectionError": "Nepodařilo se propojit účet: {error}"
   },
   "templates": {

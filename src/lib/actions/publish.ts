@@ -6,6 +6,7 @@ import { buildFinalCaption } from "@/lib/caption";
 import { sanitizeMediaUrl } from "@/lib/utils";
 import { publishToYouTubeAction } from "@/lib/actions/publish-youtube";
 import { publishToLinkedInAction } from "@/lib/actions/publish-linkedin";
+import { publishToTwitterAction } from "@/lib/actions/publish-twitter";
 
 const LOCALES = ["cs", "en", "uk"] as const;
 
@@ -609,6 +610,77 @@ export async function publishPost(input: { postId: string }): Promise<{
     return {
       success: true,
       data: { externalId: result.externalId, platform: "linkedin" },
+    };
+  }
+
+  // --- Twitter (X) ---
+  // X API v2 for tweets + Media Upload API v1.1 for images.
+  // Flow:
+  //   1) Upload each image via Media Upload v1.1 → collect media_ids
+  //   2) Create tweet via API v2 with media_ids attached
+  //   3) Store tweet ID as external_id
+  if (targetPlatform === "twitter") {
+    const { data: twAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+      .eq("user_id", user.id)
+      .ilike("platform", "twitter")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const twAccount = twAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+          platform_id: string | null;
+        }
+      | undefined;
+
+    if (!twAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený X (Twitter) účet (access_token).",
+      };
+    }
+
+    const existingTwExternalId =
+      alreadyPublishedRow?.platform === "twitter" ? alreadyPublishedRow.external_id : null;
+
+    const result = await publishToTwitterAction({
+      account: twAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      location: rawLocation,
+      tags: rawTags,
+      existingExternalId: existingTwExternalId,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "Twitter publish failed",
+        "twitter",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "twitter",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "twitter" },
     };
   }
 
@@ -1430,10 +1502,102 @@ export async function deleteFromMeta(input: {
     };
   }
 
+  // --- Twitter (X) deletion ---
+  if (input.platform === "twitter") {
+    if (!externalId) {
+      return {
+        success: false,
+        error: "Chybí tweet ID pro smazání.",
+      };
+    }
+
+    const accessToken = accounts[0].access_token;
+    const tweetDeleteUrl = `https://api.twitter.com/2/tweets/${encodeURIComponent(externalId)}`;
+
+    console.log(`[deleteFromMeta] Deleting tweet ${externalId} via X API v2`);
+
+    try {
+      const res = await fetch(tweetDeleteUrl, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      });
+
+      if (res.ok || res.status === 200) {
+        const data = (await res.json().catch(() => ({}))) as {
+          data?: { deleted?: boolean };
+        };
+        console.log("[deleteFromMeta] ✅ Tweet deleted:", {
+          externalId,
+          response: data?.data,
+        });
+      } else {
+        const errText = await res.text().catch(() => "");
+        console.error(`[deleteFromMeta] X delete failed (${res.status}):`, errText.slice(0, 300));
+
+        // If X says the tweet doesn't exist, treat as success.
+        if (
+          errText.toLowerCase().includes("does not exist") ||
+          errText.toLowerCase().includes("not found") ||
+          res.status === 404
+        ) {
+          console.log("[deleteFromMeta] Tweet already deleted on X – treating as success.");
+          const now = new Date().toISOString();
+          await supabase
+            .from("post_platforms")
+            .update({
+              status: "removed_externally",
+              removed_at: now,
+              last_sync_at: now,
+            })
+            .eq("post_id", input.postId)
+            .eq("platform", input.platform);
+
+          revalidateAllLocales("/calendar");
+          revalidateAllLocales("/posts");
+          revalidateAllLocales("/dashboard");
+
+          return { success: true };
+        }
+
+        return {
+          success: false,
+          error: `Smazání tweetu selhalo: ${errText.slice(0, 200)}`,
+        };
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[deleteFromMeta] X delete network error:", msg);
+      return {
+        success: false,
+        error: `Síťová chyba při mazání tweetu: ${msg}`,
+      };
+    }
+
+    // Mark the platform row as removed_externally after successful API delete.
+    const now = new Date().toISOString();
+    await supabase
+      .from("post_platforms")
+      .update({
+        status: "removed_externally",
+        removed_at: now,
+        last_sync_at: now,
+      })
+      .eq("post_id", input.postId)
+      .eq("platform", input.platform);
+
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+
+    return { success: true };
+  }
+
+  // --- Facebook / Instagram – standard Graph API path ---
   if (externalId) {
     const accessToken = accounts[0].access_token;
-
-    // Facebook / Instagram – standard Graph API path.
     const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
 
     console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${input.platform}`);
@@ -1799,6 +1963,72 @@ export async function publishAdditionalPlatforms(input: {
     return {
       success: true,
       data: { externalId: result.externalId, platform: "linkedin" },
+    };
+  }
+
+  // --- Twitter (X) ---
+  if (targetPlatform === "twitter") {
+    const { data: twAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+      .eq("user_id", user.id)
+      .ilike("platform", "twitter")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const twAccount = twAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+          platform_id: string | null;
+        }
+      | undefined;
+
+    if (!twAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený X (Twitter) účet.",
+      };
+    }
+
+    const existingTwExternalId =
+      alreadyPublishedRow?.platform === "twitter" ? alreadyPublishedRow.external_id : null;
+
+    const result = await publishToTwitterAction({
+      account: twAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      location: rawLocation,
+      tags: rawTags,
+      existingExternalId: existingTwExternalId,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "Twitter publish failed",
+        "twitter",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "twitter",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "twitter" },
     };
   }
 

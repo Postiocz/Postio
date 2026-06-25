@@ -5,6 +5,117 @@
 
 ## 2026-06-25
 
+### 🐛 Fix – Návrat YouTube a TikTok do výběru platforem (Prompt 017-FIX)
+
+- **Kontext (uživatel)**: Ze stránky "Nový příspěvek" (`/posts/new`) a stránky pro úpravu příspěvku (`/posts/[id]`) zmizela možnost vybrat YouTube a TikTok pro publikování. Pravděpodobně došlo k nechtěnému přepsání seznamu platforem při integraci Twitteru.
+- **Příčina**: Pole `PLATFORMS` ve dvou souborech obsahovalo pouze 4 sítě (`instagram`, `facebook`, `twitter`, `linkedin`). YouTube a TikTok byly z pole vynechány.
+- **Oprava**:
+  - `/posts/new/page.tsx` – rozšířeno `PLATFORMS` na všech 6 platforem, přidány překlady `youtube` a `tiktok` do label logiky.
+  - `/posts/[id]/page.tsx` – rozšířeno `PLATFORMS` na všech 6 platforem.
+  - EditPostDialog (`edit-post-dialog.tsx`), Kalendář (`_calendar-view.tsx`) a Filtry (`_posts-filters.tsx`) již měly kompletní seznam – žádná úprava nutná.
+  - Ikony `SocialIcons` (Youtube, TikTok) jsou importovány a správně mapovány ve všech dotčených souborech.
+  - Překlady pro `youtube` a `tiktok` existují ve všech třech jazycích (`cs.json`, `en.json`, `uk.json`).
+- **Upravené soubory**:
+  - [`src/app/[locale]/(dashboard)/posts/new/page.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/new/page.tsx) – PLATFORMS + label logika
+  - [`src/app/[locale]/(dashboard)/posts/[id]/page.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/posts/[id]/page.tsx) – PLATFORMS
+
+### 🐛 Fix – `redirect_uri is not defined` v X OAuth callbacku (Prompt 016-FINAL-FIX)
+
+- **Kontext (uživatel)**: PKCE flow funguje, uživatel se dostane na schvalovací stránku Twitteru, ale po kliknutí na "Authorize app" proces selže s `ReferenceError: redirect_uri is not defined` na řádku 158 v `src/app/api/accounts/x/route.ts`.
+- **Příčina**: V `console.log` bloku (token exchange) byl použit objektový shorthand `{ redirect_uri }`, což JavaScript interpretuje jako `{ redirect_uri: redirect_uri }` – tedy hledání proměnné `redirect_uri`. Proměnná je však definována jako `redirectUri` (camelCase) na řádku 81.
+- **Oprava**: Změněno `{ redirect_uri }` na `{ redirect_uri: redirectUri }` – explicitní přiřazení hodnoty camelCase proměnné pod snake_case klíčem v logovacím objektu.
+- **Upravené soubory**:
+  - [`src/app/api/accounts/x/route.ts`](file:///c:/VS_Code/Postio/src/app/api/accounts/x/route.ts) – řádek 158
+
+### 🐛 Fix – Twitter OAuth 2.0 PKCE (Prompt 016-FIX / 016-REDIRECT-FIX)
+
+- **Kontext (uživatel)**: Twitter Developer Portal byl správně nakonfigurován, ale přihlášení vracelo "Something went wrong". Dva problémy:
+  1. `code_verifier` se předával jako query parametr v URL (`?code_verifier=...`), ale Twitter ho do callbacku nepřesměrovává zpět.
+  2. `redirect_uri` musela být stabilní a identická v obou krocích (authorize i token exchange).
+- **Co bylo opraveno**:
+  - **Server-side PKCE generování**: `code_verifier` a `code_challenge` (S256) se nyní generují **na serveru** v route (`/api/accounts/x`), ne ve frontend kódu. Verifier se nikdy nedostane do URL.
+  - **Cookie storage pro PKCE**: `code_verifier` a `state` se ukládají do httpOnly cookie PŘED redirectem na Twitter. Callback je čte z cookie.
+  - **Stabilní `redirect_uri`**: Deklarována jednou (`const redirectUri = \`${url.origin}/api/accounts/x\``) a použita v obou krocích.
+  - **Frontend zjednodušení**: `accounts/page.tsx` již negeneruje PKCE a neposílá `code_verifier` ani `code_challenge` v URL. Posílá pouze `state` a `locale`.
+  - **Mrtvý kód**: Odebrán nepoužitý import `@/lib/pkce` z `accounts/page.tsx`.
+  - **Cookie cleanup**: Po úspěšném OAuth flow se cookie `x_code_verifier` a `x_oauth_state` automaticky mažou.
+  - **Early validation**: Pokud cookie `x_code_verifier` v callbacku chybí, okamžitá chyba s logem.
+- **Upravené soubory**:
+  - [`src/app/api/accounts/x/route.ts`](file:///c:/VS_Code/Postio/src/app/api/accounts/x/route.ts) – server-side PKCE, cookie storage/read/cleanup, stabilní `redirect_uri`
+  - [`src/app/[locale]/(dashboard)/accounts/page.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/accounts/page.tsx) – odstraněn client-side PKCE, zjednodušený redirect URL
+
+### ✨ Feature – Kompletní Twitter/X (OAuth + Publish + Delete) Integrace
+
+- **Kontext (uživatel)**: Implementace plné podpory pro publikování příspěvků na X (Twitter) – OAuth připojení, publikování tweetů s médii, mazání tweetů a UI integrace. Implementace proběhla napříč více relacemi.
+- **Co bylo vytvořeno/upraveno**:
+
+  **1. OAuth Route** – [`src/app/api/accounts/x/route.ts`](file:///c:/VS_Code/Postio/src/app/api/accounts/x/route.ts) (nový)
+  - OAuth 2.0 (PKCE) flow pro X (Twitter) s `offline.access` scope (refresh token)
+  - Scopes: `tweet.read tweet.write users.read offline.access`
+  - Dvoufázová route: GET bez `code` → redirect na X authorize, GET s `code` → exchange token + fetch profil + save do DB
+  - PKCE: `code_verifier` + `code_challenge` (S256) předávány jako query params
+  - Env vars: `TWITTER_CLIENT_ID` a `TWITTER_CLIENT_SECRET` (s fallbackem na `X_API_KEY`/`X_API_SECRET`)
+
+  **2. Publish Logika** – [`src/lib/actions/publish-twitter.ts`](file:///c:/VS_Code/Postio/src/lib/actions/publish-twitter.ts) (nový)
+  - `publishToTwitterAction()` – hlavní entry point, volán z `publish.ts`
+  - Token refresh: `getValidTwitterAccessToken()` + `exchangeRefreshToken()` – automatický refresh vypršených tokenů
+  - Media upload: `uploadMediaToX()` přes Media Upload API v1.1 (multipart/form-data), podpora JPG/PNG/WebP/GIF (až 4 obrázky)
+  - Tweet creation: `publishTweetToX()` přes API v2 (`POST /2/tweets`), text + `media_ids`
+  - Truncace na 280 znaků, přidání lokace a hashtagů
+  - Duplicate-upload guard (kontrola `existingExternalId`)
+
+  **3. Publish Router Integrace** – [`src/lib/actions/publish.ts`](file:///c:/VS_Code/Postio/src/lib/actions/publish.ts) (upraven)
+  - Import `publishToTwitterAction`
+  - Twitter case v `publishPostAction()` – publish s `upsertPostPublications()`
+  - Twitter case v `publishAdditionalPlatforms()` – dodatečný publish na X při editaci publikovaného postu
+  - Twitter case v `deletePostFromPlatform()` – `DELETE /2/tweets/{id}` + update `post_publications` na `deleted`
+  - Twitter case v `updateRemotePost()` – vrací error (editace tweetů API nepodporuje)
+
+  **4. Delete Logika** (v `publish.ts`)
+  - `DELETE https://api.twitter.com/2/tweets/{externalId}` s Bearer auth
+  - Po úspěšném smazání update `post_publications.status = 'deleted'`
+  - Po selhání API (404 atd.) update na `failed` + log erroru
+
+  **5. UI – Edit Post Dialog** – [`src/components/edit-post-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/edit-post-dialog.tsx) (upraven)
+  - `isTwitterPublished` detekce (podobně jako `isInstagramPublished`)
+  - Blok editace s errorem a toastem, pokud je tweet již publikován
+  - Amber banner „X (Twitter) nepodporuje editaci…" zobrazovaný v dialogu
+  - Typové casty: `tLabels as unknown as Record<string, string>` pro `twEditNotSupported`
+
+  **6. UI – Accounts Page** – [`src/app/[locale]/(dashboard)/accounts/page.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/accounts/page.tsx) (upraven)
+  - Platform definice pro X (Twitter) s ikonou, barvou, OAuth handlerem
+  - PKCE flow: generování `code_verifier` + `code_challenge` při kliknutí na "Připojit"
+  - URL parametry: `code_challenge`, `code_verifier`, `state`, `locale`
+  - Detekce `?x=connected` v URL → toast `xConnectedShort`
+  - X ikona a styl v seznamu platforem, v `ConnectAccountModal` a v publish dialogu
+
+  **7. Lokalizace** (všechny 3 jazyky)
+  - `cs.json`, `en.json`, `uk.json` – přidány klíče:
+    - `xConnected` / `xConnectedShort` / `xDisconnected` – zprávy o připojení/odpojení
+    - `twEditNotSupported` – hláška o nepodpoře editace tweetů
+    - Opraveny typografické uvozovky v `liConnected`, `liDisconnected`, `xConnected`, `xDisconnected`
+
+  **8. Ikony a vizuál**
+  - X (Twitter) ikona v platform selectoru, v publish dialogu, v accounts page
+  - Barevný akcent konzistentní s Postio designem
+
+- **Platform rules dodrženy** (z AGENTS.md):
+  - ✅ Editace textu: ❌ Ne – API nepodporuje, UI blokuje s bannerem
+  - ✅ Smazání: ✅ Ano – `DELETE /2/tweets/{id}`
+  - ✅ Free tier: write-only (publish + delete), žádné čtení timeline
+
+- **Upravené soubory** (shrnutí):
+  - `src/app/api/accounts/x/route.ts` – **nový** (OAuth route, 248 řádků)
+  - `src/lib/actions/publish-twitter.ts` – **nový** (publish + refresh + media upload, 530 řádků)
+  - `src/lib/actions/publish.ts` – upraven (import + twitter cases v publish/delete/update)
+  - `src/components/edit-post-dialog.tsx` – upraven (twitter detekce + banner + typové opravy)
+  - `src/app/[locale]/(dashboard)/accounts/page.tsx` – upraven (platform definice + PKCE flow)
+  - `src/messages/cs.json` – upraven (xConnected, xDisconnected, twEditNotSupported + fix uvozovek)
+  - `src/messages/en.json` – upraven (stejné klíče v angličtině)
+  - `src/messages/uk.json` – upraven (stejné klíče v ukrajinštině)
+
+- **Build**: `npm run build` proběhl úspěšně bez chyb.
+
 ### 🎨 Vylepšení – Prompt 014 – Optimalizace velikosti náhledu pro PC / Desktop
 
 - **Kontext (uživatel)**: Náhled příspěvku (PreviewDialog) na PC byl příliš velký a nutil uživatele scrollovat. Cíl: kompaktní náhled, který se vejde do okna bez scrollu.

@@ -25,6 +25,8 @@ const PLATFORMS = [
   { id: "facebook", labelCs: "Facebook", labelEn: "Facebook", labelUk: "Facebook" },
   { id: "twitter", labelCs: "Twitter/X", labelEn: "Twitter/X", labelUk: "Twitter/X" },
   { id: "linkedin", labelCs: "LinkedIn", labelEn: "LinkedIn", labelUk: "LinkedIn" },
+  { id: "youtube", labelCs: "YouTube", labelEn: "YouTube", labelUk: "YouTube" },
+  { id: "tiktok", labelCs: "TikTok", labelEn: "TikTok", labelUk: "TikTok" },
 ];
 
 const MAX_MEDIA_FILES = 10;
@@ -564,6 +566,10 @@ export default function NewPostPage() {
                       ? t("linkedin")
                       : platform.id === "instagram"
                         ? t("instagram")
+                      : platform.id === "youtube"
+                        ? t("youtube")
+                      : platform.id === "tiktok"
+                        ? t("tiktok")
                         : t("facebook");
                 return (
                   <button

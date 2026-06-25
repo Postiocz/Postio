@@ -19,7 +19,7 @@ import NextImage from "next/image";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { TagPicker } from "@/components/tag-picker";
 
-const PLATFORMS = ["instagram", "facebook", "twitter", "linkedin"];
+const PLATFORMS = ["instagram", "facebook", "twitter", "linkedin", "youtube", "tiktok"];
 
 const MAX_MEDIA_FILES = 10;
 

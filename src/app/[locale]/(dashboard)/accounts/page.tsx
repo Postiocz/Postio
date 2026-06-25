@@ -275,13 +275,14 @@ export default function AccountsPage() {
   // `pendingPages.length` to decide whether to auto-open the dialog.
   const ytSignal = searchParams.get("yt");
   const liSignal = searchParams.get("li");
+  const xSignal = searchParams.get("x");
   const errorSignal = searchParams.get("error");
   useEffect(() => {
-    if (!ytSignal && !liSignal && !errorSignal) return;
+    if (!ytSignal && !liSignal && !xSignal && !errorSignal) return;
 
     // Strip the query params from the URL immediately so we never loop on
     // a manual refresh (the same pattern used for `?fb=connected` above).
-    if (ytSignal || liSignal || errorSignal) {
+    if (ytSignal || liSignal || xSignal || errorSignal) {
       router.replace(window.location.pathname);
     }
 
@@ -305,10 +306,18 @@ export default function AccountsPage() {
       return;
     }
 
+    if (xSignal === "connected") {
+      // X (Twitter) OAuth 2.0 with PKCE – the route at `/api/accounts/x`
+      // redirects back here with `?x=connected` after a successful upsert.
+      fetchAccounts();
+      toast.success(t("xConnectedShort"));
+      return;
+    }
+
     if (errorSignal) {
       toast.error(t("connectionError", { error: errorSignal }));
     }
-  }, [ytSignal, liSignal, errorSignal, router, t]);
+  }, [ytSignal, liSignal, xSignal, errorSignal, router, t]);
 
   async function handleConnect(e: React.FormEvent) {
     e.preventDefault();
@@ -423,7 +432,8 @@ export default function AccountsPage() {
                       platform.id === "instagram" ||
                       platform.id === "facebook" ||
                       platform.id === "linkedin" ||
-                      platform.id === "youtube";
+                      platform.id === "youtube" ||
+                      platform.id === "twitter";
                     if (isOAuthPlatform) {
                       setConnectModalPlatform({
                         id: platform.id,
@@ -778,6 +788,16 @@ export default function AccountsPage() {
               const locale = localeMatch?.[1] ?? "cs";
               const linkedinAuthUrl = `/api/accounts/linkedin?state=${encodeURIComponent(next)}&locale=${locale}`;
               window.location.assign(linkedinAuthUrl);
+            } else if (connectModalPlatform.id === "twitter") {
+              // X (Twitter) OAuth 2.0 with PKCE – custom flow via /api/accounts/x
+              // PKCE is handled entirely server-side: the route generates the
+              // code_verifier, stores it in an httpOnly cookie, derives the
+              // code_challenge (S256), and redirects to Twitter. On callback
+              // the verifier is read from the cookie – never exposed in the URL.
+              const localeMatch = window.location.pathname.match(/\/(cs|en|uk)(?:\/|$)/);
+              const locale = localeMatch?.[1] ?? "cs";
+              const xAuthUrl = `/api/accounts/x?state=${encodeURIComponent(next)}&locale=${locale}`;
+              window.location.assign(xAuthUrl);
             } else if (connectModalPlatform.id === "youtube") {
               // YouTube OAuth via Google – routed through /api/auth/google,
               // which adds `?provider=youtube` to its internal redirect_uri
@@ -846,7 +866,9 @@ export default function AccountsPage() {
                   ? t("connectModal.warningDescLinkedIn")
                   : connectModalPlatform.id === "youtube"
                     ? t("connectModal.warningDescYouTube")
-                    : t("connectModal.warningDesc"),
+                    : connectModalPlatform.id === "twitter"
+                      ? t("connectModal.warningDescX")
+                      : t("connectModal.warningDesc"),
             connectButton: t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
           }}

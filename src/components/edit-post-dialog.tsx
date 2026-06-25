@@ -477,6 +477,12 @@ export function EditPostDialog({
     return (post?.post_platforms || []).some(p => p.platform === 'instagram' && p.status === 'published');
   }, [isEdit, post?.post_platforms]);
 
+  // Detect if the published post is on Twitter (X) – edits are not supported
+  const isTwitterPublished = useMemo(() => {
+    if (!isEdit) return false;
+    return (post?.post_platforms || []).some(p => p.platform === 'twitter' && p.status === 'published');
+  }, [isEdit, post?.post_platforms]);
+
   // Detect which published platforms support remote text editing
   const updatablePlatforms = useMemo(() => {
     if (!isEdit) return [];
@@ -681,6 +687,14 @@ export function EditPostDialog({
           // Instagram does not support editing captions of published posts
           if (isInstagramPublished) {
             const msg = tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu.";
+            setError(msg);
+            toast.error(msg);
+            setLoading(false);
+            return;
+          }
+          // Twitter (X) does not support editing tweets via API
+          if (isTwitterPublished) {
+            const msg = (tLabels as unknown as Record<string, string>).twEditNotSupported ?? "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu.";
             setError(msg);
             toast.error(msg);
             setLoading(false);
@@ -1875,6 +1889,14 @@ export function EditPostDialog({
                 <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
                   <span>{tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu."}</span>
+                </div>
+              )}
+
+              {/* Twitter (X) edit not supported banner */}
+              {isTwitterPublished && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <span>{(tLabels as unknown as Record<string, string>).twEditNotSupported ?? "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu."}</span>
                 </div>
               )}
 

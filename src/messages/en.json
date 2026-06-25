@@ -156,6 +156,7 @@
     "updateOnSocials": "Update on Socials",
     "onlyTextUpdatePossible": "For published posts, only text can be changed. To change a photo, you must delete and recreate the post.",
     "igEditNotSupported": "Instagram does not allow editing captions of published posts. If you want to change the text, you must delete the post in Postio and publish it again.",
+    "twEditNotSupported": "X (Twitter) does not support editing tweets via API. If you want to change the text, you must delete the post and publish it again.",
     "publishToSelected": "Publish",
     "additionalPublishSuccess": "Post has been published",
     "saveMetadata": "Save internal metadata",
@@ -296,6 +297,7 @@
     "updateOnSocials": "Update on Socials",
     "onlyTextUpdatePossible": "For published posts, only text can be changed. To change a photo, you must delete and recreate the post.",
     "igEditNotSupported": "Instagram does not allow editing captions of published posts. If you want to change the text, you must delete the post in Postio and publish it again.",
+    "twEditNotSupported": "X (Twitter) does not support editing tweets via API. If you want to change the text, you must delete the post and publish it again.",
     "publishToSelected": "Publish",
     "additionalPublishSuccess": "Post has been published",
     "saveMetadata": "Save internal metadata",
@@ -395,6 +397,7 @@
       "warningDescInstagram": "This feature requires a Professional account (Business/Creator).",
       "warningDescLinkedIn": "LinkedIn tokens expire in 60 days. You will need to reconnect after expiry.",
       "warningDescYouTube": "You will be redirected to Google to grant Postio access to your YouTube channel (videos and basic profile). We keep your tokens safe and refresh them automatically.",
+      "warningDescX": "X (Twitter) does not support editing tweets via API. Published tweets cannot be edited – they can only be deleted.",
       "connectButton": "Connect Professional Account",
       "learnMore": "Have a personal account? Learn how to switch"
     },
@@ -424,6 +427,9 @@
     "liConnected": "LinkedIn account \"{name}\" has been connected to Postio.",
     "liConnectedShort": "LinkedIn account has been connected to Postio.",
     "liDisconnected": "LinkedIn account \"{name}\" has been disconnected.",
+    "xConnected": "X (Twitter) account \"{name}\" has been connected to Postio.",
+    "xConnectedShort": "X (Twitter) account has been connected to Postio.",
+    "xDisconnected": "X (Twitter) account \"{name}\" has been disconnected.",
     "connectionError": "Could not connect account: {error}"
   },
   "templates": {

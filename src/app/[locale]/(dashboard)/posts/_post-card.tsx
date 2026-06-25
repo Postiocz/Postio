@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X } from "lucide-react";
+import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Eye } from "lucide-react";
 import {
   Instagram,
   Facebook,
@@ -21,6 +21,7 @@ import { deleteFromMeta } from "@/lib/actions/publish";
 import { EditPostDialog } from "@/components/edit-post-dialog";
 import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
 import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
+import { PreviewDialog } from "@/components/preview-dialog";
 import { toast } from "sonner";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -176,6 +177,18 @@ export function PostCard({
     photoChangeNotAllowed?: string;
     updateOnSocials?: string;
     onlyTextUpdatePossible?: string;
+    // Preview dialog labels
+    preview?: string;
+    previewTitle?: string;
+    viewLive?: string;
+    noPublishedPlatforms?: string;
+    previewPlaceholderName?: string;
+    previewCaptionHint?: string;
+    previewNoMedia?: string;
+    previewFacebookTab?: string;
+    previewInstagramTab?: string;
+    previewYoutubeTab?: string;
+    previewLinkedinTab?: string;
   };
   tAi?: {
     aiAssistant: string;
@@ -194,6 +207,7 @@ export function PostCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [smartDeleteOpen, setSmartDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
   const router = useRouter();
 
@@ -394,6 +408,16 @@ export function PostCard({
           onClick={() => setEditOpen(true)}
         >
           <Edit className="h-3.5 w-3.5" />
+        </Button>
+        {/* Preview (Eye) button – opens standalone preview dialog */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="h-8 w-8 relative z-[50] cursor-pointer bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10"
+          title={tLabels.preview ?? "Náhled"}
+          onClick={() => setPreviewOpen(true)}
+        >
+          <Eye className="h-3.5 w-3.5" />
         </Button>
         {post.status === "removed_externally" && (
           <>
@@ -625,6 +649,34 @@ export function PostCard({
       onConfirm={handleSmartDelete}
       isDeleting={isDeleting}
     />
+
+    <PreviewDialog
+      open={previewOpen}
+      onOpenChange={setPreviewOpen}
+      post={{
+        id: post.id,
+        content: post.content,
+        platforms: post.platforms ?? [],
+        post_platforms: post.post_platforms ?? [],
+        scheduled_at: post.scheduled_at,
+        status: post.status,
+        location: post.location ?? null,
+        tags: post.tags ?? [],
+        media_urls: post.media_urls ?? [],
+      }}
+      labels={{
+        title: tLabels.previewTitle ?? "Náhled příspěvku",
+        viewLive: tLabels.viewLive ?? "Zobrazit na síti",
+        noPublishedPlatforms: tLabels.noPublishedPlatforms ?? "Tento příspěvek ještě nebyl publikován.",
+        placeholderName: tLabels.previewPlaceholderName ?? "Postio",
+        captionHint: tLabels.previewCaptionHint ?? "Sem napište text příspěvku…",
+        noMedia: tLabels.previewNoMedia ?? "Žádná média",
+        facebookTab: tLabels.previewFacebookTab,
+        instagramTab: tLabels.previewInstagramTab,
+        youtubeTab: tLabels.previewYoutubeTab,
+        linkedinTab: tLabels.previewLinkedinTab,
+      }}
+    />
     </>
   );
 }
@@ -710,6 +762,18 @@ export function PostsList({
     photoChangeNotAllowed?: string;
     updateOnSocials?: string;
     onlyTextUpdatePossible?: string;
+    // Preview dialog labels
+    preview?: string;
+    previewTitle?: string;
+    viewLive?: string;
+    noPublishedPlatforms?: string;
+    previewPlaceholderName?: string;
+    previewCaptionHint?: string;
+    previewNoMedia?: string;
+    previewFacebookTab?: string;
+    previewInstagramTab?: string;
+    previewYoutubeTab?: string;
+    previewLinkedinTab?: string;
   };
   tAi?: {
     aiAssistant: string;

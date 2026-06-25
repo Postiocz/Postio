@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check } from "lucide-react";
+import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -190,6 +190,11 @@ interface EditPostDialogProps {
     previewNoMedia?: string;
     previewPlaceholderName?: string;
     previewCaptionHint?: string;
+    // Prompt 003 – Post detail preview mode
+    postDetail?: string;
+    editPostButton?: string;
+    viewLivePost?: string;
+    noPublishedPlatforms?: string;
   };
   tAi?: {
     aiAssistant: string;
@@ -231,6 +236,12 @@ export function EditPostDialog({
   const [error, setError] = useState<string | null>(null);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Prompt 003 – Post Detail view mode: 'preview' (social preview) or 'edit' (form)
+  // Default to 'preview' for published posts, 'edit' for new posts.
+  const [viewMode, setViewMode] = useState<"preview" | "edit">("edit");
+  // Currently selected platform tab in preview mode (first published platform)
+  const [selectedPreviewPlatform, setSelectedPreviewPlatform] = useState<string>("");
 
   const [userId, setUserId] = useState<string | null>(null);
   // Profiles used by the live post preview (FB page name/avatar, IG username/avatar,
@@ -415,6 +426,51 @@ export function EditPostDialog({
     return order.filter((id) => all.has(id));
   }, [platforms, post?.platforms, post?.post_platforms]);
 
+  // Prompt 003 – Published platforms for preview tabs (only platforms with status 'published')
+  const publishedPlatforms = useMemo(() => {
+    if (!isEdit || !post?.post_platforms) return [];
+    return post.post_platforms
+      .filter((p) => p.status === "published")
+      .map((p) => p.platform);
+  }, [isEdit, post?.post_platforms]);
+
+  // Prompt 003 – Build a live URL for a published post on a given platform
+  function buildLiveUrl(platform: string, externalId: string | null): string | null {
+    if (!externalId) return null;
+    switch (platform) {
+      case "facebook":
+        return `https://www.facebook.com/${externalId}`;
+      case "instagram":
+        return `https://www.instagram.com/p/${externalId}/`;
+      case "linkedin":
+        // external_id can be a full URN or just the post ID
+        if (externalId.startsWith("urn:li:share:")) {
+          const shareId = externalId.replace("urn:li:share:", "");
+          // We need the author to build the URL – use a generic LinkedIn share link
+          return `https://www.linkedin.com/feed/update/${externalId}/`;
+        }
+        return `https://www.linkedin.com/feed/update/urn:li:share:${externalId}/`;
+      case "youtube":
+        return `https://www.youtube.com/watch?v=${externalId}`;
+      case "twitter":
+      case "x":
+        return `https://x.com/i/status/${externalId}`;
+      case "tiktok":
+        return `https://www.tiktok.com/@user/video/${externalId}`;
+      default:
+        return null;
+    }
+  }
+
+  // Prompt 003 – Get the external_id for the currently selected preview platform
+  function getLiveUrlForPlatform(platform: string): string | null {
+    if (!post?.post_platforms) return null;
+    const pp = post.post_platforms.find(
+      (p) => p.platform === platform && p.status === "published"
+    );
+    return buildLiveUrl(platform, pp?.external_id ?? null);
+  }
+
   // Detect if the published post is on Instagram
   const isInstagramPublished = useMemo(() => {
     if (!isEdit) return false;
@@ -521,6 +577,10 @@ export function EditPostDialog({
         // Hydrate selected internal organization tags from post_tags (passed in via props)
         const initialTagIds = (post.post_tags ?? []).map((t) => t.id);
         setSelectedTagIds(initialTagIds);
+
+        // Always open in 'edit' mode when clicking the pencil/edit icon.
+        // Preview mode is still accessible via the preview tab in edit mode.
+        setViewMode("edit");
       } else {
         setContent("");
         setPlatforms([]);
@@ -529,6 +589,8 @@ export function EditPostDialog({
         setTags([]);
         setScheduledAt("");
         setSelectedTagIds([]);
+        setViewMode("edit");
+        setSelectedPreviewPlatform("");
       }
       setTagDraft("");
       setError(null);
@@ -973,6 +1035,321 @@ export function EditPostDialog({
     onOpenChange(false);
   }, [onOpenChange]);
 
+  // Prompt 003 – Platform accent colors for tab icons
+  const PLATFORM_ACCENTS_MAP: Record<string, string> = {
+    facebook: "text-[#1877F2]",
+    instagram: "text-[#E1306C]",
+    twitter: "text-[#1DA1F2]",
+    linkedin: "text-[#0A66C2]",
+    youtube: "text-[#FF0000]",
+    tiktok: "text-[#010101]",
+  };
+
+  // Prompt 003 – Inline avatar with graceful fallback to initial-letter bubble.
+  // Lightweight version of the Avatar from post-preview.tsx, scoped to the
+  // preview mode so we don't need to import the full PostPreview module.
+  function AvatarInline({
+    url,
+    name,
+    size = 40,
+  }: {
+    url: string | null;
+    name: string;
+    size?: number;
+  }) {
+    const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
+    if (url) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={name}
+          width={size}
+          height={size}
+          className="rounded-full object-cover"
+          style={{ width: size, height: size }}
+        />
+      );
+    }
+    return (
+      <div
+        className="flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-semibold text-white"
+        style={{ width: size, height: size }}
+      >
+        {initial}
+      </div>
+    );
+  }
+
+  // Prompt 003 – Media area renderer for platform previews.
+  // Picks <img> or <video> based on kind. Shows an empty placeholder
+  // when no media is attached.
+  function PreviewMediaArea({
+    media,
+    aspect,
+  }: {
+    media: PostPreviewMedia[];
+    aspect: "square" | "feed" | "video";
+  }) {
+    if (media.length === 0) {
+      const emptyAspect = aspect === "video" ? "aspect-video" : "aspect-square";
+      return (
+        <div
+          className={cn(
+            "flex w-full items-center justify-center bg-white/[0.02] text-xs text-muted-foreground/50",
+            emptyAspect,
+          )}
+        >
+          {tLabels.previewNoMedia ?? "Žádná média"}
+        </div>
+      );
+    }
+    const first = media[0];
+    // Prompt 013 – object-contain + no forced aspect ratio so the full
+    // composition is always visible. The container height follows the
+    // natural aspect ratio of the uploaded file.
+    return (
+      <div className="relative w-full overflow-hidden bg-black">
+        {first.kind === "image" ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={first.previewUrl}
+            alt="Preview"
+            className="w-full h-auto object-contain"
+          />
+        ) : (
+          <video
+            src={first.previewUrl}
+            className="w-full h-auto object-contain"
+            muted
+            playsInline
+            preload="metadata"
+          />
+        )}
+        {media.length > 1 && (
+          <span className="absolute right-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+            1/{media.length}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Prompt 003 – Render a faithful platform preview for the post detail view.
+  // Uses the same profile/media data as the existing PostPreview component,
+  // but renders only the selected platform's feed card (no outer glass shell).
+  function renderPlatformPreview(platformId: string) {
+    const profileMap = {
+      facebook: facebookProfile,
+      instagram: instagramProfile,
+      youtube: youtubeProfile,
+      linkedin: linkedinProfile,
+    };
+    const profile = profileMap[platformId as keyof typeof profileMap]
+      ?? { displayName: tLabels.previewPlaceholderName ?? "Postio" };
+
+    if (platformId === "facebook") {
+      return (
+        <div className="flex h-full flex-col bg-[#242526] text-[#e4e6eb]">
+          <div className="flex-1 overflow-y-auto px-3 pb-3 postio-scrollbar">
+            <article className="rounded-lg bg-[#18191a] p-2.5">
+              <header className="mb-1.5 flex items-center gap-2">
+                <AvatarInline url={profile?.avatarUrl ?? null} name={profile?.displayName ?? ""} size={32} />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-[#e4e6eb]">{profile?.displayName ?? ""}</p>
+                  <p className="flex items-center gap-1 text-[10px] text-[#b0b3b8]">
+                    {location ? <span>{location} · </span> : null}
+                    <span>Právě teď</span>
+                    <span aria-hidden> · 🌐</span>
+                  </p>
+                </div>
+              </header>
+              {content.trim() ? (
+                <p className="mb-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#e4e6eb]">{content}</p>
+              ) : (
+                <p className="mb-1.5 text-[13px] italic text-[#b0b3b8]/60">
+                  {tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}
+                </p>
+              )}
+              <PreviewMediaArea media={previewMedia} aspect="feed" />
+              <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#b0b3b8]">
+                <span className="flex items-center gap-1">
+                  <span className="flex -space-x-1">
+                    <span className="inline-block rounded-full bg-[#1877F2] h-4 w-4 flex items-center justify-center text-[8px] text-white">👍</span>
+                    <span className="inline-block rounded-full bg-[#F33E58] h-4 w-4 flex items-center justify-center text-[8px]">❤️</span>
+                  </span>
+                  0
+                </span>
+                <span>0 komentářů · 0 sdílení</span>
+              </div>
+              <div className="my-1.5 border-t border-white/5" />
+              <div className="grid grid-cols-3 gap-1 text-[11px] font-medium text-[#b0b3b8]">
+                <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
+                  <span aria-hidden className="text-base">👍</span>
+                  Líbí se mi
+                </span>
+                <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
+                  <span aria-hidden className="text-base">💬</span>
+                  Komentář
+                </span>
+                <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
+                  <span aria-hidden className="text-base">↗</span>
+                  Sdílet
+                </span>
+              </div>
+            </article>
+          </div>
+        </div>
+      );
+    }
+
+    if (platformId === "instagram") {
+      return (
+        <div className="flex h-full flex-col bg-black text-white">
+          <article className="flex-1 overflow-y-auto postio-scrollbar">
+            <header className="flex items-center gap-2 px-3 py-2">
+              <div className="rounded-full bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-[2px]">
+                <div className="rounded-full bg-black p-[2px]">
+                  <AvatarInline url={profile?.avatarUrl ?? null} name={profile?.displayName ?? ""} size={28} />
+                </div>
+              </div>
+              <p className="truncate text-[13px] font-semibold">{profile?.displayName ?? ""}</p>
+            </header>
+            <PreviewMediaArea media={previewMedia} aspect="square" />
+            <div className="flex items-center gap-4 px-3 py-1.5 text-lg">
+              <span aria-hidden className="cursor-default">♡</span>
+              <span aria-hidden className="cursor-default">💬</span>
+              <span aria-hidden className="cursor-default">✈️</span>
+              <span aria-hidden className="ml-auto cursor-default text-lg">🔖</span>
+            </div>
+            <div className="px-3 pb-0.5 text-[13px] font-semibold">0 líbenek</div>
+            <div className="px-3 pb-3 text-[13px]">
+              {content.trim() ? (
+                <p className="whitespace-pre-wrap break-words leading-relaxed">
+                  <span className="mr-1.5 font-semibold">{profile?.displayName ?? ""}</span>
+                  {content}
+                </p>
+              ) : (
+                <p className="italic text-white/40">{tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}</p>
+              )}
+            </div>
+          </article>
+        </div>
+      );
+    }
+
+    if (platformId === "linkedin") {
+      return (
+        <div className="flex h-full flex-col bg-[#1a1a2e] text-[#e4e6eb]">
+          <div className="flex-1 overflow-y-auto px-3 py-2.5 postio-scrollbar">
+            <article className="rounded-lg bg-[#1e1e36] shadow-sm">
+              <header className="flex items-start gap-2 px-2.5 pt-2.5">
+                <AvatarInline url={profile?.avatarUrl ?? null} name={profile?.displayName ?? ""} size={36} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold text-[#e4e6eb]">{profile?.displayName ?? ""}</p>
+                  <p className="truncate text-[10px] text-[#b0b3b8]">Professional · 1. stupen</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#b0b3b8]">
+                    <span>Právě teď</span>
+                    <span aria-hidden>·</span>
+                    <span aria-hidden>🌐</span>
+                  </p>
+                </div>
+                <span aria-hidden className="text-sm text-[#b0b3b8]">⋯</span>
+              </header>
+              {content.trim() ? (
+                <p className="whitespace-pre-wrap break-words px-2.5 pt-1.5 text-[13px] leading-relaxed text-[#e4e6eb]">{content}</p>
+              ) : (
+                <p className="px-2.5 pt-1.5 text-[13px] italic text-[#b0b3b8]/60">
+                  {tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}
+                </p>
+              )}
+              {previewMedia.length > 0 && (
+                <div className="mt-1.5 overflow-hidden bg-black">
+                  <PreviewMediaArea media={previewMedia} aspect="feed" />
+                </div>
+              )}
+              <div className="flex items-center justify-between px-2.5 pb-0.5 pt-1.5 text-[10px] text-[#b0b3b8]">
+                <span aria-hidden>👍❤️👏 0</span>
+                <span>0 komentářů</span>
+              </div>
+              <div className="mx-2.5 border-t border-white/5" />
+              <div className="grid grid-cols-4 gap-1 px-1.5 py-1 text-[10px] font-medium text-[#b0b3b8]">
+                <span className="flex flex-col items-center gap-0.5 py-0.5">
+                  <span aria-hidden className="text-sm leading-none">👍</span>
+                  <span>To se mi líbí</span>
+                </span>
+                <span className="flex flex-col items-center gap-0.5 py-0.5">
+                  <span aria-hidden className="text-sm leading-none">💬</span>
+                  <span>Komentovat</span>
+                </span>
+                <span className="flex flex-col items-center gap-0.5 py-0.5">
+                  <span aria-hidden className="text-sm leading-none">🔁</span>
+                  <span>Přeposlat</span>
+                </span>
+                <span className="flex flex-col items-center gap-0.5 py-0.5">
+                  <span aria-hidden className="text-sm leading-none">✈️</span>
+                  <span>Odeslat</span>
+                </span>
+              </div>
+            </article>
+          </div>
+        </div>
+      );
+    }
+
+    if (platformId === "youtube") {
+      return (
+        <div className="flex h-full flex-col bg-[#0f0f0f] text-white">
+          <article className="flex-1 overflow-y-auto postio-scrollbar">
+            <PreviewMediaArea media={previewMedia} aspect="video" />
+            <h2 className="px-3 pt-2 text-[13px] font-semibold leading-snug text-white">
+              {content.trim() ? (
+                <span className="line-clamp-2 whitespace-pre-wrap break-words">{content}</span>
+              ) : (
+                <span className="italic text-white/40">{tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}</span>
+              )}
+            </h2>
+            <div className="flex items-center gap-2 px-3 pt-2">
+              <AvatarInline url={profile?.avatarUrl ?? null} name={profile?.displayName ?? ""} size={28} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium text-white">{profile?.displayName ?? ""}</p>
+                <p className="text-[10px] text-white/60">0 subscribers</p>
+              </div>
+              <span className="rounded-full bg-[#FF0000] px-2.5 py-0.5 text-[10px] font-semibold text-white">Subscribe</span>
+            </div>
+            <div className="mx-3 mt-2 rounded-xl bg-white/[0.06] p-2 text-[11px] text-white/85">
+              <p className="font-medium text-white/70">0 views · just now</p>
+              {content.trim() && (
+                <p className="mt-0.5 whitespace-pre-wrap break-words leading-relaxed">{content}</p>
+              )}
+            </div>
+            <div className="flex items-center justify-around px-3 py-2 text-[10px] text-white/80">
+              <span className="flex flex-col items-center gap-0.5">
+                <span aria-hidden className="text-sm leading-none">👍</span>
+                <span>Like</span>
+              </span>
+              <span className="flex flex-col items-center gap-0.5">
+                <span aria-hidden className="text-sm leading-none">👎</span>
+                <span>Dislike</span>
+              </span>
+              <span className="flex flex-col items-center gap-0.5">
+                <span aria-hidden className="text-sm leading-none">↗</span>
+                <span>Share</span>
+              </span>
+            </div>
+          </article>
+        </div>
+      );
+    }
+
+    // Fallback – unknown platform
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground/40 text-sm">
+        Náhled není dostupný
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(); }}>
       <DialogContent
@@ -980,14 +1357,99 @@ export function EditPostDialog({
         showCloseButton
       >
         <DialogHeader className="px-6 pt-6">
-          <DialogTitle className="text-lg font-semibold">
-            {isEdit ? tLabels.editPost : tLabels.newPost}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-lg font-semibold">
+              {viewMode === "preview"
+                ? (tLabels.postDetail ?? "Detail příspěvku")
+                : (isEdit ? tLabels.editPost : tLabels.newPost)}
+            </DialogTitle>
+            {viewMode === "preview" && isEdit && (
+              <Button
+                type="button"
+                onClick={() => setViewMode("edit")}
+                size="sm"
+                variant="outline"
+                className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06] gap-1.5 text-sm"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {tLabels.editPostButton ?? "Upravit"}
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
+        {/* Prompt 003 – Preview Mode: social preview with platform tabs + action buttons */}
+        {viewMode === "preview" && isEdit && (
+          <div className="px-6 pb-6 space-y-4">
+            {publishedPlatforms.length > 0 ? (
+              <>
+                {/* Platform tabs – only platforms where post is actually published */}
+                <div className="flex items-center gap-2">
+                  {publishedPlatforms.map((platformId) => {
+                    const Icon = PlatformIconMap[platformId];
+                    const platformLabel = PLATFORMS.find((p) => p.id === platformId)?.label ?? platformId;
+                    const isActive = selectedPreviewPlatform === platformId;
+                    const accent = PLATFORM_ACCENTS_MAP[platformId] ?? "text-muted-foreground";
+                    return (
+                      <button
+                        key={platformId}
+                        type="button"
+                        onClick={() => setSelectedPreviewPlatform(platformId)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                          isActive
+                            ? "border-indigo-500/50 bg-indigo-500/20 text-indigo-300"
+                            : "border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:border-white/10"
+                        )}
+                      >
+                        {Icon && <Icon className={cn("h-3.5 w-3.5", isActive ? "" : accent)} />}
+                        {platformLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Social preview for selected platform – constrained height */}
+                <div className="max-h-[480px] overflow-hidden rounded-[20px] border border-white/5 bg-black">
+                  {renderPlatformPreview(selectedPreviewPlatform)}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const liveUrl = getLiveUrlForPlatform(selectedPreviewPlatform);
+                    if (liveUrl) {
+                      return (
+                        <a
+                          href={liveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-300 transition-all hover:bg-indigo-500/20"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          {tLabels.viewLivePost ?? "View live post"}
+                        </a>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/60">
+                <Info className="mb-2 h-8 w-8" />
+                <p className="text-sm">{tLabels.noPublishedPlatforms ?? "Tento příspěvek ještě nebyl publikován."}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Edit Mode: original two-column layout (form + live preview) */}
+        {viewMode === "edit" && (
+        <>
         {/* Two-column layout: form (left) + live preview (right).
             On screens below `lg` the preview collapses below the form. */}
-        <div className="grid grid-cols-1 gap-4 px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid grid-cols-1 gap-4 px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,45%)]">
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 postio-scrollbar">
           {error && (
             <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -1347,7 +1809,7 @@ export function EditPostDialog({
             Sticky on desktop so it stays in view while the user scrolls the
             form. Hidden on very small screens via the grid breakpoint. */}
         <div className="hidden lg:block">
-          <div className="sticky top-0 max-h-[60vh]">
+          <div className="sticky top-0 max-h-[70vh]">
             <PostPreview
               content={content}
               media={previewMedia}
@@ -1522,6 +1984,8 @@ export function EditPostDialog({
             </>
           )}
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

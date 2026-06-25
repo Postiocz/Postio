@@ -3,6 +3,95 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-06-25
+
+### 🎨 Vylepšení – Prompt 014 – Optimalizace velikosti náhledu pro PC / Desktop
+
+- **Kontext (uživatel)**: Náhled příspěvku (PreviewDialog) na PC byl příliš velký a nutil uživatele scrollovat. Cíl: kompaktní náhled, který se vejde do okna bez scrollu.
+- **Co bylo upraveno** (pouze CSS/Tailwind, žádná změna logiky):
+  1. **Dialog rozměry**: `sm:max-w-[480px]` a `lg:max-w-[540px]` (původně `sm:max-w-[720px]`). Výška `max-h-[85vh]` (původně `max-h-[90vh]`).
+  2. **Sociální karta max-h**: Přidáno `max-h-[65vh]` na kontejner náhledu + `postio-scrollbar` pro extrémně dlouhé texty. Běžné posty se vejí bez scrollu.
+  3. **Zmenšení paddingů dialogu**: Header `px-4 pt-4 pb-1.5` (původně `px-5 pt-5 pb-2`), body `px-4 pb-4 space-y-2` (původně `px-5 pb-5 space-y-3`).
+  4. **Scale down – fonty**: Title `text-xs`, taby `text-[11px]`, tlačítko "Zobrazit na síti" `text-xs` s menšími paddingy a ikonou `h-3.5 w-3.5`.
+  5. **Scale down – sociální karty**: Všechny platformy (Facebook, Instagram, YouTube, LinkedIn) mají zmenšené:
+     - Avatary: 28px (FB), 24px (IG, YT), 32px (LinkedIn)
+     - Texty: `text-[12px]` pro hlavní text, `text-[9px]` pro meta informace
+     - Paddingy: `px-2.5` místo `px-3`, menší `py` a `gap` hodnoty
+     - Akční ikony: `text-sm` místo `text-base`
+  6. **Tlačítko "Zobrazit na síti"**: Vždy viditelné bez scrollování celého dialogu díky `flex-shrink-0` a kompaktnímu layoutu.
+- **Jeden upravený soubor**:
+  - [`preview-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/preview-dialog.tsx) – Standalone náhledový dialog (Oko)
+- **Co zůstalo nezměněno**: Logika publish URL, platform taby, profilová data, renderovací funkce, `post-preview.tsx` (live náhled v editoru).
+
+## 2026-06-25
+
+### 🎨 Vylepšení – Prompt 012 – Konečná oprava High-Fidelity náhledu v Editoru
+
+- **Kontext (uživatel)**: Pravý panel náhledu v editoru stále zobrazoval pomocné barevné nadpisy ("Instagram", "YouTube", "facebook", "in") uvnitř náhledových karet a média nevyplňovala celou šířku karty (object-contain vytvářel okraje). Navíc byl pravý panel příliš úzký (360px).
+- **Co bylo upraveno** (pouze vizuál, žádná změna logiky):
+  1. **Odstranění pomocných nadpisů**: Všechny top bary s názvy platforem (růžový "Instagram", červený "YouTube", modrý "facebook", LinkedIn "in") byly z náhledových karet odstraněny. Náhledy nyní začínají přímo hlavičkou příspěvku (avatar + jméno), přesně jako v reálné aplikaci.
+  2. **Média full-width (object-cover)**: Všechny obrázky a videa v náhledech nyní používají `object-cover` místo `object-contain` a odstraněno `max-h-[320px]`. Média vyplňují 100 % šířky náhledové karty bez okrajů.
+  3. **Šířka pravého panelu**: Grid layout změněn z `lg:grid-cols-[minmax(0,1fr)_360px]` na `lg:grid-cols-[minmax(0,1fr)_minmax(0,45%)]` – pravý panel nyní dostává až 45 % šířky dialogu. Výška zvětšena z `max-h-[60vh]` na `max-h-[70vh]`.
+  4. **Phone mock flex-1**: Kontejner náhledu v `PostPreview` změněn z `max-h-[480px]` na `flex-1 min-h-0`, aby plně využil dostupný prostor v panelu.
+- **Tři upravené soubory** (stejné změny pro konzistenci napříč všemi náhledy):
+  - [`post-preview.tsx`](file:///c:/VS_Code/Postio/src/components/post-preview.tsx) – Live náhled v edit módu (pravý sloupec editoru)
+  - [`preview-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/preview-dialog.tsx) – Standalone náhledový dialog (Oko)
+  - [`edit-post-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/edit-post-dialog.tsx) – `renderPlatformPreview()` + `PreviewMediaArea` + grid layout
+- **Co zůstalo nezměněno**: Logika publikování, props API, platform taby (segmented control), profilová data.
+
+## 2026-06-25
+
+### 🎨 Vylepšení – Prompt 010 – Zvětšení okna náhledu a elegantní scrollbar
+
+- **Kontext (uživatel)**: Dialog náhledu příspěvku (Oko) byl příliš úzký (`max-w-[420px]`) a měl pevnou výšku `max-h-[480px]`, což nutilo scrollovat i u běžných příspěvků. Standardní bílý scrollbar narušoval tmavý design.
+- **Co bylo upraveno** (pouze vizuál, žádná změna logiky):
+  1. **Zvětšení dialogu**: `sm:max-w-[420px]` → `sm:max-w-[720px]` a přidáno `max-h-[90vh]` pro využití 90 % výšky obrazovky.
+  2. **Flexbox layout**: DialogContent nyní `flex flex-col` – hlavička (`flex-shrink-0`) a tlačítko „Zobrazit na síti" (`flex-shrink-0`) zůstávají fixní, scrollovatelný je jen střední obsah.
+  3. **Elegantní scrollbar**: Scrollovatelná oblast používá existující třídu `postio-scrollbar` (6px tenký, `scrollbar-width: thin`, tmavý kulatý thumb, který splyně s černým pozadím).
+  4. **Přidání `overflow-y-auto` u náhledu**: Sociální karta uvnitř má vlastní scroll místo pevného `max-h-[480px]`.
+- **Jeden upravený soubor**:
+  - [`preview-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/preview-dialog.tsx) – Standalone náhledový dialog (Oko)
+- **Co zůstalo nezměněno**: Logika publish URL, platform taby, profilová data, všechna renderovací funkce.
+
+## 2026-06-24
+
+### 🎨 Vyladění – Prompt 004 – Věrnost a velikost sociálních náhledů
+
+- **Kontext (uživatel)**: Náhledy sociálních příspěvků v dialogu byly vizuálně příliš velké a neodpovídaly přesně realitě feedů na jednotlivých platformách.
+- **Co bylo upraveno (pouze vizuál, žádná změna logiky)**:
+  1. **Omezení velikosti**: Celý kontejner náhledu má `max-h-[480px]`. Obrázky omezeny na `max-h-[320px]` s `object-contain` (místo `object-cover`), aby se nepřetáčely.
+  2. **Typografie**: Všechny texty v náhledech zmenšeny na `text-[13px]` (nadpisy) a `text-[10px]` (meta), aby odpovídaly hustotě reálných platform.
+  3. **Facebook**: Text nad obrázkem (feed-style). Autentické akční ikony pod obrázkem (Líbí se mi / Komentář / Sdílet) s dividerem a engagement summary s barevnými ikonami.
+  4. **Instagram**: Hlavička → dominantní obrázek → ikony (♡ 💬 ✈️ 🔖) → počet líbenek → caption s username. Avatar zmenšen na 28px.
+  5. **LinkedIn**: Tmavé pozadí (`#1a1a2e` / `#1e1e36`) pro konzistenci s Postio UI. Avatar 36px, zmenšená typografie. Akční ikony s českými popisky (To se mi líbí, Komentovat, Přeposlat, Odeslat).
+  6. **YouTube**: Konzistentní zmenšení – avatar 28px, `text-[13px]` titulky, `text-[10px]` akce. Subscribe button zmenšený.
+- **Dvě upravené soubory** (stejné změny v obou pro konzistenci):
+  - [`post-preview.tsx`](file:///c:/VS_Code/Postio/src/components/post-preview.tsx) – Live náhled v edit módu (pravý sloupec)
+  - [`edit-post-dialog.tsx`](file:///c:/VS_Code/Postio/src/components/edit-post-dialog.tsx) – `renderPlatformPreview()` v preview módu (Prompt 003)
+- **Co zůstalo nezměněno**: Logika publikování, AI Vision, tlačítka "Upravit" a "Zobrazit příspěvek", `PostPreview` API (props/interface).
+- **Build**: `npx tsc --noEmit` – 0 chyb v upravených souborech ✅.
+
+## 2026-06-24
+
+### 🚀 Feature – Prompt 003 – Detail příspěvku a Social Preview
+
+- **Kontext (uživatel)**: Po rozkliknutí příspěvku v kalendáři se otevřel přímo editor. Uživatel chtěl nejprve zobrazit vizuální detail příspěvku s věrným náhledem na dané platformě a přepnout do editace až na požádání.
+- **Co bylo implementováno**:
+  1. **`viewMode` state** v [`EditPostDialog`](file:///c:/VS_Code/Postio/src/components/edit-post-dialog.tsx) – dva módy: `'preview'` (výchozí pro publikované posty) a `'edit'` (formulář). Nové posty začínají v `edit` módu.
+  2. **Dynamické taby platforem** – v preview módu se zobrazí záložky **pouze** pro platformy, kde je příspěvek skutečně publikován (`status === 'published'` v `post_platforms`).
+  3. **URL builder funkce** (`buildLiveUrl`) – generuje URL pro LinkedIn, Facebook, Instagram, YouTube, X (Twitter), TikTok z `external_id`.
+  4. **Tlačítko "View live post"** – odkaz s `ExternalLink` ikonou, vede na reálnou URL příspěvku na dané síti.
+  5. **Tlačítko "Upravit"** – přepne z preview módu zpátky do editoru.
+  6. **Platform preview renderování** – funkce `renderPlatformPreview()` vykresluje věrnou simulaci příspěvku pro Facebook, Instagram, LinkedIn a YouTube (avatar, jméno, text, média, UI dané sítě).
+  7. **Pomocné komponenty** – `AvatarInline` (avatar s fallback na iniciály) a `PreviewMediaArea` (obrázek/video/placeholder) definovány lokálně v dialogu.
+  8. **Prázdný stav** – pokud příspěvek ještě nebyl publikován na žádné platformě, zobrazí se info ikona + text "Tento příspěvek ještě nebyl publikován."
+- **Lokalizace**: Přidány klíče do [`cs.json`](file:///c:/VS_Code/Postio/src/messages/cs.json), [`en.json`](file:///c:/VS_Code/Postio/src/messages/en.json), [`uk.json`](file:///c:/VS_Code/Postio/src/messages/uk.json):
+  - `viewLivePost`, `editPostButton`, `postDetail`, `noPublishedPlatforms`
+- **Integrace**: Nové klíče přidány do `tLabels` v [`_calendar-view.tsx`](file:///c:/VS_Code/Postio/src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx). Všechny nové property jsou volitelné (`?:`) s fallback hodnotami v kódu.
+- **Dopad na chování**:
+  - **Před**: Rozkliknutí publikovaného příspěvku v kalendáři otevřelo rovnou editor.
+  - **Po**: Rozkliknutí otevře preview mód s náhledem na vybrané platformě + tlačítko "View live post". Editor je dostupný tlačítkem "Upravit" v rohu.
+
 ## 2026-06-21
 
 ### 🚀 Feature – Prompt 002 – Redesign kalendáře na Dashboard styl

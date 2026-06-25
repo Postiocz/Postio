@@ -40,6 +40,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { toast } from "sonner";
 import NextImage from "next/image";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
+import { PreviewDialog } from "@/components/preview-dialog";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
 import { StatsCards } from "@/components/calendar/stats-cards";
@@ -158,6 +159,19 @@ interface CalendarViewProps {
     selectColor?: string;
     add?: string;
     cancel?: string;
+    // Prompt 003 – Post detail preview mode
+    viewLivePost?: string;
+    editPostButton?: string;
+    postDetail?: string;
+    noPublishedPlatforms?: string;
+    previewTitle?: string;
+    previewPlaceholderName?: string;
+    previewCaptionHint?: string;
+    previewNoMedia?: string;
+    previewFacebookTab?: string;
+    previewInstagramTab?: string;
+    previewYoutubeTab?: string;
+    previewLinkedinTab?: string;
     // New view modes (Prompt 002 – Dashboard-style redesign)
     day?: string;
     year?: string;
@@ -213,6 +227,10 @@ export function CalendarView({
   // Edit post modal state
   const [editPostOpen, setEditPostOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<EditPostData | null>(null);
+
+  // Preview modal state – default action on post click (Prompt 007)
+  const [previewPostOpen, setPreviewPostOpen] = useState(false);
+  const [previewPost, setPreviewPost] = useState<Post | null>(null);
 
   // Hover preview state
   const [hoveredPost, setHoveredPost] = useState<Post | null>(null);
@@ -471,19 +489,9 @@ export function CalendarView({
 
   const handlePostClick = useCallback((post: Post, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditingPost({
-      id: post.id,
-      content: post.content,
-      platforms: post.platforms ?? [],
-      post_platforms: post.post_platforms ?? [],
-      scheduled_at: post.scheduled_at,
-      status: post.status,
-      location: post.location ?? null,
-      tags: post.tags ?? [],
-      post_tags: post.post_tags ?? [],
-      media_urls: post.media_urls ?? [],
-    });
-    setEditPostOpen(true);
+    // Prompt 007: Default action in Calendar is Preview (Eye), not Edit
+    setPreviewPost(post);
+    setPreviewPostOpen(true);
   }, []);
 
   const effectiveFilteredPosts = useMemo(() => {
@@ -1630,8 +1638,44 @@ export function CalendarView({
           photoChangeNotAllowed: "Změna fotky u publikovaného postu není možná.",
           updateOnSocials: "Aktualizovat na sítích",
           onlyTextUpdatePossible: "U publikovaného postu lze měnit pouze text.",
+          viewLivePost: tCalendar.viewLivePost || "Zobrazit příspěvek",
+          editPostButton: tCalendar.editPostButton || "Upravit",
+          postDetail: tCalendar.postDetail || "Detail příspěvku",
+          noPublishedPlatforms: tCalendar.noPublishedPlatforms || "Tento příspěvek ještě nebyl publikován.",
         }}
         tAi={tAi}
+      />
+
+      {/* Prompt 007 – Standalone Preview Dialog (Eye mode) */}
+      <PreviewDialog
+        open={previewPostOpen}
+        onOpenChange={(isOpen) => {
+          setPreviewPostOpen(isOpen);
+          if (!isOpen) setPreviewPost(null);
+        }}
+        post={previewPost ? {
+          id: previewPost.id,
+          content: previewPost.content,
+          platforms: previewPost.platforms ?? [],
+          post_platforms: previewPost.post_platforms ?? [],
+          scheduled_at: previewPost.scheduled_at,
+          status: previewPost.status,
+          location: previewPost.location ?? null,
+          tags: previewPost.tags ?? [],
+          media_urls: previewPost.media_urls ?? [],
+        } : null}
+        labels={{
+          title: tCalendar.previewTitle || "Náhled příspěvku",
+          viewLive: tCalendar.viewLivePost || "Zobrazit na síti",
+          noPublishedPlatforms: tCalendar.noPublishedPlatforms || "Tento příspěvek ještě nebyl publikován.",
+          placeholderName: tCalendar.previewPlaceholderName || "Postio",
+          captionHint: tCalendar.previewCaptionHint || "Sem napište text příspěvku…",
+          noMedia: tCalendar.previewNoMedia || "Žádná média",
+          facebookTab: tCalendar.previewFacebookTab,
+          instagramTab: tCalendar.previewInstagramTab,
+          youtubeTab: tCalendar.previewYoutubeTab,
+          linkedinTab: tCalendar.previewLinkedinTab,
+        }}
       />
 
       {/* Hover Preview – Desktop Only */}

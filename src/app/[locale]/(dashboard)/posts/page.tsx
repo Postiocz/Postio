@@ -174,6 +174,16 @@ export default async function PostsPage({
             photoChangeNotAllowed: t("photoChangeNotAllowed"),
             updateOnSocials: t("updateOnSocials"),
             onlyTextUpdatePossible: t("onlyTextUpdatePossible"),
+            previewTitle: t("previewTitle"),
+            viewLive: t("viewLive"),
+            noPublishedPlatforms: t("noPublishedPlatforms"),
+            previewPlaceholderName: t("previewPlaceholderName"),
+            previewCaptionHint: t("previewCaptionHint"),
+            previewNoMedia: t("previewNoMedia"),
+            previewFacebookTab: t("previewFacebookTab"),
+            previewInstagramTab: t("previewInstagramTab"),
+            previewYoutubeTab: t("previewYoutubeTab"),
+            previewLinkedinTab: t("previewLinkedinTab"),
           }}
           tAi={{
             aiAssistant: tAi("aiAssistant"),

@@ -107,6 +107,18 @@ export function PostsContainer({
     photoChangeNotAllowed?: string;
     updateOnSocials?: string;
     onlyTextUpdatePossible?: string;
+    // Preview dialog labels
+    preview?: string;
+    previewTitle?: string;
+    viewLive?: string;
+    noPublishedPlatforms?: string;
+    previewPlaceholderName?: string;
+    previewCaptionHint?: string;
+    previewNoMedia?: string;
+    previewFacebookTab?: string;
+    previewInstagramTab?: string;
+    previewYoutubeTab?: string;
+    previewLinkedinTab?: string;
   };
   tAi?: {
     aiAssistant: string;

@@ -3,7 +3,58 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-## 2026-06-25
+## 2026-06-26
+
+### 🐛 Fix – Opravy modálů pro připojení účtů
+
+- **Kontext (uživatel)**: Audit modálů pro připojení sociálních účtů odhalil několik problémů – hardcodovaný odkaz, mrtvý kód, debug výpisy, chybějící indikace expirace tokenů.
+- **Opravy**:
+
+  1. **Hardcodovaný odkaz „Zjistit více"** – `connect-account-modal.tsx` vždy vedl na Facebook help center. Opraveno na platformově specifické URL:
+     - Instagram → `help.instagram.com`
+     - LinkedIn → `linkedin.com/help`
+     - YouTube → `support.google.com/youtube`
+     - X (Twitter) → `developer.twitter.com`
+     - Facebook → `facebook.com/business/help` (původní)
+     - Nová prop `learnMoreUrl` v `ConnectAccountModalProps`
+
+  2. **Mrtvý kód** – Smazán `src/components/account-type-modal.tsx` (203 řádků). Komponenta byla definována ale nikde neimportována ani nepoužita. Plánovaná volba Professional vs Personal účet byla nahrazena `ConnectAccountModal`.
+
+  3. **Console.log v produkčním kódu** – Odstraněno 5 debug výpisů z `accounts/page.tsx`:
+     - `"Načítám účty přímo z tabulky social_accounts..."`
+     - `"VÝSLEDEK FETCH Z social_accounts..."`
+     - `"FETCH ACCOUNTS ERROR:"`
+     - `"Nalezeno účtů:"`
+     - `console.log(accounts)` v useEffect
+
+  4. **Indikátor expirace tokenů** – Karty připojených účtů nyní zobrazují stav tokenu:
+     - Zelená tečka + „Aktivní" – token je platný a daleko od expirace
+     - Žlutá tečka + „Vyprší brzy" – token vyprší do 7 dní
+     - Červená tečka + „Vypršel" – token již vypršel
+     - Amber warning banner s ikonou u účtů s blížící se expirací
+     - Červený warning banner u vypršených tokenů
+     - Nová funkce `getTokenStatus()` pro výpočet stavu z `token_expires_at`
+
+  5. **Tlačítko „Znovu připojit"** – Každá karta účtu nyní má `RefreshCw` ikonu vedle tlačítka smazat. Kliknutí otevře `ConnectAccountModal` pro danou platformu – uživatel může token obnovit bez mazání účtu.
+
+- **Nové i18n klíče** (cs/en/uk):
+  - `accounts.tokenExpired` – „Token vypršel"
+  - `accounts.tokenExpiringSoon` – „Token vyprší za {days} dní"
+  - `accounts.tokenExpiredStatus` – „Vypršel"
+  - `accounts.tokenExpiringStatus` – „Vyprší brzy"
+  - `accounts.reconnect` – „Znovu připojit"
+
+- **Upravené soubory**:
+  - `src/components/connect-account-modal.tsx` – nová prop `learnMoreUrl`
+  - `src/app/[locale]/(dashboard)/accounts/page.tsx` – expirace, reconnect, odstranění console.log
+  - `src/messages/cs.json` – nové klíče
+  - `src/messages/en.json` – nové klíče
+  - `src/messages/uk.json` – nové klíče
+
+- **Smazané soubory**:
+  - `src/components/account-type-modal.tsx` – mrtvý kód
+
+- **Build**: `npx tsc --noEmit` 0 chyb, `npm run build` úspěšný ✅
 
 ### 🐛 Fix – Návrat YouTube a TikTok do výběru platforem (Prompt 017-FIX)
 

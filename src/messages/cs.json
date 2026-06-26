@@ -431,7 +431,12 @@
     "xConnected": "X (Twitter) účet „{name}“ byl úspěšně propojen s Postiem.",
     "xConnectedShort": "X (Twitter) účet byl úspěšně propojen s Postiem.",
     "xDisconnected": "X (Twitter) účet „{name}“ byl odpojen.",
-    "connectionError": "Nepodařilo se propojit účet: {error}"
+    "connectionError": "Nepodařilo se propojit účet: {error}",
+    "tokenExpired": "Token vypršel",
+    "tokenExpiringSoon": "Token vyprší za {days} dní",
+    "tokenExpiredStatus": "Vypršel",
+    "tokenExpiringStatus": "Vyprší brzy",
+    "reconnect": "Znovu připojit"
   },
   "templates": {
     "title": "Šablony",

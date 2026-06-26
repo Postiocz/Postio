@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import type { ComponentType } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -24,6 +24,8 @@ import {
   ChevronRight,
   Sparkles,
   Tag,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Instagram,
@@ -182,20 +184,39 @@ export default function AccountsPage() {
     return t(`platforms.${id}` as never);
   }
 
+  // Determine token expiry status for an account.
+  // Returns { isExpired, daysLeft, label } or null if no expiry info.
+  function getTokenStatus(account: SocialAccount) {
+    if (!account.token_expires_at) return null;
+    const expires = new Date(account.token_expires_at).getTime();
+    const now = Date.now();
+    const daysLeft = Math.max(0, Math.ceil((expires - now) / (1000 * 60 * 60 * 24)));
+    const isExpired = expires < now;
+    return { isExpired, daysLeft };
+  }
+
+  // Open the connect modal for a given platform (used by reconnect button).
+  const handleReconnect = useCallback((platform: PlatformId) => {
+    const platformDef = platformById.get(platform);
+    if (!platformDef) return;
+    setConnectModalPlatform({
+      id: platform,
+      name: getPlatformLabel(platform),
+      icon: platformDef.icon,
+    });
+    setShowConnectModal(true);
+  }, [platformById]);
+
   async function fetchAccounts() {
-    console.log("Načítám účty přímo z tabulky social_accounts...");
     const { data: accounts, error } = await supabase
       .from("social_accounts")
       .select("*")
       .order("created_at", { ascending: false });
 
-    console.log("VÝSLEDEK FETCH Z social_accounts:", { count: accounts?.length, error });
     if (error) {
-      console.error("FETCH ACCOUNTS ERROR:", error);
       setLoading(false);
       return;
     }
-    console.log("Nalezeno účtů:", accounts?.length);
     if (accounts) setAccounts(accounts as SocialAccount[]);
     setLoading(false);
   }
@@ -207,10 +228,7 @@ export default function AccountsPage() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  useEffect(() => {
-    console.log(accounts);
-  }, [accounts]);
-
+ 
   // Pull the list of Facebook Pages that are still inactive. This is the
   // "tick which Pages to enable" list shown below the connect buttons.
   const fetchPendingPages = async () => {
@@ -648,6 +666,10 @@ export default function AccountsPage() {
           {accounts.filter((a) => a.is_active).map((account) => {
             const platform = platformById.get(account.platform as PlatformId);
             const Icon = platform?.icon;
+            const tokenStatus = getTokenStatus(account);
+            const isExpired = tokenStatus?.isExpired ?? false;
+            const expiringSoon = tokenStatus?.daysLeft != null && tokenStatus.daysLeft < 7 && !isExpired;
+
             return (
               <div
                 key={account.id}
@@ -700,18 +722,59 @@ export default function AccountsPage() {
                           {account.metadata.custom_url}
                         </Badge>
                       )}
+                    {/* Token expiry warning */}
+                    {isExpired && tokenStatus && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {t("tokenExpired")}
+                      </div>
+                    )}
+                    {expiringSoon && tokenStatus && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {t("tokenExpiringSoon", { days: tokenStatus.daysLeft })}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/50 opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                  {/* Status indicator */}
+                  {isExpired ? (
+                    <div className="flex items-center gap-2">
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                      <span className="text-sm font-medium text-destructive">
+                        {t("tokenExpiredStatus")}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-emerald-400">
-                      {t("active") || "Aktivní"}
-                    </span>
-                  </div>
+                  ) : expiringSoon ? (
+                    <div className="flex items-center gap-2">
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" />
+                      <span className="text-sm font-medium text-amber-400">
+                        {t("tokenExpiringStatus")}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/50 opacity-75" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                      </div>
+                      <span className="text-sm font-medium text-emerald-400">
+                        {t("active") || "Aktivní"}
+                      </span>
+                    </div>
+                  )}
+                  {/* Reconnect button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleReconnect(account.platform as PlatformId)}
+                    className="rounded-xl hover:bg-indigo-500/10"
+                    title={t("reconnect")}
+                  >
+                    <RefreshCw className="h-4 w-4 text-muted-foreground hover:text-indigo-400" />
+                  </Button>
+                  {/* Delete button */}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -871,6 +934,16 @@ export default function AccountsPage() {
                       : t("connectModal.warningDesc"),
             connectButton: t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
+            learnMoreUrl:
+              connectModalPlatform.id === "instagram"
+                ? "https://help.instagram.com/601258076737249"
+                : connectModalPlatform.id === "linkedin"
+                  ? "https://www.linkedin.com/help/linkedin/ask/auth-api-articles"
+                  : connectModalPlatform.id === "youtube"
+                    ? "https://support.google.com/youtube/answer/2573669"
+                    : connectModalPlatform.id === "twitter"
+                      ? "https://developer.twitter.com/en/docs/twitter-api"
+                      : "https://www.facebook.com/business/help/193027849380904",
           }}
         />
       )}

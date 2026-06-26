@@ -430,7 +430,12 @@
     "xConnected": "X (Twitter) account \"{name}\" has been connected to Postio.",
     "xConnectedShort": "X (Twitter) account has been connected to Postio.",
     "xDisconnected": "X (Twitter) account \"{name}\" has been disconnected.",
-    "connectionError": "Could not connect account: {error}"
+    "connectionError": "Could not connect account: {error}",
+    "tokenExpired": "Token expired",
+    "tokenExpiringSoon": "Token expires in {days} days",
+    "tokenExpiredStatus": "Expired",
+    "tokenExpiringStatus": "Expiring soon",
+    "reconnect": "Reconnect"
   },
   "templates": {
     "title": "Templates",

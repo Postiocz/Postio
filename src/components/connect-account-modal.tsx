@@ -25,6 +25,7 @@ interface ConnectAccountModalProps {
     warningDesc: string;
     connectButton: string;
     learnMore: string;
+    learnMoreUrl: string;
   };
 }
 
@@ -134,7 +135,7 @@ export function ConnectAccountModal({
           {/* Learn more link */}
           <div className="px-6 sm:px-8 pb-6 text-center">
             <a
-              href="https://www.facebook.com/business/help/193027849380904"
+              href={t.learnMoreUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground/60 hover:text-muted-foreground/90 transition-colors"

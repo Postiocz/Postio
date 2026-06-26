@@ -430,7 +430,12 @@
     "xConnected": "X (Twitter) акаунт «{name}» успішно підключено до Postio.",
     "xConnectedShort": "X (Twitter) акаунт успішно підключено до Postio.",
     "xDisconnected": "X (Twitter) акаунт «{name}» відключено.",
-    "connectionError": "Не вдалося підключити акаунт: {error}"
+    "connectionError": "Не вдалося підключити акаунт: {error}",
+    "tokenExpired": "Термін дії токену минув",
+    "tokenExpiringSoon": "Термін дії токену мине через {days} днів",
+    "tokenExpiredStatus": "Минув",
+    "tokenExpiringStatus": "Скоро мине",
+    "reconnect": "Підключити знову"
   },
   "templates": {
     "title": "Шаблони",

@@ -400,7 +400,13 @@
       "warningDescYouTube": "Budete přesměrováni na Google, kde povolíte Postiu přístup k vašemu YouTube kanálu (videa a základní profil). Tokeny pro vás držíme v bezpečí a pravidelně je obnovujeme.",
       "warningDescX": "X (Twitter) nepodporuje editaci příspěvků přes API. Publikovaný tweet nelze upravit – lze jej pouze smazat.",
       "connectButton": "Propojit Professional účet",
-      "learnMore": "Máte osobní účet? Zjistěte, jak jej přepnout"
+      "learnMore": "Máte osobní účet? Zjistěte, jak jej přepnout",
+      "learnMoreUrlFacebook": "https://www.facebook.com/business/help/660733970682809",
+      "learnMoreUrlInstagram": "https://help.instagram.com/601247242565374",
+      "learnMoreUrlLinkedIn": "https://www.linkedin.com/help/linkedin/ascii/a/0/0/1349",
+      "learnMoreUrlYouTube": "https://support.google.com/youtube/answer/3170027",
+      "learnMoreUrlX": "https://help.twitter.com/en/using-twitter/twitter-roles-on-twitter",
+      "errorTitle": "Připojení se nezdařilo"
     },
     "pendingPagesTitle": "Nalezené stránky k připojení",
     "pendingPagesSubtitle": "Při posledním přihlášení přes Facebook jsme našli stránky, které jste dosud nepřipojili. Vyberte ty, na které chcete přes Postio publikovat.",
@@ -418,6 +424,7 @@
     "pageDisconnected": "Stránka {name} byla odpojena.",
     "errorToggle": "Nepodařilo se změnit stav stránky.",
     "selectorEmpty": "Všechny vaše stránky jsou již aktivní.",
+    "connectPage": "Připojit",
     "activateAll": "Aktivovat všechny nalezené stránky ({count})",
     "activatingAll": "Aktivuji všechny stránky…",
     "allActivated": "Všech {count} stránek bylo úspěšně aktivováno.",

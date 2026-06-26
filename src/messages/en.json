@@ -399,7 +399,13 @@
       "warningDescYouTube": "You will be redirected to Google to grant Postio access to your YouTube channel (videos and basic profile). We keep your tokens safe and refresh them automatically.",
       "warningDescX": "X (Twitter) does not support editing tweets via API. Published tweets cannot be edited – they can only be deleted.",
       "connectButton": "Connect Professional Account",
-      "learnMore": "Have a personal account? Learn how to switch"
+      "learnMore": "Have a personal account? Learn how to switch",
+      "learnMoreUrlFacebook": "https://www.facebook.com/business/help/660733970682809",
+      "learnMoreUrlInstagram": "https://help.instagram.com/601247242565374",
+      "learnMoreUrlLinkedIn": "https://www.linkedin.com/help/linkedin/ascii/a/0/0/1349",
+      "learnMoreUrlYouTube": "https://support.google.com/youtube/answer/3170027",
+      "learnMoreUrlX": "https://help.twitter.com/en/using-twitter/twitter-roles-on-twitter",
+      "errorTitle": "Connection failed"
     },
     "pendingPagesTitle": "Facebook Pages to connect",
     "pendingPagesSubtitle": "When you last signed in with Facebook, we found some pages you haven't connected yet. Pick the ones you want to publish to through Postio.",
@@ -417,6 +423,7 @@
     "pageDisconnected": "Page {name} has been disconnected.",
     "errorToggle": "Could not change the page status.",
     "selectorEmpty": "All your pages are already active.",
+    "connectPage": "Connect",
     "activateAll": "Activate all found pages ({count})",
     "activatingAll": "Activating all pages…",
     "allActivated": "All {count} pages have been activated successfully.",

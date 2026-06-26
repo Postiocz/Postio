@@ -1,13 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, BarChart3, AlertTriangle, ExternalLink, X } from "lucide-react";
+import { Check, Sparkles, BarChart3, AlertTriangle, ExternalLink, X, Loader2 } from "lucide-react";
 import type { ComponentType } from "react";
 
 interface ConnectAccountModalProps {
@@ -25,7 +27,8 @@ interface ConnectAccountModalProps {
     warningDesc: string;
     connectButton: string;
     learnMore: string;
-    learnMoreUrl: string;
+    learnMoreUrl?: string;
+    errorTitle?: string;
   };
 }
 
@@ -37,6 +40,22 @@ export function ConnectAccountModal({
   onConnect,
   t,
 }: ConnectAccountModalProps) {
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConnect = async () => {
+    if (connecting) return;
+    setConnecting(true);
+    setError(null);
+    try {
+      await onConnect();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Došlo k chybě při připojování.");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -46,25 +65,18 @@ export function ConnectAccountModal({
         <DialogTitle className="sr-only">
           {t.title.replace("[platform]", platformName)}
         </DialogTitle>
-        {/* Radix UI requires either a `DialogDescription` child or an
-            explicit `aria-describedby` on `DialogContent`. Without it the
-            dev console prints a warning and screen readers lose important
-            context. We keep the description visually hidden (sr-only) but
-            expose the platform name and key permissions to assistive tech
-            so the dialog is fully accessible. The visible body still
-            contains the same info as the existing feature list + warning
-            banner – this hidden copy is purely for a11y. */}
         <DialogDescription className="sr-only">
           {t.title.replace("[platform]", platformName)} – {t.warningDesc}
         </DialogDescription>
 
-        {/* Close button */}
-        <button
-          onClick={() => onOpenChange(false)}
-          className="absolute top-5 right-5 z-10 p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {/* Close button – uses DialogClose for proper Radix a11y */}
+        <DialogClose asChild>
+          <button
+            className="absolute top-5 right-5 z-10 p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </DialogClose>
 
         <div className="max-h-[calc(100svh-2rem)] overflow-y-auto">
           {/* Header with platform logo */}
@@ -122,28 +134,55 @@ export function ConnectAccountModal({
             </div>
           </div>
 
+          {/* Error message */}
+          {error && (
+            <div className="px-6 sm:px-8 pb-4">
+              <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                <X className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">
+                    {t.errorTitle || "Chyba"}
+                  </p>
+                  <p className="text-xs text-destructive/80 mt-1 leading-relaxed">
+                    {error}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Main action button */}
           <div className="px-6 sm:px-8 pb-4">
             <Button
-              onClick={onConnect}
-              className="w-full py-4 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all"
+              onClick={handleConnect}
+              disabled={connecting}
+              className="w-full py-4 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {t.connectButton}
+              {connecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Připojuji…
+                </>
+              ) : (
+                t.connectButton
+              )}
             </Button>
           </div>
 
-          {/* Learn more link */}
-          <div className="px-6 sm:px-8 pb-6 text-center">
-            <a
-              href={t.learnMoreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground/60 hover:text-muted-foreground/90 transition-colors"
-            >
-              {t.learnMore}
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
+          {/* Learn more link – only render when URL is provided */}
+          {t.learnMoreUrl && (
+            <div className="px-6 sm:px-8 pb-6 text-center">
+              <a
+                href={t.learnMoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground/60 hover:text-muted-foreground/90 transition-colors"
+              >
+                {t.learnMore}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

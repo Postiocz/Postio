@@ -5,6 +5,46 @@
 
 ## 2026-06-26
 
+### ✨ Improvement – Vylepšení modálů pro připojení účtů (Prompt 027)
+
+- **Kontext (uživatel)**: Audit `ConnectAccountModal` a `FacebookPageSelector` odhalil UX i a11y problémy – rozbitej odkaz, chybějící loading stav, nereportované chyby OAuth, špatné close button pattern a zbytečný Switch.
+
+- **Opravy**:
+
+  1. **Oprava odkazu "Learn more"** – Modal nyní renderuje odkaz pouze když `learnMoreUrl` je definováno. Dříve měl `href={undefined}` a kliknutí nic nedělalo.
+
+  2. **Loading stav na tlačítku Connect** – Přidán `useState` pro `connecting` stav + `Loader2` spinner. Tlačítko je během redirectu disabled – uživatel nemůže kliknout dvakrát.
+
+  3. **Zobrazení chyby OAuth v modálu** – `handleConnect` nyní chytá exceptiony z `onConnect` a zobrazuje je jako červený banner v modálu. Nová prop `errorTitle`.
+
+  4. **DialogClose pro a11y** – Obě modály (`ConnectAccountModal`, `FacebookPageSelector`) nyní používají `DialogClose` z Radix UI místo vlastního `<button onClick>`. Správně uzavírá dialog a vrací focus.
+
+  5. **FacebookPageSelector – Switch → Connect button** – Nahrazen `Switch` (vždy `checked={false}`) za akční tlačítko "Připojit" s ikonou `PlusCircle`. Vyčisten dead code pro de-aktivaci (komentář: "technicky nemožný z tohoto dialogu").
+
+  6. **Token expirace** – Karty připojených účtů již zobrazují stav tokenu (implementováno v předchozí session, ověřeno a validováno).
+
+- **Nové i18n klíče** (cs/en/uk):
+  - `accounts.connectModal.errorTitle` – "Připojení se nezdařilo" / "Connection failed" / "Підключення не вдалося"
+  - `accounts.connectModal.learnMoreUrlFacebook` – platform-specific help URL
+  - `accounts.connectModal.learnMoreUrlInstagram` – platform-specific help URL
+  - `accounts.connectModal.learnMoreUrlLinkedIn` – platform-specific help URL
+  - `accounts.connectModal.learnMoreUrlYouTube` – platform-specific help URL
+  - `accounts.connectModal.learnMoreUrlX` – platform-specific help URL
+  - `accounts.connectPage` – "Připojit" / "Connect" / "Підключити"
+
+- **Upravené soubory**:
+  - `src/components/connect-account-modal.tsx` – loading, error, DialogClose, conditionální learnMore
+  - `src/components/facebook-page-selector.tsx` – Connect button, DialogClose, vyčištěn dead code
+  - `src/app/[locale]/(dashboard)/accounts/page.tsx` – nové props, `errorTitle`, `connectPage`
+  - `src/messages/cs.json` – nové klíče
+  - `src/messages/en.json` – nové klíče
+  - `src/messages/uk.json` – nové klíče
+
+- **Smazané props** (z parent → child):
+  - `active`, `inactive`, `activating`, `deactivating`, `pageDisconnected` – již nepoužívány v PageSelector
+
+- **Build**: `npx tsc --noEmit` 0 chyb ✅
+
 ### 🐛 Fix – Opravy modálů pro připojení účtů
 
 - **Kontext (uživatel)**: Audit modálů pro připojení sociálních účtů odhalil několik problémů – hardcodovaný odkaz, mrtvý kód, debug výpisy, chybějící indikace expirace tokenů.

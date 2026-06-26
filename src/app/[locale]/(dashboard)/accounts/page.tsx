@@ -26,6 +26,7 @@ import {
   Tag,
   RefreshCw,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
 import {
   Instagram,
@@ -934,6 +935,7 @@ export default function AccountsPage() {
                       : t("connectModal.warningDesc"),
             connectButton: t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
+            errorTitle: t("connectModal.errorTitle"),
             learnMoreUrl:
               connectModalPlatform.id === "instagram"
                 ? "https://help.instagram.com/601258076737249"
@@ -982,19 +984,17 @@ export default function AccountsPage() {
           // because ICU sees `{name}` but no value is provided.
           categoryLabel: (category) =>
             t("pageCategoryLabel", { category }),
-          active: t("active"),
           inactive: t("inactive"),
           activating: t("activating"),
-          deactivating: t("deactivating"),
           done: t("done"),
-          pageConnected: (name) => t("pageConnected", { name }),
-          pageDisconnected: (name) => t("pageDisconnected", { name }),
+          pageConnected: (name: string) => t("pageConnected", { name }),
           errorToggle: t("errorToggle"),
           emptyState: t("selectorEmpty"),
           activateAll: (count) => t("activateAll", { count }),
           activatingAll: t("activatingAll"),
           allActivated: (count) => t("allActivated", { count }),
           someFailed: (failed) => t("someFailed", { failed }),
+          connectPage: t("connectPage"),
         }}
       />
     </div>

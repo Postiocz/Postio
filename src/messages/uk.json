@@ -399,7 +399,13 @@
       "warningDescYouTube": "Вас буде перенаправлено до Google, де ви надасте Postio доступ до вашого YouTube каналу (відео та базовий профіль). Токени зберігаються в безпеці та автоматично оновлюються.",
       "warningDescX": "X (Twitter) не підтримує редагування твітів через API. Опубліковані твіти не можна редагувати – їх можна лише видалити.",
       "connectButton": "Підключити Професійний акаунт",
-      "learnMore": "Маєте особистий акаунт? Дізнайтеся, як перемкнути"
+      "learnMore": "Маєте особистий акаунт? Дізнайтеся, як перемкнути",
+      "learnMoreUrlFacebook": "https://www.facebook.com/business/help/660733970682809",
+      "learnMoreUrlInstagram": "https://help.instagram.com/601247242565374",
+      "learnMoreUrlLinkedIn": "https://www.linkedin.com/help/linkedin/ascii/a/0/0/1349",
+      "learnMoreUrlYouTube": "https://support.google.com/youtube/answer/3170027",
+      "learnMoreUrlX": "https://help.twitter.com/en/using-twitter/twitter-roles-on-twitter",
+      "errorTitle": "Підключення не вдалося"
     },
     "pendingPagesTitle": "Знайдені сторінки для підключення",
     "pendingPagesSubtitle": "Під час останнього входу через Facebook ми знайшли сторінки, які ви ще не підключили. Виберіть ті, на які хочете публікувати через Postio.",
@@ -417,6 +423,7 @@
     "pageDisconnected": "Сторінку {name} відключено.",
     "errorToggle": "Не вдалося змінити статус сторінки.",
     "selectorEmpty": "Усі ваші сторінки вже активні.",
+    "connectPage": "Підключити",
     "activateAll": "Активувати всі знайдені сторінки ({count})",
     "activatingAll": "Активую всі сторінки…",
     "allActivated": "Усі {count} сторінок успішно активовано.",

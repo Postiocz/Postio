@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
+import { DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -10,6 +10,7 @@ import {
   Loader2,
   CheckCircle2,
   Tag,
+  PlusCircle,
 } from "lucide-react";
 import { Facebook } from "@/components/ui/social-icons";
 import { toggleAccountActive } from "@/lib/actions/social-accounts";
@@ -34,38 +35,18 @@ interface FacebookPageSelectorProps {
     title: string;
     subtitle: string;
     noCategory: string;
-    /**
-     * Dynamic label that must receive the Facebook Page category.
-     * Implemented as a function so the caller (parent page) can pass the
-     * value to next-intl `t()` and avoid ICU "variable not provided" errors.
-     */
     categoryLabel: (category: string) => string;
-    active: string;
     inactive: string;
     activating: string;
-    deactivating: string;
     done: string;
-    /**
-     * Toast message shown after a page is activated. The `name` argument is
-     * the Facebook Page name. Implemented as a function so the parent can
-     * pass the dynamic value to next-intl `t()`.
-     */
     pageConnected: (name: string) => string;
-    pageDisconnected: (name: string) => string;
     errorToggle: string;
     emptyState: string;
-    /**
-     * Label for the bulk-activate button that activates every page still in
-     * the dialog at once. The `{count}` placeholder is replaced with the
-     * number of pages that will be activated.
-     */
     activateAll: (count: number) => string;
-    /** Label shown on the bulk-activate button while the request is running. */
     activatingAll: string;
-    /** Toast shown when every page was activated successfully. */
     allActivated: (count: number) => string;
-    /** Toast shown when at least one page failed to activate. */
     someFailed: (failed: number) => string;
+    connectPage: string;
   };
 }
 
@@ -73,13 +54,9 @@ interface FacebookPageSelectorProps {
  * FacebookPageSelector
  *
  * A glassmorphism dialog that lists every Facebook Page currently stored as
- * `is_active = false` for the current user. The user can flip a Switch to
- * enable a Page for publishing, or to disable it again.
- *
- * Updates go through the `toggleAccountActive` server action, which performs
- * an ownership check on the row before writing. The local list is updated
- * optimistically; the server response triggers a toast and a parent
- * `onChanged` callback so the surrounding accounts list re-fetches.
+ * `is_active = false` for the current user. The user clicks a "Connect"
+ * button to enable a Page for publishing, or uses the bulk-activate button
+ * to enable all pages at once.
  */
 export function FacebookPageSelector({
   pages,
@@ -88,37 +65,18 @@ export function FacebookPageSelector({
   onChanged,
   t,
 }: FacebookPageSelectorProps) {
-  // Mirror the pages prop in local state so that toggling moves the row
-  // between the "inactive" list and the parent's active list without having
-  // to remount the dialog.
   const [items, setItems] = useState<FacebookPageDto[]>(pages);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
-  // True while the bulk-activate action is running across every page.
-  // Disables the per-row switches and shows a spinner on the button itself.
   const [bulkActivating, setBulkActivating] = useState(false);
   const [, startTransition] = useTransition();
 
-  // Keep local state in sync when the parent re-fetches and passes a new
-  // pages array (e.g. after a successful toggle). The shallow comparison is
-  // intentional: we only re-sync when the array reference changes.
   useEffect(() => {
     setItems(pages);
   }, [pages]);
 
-  const handleToggle = async (page: FacebookPageDto, nextActive: boolean) => {
-    // Optimistic update: mark the page as active/inactive in local state.
-    if (nextActive) {
-      // Once activated, the page is no longer in the "pending" list – remove
-      // it from the local list to give the user immediate visual feedback.
-      setItems((prev) => prev.filter((p) => p.id !== page.id));
-    } else {
-      // Deactivating a page from the dialog is technically impossible
-      // (this dialog only shows inactive pages), but if a parent re-uses
-      // it for active pages later we still handle it gracefully.
-      setItems((prev) =>
-        prev.map((p) => (p.id === page.id ? { ...p } : p))
-      );
-    }
+  const handleConnect = async (page: FacebookPageDto) => {
+    // Optimistic: remove from list immediately
+    setItems((prev) => prev.filter((p) => p.id !== page.id));
 
     setPendingIds((prev) => {
       const next = new Set(prev);
@@ -127,7 +85,7 @@ export function FacebookPageSelector({
     });
 
     startTransition(async () => {
-      const result = await toggleAccountActive(page.id, nextActive);
+      const result = await toggleAccountActive(page.id, true);
       setPendingIds((prev) => {
         const next = new Set(prev);
         next.delete(page.id);
@@ -135,33 +93,16 @@ export function FacebookPageSelector({
       });
 
       if (result.success) {
-        toast.success(
-          nextActive
-            ? t.pageConnected(page.account_name)
-            : t.pageDisconnected(page.account_name)
-        );
+        toast.success(t.pageConnected(page.account_name));
         onChanged?.();
       } else {
-        // Revert the optimistic update on failure by re-syncing with the
-        // parent's page list (which the parent will refresh via onChanged).
+        // Revert optimistic update on failure
         setItems(pages);
         toast.error(result.error ?? t.errorToggle);
       }
     });
   };
 
-  /**
-   * Activate every page still present in the dialog in a single action.
-   *
-   * - We snapshot the current ids and clear `items` optimistically so the
-   *   user sees immediate feedback (the whole list collapses).
-   * - We fire all `toggleAccountActive` calls in parallel using
-   *   `Promise.allSettled` so a single failure does not abort the others.
-   * - `toggleAccountActive` already calls `revalidatePath("/accounts")` on
-   *   every successful update, so by the time this function ends the
-   *   server-side accounts list is fresh and `onChanged` triggers the
-   *   client-side re-fetch of both the pending and the active lists.
-   */
   const handleActivateAll = async () => {
     if (bulkActivating) return;
     const toActivate = items;
@@ -170,7 +111,7 @@ export function FacebookPageSelector({
     const ids = toActivate.map((p) => p.id);
     setBulkActivating(true);
 
-    // Optimistic: clear the list immediately so the user sees a result.
+    // Optimistic: clear the list immediately
     setItems([]);
     setPendingIds(new Set(ids));
 
@@ -189,11 +130,7 @@ export function FacebookPageSelector({
     if (failed.length === 0) {
       toast.success(t.allActivated(succeeded));
     } else {
-      // Even partial success is useful – surface both numbers so the user
-      // knows what went through and what did not.
       toast.error(t.someFailed(failed.length));
-      // Re-sync with the parent so the dialog shows only what is still
-      // pending (some pages may have succeeded and vanished from the list).
       setItems(pages);
     }
 
@@ -208,14 +145,15 @@ export function FacebookPageSelector({
       >
         <DialogTitle className="sr-only">{t.title}</DialogTitle>
 
-        {/* Close button */}
-        <button
-          onClick={() => onOpenChange(false)}
-          className="absolute top-5 right-5 z-10 p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-          aria-label={t.done}
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {/* Close button – uses DialogClose for proper Radix a11y */}
+        <DialogClose asChild>
+          <button
+            className="absolute top-5 right-5 z-10 p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+            aria-label={t.done}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </DialogClose>
 
         <div className="max-h-[calc(100svh-2rem)] overflow-y-auto">
           {/* Header */}
@@ -238,9 +176,7 @@ export function FacebookPageSelector({
               </div>
             ) : (
               <>
-                {/* Bulk-activate action – visible when there is more than one
-                    page. Disabled (with a spinner) while the request is in
-                    flight to prevent duplicate submissions. */}
+                {/* Bulk-activate action */}
                 {items.length > 1 && (
                   <Button
                     type="button"
@@ -297,21 +233,24 @@ export function FacebookPageSelector({
                           </p>
                         </div>
 
-                        {/* Switch / loader */}
-                        <div className="flex items-center gap-2">
-                          {isPending || bulkActivating ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-indigo-300" />
+                        {/* Connect button */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleConnect(page)}
+                          disabled={isPending || bulkActivating}
+                          className="flex-shrink-0 rounded-xl border-indigo-500/20 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-indigo-200 text-xs h-8 px-3"
+                        >
+                          {isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <Switch
-                              checked={false}
-                              onCheckedChange={(checked) =>
-                                handleToggle(page, checked)
-                              }
-                              aria-label={t.active}
-                              size="default"
-                            />
+                            <>
+                              <PlusCircle className="h-3.5 w-3.5 mr-1" />
+                              {t.connectPage}
+                            </>
                           )}
-                        </div>
+                        </Button>
                       </li>
                     );
                   })}
@@ -322,12 +261,13 @@ export function FacebookPageSelector({
 
           {/* Footer */}
           <div className="px-6 sm:px-8 pt-4 pb-6">
-            <Button
-              onClick={() => onOpenChange(false)}
-              className="w-full py-4 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all"
-            >
-              {t.done}
-            </Button>
+            <DialogClose asChild>
+              <button
+                className="w-full py-4 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all"
+              >
+                {t.done}
+              </button>
+            </DialogClose>
           </div>
         </div>
       </DialogContent>

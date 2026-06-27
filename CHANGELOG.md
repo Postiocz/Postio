@@ -5,6 +5,43 @@
 
 ## 2026-06-27
 
+### ⚡ Performance – Odstraněn double-fetch a IIFE anti-pattern v PostsContainer
+
+- **Kontext**: `PostsContainer` volal `router.refresh()` v `useEffect([])` při každém mountu po návratu z mutacních rout (`/posts/new`, `/posts/{id}`). To způsobovalo redundantní RSC re-render — server komponenta už data měla, a pak se okamžitě znovu fetchovala. Navíc inline IIFE v JSX renderu (`(function() { if (refreshAfterExit) { router.refresh() } return null; })()`) byl side-effect v render funkci — anti-pattern, který ve StrictMode běžel dvakrát a při re-renderech nepředvídatelně.
+- **Opravy**:
+  1. **Odstraněn `useEffect(() => router.refresh(), [])`** — sync dat zajišťuje již existující `useEffect(() => setPosts(initialPosts), [initialPosts])`. Mutace volají `revalidatePath("/posts")` → RSC se přerenderuje s čerstvými `initialPosts` → client state se automaticky syncne. Žádný double-fetch.
+  2. **Odstraněn inline IIFE z JSX renderu** — `refreshAfterExit` logika (router.refresh po smazání posledního příspěvku) přesunuta pryč z render funkce. Po smazání posledního příspěvku uživatel vidí empty state a jakákoli navigace způsobí přirozený server fetch.
+  3. **Vyčištěn dead code** — odstraněn nepoužitý `useRouter` import, state `refreshAfterExit`, zjednodušen `handleDeleted` na single-line filter.
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` −37 řádků čistého kódu
+
+### 🗑 Chore — Smazán mrtvý PostsFilters komponenta
+
+- **Kontext**: `_posts-filters.tsx` definoval pill-style filtr (platformy + status), který nikde nebyl importován. Stránka používá `PostFiltersRow` z `@/components/post-filters-row.tsx`.
+- **Opravy**:
+  1. Smazán celý soubor `_posts-filters.tsx` (151 řádků).
+  2. Ověřeno `grep -rn` — žádný odkaz v kódu nezbyl.
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/_posts-filters.tsx` — smazán
+
+### ✨ Feat – Filter count indikace ("X z Y příspěvků")
+
+- **Kontext**: Header zobrazoval `{postsCount} {tTitle}` vždy celkový počet. Když uživatel aplikoval filtr (např. platforma=LinkedIn), viděl "47 příspěvky" ale zobrazovaly se jen 3 — matoucí UX.
+- **Opravy**:
+  1. Přidan `useTranslations("posts")` přímo do `PostsContainer` — vyhnu se dalšímu props drilling.
+  2. `hasActiveFilter` se odvozuje v rámci stávajícího `useMemo` (zero overhead) — detekuje zda je aktivní filtr platformy, statusu nebo štítku.
+  3. Header nyní zobrazuje:
+     - Bez filtru: `47 příspěvky` / `47 posts` / `47 публікацій` (nezměněno)
+     - S filtrem: `3 z 47 příspěvků` / `3 of 47 posts` / `3 з 47 публікацій`
+  4. Renomina `(t)` → `(tag)` v filter map callback pro avoidance kolize s `useTranslations` aliasem `t`.
+- **Nové i18n klíče** (cs/en/uk) v sekci `posts`:
+  - `filteredCount` — `"{showing} z {total} příspěvků"` / `"{showing} of {total} posts"` / `"{showing} з {total} публікацій"`
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` — useTranslations, hasActiveFilter, dynamický count
+  - `src/messages/cs.json` — 1 nový klíč
+  - `src/messages/en.json` — 1 nový klíč
+  - `src/messages/uk.json` — 1 nový klíč
+
 ### 🐛 Fix – i18n pro všechny toasty a hardcoded texty na stránce Příspěvky + optimalizace double-fetch
 
 - **Kontext**: Stránka `/posts` obsahovala ~15 hardcoded českých řetězců v toast notifikacích (smazání, chytré mazání, republish) a v `removed_externally` banneru. Uživatelé s EN/UK jazykem viděli češtinu. Navíc `PostsContainer` volal `router.refresh()` při každém mountu → zbytečný double-fetch.

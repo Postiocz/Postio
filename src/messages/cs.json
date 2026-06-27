@@ -195,10 +195,31 @@
     "toastDeleteFailedPlatform": "Smazání z {platform} selhalo.",
     "toastLinkedInArchivedMulti": "Příspěvek byl odstraněn z {count} platformy/platforem. LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.",
     "toastLinkedInArchivedSingle": "LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.",
-   "removedExternallyBannerDesc": "Příspěvek byl odstraněn z platformy. Můžete jej bezpečně smazat z aplikace tlačítkem \"Chytré mazání\" (🗑).",
-   "smartDeleteTitle": "Chytré mazání – odstranit z platformy i aplikace",
-    "weekdays": ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"],
-    "months": ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"]
+    "removedExternallyBannerDesc": "Příspěvek byl odstraněn z platformy. Můžete jej bezpečně smazat z aplikace tlačítkem \"Chytré mazání\" (🗑).",
+    "smartDeleteTitle": "Chytré mazání – odstranit z platformy i aplikace",
+    "weekdays": [
+      "Po",
+      "Út",
+      "St",
+      "Čt",
+      "Pá",
+      "So",
+      "Ne"
+    ],
+    "months": [
+      "Leden",
+      "Únor",
+      "Březen",
+      "Duben",
+      "Květen",
+      "Červen",
+      "Červenec",
+      "Srpen",
+      "Září",
+      "Říjen",
+      "Listopad",
+      "Prosinec"
+    ]
   },
   "dashboard": {
     "title": "Vítejte v Postio",
@@ -352,7 +373,8 @@
     "viewLivePost": "Zobrazit příspěvek",
     "editPostButton": "Upravit",
     "postDetail": "Detail příspěvku",
-    "noPublishedPlatforms": "Tento příspěvek ještě nebyl publikován."
+    "noPublishedPlatforms": "Tento příspěvek ještě nebyl publikován.",
+    "filteredCount": "{showing} z {total} příspěvků"
   },
   "accounts": {
     "title": "Sociální účty",

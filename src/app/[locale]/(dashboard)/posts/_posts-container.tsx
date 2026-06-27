@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import Link from "next/link";
@@ -139,6 +140,7 @@ export function PostsContainer({
   const [activePlatform, setActivePlatform] = useState("");
   const [activeStatus, setActiveStatus] = useState("");
   const [activeTag, setActiveTag] = useState("");
+  const t = useTranslations("posts");
 
   // Sync local state with server-provided initialPosts whenever the server
   // re-renders this page (e.g. after revalidatePath("/posts") in a mutation
@@ -154,8 +156,9 @@ export function PostsContainer({
     setActiveStatus(status);
   }, []);
 
-  const filteredPosts = useMemo(() => {
-    return posts.filter((post) => {
+  const { filteredPosts, hasActiveFilter } = useMemo(() => {
+    const hasActiveFilter = !!(activePlatform || activeStatus || activeTag);
+    const filteredPosts = posts.filter((post) => {
       if (activePlatform) {
         const postPlatforms = post.platforms || [];
         if (!postPlatforms.includes(activePlatform)) return false;
@@ -164,11 +167,12 @@ export function PostsContainer({
         if (post.status !== activeStatus) return false;
       }
       if (activeTag) {
-        const postTagIds = (post.post_tags ?? []).map((t) => t.id);
+        const postTagIds = (post.post_tags ?? []).map((tag) => tag.id);
         if (!postTagIds.includes(activeTag)) return false;
       }
       return true;
     });
+    return { filteredPosts, hasActiveFilter };
   }, [posts, activePlatform, activeStatus, activeTag]);
 
   const handleDeleted = useCallback((id: string) => {
@@ -182,7 +186,10 @@ export function PostsContainer({
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">{tTitle}</h1>
           <p className="mt-1 text-muted-foreground/60">
-            {postsCount} {tTitle.toLowerCase()}
+            {hasActiveFilter
+              ? t("filteredCount", { showing: filteredPosts.length, total: postsCount })
+              : `${postsCount} ${tTitle.toLowerCase()}`
+            }
           </p>
         </div>
         <Link href={`/${locale}/posts/new`} className="sm:w-auto">

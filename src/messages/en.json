@@ -182,7 +182,7 @@
     "videoLowResolution": "Video has a low resolution (less than 640px). It may look blurry on social networks.",
     "instagramVideoTooSmall": "This video cannot be published on Instagram.",
     "instagramVideoTooSmallHint": "Instagram does not support videos with low resolution (minimum 640 × 1138 px). Please regenerate the video at a higher resolution (recommended 1080 × 1920 px).",
-     "toastDeleteSuccess": "Post was successfully deleted.",
+    "toastDeleteSuccess": "Post was successfully deleted.",
     "toastDeleteFromAppSuccess": "Post was deleted from the app. Delete it manually on some networks.",
     "toastDeleteFailed": "Deletion from app failed: {error}",
     "toastDeletedFromPlatforms": "Post was removed from {count} platform(s).",
@@ -195,10 +195,31 @@
     "toastDeleteFailedPlatform": "Deletion from {platform} failed.",
     "toastLinkedInArchivedMulti": "Post was removed from {count} platform(s). LinkedIn stays in Postio as archived (grey icon) – delete it manually on LinkedIn.",
     "toastLinkedInArchivedSingle": "LinkedIn stays in Postio as archived (grey icon) – delete it manually on LinkedIn.",
-   "removedExternallyBannerDesc": "Post was removed from the platform. You can safely delete it from the app using \"Smart Delete\" (🗑).",
+    "removedExternallyBannerDesc": "Post was removed from the platform. You can safely delete it from the app using \"Smart Delete\" (🗑).",
     "smartDeleteTitle": "Smart delete – remove from platform and app",
-    "weekdays": ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
-    "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    "weekdays": [
+      "Mo",
+      "Tu",
+      "We",
+      "Th",
+      "Fr",
+      "Sa",
+      "Su"
+    ],
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ]
   },
   "dashboard": {
     "title": "Welcome to Postio",
@@ -351,7 +372,8 @@
     "viewLivePost": "View live post",
     "editPostButton": "Edit",
     "postDetail": "Post detail",
-    "noPublishedPlatforms": "This post has not been published yet."
+    "noPublishedPlatforms": "This post has not been published yet.",
+    "filteredCount": "{showing} of {total} posts"
   },
   "accounts": {
     "title": "Social Accounts",

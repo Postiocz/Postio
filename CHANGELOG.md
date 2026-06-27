@@ -3,6 +3,42 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-06-27
+
+### 🐛 Fix – i18n pro všechny toasty a hardcoded texty na stránce Příspěvky + optimalizace double-fetch
+
+- **Kontext**: Stránka `/posts` obsahovala ~15 hardcoded českých řetězců v toast notifikacích (smazání, chytré mazání, republish) a v `removed_externally` banneru. Uživatelé s EN/UK jazykem viděli češtinu. Navíc `PostsContainer` volal `router.refresh()` při každém mountu → zbytečný double-fetch.
+- **Opravy**:
+
+  1. **Nové i18n klíče** (cs/en/uk) v sekci `posts`:
+     - `toastDeleteSuccess`, `toastDeleteFromAppSuccess`, `toastDeleteFailed`
+     - `toastDeletedFromPlatforms`, `toastRemoveUnexpectedError`
+     - `toastKeptAsDraft`, `toastPermanentlyDeleted`, `toastSmartDeleteError`
+     - `toastApiNotSupported`, `toastUnderstood`, `toastDeleteFailedPlatform`
+     - `toastLinkedInArchivedMulti`, `toastLinkedInArchivedSingle`
+     - `removedExternallyBannerDesc`, `smartDeleteTitle`
+
+  2. **Nahrazeny všechny hardcoded toasty** v `_post-card.tsx`:
+     - Přidan `useTranslations("posts")` + helper `tv()` pro typově bezpečné parametrické překlady (`string | undefined` → `string`)
+     - Všechny `toast.success/error/info` nyní používají `t()` nebo `tv()` s fallbacky
+
+  3. **Nahrazen hardcoded text v `removed_externally` banneru** – řádek 594 (`Příspěvek byl odstraněn z platformy...`) → `t("removedExternallyBannerDesc")`
+
+  4. **Nahrazen hardcoded title na tlačítku chytrého mazání** → `t("smartDeleteTitle")`
+
+  5. **Optimalizace double-fetch** v `_posts-container.tsx`:
+     - `router.refresh()` se nyní volá **pouze** při návratu z mutacních rout (`/posts/new`, `/posts/{uuid}`) detekovaných přes `document.referrer`
+     - Návstyvy z dashboardu, kalendáře, nastavení již **nezpůsobují** zbytečný server re-fetch
+
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – i18n pro toasty + banner + title
+  - `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` – podmíněný refresh
+  - `src/messages/cs.json` – 16 nových klíčů
+  - `src/messages/en.json` – 16 nových klíčů
+  - `src/messages/uk.json` – 16 nových klíčů
+
+- **Build**: `npx tsc --noEmit` 0 chyb ✅, `npm run build` úspěšný ✅
+
 ## 2026-06-26
 
 ### ✨ Improvement – Vylepšení modálů pro připojení účtů (Prompt 027)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -210,6 +211,9 @@ export function PostCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
   const router = useRouter();
+  const t = useTranslations("posts");
+  // next-intl's parameterized t() can return undefined; this helper always returns string
+  const tv = (key: string, params?: Record<string, string | number | Date>, fallback = ""): string => t(key, params) ?? fallback;
 
   const statusLabels: Record<string, string> = {
     draft: tStatusDraft,
@@ -254,7 +258,7 @@ export function PostCard({
             cannotDeletePlatforms.push(platform);
           } else {
             // Unexpected error
-            toast.error(result.error || `Smazání z ${platform} selhalo.`);
+            toast.error(result.error || tv("toastDeleteFailedPlatform", { platform: platform.charAt(0).toUpperCase() + platform.slice(1) }, `Deletion from ${platform} failed.`));
           }
         }
 
@@ -263,11 +267,11 @@ export function PostCard({
         for (const platform of cannotDeletePlatforms) {
           const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
           toast.info(
-            `${platformName} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na ${platformName}.`,
+            tv("toastApiNotSupported", { platform: platformName }, `${platformName} does not support deletion via API.`),
             {
               duration: 8000,
               action: {
-                label: 'Rozumím',
+                label: t("toastUnderstood"),
                 onClick: () => {}
               }
             }
@@ -289,12 +293,12 @@ export function PostCard({
           router.refresh();
           if (deletedCount > 0) {
             toast.success(
-              `Příspěvek byl odstraněn z ${deletedCount} platformy/platforem. LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.`,
+             tv("toastLinkedInArchivedMulti", { count: deletedCount }, `Post was removed from ${deletedCount} platform(s).`),
               { duration: 10000 },
             );
           } else {
             toast.success(
-              "LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.",
+              t("toastLinkedInArchivedSingle"),
               { duration: 10000 },
             );
           }
@@ -307,16 +311,16 @@ export function PostCard({
             setDeleteOpen(false);
             onDeleted?.(post.id);
             if (cannotDeletePlatforms.length === 0) {
-              toast.success("Příspěvek byl úspěšně smazán.");
+              toast.success(t("toastDeleteSuccess"));
             } else {
-              toast.success("Příspěvek byl smazán z aplikace. Na některých sítích jej smažte ručně.");
+              toast.success(t("toastDeleteFromAppSuccess"));
             }
             return;
           } else {
-            toast.error(`Smazání z aplikace selhalo: ${result.error}`);
+            toast.error(tv("toastDeleteFailed", { error: String(result.error ?? "Unknown error") }, `Deletion failed: ${result.error}`));
           }
         } else if (deletedCount > 0) {
-          toast.success(`Příspěvek byl odstraněn z ${deletedCount} platformy/platforem.`);
+          toast.success(tv("toastDeletedFromPlatforms", { count: deletedCount }, `Post was removed from ${deletedCount} platform(s).`));
           router.refresh();
           setDeleteOpen(false);
         } else if (cannotDeletePlatforms.length > 0) {
@@ -330,15 +334,15 @@ export function PostCard({
         if (result.success) {
           setDeleteOpen(false);
           onDeleted?.(post.id);
-          toast.success("Příspěvek byl úspěšně smazán.");
+          toast.success(t("toastDeleteSuccess"));
           return;
         } else {
-          toast.error(result.error || "Nepodařilo se smazat příspěvek.");
+          toast.error(result.error || t("toastRemoveUnexpectedError"));
         }
       }
     } catch (e) {
       console.error("Error deleting post:", e);
-      toast.error("Nastala neočekávaná chyba při mazání.");
+      toast.error(t("toastRemoveUnexpectedError"));
     } finally {
       setIsDeleting(false);
     }
@@ -351,18 +355,18 @@ export function PostCard({
       if (result.success) {
         setSmartDeleteOpen(false);
         if (mode === "keep_as_draft") {
-          toast.success("Příspěvek byl ponechán jako koncept.");
+          toast.success(t("toastKeptAsDraft"));
           router.refresh();
         } else {
           onDeleted?.(post.id);
-          toast.success("Příspěvek byl trvale smazán z aplikace.");
+          toast.success(t("toastPermanentlyDeleted"));
         }
       } else {
-        toast.error(result.error || "Operace selhala.");
+        toast.error(result.error || t("toastSmartDeleteError"));
       }
     } catch (e) {
       console.error("Smart delete error:", e);
-      toast.error("Nastala chyba při chytrém mazání.");
+      toast.error(t("toastSmartDeleteError"));
     } finally {
       setIsDeleting(false);
     }
@@ -428,7 +432,7 @@ export function PostCard({
               className="h-8 w-8 relative z-[50] cursor-pointer bg-orange-50 dark:bg-orange-500/10 backdrop-blur-sm border border-orange-200 dark:border-orange-500/20 text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-500/20"
               onClick={() => setSmartDeleteOpen(true)}
               disabled={isDeleting}
-              title="Chytré mazání – odstranit z platformy i aplikace"
+              title={t("smartDeleteTitle")}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -591,7 +595,7 @@ export function PostCard({
                   </span>
                 )}
                 <span className="text-[11px] text-orange-600/60 dark:text-orange-400/60 mt-1">
-                  Příspěvek byl odstraněn z platformy. Můžete jej bezpečně smazat z aplikace tlačítkem "Chytré mazání" (🗑).
+                  {t("removedExternallyBannerDesc")}
                 </span>
               </div>
             </div>

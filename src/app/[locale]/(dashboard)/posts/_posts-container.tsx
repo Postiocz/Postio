@@ -152,25 +152,26 @@ export function PostsContainer({
     setPosts(initialPosts);
   }, [initialPosts]);
 
-  // Force a fresh server-component fetch on every mount of the /posts page.
+  // Force a fresh server-component fetch only when returning from a mutation
+  // route (e.g. /posts/new or /posts/{id}). Those routes call revalidatePath()
+  // on the server, but Next.js may still serve a stale client-side RSC payload.
   //
-  // Why this is necessary:
-  // After publishing from /posts/{id} or /posts/new, those callers navigate
-  // back to /posts via `router.push(...)`. The server action calls
-  // `revalidatePath("/posts", ...)` which clears the SERVER-side fetch cache,
-  // but Next.js App Router keeps a CLIENT-side RSC payload cache for the
-  // /posts route. Without a fresh `router.refresh()` the navigation can
-  // reuse the stale RSC payload and the new "published" status of the post
-  // is NOT reflected in the UI, even though the DB was updated correctly.
-  //
-  // PostsContainer is rendered inside posts/page.tsx (not the dashboard
-  // layout), so it mounts/unmounts on every navigation to /posts – that is
-  // the right hook for forcing a server refresh.
+  // We detect a post-mutation return by checking if the referrer URL contains
+  // "/posts/new" or "/posts/" (a specific post page). On plain navigations
+  // (e.g. from dashboard, calendar, settings) we skip the refresh because
+  // initialPosts is already fresh and the useEffect([initialPosts]) below
+  // syncs it into client state – no double-fetch needed.
   useEffect(() => {
-    router.refresh();
-    // We intentionally only refresh on mount. Re-running on every render
-    // (e.g. when `initialPosts` changes after a refresh) would cause an
-    // infinite refresh loop.
+    if (typeof document.referrer === "string") {
+      const ref = document.referrer;
+      const isFromMutationRoute =
+        ref.includes("/posts/new") ||
+        (/\/posts\/[a-f0-9-]{36}/.test(ref));
+      if (isFromMutationRoute) {
+        router.refresh();
+      }
+    }
+    // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

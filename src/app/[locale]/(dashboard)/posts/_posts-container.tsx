@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import Link from "next/link";
@@ -140,40 +139,15 @@ export function PostsContainer({
   const [activePlatform, setActivePlatform] = useState("");
   const [activeStatus, setActiveStatus] = useState("");
   const [activeTag, setActiveTag] = useState("");
-  const [refreshAfterExit, setRefreshAfterExit] = useState(false);
-  const router = useRouter();
 
   // Sync local state with server-provided initialPosts whenever the server
-  // re-renders this page (e.g. after router.refresh() in EditPostDialog).
-  // Without this, edits like "Uložit interní metadata" would land in the DB
-  // and in revalidated initialPosts, but the in-memory list would still show
-  // stale data until the user manually reloads the page.
+  // re-renders this page (e.g. after revalidatePath("/posts") in a mutation
+  // route). Without this, edits like "Uložit interní metadata" would land in
+  // the DB and in revalidated initialPosts, but the in-memory list would still
+  // show stale data until the user manually reloads the page.
   useEffect(() => {
     setPosts(initialPosts);
   }, [initialPosts]);
-
-  // Force a fresh server-component fetch only when returning from a mutation
-  // route (e.g. /posts/new or /posts/{id}). Those routes call revalidatePath()
-  // on the server, but Next.js may still serve a stale client-side RSC payload.
-  //
-  // We detect a post-mutation return by checking if the referrer URL contains
-  // "/posts/new" or "/posts/" (a specific post page). On plain navigations
-  // (e.g. from dashboard, calendar, settings) we skip the refresh because
-  // initialPosts is already fresh and the useEffect([initialPosts]) below
-  // syncs it into client state – no double-fetch needed.
-  useEffect(() => {
-    if (typeof document.referrer === "string") {
-      const ref = document.referrer;
-      const isFromMutationRoute =
-        ref.includes("/posts/new") ||
-        (/\/posts\/[a-f0-9-]{36}/.test(ref));
-      if (isFromMutationRoute) {
-        router.refresh();
-      }
-    }
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleFilterChange = useCallback((platform: string, status: string) => {
     setActivePlatform(platform);
@@ -198,11 +172,7 @@ export function PostsContainer({
   }, [posts, activePlatform, activeStatus, activeTag]);
 
   const handleDeleted = useCallback((id: string) => {
-    setPosts((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      if (next.length === 0) setRefreshAfterExit(true);
-      return next;
-    });
+    setPosts((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   return (
@@ -275,13 +245,6 @@ export function PostsContainer({
           </div>
         ) : (
           <div className="space-y-6">
-            {(function() {
-              if (refreshAfterExit) {
-                router.refresh();
-                setRefreshAfterExit(false);
-              }
-              return null;
-            })()}
             <PostsList
               posts={filteredPosts}
               locale={locale}

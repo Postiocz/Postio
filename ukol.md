@@ -1,7 +1,7 @@
 # 📋 Úkoly — Stránka "Příspěvky" (Posts)
 
 > Vytvořeno: 2026-06-27  
-> Poslední aktualizace: 2026-06-28 (relace 2)  
+> Poslední aktualizace: 2026-06-28 (relace 3)  
 > Status auditu: [originální audit z konverzace]
 
 ---
@@ -19,7 +19,7 @@
 | 11 | **border-radius `24px` → `20px`** | `2c6f0cb` | Konzistence s design systémem |
 | 6 | **Sync/cleanup → Vercel Cron** | `5cdcf88` | Žádný blocking server action při loadu stránky, cron každé 2h |
 | 14b | **Redukce props drilling (−14 props z PostCard)** | `5cdcf88` | PostCard používá useTranslations() místo 14 předávaných stringů |
-| 4 (správné) | **Cursor-based pagination** | TBD | Keyset paginace (20/page + "Load more"), server action fetchMorePosts, normalizace postů do sdílené funkce. Žádný URL change — čistý client-side append. |
+| 4 (správné) | **Cursor-based pagination** | `6f51594` + `e087798` | Keyset paginace (20/page + "Load more"), server action fetchMorePosts, normalizace postů do sdílené funkce. Žádný URL change — čistý client-side append. Split normalizePost z actions.ts kvůli "use server" constraintu. |
 
 ---
 
@@ -33,30 +33,12 @@
 
 ### 🟡 Střední priorita
 
-#### #6 — syncPublishedPosts() a cleanupAutoDeletedPosts() při každém loadu
-- **Soubor:** `page.tsx`, řádky 35, 38
-- **Problém:** Dva server actions iterující přes všechny příspěvky běží při každém načtení stránky.
-- **Dopad:** Pomalý initial load, zbytečná zátěž DB + externích API.
-- **Řešení:** Přesunout do cron job (Vercel Cron / Supabase Edge Function) nebo alespoň throttling s delším cooldownem (např. 1h místo 30min).
-- **Odhad:** 45 min
-
 #### #7 — Client-side filtrování místo server-side
 - **Soubor:** `_posts-container.tsx`, řádek 159-176
 - **Problém:** Filtry (platforma, status, štítek) běží v `useMemo` na klientovi po stažení všech dat.
 - **Dopad:** U většího počtu příspěvků se stáhne vše a filtruje se lokálně.
 - **Řešení:** Při změně filtru udělat nový Supabase dotaz s `.eq()` / `.or()` conditions místo client-side filteru. Vyžaduje přepracování na server action nebo API route pro filtrované data.
 - **Odhad:** 1h
-
-#### #17 — Typ PostStatus
-- **Soubory:** `src/lib/supabase/types.ts` (řádek 116), `_post-card.tsx`, `page.tsx`
-- **Problém:** Status se pracuje jako holý `string`. Supabase typ má `'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'` — chybí `'removed_externally'` a `'archived'`, které se v runtime používají.
-- **Dopad:** Typová nebezpečnost, TS nechyta chyby jako `post.status === "removd_externally"` (typo).
-- **Řešení:**
-  1. Vytvořit `export type PostStatus = 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived'` v `lib/types.ts`.
-  2. Aktualizovat `PostListItem.status: PostStatus` v `_post-card.tsx`.
-  3. Aktualizovat Supabase types v `lib/supabase/types.ts`.
-  4. Nahradit `string` porovnání typově bezpečnými operacemi.
-- **Odhad:** 20 min
 
 ---
 
@@ -71,12 +53,6 @@
 - **Problém:** Uživatel nemůže vybrat více příspěvků a smazat/republishnout je najednou.
 - **Řešení:** Checkboxy na PostCard + bulk action bar s "Smazat vybrané" / "Archivovat vybrané".
 - **Odhad:** 2h
-
-#### #11 — Inconsistent border-radius
-- **Soubor:** `_post-card.tsx`, řádek 403
-- **Problém:** Design systém říká `rounded-[20px]`, ale PostCard má `rounded-[24px]`.
-- **Řešení:** Změnit na `rounded-[20px]` pro konzistenci.
-- **Odhad:** 2 min
 
 #### #12 — Media preview pointer-events-none
 - **Soubor:** `_post-card.tsx`, řádek 470
@@ -94,18 +70,13 @@
 
 ### 🔵 Refactor — Čistota kódu
 
-#### #14 — Obří props drilling
+#### #14 — Obří props drilling (zbylá část)
 - **Soubory:** `page.tsx` → `_posts-container.tsx` → `_post-card.tsx` (PostsList → PostCard)
-- **Problém:** `tLabels` (30+ properties) a `tAi` se předávají přes 4 úrovně. Každá změna v typech se kaskádově promítá.
-- **Řešení:** Vytvořit React Context pro lokalizaci (`PostsI18nContext`) nebo použít `useTranslations()` přímo v komponentách (už částečně hotové — `_posts-container.tsx` a `_post-card.tsx` již mají `useTranslations("posts")`).
-- **Odhad:** 1h
+- **Problém:** `tLabels` (30+ properties) a `tAi` se předávají přes 4 úrovně. #14b už vyřešil PostCard zbyvá doladit EditPostDialog + PreviewDialog.
+- **Řešení:** Dokončit — zbývající dialogy přepnout na vlastní `useTranslations()`.
+- **Odhad:** 30 min
 
-#### #14b — Konkrétní krok: odstranit tLabels/tAi props z PostsList → PostCard
-- PostCard už má `const t = useTranslations("posts")` (řádek 214 `_post-card.tsx`).
-- Mnoho položek z `tLabels` se nepoužívá přímo v PostCard — předávají se dál do `EditPostDialog` a `PreviewDialog`.
-- Ty dialogy by mohly používat `useTranslations()` vlastní.
-- **Cíl:** Zkrátit props interface PostCard o ~40 properties.
-- **Odhad:** 45 min
+#### #14b — ~~Konkrétní krok: odstranit tLabels/tAi props z PostsList → PostCard~~ ✅ Hotovo (`5cdcf88`)
 
 ---
 

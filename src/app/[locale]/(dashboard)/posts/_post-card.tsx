@@ -24,8 +24,9 @@ import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
 import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
 import { PreviewDialog } from "@/components/preview-dialog";
 import { toast } from "sonner";
+import type { PostStatus, PlatformStatus } from "@/lib/types";
 
-const STATUS_STYLES: Record<string, string> = {
+const STATUS_STYLES: Record<PostStatus, string> = {
   draft: "bg-gray-100 text-muted-foreground border border-gray-200 dark:bg-white/10 dark:border-white/10",
   scheduled: "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30",
   publishing: "bg-blue-50 text-blue-700 border border-blue-200 animate-pulse dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30",
@@ -49,7 +50,7 @@ export type PostPlatform = {
   id: string;
   post_id: string;
   platform: string;
-  status: string;
+  status: PlatformStatus;
   scheduled_at: string | null;
   published_at: string | null;
   external_id: string | null;
@@ -65,7 +66,7 @@ export type PostPlatform = {
 export type PostListItem = {
   id: string;
   content: string;
-  status: string;
+  status: PostStatus;
   platforms: string[];
   post_platforms?: PostPlatform[];
   scheduled_at: string | null;
@@ -400,7 +401,7 @@ export function PostCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.26, ease: "easeOut", delay: animationDelay }}
-      className="relative group bg-white/80 dark:bg-card/40 backdrop-blur-md border border-black/[0.08] dark:border-white/[0.06] rounded-[24px] p-5 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl"
+      className="relative group bg-white/80 dark:bg-card/40 backdrop-blur-md border border-black/[0.08] dark:border-white/[0.06] rounded-[20px] p-5 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl"
     >
       {/* Action buttons – top right */}
       <div className="absolute top-5 right-5 flex gap-1 z-[50] sm:opacity-0 group-hover:sm:opacity-100 transition-opacity">

@@ -1,7 +1,7 @@
 # 📋 Úkoly — Stránka "Příspěvky" (Posts)
 
 > Vytvořeno: 2026-06-27  
-> Poslední aktualizace: 2026-06-27  
+> Poslední aktualizace: 2026-06-28  
 > Status auditu: [originální audit z konverzace]
 
 ---
@@ -14,6 +14,9 @@
 | 5+15 | **Double-fetch router.refresh() + IIFE anti-pattern** | `eceacbb` | Žádný redundantní RSC re-render, čistší kód |
 | 3+16 | **Mrtvý _posts-filters.tsx smazán** | `24ce8c4` | −151 řádků mrtvého kódu |
 | 8 | **Filter count indikace ("X z Y")** | `86703ca` | Uživatel vidí kolik příspěvků se zobrazuje po filtrování |
+| 17 | **Typ PostStatus (union type)** | TBD | Typová bezpečnost — TS nyní chytá chybějící statusy a typy v porovnáních |
+| 4 (rychlé) | **Pagination `.limit(100)`** | TBD | Ochranná brzda proti fetchnutí všech příspěvků najednou |
+| 11 | **border-radius `24px` → `20px`** | TBD | Konzistence s design systémem |
 
 ---
 
@@ -113,15 +116,13 @@
 
 | Pořadí | # | Co | Odhad | Priorita |
 |--------|---|----|-------|----------|
-| 1 | #17 | Typ `PostStatus` | 20 min | Střední |
-| 2 | #4 | Pagination `.limit(100)` | 30 min | Vysoká |
-| 3 | #11 | border-radius konzistence | 2 min | Nízká |
-| 4 | #6 | Cron pro sync/cleanup | 45 min | Střední |
-| 5 | #14b | Redukce props drilling (dialogy → useTranslations) | 45 min | Refactor |
-| 6 | #9 | Sorting | 40 min | Nízká |
-| 7 | #12 | Media preview click → lightbox | 20 min | Nízká |
-| 8 | #13 | Expand/collapse text | 25 min | Nízká |
-| 9 | #7 | Server-side filtrování | 1h | Střední |
-| 10 | #10 | Bulk akce | 2h | Nízká |
+| 1 | #6 | Cron pro sync/cleanup | 45 min | Střední |
+| 2 | #14b | Redukce props drilling (dialogy → useTranslations) | 45 min | Refactor |
+| 3 | #9 | Sorting | 40 min | Nízká |
+| 4 | #12 | Media preview click → lightbox | 20 min | Nízká |
+| 5 | #13 | Expand/collapse text | 25 min | Nízká |
+| 6 | #7 | Server-side filtrování | 1h | Střední |
+| 7 | #4 (správné) | Cursor-based pagination | 2h | Vysoká |
+| 8 | #10 | Bulk akce | 2h | Nízká |
 
-**Quick wins (celkem ~55 min):** #17 + #4(limit) + #11 = okamžitý dopad na typovou bezpečnost, výkon a vizuální konzistenci.
+**Quick wins hotovy:** #17 + #4(limit) + #11 = ✅ typová bezpečnost, ochranný limit, vizuální konzistence.

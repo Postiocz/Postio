@@ -113,7 +113,7 @@ export interface Database {
           id: string
           post_id: string
           platform: string
-          status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
+          status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived'
           scheduled_at: string | null
           published_at: string | null
           external_id: string | null
@@ -125,7 +125,7 @@ export interface Database {
           id?: string
           post_id: string
           platform: string
-          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived'
           scheduled_at?: string | null
           published_at?: string | null
           external_id?: string | null
@@ -137,7 +137,7 @@ export interface Database {
           id?: string
           post_id?: string
           platform?: string
-          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived'
           scheduled_at?: string | null
           published_at?: string | null
           external_id?: string | null

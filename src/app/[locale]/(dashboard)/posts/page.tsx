@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncPublishedPosts, cleanupAutoDeletedPosts } from "@/lib/actions/posts";
 import { getUserTags } from "@/lib/actions/tag-actions";
+import type { PostStatus } from "@/lib/types";
 import { PostsContainer } from "./_posts-container";
 
 // Force dynamic rendering on every navigation so the freshly-mutated
@@ -44,7 +45,8 @@ export default async function PostsPage({
     .from("posts")
     .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100); // protective cap — TODO: replace with cursor-based pagination (#4)
 
   if (postsError) {
     return <div className="text-muted-foreground">{t("errorDeleting")}</div>;
@@ -54,15 +56,15 @@ export default async function PostsPage({
     const postPlatforms = post.post_platforms || [];
     postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
 
-    const statuses = postPlatforms.map((p: any) => p.status);
-    let computedStatus = "draft";
+    const statuses: PostStatus[] = postPlatforms.map((p: any) => p.status);
+    let computedStatus: PostStatus = "draft";
     if (statuses.includes("failed")) computedStatus = "failed";
     else if (statuses.includes("publishing")) computedStatus = "publishing";
     else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
     // `archived` only wins when ALL platforms are archived.
-    else if (statuses.length > 0 && statuses.every((s: string) => s === "archived")) {
+    else if (statuses.length > 0 && statuses.every((s: PostStatus) => s === "archived")) {
       computedStatus = "archived";
     }
 

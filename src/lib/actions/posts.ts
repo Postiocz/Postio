@@ -8,6 +8,7 @@ import {
   getValidYouTubeAccessToken,
 } from "@/lib/actions/publish-youtube";
 import { getValidLinkedInAccessToken } from "@/lib/actions/publish-linkedin";
+import type { PostStatus } from "@/lib/types";
 
 const LOCALES = ["cs", "en", "uk"];
 
@@ -118,7 +119,7 @@ export async function updatePost(id: string, inputData: {
   content?: string;
   platforms?: string[];
   scheduledAt?: string | null;
-  status?: "draft" | "scheduled" | "publishing" | "published" | "failed" | "removed_externally";
+  status?: PostStatus;
   mediaUrls?: string[];
   location?: string;
   tags?: string[];

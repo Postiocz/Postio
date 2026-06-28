@@ -25,14 +25,6 @@ export function PostsContainer({
   tStatusArchived,
   tNoPosts,
   tNoPostsSubtitle,
-  tScheduledAt,
-  tEditPost,
-  tDeleteConfirmTitle,
-  tDeleteConfirmDesc,
-  tDeleteConfirmAction,
-  tDeleteCancel,
-  tRepublish,
-  tRemovedExternallyMsg,
   tLabels,
   tAi,
   tFilterByTag,
@@ -55,14 +47,6 @@ export function PostsContainer({
   tStatusArchived: string;
   tNoPosts: string;
   tNoPostsSubtitle: string;
-  tScheduledAt: string;
-  tEditPost: string;
-  tDeleteConfirmTitle: string;
-  tDeleteConfirmDesc: string;
-  tDeleteConfirmAction: string;
-  tDeleteCancel: string;
-  tRepublish: string;
-  tRemovedExternallyMsg: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -255,20 +239,6 @@ export function PostsContainer({
             <PostsList
               posts={filteredPosts}
               locale={locale}
-              tStatusDraft={tStatusDraft}
-              tStatusScheduled={tStatusScheduled}
-              tStatusPublished={tStatusPublished}
-              tStatusFailed={tStatusFailed}
-              tStatusRemovedExternally={tStatusRemovedExternally}
-              tStatusArchived={tStatusArchived}
-              tScheduledAt={tScheduledAt}
-              tEditPost={tEditPost}
-              tDeleteConfirmTitle={tDeleteConfirmTitle}
-              tDeleteConfirmDesc={tDeleteConfirmDesc}
-              tDeleteConfirmAction={tDeleteConfirmAction}
-              tDeleteCancel={tDeleteCancel}
-              tRepublish={tRepublish}
-              tRemovedExternallyMsg={tRemovedExternallyMsg}
               tLabels={tLabels}
               tAi={tAi}
               onDeleted={handleDeleted}

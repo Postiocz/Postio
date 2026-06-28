@@ -1,6 +1,5 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import { syncPublishedPosts, cleanupAutoDeletedPosts } from "@/lib/actions/posts";
 import { getUserTags } from "@/lib/actions/tag-actions";
 import type { PostStatus } from "@/lib/types";
 import { PostsContainer } from "./_posts-container";
@@ -32,11 +31,9 @@ export default async function PostsPage({
     return <div className="text-muted-foreground">{t("errorDeleting")}</div>;
   }
 
-  // Sync published posts with external platforms (throttled: 30 min cooldown via last_sync_at)
-  await syncPublishedPosts();
-
-  // Auto-delete posts that have passed their auto_delete_at timestamp
-  await cleanupAutoDeletedPosts();
+  // Sync + cleanup are now handled by Vercel Cron (/api/cron/sync-posts).
+  // Removed blocking server actions from page render to avoid slow initial load.
+  // See: #6 in ukol.md
 
   // Load user's internal tags for the tag filter dropdown
   const tagsResult = await getUserTags();
@@ -122,14 +119,6 @@ export default async function PostsPage({
           tStatusArchived={t("statusArchived")}
           tNoPosts={t("noPosts")}
           tNoPostsSubtitle={t("noPostsSubtitle")}
-          tScheduledAt={t("scheduledAt")}
-          tEditPost={t("editPost")}
-          tDeleteConfirmTitle={t("deleteConfirmTitle")}
-          tDeleteConfirmDesc={t("deleteConfirmDesc")}
-          tDeleteConfirmAction={t("deleteConfirmAction")}
-          tDeleteCancel={t("deleteCancel")}
-          tRepublish={t("republish")}
-          tRemovedExternallyMsg={t("removedExternallyMsg")}
           tFilterByTag={t("filterByTag")}
           tAllTags={t("allTags")}
           tNoTagsAvailable={t("noTagsAvailable")}

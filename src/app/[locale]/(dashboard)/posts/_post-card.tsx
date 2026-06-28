@@ -90,20 +90,6 @@ function toLocaleTag(locale: string) {
 export function PostCard({
   post,
   locale,
-  tStatusDraft,
-  tStatusScheduled,
-  tStatusPublished,
-  tStatusFailed,
-  tStatusRemovedExternally,
-  tStatusArchived,
-  tScheduledAt,
-  tEditPost,
-  tDeleteConfirmTitle,
-  tDeleteConfirmDesc,
-  tDeleteConfirmAction,
-  tDeleteCancel,
-  tRepublish,
-  tRemovedExternallyMsg,
   onDeleted,
   animationDelay = 0,
   tLabels,
@@ -111,28 +97,6 @@ export function PostCard({
 }: {
   post: PostListItem;
   locale: string;
-  tStatusDraft: string;
-  tStatusScheduled: string;
-  tStatusPublished: string;
-  tStatusFailed: string;
-  tStatusRemovedExternally: string;
-  tStatusArchived: string;
-  tScheduledAt: string;
-  tEditPost: string;
-  tDeleteConfirmTitle: string;
-  tDeleteConfirmDesc: string;
-  tDeleteConfirmAction: string;
-  tDeleteCancel: string;
-  tRepublish: string;
-  /**
-   * Banner text shown for posts whose `post_platforms.status` is
-   * `removed_externally` (i.e. the automatic sync verified that the
-   * post is gone on the platform). This banner is currently rendered
-   * only for YouTube and Facebook, where the sync branch actually
-   * works. LinkedIn is intentionally NOT included – it has no working
-   * sync and the row never enters `removed_externally`.
-   */
-  tRemovedExternallyMsg: string;
   onDeleted?: (id: string) => void;
   animationDelay?: number;
   tLabels: {
@@ -217,12 +181,12 @@ export function PostCard({
   const tv = (key: string, params?: Record<string, string | number | Date>, fallback = ""): string => t(key, params) ?? fallback;
 
   const statusLabels: Record<string, string> = {
-    draft: tStatusDraft,
-    scheduled: tStatusScheduled,
-    published: tStatusPublished,
-    failed: tStatusFailed,
-    removed_externally: tStatusRemovedExternally,
-    archived: tStatusArchived,
+    draft: tv("statusDraft", {}, "draft"),
+    scheduled: tv("statusScheduled", {}, "scheduled"),
+    published: tv("statusPublished", {}, "published"),
+    failed: tv("statusFailed", {}, "failed"),
+    removed_externally: tv("statusRemovedExternally", {}, "removed_externally"),
+    archived: tv("statusArchived", {}, "archived"),
   };
 
   const statusLabel = statusLabels[post.status] ?? post.status;
@@ -409,7 +373,7 @@ export function PostCard({
           variant="ghost"
           size="icon-sm"
           className="h-8 w-8 relative z-[50] cursor-pointer bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10"
-          title={tEditPost}
+          title={tv("editPost", {}, "Edit")}
           onClick={() => setEditOpen(true)}
         >
           <Edit className="h-3.5 w-3.5" />
@@ -444,7 +408,7 @@ export function PostCard({
               className="h-8 w-8 relative z-[50] cursor-pointer bg-orange-50 dark:bg-orange-500/10 backdrop-blur-sm border border-orange-200 dark:border-orange-500/20 text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-500/20"
               onClick={handleRepublish}
               disabled={isRepublishing}
-              title={tRepublish}
+              title={tv("republish", {}, "Republish")}
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
@@ -458,7 +422,7 @@ export function PostCard({
             className="h-8 w-8 relative z-[50] cursor-pointer bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => setDeleteOpen(true)}
             disabled={isDeleting}
-            title={tDeleteConfirmTitle}
+            title={tv("deleteConfirmTitle", {}, "Delete")}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -584,7 +548,7 @@ export function PostCard({
               <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
-                  {tRemovedExternallyMsg.replace("__platform__", (post.post_platforms?.find(p => p.status === 'removed_externally')?.platform ?? "platform").charAt(0).toUpperCase() + (post.post_platforms?.find(p => p.status === 'removed_externally')?.platform ?? "platform").slice(1))}
+                  {tv("removedExternallyMsg", { __platform__: (post.post_platforms?.find(p => p.status === 'removed_externally')?.platform ?? "platform") })}
                 </span>
                 {post.post_platforms?.find(p => p.status === 'removed_externally')?.updated_at && (
                   <span className="text-[11px] text-orange-600/70 dark:text-orange-400/70">
@@ -608,7 +572,7 @@ export function PostCard({
             {post.scheduled_at && (
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {tScheduledAt}: {scheduledTime}
+                {tv("scheduledAt", {}, "Published at")}: {scheduledTime}
               </span>
             )}
           </div>
@@ -689,40 +653,12 @@ export function PostCard({
 export function PostsList({
   posts,
   locale,
-  tStatusDraft,
-  tStatusScheduled,
-  tStatusPublished,
-  tStatusFailed,
-  tStatusRemovedExternally,
-  tStatusArchived,
-  tScheduledAt,
-  tEditPost,
-  tDeleteConfirmTitle,
-  tDeleteConfirmDesc,
-  tDeleteConfirmAction,
-  tDeleteCancel,
-  tRepublish,
-  tRemovedExternallyMsg,
   tLabels,
   tAi,
   onDeleted,
 }: {
   posts: PostListItem[];
   locale: string;
-  tStatusDraft: string;
-  tStatusScheduled: string;
-  tStatusPublished: string;
-  tStatusFailed: string;
-  tStatusRemovedExternally: string;
-  tStatusArchived: string;
-  tScheduledAt: string;
-  tEditPost: string;
-  tDeleteConfirmTitle: string;
-  tDeleteConfirmDesc: string;
-  tDeleteConfirmAction: string;
-  tDeleteCancel: string;
-  tRepublish: string;
-  tRemovedExternallyMsg: string;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -802,20 +738,6 @@ export function PostsList({
             key={post.id}
             post={post}
             locale={locale}
-            tStatusDraft={tStatusDraft}
-            tStatusScheduled={tStatusScheduled}
-            tStatusPublished={tStatusPublished}
-            tStatusFailed={tStatusFailed}
-            tStatusRemovedExternally={tStatusRemovedExternally}
-            tStatusArchived={tStatusArchived}
-            tScheduledAt={tScheduledAt}
-            tEditPost={tEditPost}
-            tDeleteConfirmTitle={tDeleteConfirmTitle}
-            tDeleteConfirmDesc={tDeleteConfirmDesc}
-            tDeleteConfirmAction={tDeleteConfirmAction}
-            tDeleteCancel={tDeleteCancel}
-            tRepublish={tRepublish}
-            tRemovedExternallyMsg={tRemovedExternallyMsg}
             animationDelay={Math.min(index * 0.04, 0.2)}
             onDeleted={onDeleted}
             tLabels={tLabels}

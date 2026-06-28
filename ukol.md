@@ -1,7 +1,7 @@
 # 📋 Úkoly — Stránka "Příspěvky" (Posts)
 
 > Vytvořeno: 2026-06-27  
-> Poslední aktualizace: 2026-06-28  
+> Poslední aktualizace: 2026-06-28 (relace 2)  
 > Status auditu: [originální audit z konverzace]
 
 ---
@@ -14,9 +14,11 @@
 | 5+15 | **Double-fetch router.refresh() + IIFE anti-pattern** | `eceacbb` | Žádný redundantní RSC re-render, čistší kód |
 | 3+16 | **Mrtvý _posts-filters.tsx smazán** | `24ce8c4` | −151 řádků mrtvého kódu |
 | 8 | **Filter count indikace ("X z Y")** | `86703ca` | Uživatel vidí kolik příspěvků se zobrazuje po filtrování |
-| 17 | **Typ PostStatus (union type)** | TBD | Typová bezpečnost — TS nyní chytá chybějící statusy a typy v porovnáních |
-| 4 (rychlé) | **Pagination `.limit(100)`** | TBD | Ochranná brzda proti fetchnutí všech příspěvků najednou |
-| 11 | **border-radius `24px` → `20px`** | TBD | Konzistence s design systémem |
+| 17 | **Typ PostStatus (union type)** | `2c6f0cb` | Typová bezpečnost — TS nyní chytá chybějící statusy a typy v porovnáních |
+| 4 (rychlé) | **Pagination `.limit(100)`** | `2c6f0cb` | Ochranná brzda proti fetchnutí všech příspěvků najednou |
+| 11 | **border-radius `24px` → `20px`** | `2c6f0cb` | Konzistence s design systémem |
+| 6 | **Sync/cleanup → Vercel Cron** | `5cdcf88` | Žádný blocking server action při loadu stránky, cron každé 2h |
+| 14b | **Redukce props drilling (−14 props z PostCard)** | `5cdcf88` | PostCard používá useTranslations() místo 14 předávaných stringů |
 
 ---
 
@@ -116,13 +118,11 @@
 
 | Pořadí | # | Co | Odhad | Priorita |
 |--------|---|----|-------|----------|
-| 1 | #6 | Cron pro sync/cleanup | 45 min | Střední |
-| 2 | #14b | Redukce props drilling (dialogy → useTranslations) | 45 min | Refactor |
-| 3 | #9 | Sorting | 40 min | Nízká |
-| 4 | #12 | Media preview click → lightbox | 20 min | Nízká |
-| 5 | #13 | Expand/collapse text | 25 min | Nízká |
-| 6 | #7 | Server-side filtrování | 1h | Střední |
-| 7 | #4 (správné) | Cursor-based pagination | 2h | Vysoká |
-| 8 | #10 | Bulk akce | 2h | Nízká |
+| 1 | #9 | Sorting | 40 min | Nízká |
+| 2 | #12 | Media preview click → lightbox | 20 min | Nízká |
+| 3 | #13 | Expand/collapse text | 25 min | Nízká |
+| 4 | #7 | Server-side filtrování | 1h | Střední |
+| 5 | #4 (správné) | Cursor-based pagination | 2h | Vysoká |
+| 6 | #10 | Bulk akce | 2h | Nízká |
 
-**Quick wins hotovy:** #17 + #4(limit) + #11 = ✅ typová bezpečnost, ochranný limit, vizuální konzistence.
+**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b = ✅ typová bezpečnost, cron, ochranný limit, vizuální konzistence, −133 řádků props drilling.

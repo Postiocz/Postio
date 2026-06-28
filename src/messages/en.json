@@ -295,6 +295,8 @@
     "facebook": "Facebook",
     "twitter": "Twitter/X",
     "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+    "tiktok": "TikTok",
     "mediaFiles": "Media",
     "dropMedia": "Drop files here",
     "addMedia": "Drop media here or click",
@@ -373,7 +375,15 @@
     "editPostButton": "Edit",
     "postDetail": "Post detail",
     "noPublishedPlatforms": "This post has not been published yet.",
-    "filteredCount": "{showing} of {total} posts"
+    "filteredCount": "{showing} of {total} posts",
+    "toastDeleteSuccess": "Post was successfully deleted.",
+    "toastDeleteFromAppSuccess": "Post was deleted from the app. Delete it manually on some networks.",
+    "toastRemoveUnexpectedError": "An unexpected error occurred while deleting.",
+    "toastKeptAsDraft": "Post was kept as a draft.",
+    "toastPermanentlyDeleted": "Post was permanently deleted from the app.",
+    "toastSmartDeleteError": "An error occurred during smart delete.",
+    "toastUnderstood": "Got it",
+    "toastLinkedInArchivedSingle": "LinkedIn stays in Postio as archived (grey icon) – delete it manually on LinkedIn."
   },
   "accounts": {
     "title": "Social Accounts",

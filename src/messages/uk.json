@@ -295,6 +295,8 @@
     "facebook": "Facebook",
     "twitter": "Twitter/X",
     "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+    "tiktok": "TikTok",
     "mediaFiles": "Медіа",
     "dropMedia": "Перетягніть файли сюди",
     "addMedia": "Перетягніть медіа сюди або натисніть",
@@ -373,7 +375,15 @@
     "editPostButton": "Редагувати",
     "postDetail": "Деталі публікації",
     "noPublishedPlatforms": "Цю публікацію ще не опубліковано.",
-    "filteredCount": "{showing} з {total} публікацій"
+    "filteredCount": "{showing} з {total} публікацій",
+    "toastDeleteSuccess": "Публікацію успішно видалено.",
+    "toastDeleteFromAppSuccess": "Публікацію видалено з додатку. Видаліть її вручну на деяких мережах.",
+    "toastRemoveUnexpectedError": "Сталася неочікувана помилка під час видалення.",
+    "toastKeptAsDraft": "Публікацію залишено як чернетку.",
+    "toastPermanentlyDeleted": "Публікацію назавжди видалено з додатку.",
+    "toastSmartDeleteError": "Сталася помилка під час розумного видалення.",
+    "toastUnderstood": "Зрозуміло",
+    "toastLinkedInArchivedSingle": "LinkedIn залишається в Postio як архівований (сірий значок) – видаліть його вручну на LinkedIn."
   },
   "accounts": {
     "title": "Акаунти в соцмережах",

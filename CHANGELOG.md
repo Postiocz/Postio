@@ -3,6 +3,19 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-06-28
+
+### 🐛 Fix – Chybějící i18n klíče `posts.youtube`, `posts.tiktok` a `posts.toast*`
+
+- **Kontext**: Stránka `/posts/new` volala `t("youtube")` a `t("tiktok")` přes `useTranslations("posts")`, ale tyto klíče existovaly pouze pod `accounts.platforms`. Výsledek: `MISSING_MESSAGE` error pro locale `cs` (i `en`/`uk`). Stejně tak `_post-card.tsx` volal `t("toastDeleteSuccess")` atd., které byly definovány jen pod namespace `calendar`, ne `posts`.
+- **Opravy**:
+  1. Přidané klíče `youtube` a `tiktok` do sekce `posts` ve všech třech lokalizačních souborech (cs/en/uk).
+  2. Přidané klíče `toastDeleteSuccess`, `toastDeleteFromAppSuccess`, `toastRemoveUnexpectedError`, `toastKeptAsDraft`, `toastPermanentlyDeleted`, `toastSmartDeleteError`, `toastUnderstood`, `toastLinkedInArchivedSingle` do sekce `posts` ve všech třech lokalizačních souborech (cs/en/uk).
+- **Upravené soubory**:
+  - `src/messages/cs.json` — 10 nových klíčů v sekci `posts`
+  - `src/messages/en.json` — 10 nových klíčů v sekci `posts`
+  - `src/messages/uk.json` — 10 nových klíčů v sekci `posts`
+
 ## 2026-06-27
 
 ### ⚡ Performance – Odstraněn double-fetch a IIFE anti-pattern v PostsContainer

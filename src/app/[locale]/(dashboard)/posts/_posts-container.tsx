@@ -3,10 +3,11 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { PostFiltersRow } from "@/components/post-filters-row";
 import { PostsList, PostListItem } from "./_post-card";
+import { fetchMorePosts } from "./actions";
 
 export function PostsContainer({
   initialPosts,
@@ -30,6 +31,8 @@ export function PostsContainer({
   tFilterByTag,
   tAllTags,
   tNoTagsAvailable,
+  hasMore,
+  nextCursor,
 }: {
   initialPosts: PostListItem[];
   locale: string;
@@ -119,11 +122,17 @@ export function PostsContainer({
   tFilterByTag: string;
   tAllTags: string;
   tNoTagsAvailable: string;
+  /** Whether another page of posts exists (cursor-based pagination). */
+  hasMore?: boolean;
+  /** `created_at` value of the last rendered row — used as cursor for next page. */
+  nextCursor?: string | null;
 }) {
   const [posts, setPosts] = useState(initialPosts);
   const [activePlatform, setActivePlatform] = useState("");
   const [activeStatus, setActiveStatus] = useState("");
   const [activeTag, setActiveTag] = useState("");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentCursor, setCurrentCursor] = useState(nextCursor ?? null);
   const t = useTranslations("posts");
 
   // Sync local state with server-provided initialPosts whenever the server
@@ -162,6 +171,23 @@ export function PostsContainer({
   const handleDeleted = useCallback((id: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== id));
   }, []);
+
+  // "Load more" handler — calls server action, appends posts to local state.
+  const handleLoadMore = useCallback(async () => {
+    if (!currentCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchMorePosts(currentCursor);
+      if (result.posts.length > 0) {
+        setPosts((prev) => [...prev, ...result.posts]);
+      }
+      setCurrentCursor(result.nextCursor ?? null);
+    } catch {
+      // Silently fail — user can retry by clicking again.
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [currentCursor, isLoadingMore]);
 
   return (
     <>
@@ -243,6 +269,28 @@ export function PostsContainer({
               tAi={tAi}
               onDeleted={handleDeleted}
             />
+
+            {/* Load More — cursor-based pagination (#4) */}
+            {currentCursor && (
+              <div className="flex justify-center pt-4">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  disabled={isLoadingMore}
+                  className="rounded-[20px] bg-card/40 border-white/5 backdrop-blur-md hover:bg-card/60"
+                  onClick={handleLoadMore}
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("loadingMore")}
+                    </>
+                  ) : (
+                    t("loadMore")
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

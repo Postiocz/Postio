@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTags } from "@/lib/actions/tag-actions";
-import type { PostStatus } from "@/lib/types";
+import { normalizePost, type NormalizedPost } from "./actions";
 import { PostsContainer } from "./_posts-container";
 
 // Force dynamic rendering on every navigation so the freshly-mutated
@@ -14,6 +14,22 @@ import { PostsContainer } from "./_posts-container";
 // path cache, but RSC payload caching is a separate layer that we
 // opt out of here.
 export const dynamic = "force-dynamic";
+
+/**
+ * Cursor-based pagination for the Posts page (#4).
+ *
+ * Uses keyset pagination on `created_at` descending — fetching PAGE_SIZE + 1
+ * rows to detect whether a "has more" page exists. The extra row becomes the
+ * next cursor value and is **not** rendered.
+ *
+ * Advantages over offset:
+ *   - No N+1 scan (Postgres jumps straight to the keyset position)
+ *   - No duplicate/missing rows when data changes between pages
+ *   - Constant-time seek regardless of depth
+ *
+ * "Load more" appends via a server action (fetchMorePosts) — no URL changes.
+ */
+const PAGE_SIZE = 20;
 
 export default async function PostsPage({
   params,
@@ -38,48 +54,30 @@ export default async function PostsPage({
   // Load user's internal tags for the tag filter dropdown
   const tagsResult = await getUserTags();
 
+  // Keyset pagination: fetch PAGE_SIZE + 1 to detect "has more"
   const { data: rawPosts, error: postsError } = await supabase
     .from("posts")
     .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(100); // protective cap — TODO: replace with cursor-based pagination (#4)
+    .limit(PAGE_SIZE + 1);
 
   if (postsError) {
     return <div className="text-muted-foreground">{t("errorDeleting")}</div>;
   }
 
-  const posts = rawPosts?.map(post => {
-    const postPlatforms = post.post_platforms || [];
-    postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
+  // Detect "has more" by fetching PAGE_SIZE + 1 rows. The extra row becomes
+  // the cursor for the next page and is NOT rendered.
+  const hasMore = (rawPosts?.length ?? 0) > PAGE_SIZE;
+  const pagedPosts = rawPosts?.slice(0, PAGE_SIZE) ?? [];
 
-    const statuses: PostStatus[] = postPlatforms.map((p: any) => p.status);
-    let computedStatus: PostStatus = "draft";
-    if (statuses.includes("failed")) computedStatus = "failed";
-    else if (statuses.includes("publishing")) computedStatus = "publishing";
-    else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
-    else if (statuses.includes("published")) computedStatus = "published";
-    else if (statuses.includes("scheduled")) computedStatus = "scheduled";
-    // `archived` only wins when ALL platforms are archived.
-    else if (statuses.length > 0 && statuses.every((s: PostStatus) => s === "archived")) {
-      computedStatus = "archived";
-    }
+  const posts: NormalizedPost[] = pagedPosts.map(normalizePost);
 
-    // Normalize post_tags → flat array of { id, name, color }.
-    // Supabase returns the join as [{ tags: { id, name, color } | null }].
-    type TagJoinRow = { tags: { id: string; name: string; color: string } | null };
-    const normalizedPostTags = ((post.post_tags ?? []) as TagJoinRow[])
-      .map((row) => row.tags)
-      .filter((t): t is { id: string; name: string; color: string } => t !== null);
-
-    return {
-      ...post,
-      status: computedStatus,
-      platforms: postPlatforms.map((p: any) => p.platform),
-      post_platforms: postPlatforms,
-      post_tags: normalizedPostTags,
-    };
-  }) || [];
+  // Cursor = created_at of the last rendered row (for next page).
+  const lastCursor: string | undefined =
+    pagedPosts.length >= PAGE_SIZE
+      ? pagedPosts[pagedPosts.length - 1]?.created_at
+      : undefined;
 
   return (
     <div className="relative space-y-8 max-w-3xl mx-auto">
@@ -89,21 +87,7 @@ export default async function PostsPage({
 
       <div className="relative">
         <PostsContainer
-          initialPosts={posts.map((post) => ({
-            id: post.id,
-            content: post.content,
-            status: post.status,
-            platforms: post.platforms ?? [],
-            post_platforms: post.post_platforms ?? [],
-            scheduled_at: post.scheduled_at,
-            created_at: post.created_at,
-            location: post.location ?? null,
-            tags: post.tags ?? [],
-            post_tags: post.post_tags ?? [],
-            media_urls: post.media_urls ?? [],
-            published_platforms: post.published_platforms ?? [],
-            external_ids: post.external_ids ?? null,
-          }))}
+          initialPosts={posts}
           locale={locale}
           postsCount={posts.length}
           tags={tagsResult.success && tagsResult.data ? tagsResult.data : []}
@@ -188,6 +172,8 @@ export default async function PostsPage({
             generateFromImage: tAi("generateFromImage"),
             aiNoImage: tAi("aiNoImage"),
           }}
+          hasMore={hasMore}
+          nextCursor={lastCursor}
         />
       </div>
     </div>

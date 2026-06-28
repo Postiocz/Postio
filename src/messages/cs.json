@@ -384,7 +384,9 @@
     "toastPermanentlyDeleted": "Příspěvek byl trvale smazán z aplikace.",
     "toastSmartDeleteError": "Nastala chyba při chytrém mazání.",
     "toastUnderstood": "Rozumím",
-    "toastLinkedInArchivedSingle": "LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu."
+    "toastLinkedInArchivedSingle": "LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.",
+    "loadMore": "Načíst více",
+    "loadingMore": "Načítám…"
   },
   "accounts": {
     "title": "Sociální účty",

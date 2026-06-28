@@ -383,7 +383,9 @@
     "toastPermanentlyDeleted": "Публікацію назавжди видалено з додатку.",
     "toastSmartDeleteError": "Сталася помилка під час розумного видалення.",
     "toastUnderstood": "Зрозуміло",
-    "toastLinkedInArchivedSingle": "LinkedIn залишається в Postio як архівований (сірий значок) – видаліть його вручну на LinkedIn."
+    "toastLinkedInArchivedSingle": "LinkedIn залишається в Postio як архівований (сірий значок) – видаліть його вручну на LinkedIn.",
+    "loadMore": "Завантажити ще",
+    "loadingMore": "Завантаження…"
   },
   "accounts": {
     "title": "Акаунти в соцмережах",

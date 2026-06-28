@@ -19,6 +19,7 @@
 | 11 | **border-radius `24px` → `20px`** | `2c6f0cb` | Konzistence s design systémem |
 | 6 | **Sync/cleanup → Vercel Cron** | `5cdcf88` | Žádný blocking server action při loadu stránky, cron každé 2h |
 | 14b | **Redukce props drilling (−14 props z PostCard)** | `5cdcf88` | PostCard používá useTranslations() místo 14 předávaných stringů |
+| 4 (správné) | **Cursor-based pagination** | TBD | Keyset paginace (20/page + "Load more"), server action fetchMorePosts, normalizace postů do sdílené funkce. Žádný URL change — čistý client-side append. |
 
 ---
 
@@ -26,13 +27,7 @@
 
 ### 🔴 Vysoká priorita
 
-#### #4 — Chybějící pagination v DB dotazu
-- **Soubor:** `src/app/[locale]/(dashboard)/posts/page.tsx`, řádek 43-47
-- **Problém:** `.select(...).eq("user_id", user.id).order("created_at", { ascending: false })` — žádné `.limit()`. Všechny příspěvky se fetchují najednou.
-- **Dopad:** Při stovkách příspěvků = velký payload, pomalý load, vysoká paměť na klientovi.
-- **Řešení (rychlé):** Přidat `.limit(100)` jako ochrannou brzdu.
-- **Řešení (správné):** Cursor-based pagination s `.range(from, to)` + "Load more" tlačítko v UI.
-- **Odhad:** 30 min (rychlý) / 2h (správný)
+*(vše hotovo)*
 
 ---
 
@@ -118,11 +113,10 @@
 
 | Pořadí | # | Co | Odhad | Priorita |
 |--------|---|----|-------|----------|
-| 1 | #9 | Sorting | 40 min | Nízká |
-| 2 | #12 | Media preview click → lightbox | 20 min | Nízká |
-| 3 | #13 | Expand/collapse text | 25 min | Nízká |
-| 4 | #7 | Server-side filtrování | 1h | Střední |
-| 5 | #4 (správné) | Cursor-based pagination | 2h | Vysoká |
-| 6 | #10 | Bulk akce | 2h | Nízká |
+| 1 | #7 | Server-side filtrování | 1h | Střední |
+| 2 | #9 | Sorting | 40 min | Nízká |
+| 3 | #12 | Media preview click → lightbox | 20 min | Nízká |
+| 4 | #13 | Expand/collapse text | 25 min | Nízká |
+| 5 | #10 | Bulk akce | 2h | Nízká |
 
-**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b = ✅ typová bezpečnost, cron, ochranný limit, vizuální konzistence, −133 řádků props drilling.
+**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more".

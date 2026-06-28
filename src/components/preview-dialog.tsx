@@ -344,6 +344,21 @@ function buildLiveUrl(platform: string, externalId: string | null): string | nul
     case "facebook":
       return `https://www.facebook.com/${externalId}`;
     case "instagram":
+      // external_id formats:
+      //   - "shortcode|media_id" (new posts) — extract shortcode for URL
+      //   - "shortcode" (if only shortcode was stored)
+      //   - "1234567890" (old posts — numeric media ID only)
+      const pipeIdx = externalId.indexOf("|");
+      if (pipeIdx > 0) {
+        // "shortcode|media_id" format
+        const shortcode = externalId.slice(0, pipeIdx);
+        return `https://www.instagram.com/p/${shortcode}/`;
+      }
+      if (/^\d+$/.test(externalId)) {
+        // Numeric media ID — no shortcode available
+        return `https://www.instagram.com/`;
+      }
+      // Plain shortcode
       return `https://www.instagram.com/p/${externalId}/`;
     case "linkedin":
       if (externalId.startsWith("urn:li:share:")) {

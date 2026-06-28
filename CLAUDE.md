@@ -162,45 +162,15 @@ Tato pravidla mají nejvyšší prioritu a musí být dodržována vždy:
    - Po dokončení každého kroku smaž staré výstupy z paměti pokračováním dál
    - Pokud přebíháš 40k tokenů: shrň stav do CHANGELOG.md a požádej o novou session
 
+7. **Git commit/push:**
+   - **Nikdy nedělám `git commit` ani `git push`** – uživatel si commit i push po kontrole změn vždy udělá sám.
+   - Výjimka: Pouze pokud mě uživatel explicitně požádá o commit/push.
+
 ## 🗂️ Budoucí úkoly čekající na trigger
 
 Tato sekce obsahuje úkoly, které **čekají na splnění určité podmínky (triggeru)**. Pravidlo: při každé session **aktivně zkontroluj**, zda některý trigger nebyl splněn. Pokud ano, implementuj příslušný úkol **automaticky bez dotazování** (v rámci pravidel kontinuální práce).
 
-### 🔄 Bod 4 – Breakdown v Analytice podle štítků (ČEKÁ NA TRIGGER)
-
-- **Trigger (přesná podmínka pro implementaci)**: Stránka `/[locale]/analytics` je plně implementovaná a funkční. Musí platit **VŠECHNY** tyto podmínky:
-  1. Soubor `src/app/[locale]/(dashboard)/analytics/page.tsx` existuje a není placeholder/empty state.
-  2. Zobrazuje alespoň **základní metriky**: celkový počet příspěvků, dosah, engagement podle platformy a podle časového období (7 dní / 30 dní / 90 dní / Vše).
-  3. V layoutu (sidebar/navigaci) je odkaz na analytiku aktivní (ne "coming soon").
-- **Postup detekce triggeru na začátku session**:
-  1. Přečti `src/app/[locale]/(dashboard)/analytics/page.tsx` a případně `src/lib/actions/analytics.ts`.
-  2. Ověř, že analytics zobrazuje reálná data, ne placeholder.
-  3. Pokud trigger splněn → pokračuj implementací níže.
-- **Co se má udělat (scope implementace)**:
-  - Přidat novou sekci/kartu **"Příspěvky podle štítků"** do analytics page, která zobrazuje breakdown příspěvků podle interních štítků.
-  - **Vizuál**: Horizontální bar chart – každý tag = jeden řádek s:
-    - Barevnou tečkou (10px kroužek) v barvě tagu z `tags.color`.
-    - Názvem tagu.
-    - Počtem příspěvků (absolutní číslo + % z celku).
-  - **Interakce**: Kliknutím na řádek otevře detail – kolik příspěvků daného tagu je v každém stavu (published/scheduled/draft/failed) a případně další breakdown podle platformy.
-  - **Filtrování**: Časový rozsah (7 dní / 30 dní / 90 dní / Vše) konzistentní s ostatními sekcemi analytiky (sdílený state/komponenta).
-  - **Top N**: Zobrazit top 10 tagů, ostatní agregovat do "Ostatní".
-- **Datový zdroj**:
-  - Agregace z `posts` (přes `user_id`) + `post_tags` (vazební tabulka) + `tags` (jméno a barva).
-  - Doporučený dotaz: `select tags(id, name, color), count:posts(id)` se seskupením na straně DB, NEBO klientská agregace v `useMemo` z již načtených dat.
-  - Žádné nové sloupce v DB nejsou potřeba – `post_tags` a `tags` tabulky již existují.
-- **Soubory k úpravě** (orientační):
-  - `src/app/[locale]/(dashboard)/analytics/page.tsx` – přidat novou sekci.
-  - `src/lib/actions/analytics.ts` (nebo nový) – agregační logika.
-  - `src/components/analytics/tag-breakdown.tsx` (nový) – vizuální komponenta.
-  - `src/messages/{cs,en,uk}.json` – překlady (sekce `analytics`).
-- **Styl**: Glassmorphism karta, `rounded-[20px]`, konzistentní s Postio designem (Pure Black pozadí, indigo/purple akcenty).
-- **Proč se to má udělat**: Uživatelé potřebují analyzovat, které kategorie obsahu (interní štítky) mají nejlepší/nejhorší výkonnost. Štítky jsou nyní plně používané (vytváření, přiřazování, filtrování) – analytický breakdown uzavírá celý use case.
-- **Po dokončení**:
-  1. Aktualizuj `CHANGELOG.md` (záznam o dokončení).
-  2. **Odeber tuto sekci** z CLAUDE.md a přesuň ji do historie "Dokončené postponed úkoly" níže.
-  3. Smaž starou verzi úkolu z "Co zůstává na další iteraci" v CHANGELOG záznamech, pokud se tam vyskytuje.
-
 ### 📜 Dokončené postponed úkoly (historie)
 
 - ✅ **Bod 1 – Filtry v Příspěvky/Kalendáři podle štítků** (2026-06-15) – Implementováno. Viz CHANGELOG.md sekce "Feature – Filtr podle interních štítků v Příspěvky/Kalendáři".
+- ✅ **Bod 4 – Breakdown v Analytice podle štítků** (2026-06-28) — Implementováno. Trigger splněn (analytics page plně funkční). Viz CHANGELOG.md sekce "Feat — Breakdown v Analytice podle štítků".

@@ -306,7 +306,29 @@ async function publishToInstagram(params: {
   const publishedId = getGraphResponseId(publishPayload);
 
   if (publishedId) {
-    console.log("🔥 IG PUBLISH SUCCESS, final external_id:", publishedId);
+    console.log("🔥 IG PUBLISH SUCCESS, media_id:", publishedId);
+
+    // Phase 3: Fetch the shortcode for the shareable URL.
+    // Instagram URLs use shortcodes like /p/CxYzABCDE/, not numeric IDs.
+    // We store as "shortcode|media_id" so we have both:
+    //   - shortcode → for buildLiveUrl (View on Instagram button)
+    //   - media_id  → for deleteFromMeta (Graph API DELETE needs it)
+    const shortcode = await fetchInstagramShortcode({
+      mediaId: publishedId,
+      igUserId,
+      accessToken,
+    });
+
+    if (shortcode) {
+      console.log("🔥 IG shortcode:", shortcode);
+      // Store as "shortcode|media_id" — buildLiveUrl extracts the shortcode,
+      // deleteFromMeta extracts the media_id.
+      return { success: true, externalId: `${shortcode}|${publishedId}` };
+    }
+
+    // Fallback: store just the numeric ID if shortcode fetch failed.
+    // buildLiveUrl and deleteFromMeta have fallbacks for this case.
+    console.warn("⚠️ IG shortcode fetch failed – storing media_id only:", publishedId);
     return { success: true, externalId: publishedId };
   }
 
@@ -315,6 +337,103 @@ async function publishToInstagram(params: {
   // for deletion via Graph API.
   console.warn("⚠️ IG publish returned no 'id' – falling back to creation_id:", creationId);
   return { success: true, externalId: creationId };
+}
+
+/**
+ * Fetch the Instagram shortcode from the Graph API after publishing.
+ *
+ * Instagram shortcodes are NOT derivable from the media ID — they are
+ * independent identifiers assigned by Instagram. The ONLY reliable way
+ * to get one is via the Graph API.
+ *
+ * Strategy: Query the IG user's recent media feed and find our post by
+ * matching its media_id, then extract the permalink which contains the
+ * shortcode (e.g. https://www.instagram.com/p/DaI93LjicoF/).
+ *
+ * GET /{ig-user-id}/media?user_id={ig-user-id}&fields=id,permalink&limit=5
+ */
+async function fetchInstagramShortcode(params: {
+  mediaId: string;
+  igUserId: string;
+  accessToken: string;
+}): Promise<string | null> {
+  try {
+    const url = `https://graph.facebook.com/v20.0/${encodeURIComponent(params.igUserId)}/media?user_id=${encodeURIComponent(params.igUserId)}&fields=id,permalink&limit=5&access_token=${encodeURIComponent(params.accessToken)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    const payload = await res.json().catch(() => ({}));
+    const errMsg = getGraphErrorMessage(payload);
+    if (errMsg) {
+      console.warn("[IG shortcode] Graph API error fetching user media:", errMsg);
+      return null;
+    }
+
+    const data = (payload as Record<string, unknown>).data as Record<string, unknown>[] | undefined;
+    if (!Array.isArray(data)) {
+      console.warn("[IG shortcode] No data array in response");
+      return null;
+    }
+
+    // Find the post matching our media_id
+    const match = data.find(
+      (item: Record<string, unknown>) => String(item.id) === params.mediaId
+    );
+
+    if (match?.permalink) {
+      const permalink = String(match.permalink);
+      const extracted = extractShortcodeFromPermalink(permalink);
+      if (extracted) {
+        console.log("[IG shortcode] Found in user media feed:", extracted, "from", permalink);
+        return extracted;
+      }
+    }
+
+    console.warn("[IG shortcode] Post not found in recent media or no permalink");
+    return null;
+  } catch (err) {
+    console.error("[IG shortcode] Network error:", err);
+    return null;
+  }
+}
+
+/**
+ * Extract the shortcode from an Instagram permalink URL.
+ * e.g. "https://www.instagram.com/p/DaI93LjicoF/" → "DaI93LjicoF"
+ *      "https://www.instagram.com/reel/DaI93LjicoF/" → "DaI93LjicoF"
+ */
+function extractShortcodeFromPermalink(permalink: string): string | null {
+  const match = permalink.match(/instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)/);
+  return match?.[2] ?? null;
+}
+
+/**
+ * Resolve an Instagram shortcode back to the numeric media ID.
+ * Needed for deletion — the Graph API DELETE endpoint requires the media ID,
+ * but we store the shortcode as external_id for URL building.
+ *
+ * Uses the Graph API FQL-style lookup: GET /?id=instagram://p/{shortcode}
+ */
+async function resolveInstagramMediaId(params: {
+  shortcode: string;
+  accessToken: string;
+}): Promise<string | null> {
+  try {
+    const igId = `instagram://p/${params.shortcode}`;
+    const url = `https://graph.facebook.com/v20.0/?id=${encodeURIComponent(igId)}&access_token=${encodeURIComponent(params.accessToken)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    const payload = await res.json().catch(() => ({}));
+    const data = (payload as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    if (!data || Object.keys(data).length === 0) {
+      console.warn("[IG resolve] No data returned for shortcode:", params.shortcode);
+      return null;
+    }
+    // Response format: { data: { "<media-id>": { ... } } }
+    const mediaId = Object.keys(data)[0];
+    console.log("[IG resolve] Resolved shortcode → media_id:", mediaId);
+    return mediaId ?? null;
+  } catch (err) {
+    console.error("[IG resolve] Network error:", err);
+    return null;
+  }
 }
 
 /**
@@ -1598,10 +1717,39 @@ export async function deleteFromMeta(input: {
   // --- Facebook / Instagram – standard Graph API path ---
   if (externalId) {
     const accessToken = accounts[0].access_token;
-    const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`;
+
+ // For Instagram: external_id formats:
+    //   - "shortcode|media_id" (new posts) — extract media_id after the pipe
+    //   - "1234567890" (old posts) — use directly as media_id
+    //   - "shortcode" (edge case) — resolve via Graph API
+    let deleteId = externalId;
+    if (input.platform === "instagram") {
+      const pipeIdx = externalId.indexOf("|");
+      if (pipeIdx > 0) {
+        // "shortcode|media_id" — use the media_id part directly
+        deleteId = externalId.slice(pipeIdx + 1);
+        console.log(`[IG delete] Extracted media_id from "${externalId}": ${deleteId}`);
+      } else if (!/^\d+$/.test(externalId)) {
+        // Plain shortcode — resolve via Graph API
+        console.log(`[IG delete] external_id je shortcode (${externalId}), resolvuji na media_id...`);
+        const resolvedMediaId = await resolveInstagramMediaId({
+          shortcode: externalId,
+          accessToken,
+        });
+        if (resolvedMediaId) {
+          deleteId = resolvedMediaId;
+          console.log(`[IG delete] Resolved shortcode → media_id: ${deleteId}`);
+        } else {
+          console.warn(`[IG delete] Nelze resolvovat shortcode ${externalId} na media_id. Zkousím přímo.`);
+        }
+      }
+      // If it's all digits, use as-is (old format — already a media_id)
+    }
+
+    const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(deleteId)}`;
 
     console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${input.platform}`);
-    console.log(`>>> POUŽITÉ ID: ${externalId}`);
+    console.log(`>>> POUŽITÉ ID: ${deleteId}`);
     console.log(`>>> POUŽITÝ TOKEN (last 10): ${accessToken.slice(-10)}`);
 
     try {
@@ -1651,9 +1799,63 @@ export async function deleteFromMeta(input: {
           return { success: true, cannotDeleteViaApi: true };
         } else {
           console.error(`>>> CHYBA při mazání na ${input.platform}: ${errMsg}`);
-          // API deletion not supported (e.g. Instagram) – do NOT mark as removed_externally.
-          // The post still exists on the platform. Only syncPublishedPosts (via GET check)
-          // should set removed_externally after confirming the post is truly gone.
+          // API deletion not supported (e.g. Instagram) – soft-archive the row
+          // so the user keeps a greyed-out icon as proof of past publication.
+          // The post still exists on the platform; the user must delete it manually.
+          if (input.platform === "instagram") {
+            const targetRow = (post.post_platforms || []).find(
+              (p: any) => p.platform === "instagram" && p.status === "published",
+            );
+
+            if (targetRow) {
+              const now = new Date().toISOString();
+              const { error: archiveError } = await supabase
+                .from("post_platforms")
+                .update({
+                  status: "archived",
+                  archived_at: now,
+                  archive_reason: "user_removed_manually",
+                  external_id: null,
+                })
+                .eq("id", targetRow.id);
+
+              if (archiveError) {
+                console.error(
+                  `[deleteFromMeta] Instagram archive failed for post ${input.postId}:`,
+                  archiveError,
+                );
+              } else {
+                // Keep `posts.status` in sync: if no other platform is still
+                // published, flip the parent row to `draft`.
+                const stillPublished = (post.post_platforms || []).some(
+                  (p: any) => p.platform !== "instagram" && p.status === "published",
+                );
+                if (!stillPublished) {
+                  await supabase
+                    .from("posts")
+                    .update({ status: "draft" })
+                    .eq("id", input.postId)
+                    .eq("user_id", user.id);
+                }
+
+                console.log(
+                  `[deleteFromMeta] Instagram row archived (no API DELETE) for post ${input.postId}`,
+                );
+              }
+            }
+
+            revalidateAllLocales("/calendar");
+            revalidateAllLocales("/posts");
+            revalidateAllLocales("/dashboard");
+
+            return {
+              success: true,
+              cannotDeleteViaApi: true,
+            };
+          }
+
+          // For other platforms (Facebook, etc.) that unexpectedly fail:
+          // do NOT mark as removed_externally. The post still exists on the platform.
           return { success: false, cannotDeleteViaApi: true, error: `Smazání z ${input.platform} přes API není podporováno. Smažte příspěvek ručně na platformě.` };
         }
       }

@@ -33,12 +33,7 @@
 
 ### 🟡 Střední priorita
 
-#### #7 — Client-side filtrování místo server-side
-- **Soubor:** `_posts-container.tsx`, řádek 159-176
-- **Problém:** Filtry (platforma, status, štítek) běží v `useMemo` na klientovi po stažení všech dat.
-- **Dopad:** U většího počtu příspěvků se stáhne vše a filtruje se lokálně.
-- **Řešení:** Při změně filtru udělat nový Supabase dotaz s `.eq()` / `.or()` conditions místo client-side filteru. Vyžaduje přepracování na server action nebo API route pro filtrované data.
-- **Odhad:** 1h
+*(vše hotovo — #7 dokončen 2026-06-28)*
 
 ---
 
@@ -90,4 +85,4 @@
 | 4 | #13 | Expand/collapse text | 25 min | Nízká |
 | 5 | #10 | Bulk akce | 2h | Nízká |
 
-**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more".
+**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection.

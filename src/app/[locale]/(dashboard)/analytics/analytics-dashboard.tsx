@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TagBreakdown, type TagBreakdownData } from "@/components/analytics/tag-breakdown";
+import { getTagBreakdown } from "./actions";
 
 type AnalyticsRecord = {
   id: string;
@@ -67,6 +69,24 @@ const customTooltipStyle: React.CSSProperties = {
 export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps) {
   const t = useTranslations("analytics");
   const [period, setPeriod] = useState<Period>("30");
+  const [tagData, setTagData] = useState<TagBreakdownData[]>([]);
+  const [tagTotal, setTagTotal] = useState(0);
+  const [tagLoading, setTagLoading] = useState(true);
+
+  // Fetch tag breakdown data — re-fetches when period changes
+  useEffect(() => {
+    let cancelled = false;
+    setTagLoading(true);
+    getTagBreakdown(parseInt(period)).then((result) => {
+      if (!cancelled && result.success && result.data) {
+        setTagData(result.data.tags);
+        setTagTotal(result.data.total);
+      }
+    }).finally(() => {
+      if (!cancelled) setTagLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [period]);
 
   const now = new Date();
 
@@ -476,6 +496,11 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
             ))}
           </div>
         )}
+      </div>
+
+      {/* Posts by Tag Breakdown */}
+      <div className="relative">
+        <TagBreakdown tags={tagData} total={tagTotal} isLoading={tagLoading} />
       </div>
     </div>
   );

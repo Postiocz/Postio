@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Trash2, Loader2 } from "lucide-react";
+import { Check, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { Instagram, Facebook, Linkedin, XIcon, Youtube, TikTok } from "@/components/ui/social-icons";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslations } from "next-intl";
 import type { PostPlatform } from "@/app/[locale]/(dashboard)/posts/_post-card";
 
 const PLATFORM_NAMES: Record<string, string> = {
@@ -56,6 +57,9 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
   const [deleteFromApp, setDeleteFromApp] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [livePlatforms, setLivePlatforms] = useState<string[]>([]);
+  // Confirmation overlay for platforms that can't be deleted via API
+  const [showApiWarning, setShowApiWarning] = useState(false);
+  const t = useTranslations("posts");
 
   // Derived initial platforms
   const initialPublishedPlatforms = (post.post_platforms || [])
@@ -96,6 +100,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
       setLivePlatforms(initialPublishedPlatforms);
       setSelectedPlatforms(initialPublishedPlatforms);
       setDeleteFromApp(true);
+      setShowApiWarning(false);
       refreshPostData(post.id);
     }
   }, [open, post.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -117,12 +122,27 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
     );
   };
 
+  // Platforms that cannot be deleted via API – need user confirmation first
+  const noApiPlatforms = ["instagram", "linkedin"] as const;
+  const selectedNoApiPlatforms = selectedPlatforms.filter(p => noApiPlatforms.includes(p as typeof noApiPlatforms[number]));
+
   const handleConfirm = () => {
+    if (showSelectiveDelete && selectedNoApiPlatforms.length > 0) {
+      // Show warning overlay before proceeding
+      setShowApiWarning(true);
+      return;
+    }
+
     if (showSelectiveDelete) {
       onConfirm(selectedPlatforms, deleteFromApp);
     } else {
       onConfirm([], true);
     }
+  };
+
+  const handleWarningConfirm = () => {
+    setShowApiWarning(false);
+    onConfirm(selectedPlatforms, deleteFromApp);
   };
 
   // Description copy is platform-aware so the user always knows what
@@ -190,9 +210,15 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                       {Icon && (
                         <Icon className="h-5 w-5 shrink-0 text-foreground/60" />
                       )}
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-foreground flex-1">
                         Smazat z {PLATFORM_NAMES[platform] || platform}
                       </span>
+                      {noApiPlatforms.includes(platform as typeof noApiPlatforms[number]) && selectedPlatforms.includes(platform) && (
+                        <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full shrink-0">
+                          <AlertTriangle className="h-3 w-3" />
+                          Ruční smazání
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -224,6 +250,53 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* API warning confirmation overlay – shown on top of the dialog content */}
+        {showApiWarning && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 rounded-[24px] backdrop-blur-[2px] p-6 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm rounded-2xl border border-amber-500/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-semibold text-foreground text-sm">{t("apiDeletionWarningTitle") || "Smazání přes API není podporováno"}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {selectedNoApiPlatforms.map(p => PLATFORM_NAMES[p] || p).join(", ")}
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-foreground/80 leading-relaxed">
+                {selectedNoApiPlatforms.map(p => {
+                  const name = (PLATFORM_NAMES[p] || p).charAt(0).toUpperCase() + (PLATFORM_NAMES[p] || p).slice(1);
+                  return t("toastApiNotSupported", { platform: name });
+                }).join(" ")}
+              </p>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-xl text-xs border-black/10 dark:border-white/10"
+                  onClick={() => setShowApiWarning(false)}
+                  disabled={isDeleting}
+                >
+                  {t("deleteDialogBack") || "Zpět"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="rounded-xl text-xs shadow-lg shadow-red-500/20"
+                  onClick={handleWarningConfirm}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Mažu…" : t("toastUnderstood") || "Rozumím, pokračovat"}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 

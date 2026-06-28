@@ -7,7 +7,7 @@ import { FileText, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { PostFiltersRow } from "@/components/post-filters-row";
 import { PostsList, PostListItem } from "./_post-card";
-import { fetchMorePosts } from "./actions";
+import { fetchMorePosts, fetchFilteredPosts } from "./actions";
 
 export function PostsContainer({
   initialPosts,
@@ -132,7 +132,10 @@ export function PostsContainer({
   const [activeStatus, setActiveStatus] = useState("");
   const [activeTag, setActiveTag] = useState("");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadingFilter, setIsLoadingFilter] = useState(false);
   const [currentCursor, setCurrentCursor] = useState(nextCursor ?? null);
+  /** Total count of posts matching the current filters (for "X z Y" header). */
+  const [filteredCount, setFilteredCount] = useState(postsCount);
   const t = useTranslations("posts");
 
   // Sync local state with server-provided initialPosts whenever the server
@@ -142,42 +145,72 @@ export function PostsContainer({
   // show stale data until the user manually reloads the page.
   useEffect(() => {
     setPosts(initialPosts);
-  }, [initialPosts]);
+    setFilteredCount(postsCount);
+  }, [initialPosts, postsCount]);
 
-  const handleFilterChange = useCallback((platform: string, status: string) => {
-    setActivePlatform(platform);
-    setActiveStatus(status);
-  }, []);
+  // Debounced server-side filter fetch. When any filter changes, we call
+  // fetchFilteredPosts() to get a fresh first page from the server instead
+  // of filtering the in-memory list locally.
+  const applyFilters = useCallback(
+    async (platform: string, status: string, tagId: string) => {
+      setIsLoadingFilter(true);
+      try {
+        const result = await fetchFilteredPosts({
+          platform: platform || undefined,
+          status: status || undefined,
+          tagId: tagId || undefined,
+        });
 
-  const { filteredPosts, hasActiveFilter } = useMemo(() => {
-    const hasActiveFilter = !!(activePlatform || activeStatus || activeTag);
-    const filteredPosts = posts.filter((post) => {
-      if (activePlatform) {
-        const postPlatforms = post.platforms || [];
-        if (!postPlatforms.includes(activePlatform)) return false;
+        setPosts(result.posts);
+        setCurrentCursor(result.nextCursor ?? null);
+        setFilteredCount(result.totalCount);
+      } catch {
+        // Silently fail — keep current posts as fallback.
+      } finally {
+        setIsLoadingFilter(false);
       }
-      if (activeStatus) {
-        if (post.status !== activeStatus) return false;
-      }
-      if (activeTag) {
-        const postTagIds = (post.post_tags ?? []).map((tag) => tag.id);
-        if (!postTagIds.includes(activeTag)) return false;
-      }
-      return true;
-    });
-    return { filteredPosts, hasActiveFilter };
-  }, [posts, activePlatform, activeStatus, activeTag]);
+    },
+    [],
+  );
+
+  const handleFilterChange = useCallback(
+    (platform: string, status: string) => {
+      setActivePlatform(platform);
+      setActiveStatus(status);
+      applyFilters(platform, status, activeTag);
+    },
+    [applyFilters, activeTag],
+  );
+
+  const handleTagChange = useCallback(
+    (tagId: string) => {
+      setActiveTag(tagId);
+      applyFilters(activePlatform, activeStatus, tagId);
+    },
+    [applyFilters, activePlatform, activeStatus],
+  );
+
+  const hasActiveFilter = useMemo(
+    () => !!(activePlatform || activeStatus || activeTag),
+    [activePlatform, activeStatus, activeTag],
+  );
 
   const handleDeleted = useCallback((id: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== id));
+    setFilteredCount((prev) => Math.max(0, prev - 1));
   }, []);
 
-  // "Load more" handler — calls server action, appends posts to local state.
+  // "Load more" handler — calls server action with current filters, appends posts.
   const handleLoadMore = useCallback(async () => {
     if (!currentCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const result = await fetchMorePosts(currentCursor);
+      const result = await fetchMorePosts(currentCursor, {
+        platform: activePlatform || undefined,
+        status: activeStatus || undefined,
+        tagId: activeTag || undefined,
+      });
+
       if (result.posts.length > 0) {
         setPosts((prev) => [...prev, ...result.posts]);
       }
@@ -187,7 +220,7 @@ export function PostsContainer({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [currentCursor, isLoadingMore]);
+  }, [currentCursor, isLoadingMore, activePlatform, activeStatus, activeTag]);
 
   return (
     <>
@@ -197,8 +230,8 @@ export function PostsContainer({
           <h1 className="text-2xl font-bold sm:text-3xl">{tTitle}</h1>
           <p className="mt-1 text-muted-foreground/60">
             {hasActiveFilter
-              ? t("filteredCount", { showing: filteredPosts.length, total: postsCount })
-              : `${postsCount} ${tTitle.toLowerCase()}`
+              ? t("filteredCount", { showing: posts.length, total: filteredCount })
+              : `${filteredCount} ${tTitle.toLowerCase()}`
             }
           </p>
         </div>
@@ -230,13 +263,20 @@ export function PostsContainer({
           tagLabel={tFilterByTag}
           allTagsLabel={tAllTags}
           noTagsLabel={tNoTagsAvailable}
-          onTagChange={setActiveTag}
+          onTagChange={handleTagChange}
         />
       </div>
 
+      {/* Loading overlay during filter change */}
+      {isLoadingFilter && (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+        </div>
+      )}
+
       {/* Posts List / Empty State */}
       <div className="mt-10 space-y-6">
-        {filteredPosts.length === 0 ? (
+        {!isLoadingFilter && posts.length === 0 ? (
           <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
             <div className="relative mb-6">
               <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-3xl" />
@@ -261,37 +301,39 @@ export function PostsContainer({
             )}
           </div>
         ) : (
-          <div className="space-y-6">
-            <PostsList
-              posts={filteredPosts}
-              locale={locale}
-              tLabels={tLabels}
-              tAi={tAi}
-              onDeleted={handleDeleted}
-            />
+          !isLoadingFilter && (
+            <div className="space-y-6">
+              <PostsList
+                posts={posts}
+                locale={locale}
+                tLabels={tLabels}
+                tAi={tAi}
+                onDeleted={handleDeleted}
+              />
 
-            {/* Load More — cursor-based pagination (#4) */}
-            {currentCursor && (
-              <div className="flex justify-center pt-4">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  disabled={isLoadingMore}
-                  className="rounded-[20px] bg-card/40 border-white/5 backdrop-blur-md hover:bg-card/60"
-                  onClick={handleLoadMore}
-                >
-                  {isLoadingMore ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {t("loadingMore")}
-                    </>
-                  ) : (
-                    t("loadMore")
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
+              {/* Load More — cursor-based pagination (#4) */}
+              {currentCursor && (
+                <div className="flex justify-center pt-4">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    disabled={isLoadingMore}
+                    className="rounded-[20px] bg-card/40 border-white/5 backdrop-blur-md hover:bg-card/60"
+                    onClick={handleLoadMore}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("loadingMore")}
+                      </>
+                    ) : (
+                      t("loadMore")
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )
         )}
       </div>
     </>

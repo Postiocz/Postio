@@ -202,24 +202,28 @@ export function PostCard({
         let cannotDeletePlatforms: string[] = [];
 
         // Delete from selected platforms. Per-platform behaviour:
-        // - Facebook / Instagram / YouTube – real API DELETE (or
-        //   "object not found" treated as success) + reset the row
-        //   to `status="draft"` in Postio.
-        // - LinkedIn – NO API call. `deleteFromMeta` updates the
-        //   LinkedIn row to `status="archived"` (with `external_id`
-        //   cleared) and returns `success: true, cannotDeleteViaApi: true`
-        //   so this loop counts it as "succeeded in Postio" but the
-        //   user still gets the "smazat ručně" reminder toast.
+        // - Facebook / YouTube – real API DELETE (or "object not found"
+        //   treated as success) + reset the row to `status="draft"` in Postio.
+        // - Instagram – NO API DELETE (Graph API doesn't support it).
+        //   `deleteFromMeta` archives the Instagram row to `status="archived"`
+        //   and returns `success: true, cannotDeleteViaApi: true`. The user
+        //   gets a "smazat ručně" reminder toast.
+        // - LinkedIn – NO API call. `deleteFromMeta` updates the LinkedIn row
+        //   to `status="archived"` (with `external_id` cleared) and returns
+        //   `success: true, cannotDeleteViaApi: true`.
         for (const platform of selectedPlatforms) {
           const result = await deleteFromMeta({ postId: post.id, platform });
-          if (result.success) {
+          if (result.success && result.cannotDeleteViaApi) {
+            // Platform was archived in Postio but NOT deleted via API
+            // (Instagram / LinkedIn flow). Count it AND show reminder toast.
+            deletedCount++;
+            cannotDeletePlatforms.push(platform);
+          } else if (result.success) {
+            // Platform was successfully deleted via API (Facebook / YouTube).
             deletedCount++;
           } else if (result.cannotDeleteViaApi) {
-            // LinkedIn short-circuits to `success: true, cannotDeleteViaApi: true`
-            // above, so this branch now only fires for Instagram
-            // (the only platform whose API call can fail with
-            // "API not supported" after we have an external_id). We
-            // keep the info-toast logic intact for Instagram.
+            // Unexpected: API not supported but also not archived.
+            // Still show the info toast so the user knows.
             cannotDeletePlatforms.push(platform);
           } else {
             // Unexpected error
@@ -227,43 +231,34 @@ export function PostCard({
           }
         }
 
-        // Show info toasts for platforms that couldn't be deleted via API.
-        // Kept intentionally short so the user can act quickly.
-        for (const platform of cannotDeletePlatforms) {
-          const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-          toast.info(
-            tv("toastApiNotSupported", { platform: platformName }, `${platformName} does not support deletion via API.`),
-            {
-              duration: 8000,
-              action: {
-                label: t("toastUnderstood"),
-                onClick: () => {}
-              }
-            }
-          );
-        }
+        // The user already saw the API-warning overlay in DeletePostDialog
+        // before confirming, so we don't repeat the info toast here.
+        // Just proceed to post-action toasts below.
 
         // Delete from Postio app if requested.
         //
-        // Special case: if LinkedIn is in `selectedPlatforms`, the
-        // post must NOT be hard-deleted from Postio. The whole point
-        // of the new flow is to keep the PostCard visible with a
-        // greyed-out LinkedIn icon – a permanent reminder that the
-        // post was once published on LinkedIn. `deleteFromMeta` has
-        // already flipped the LinkedIn row to `status="archived"`
-        // and cleared `external_id`, so the icon will render grey
-        // (no green check, no orange triangle, no red X).
-        if (deleteFromApp && selectedPlatforms.includes("linkedin")) {
+        // Special case: if LinkedIn or Instagram is in `selectedPlatforms`,
+        // the post must NOT be hard-deleted from Postio. The whole point of
+        // this flow is to keep the PostCard visible with a greyed-out icon –
+        // a permanent reminder that the post was once published on that
+        // platform. `deleteFromMeta` has already flipped those rows to
+        // `status="archived"` and cleared `external_id`, so the icons will
+        // render grey (no green check, no orange triangle, no red X).
+        const hasArchivedPlatform = selectedPlatforms.includes("linkedin") || selectedPlatforms.includes("instagram");
+        if (deleteFromApp && hasArchivedPlatform) {
           setDeleteOpen(false);
           router.refresh();
-          if (deletedCount > 0) {
+          if (cannotDeletePlatforms.length > 0) {
+            const platformsList = cannotDeletePlatforms
+              .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+              .join(", ");
             toast.success(
-             tv("toastLinkedInArchivedMulti", { count: deletedCount }, `Post was removed from ${deletedCount} platform(s).`),
+              tv("toastArchivedReminder", { platforms: platformsList }, `Post stays in Postio with greyed-out icons for {platforms} – delete manually on those platforms.`),
               { duration: 10000 },
             );
-          } else {
+          } else if (deletedCount > 0) {
             toast.success(
-              t("toastLinkedInArchivedSingle"),
+              tv("toastDeletedFromPlatforms", { count: deletedCount }, `Post was removed from ${deletedCount} platform(s).`),
               { duration: 10000 },
             );
           }

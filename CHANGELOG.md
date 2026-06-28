@@ -4885,3 +4885,4 @@ select cron.schedule(
  - Vercel Cron vypnut: odstraněn `vercel.json` a Next.js cron route (Vercel Hobby limity); spouštění řešeno přes Supabase Cron (pg_cron)
  - Fix deploy: `tsconfig.json` vylučuje `supabase/functions/**`, aby Next.js typecheck nepadal na Deno remote importe (esm.sh / npm:)
  - Fix: `middleware.ts` vyjímá `/icon` a `/apple-icon` z middleware matcheru, aby se favicon/ikony neredirectovaly na login
+ - ## Manuální synchronizace identity - Postiocz

@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTags } from "@/lib/actions/tag-actions";
-import { normalizePost, type NormalizedPost } from "./actions";
+import { normalizePost, type NormalizedPost } from "./normalize-post";
 import { PostsContainer } from "./_posts-container";
 
 // Force dynamic rendering on every navigation so the freshly-mutated

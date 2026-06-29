@@ -599,55 +599,63 @@ export function PostFiltersRow({
   ];
 
   return (
-    <div className="flex w-full flex-col gap-2 sm:w-fit sm:flex-row sm:max-w-[660px]">
-      <div className="flex-1 sm:flex-none sm:w-[210px]">
-        <FilterSelect
-          label={platformLabel}
-          icon={Share2}
-          value={platformValue}
-          defaultValue=""
-          options={platformOptions}
-          onChange={(v) => onChange(v, statusValue)}
-        />
-      </div>
-      <div className="flex-1 sm:flex-none sm:w-[210px]">
-        <FilterSelect
-          label={statusLabel}
-          icon={CheckCircle2}
-          value={statusValue}
-          defaultValue=""
-          options={statusOptions}
-          onChange={(v) => onChange(platformValue, v)}
-        />
-      </div>
-      {onTagChange ? (
+    <div className="w-full sm:w-fit">
+      {/* Row 1: Platform + Status */}
+      <div className="flex w-full flex-col gap-2 sm:flex-row">
         <div className="flex-1 sm:flex-none sm:w-[210px]">
-          <TagFilterSelect
-            label={tagLabel}
-            value={tagValue}
+          <FilterSelect
+            label={platformLabel}
+            icon={Share2}
+            value={platformValue}
             defaultValue=""
-            options={[
-              { value: "", label: allTagsLabel, color: "#6366F1" },
-              ...tagOptions.map((t) => ({
-                value: t.id,
-                label: t.name,
-                color: t.color,
-              })),
-            ]}
-            allTagsLabel={allTagsLabel}
-            noTagsLabel={noTagsLabel}
-            onChange={onTagChange}
+            options={platformOptions}
+            onChange={(v) => onChange(v, statusValue)}
           />
         </div>
-      ) : null}
-      {onSortChange && (
         <div className="flex-1 sm:flex-none sm:w-[210px]">
-          <SortSelect
-            label={sortLabel}
-            value={sortValue ?? "newest"}
-            options={sortOptions}
-            onChange={onSortChange}
+          <FilterSelect
+            label={statusLabel}
+            icon={CheckCircle2}
+            value={statusValue}
+            defaultValue=""
+            options={statusOptions}
+            onChange={(v) => onChange(platformValue, v)}
           />
+        </div>
+      </div>
+      {/* Row 2: Tag + Sort */}
+      {(onTagChange || onSortChange) && (
+        <div className="mt-2 flex w-full flex-col gap-2 sm:flex-row">
+          {onTagChange ? (
+            <div className="flex-1 sm:flex-none sm:w-[210px]">
+              <TagFilterSelect
+                label={tagLabel}
+                value={tagValue}
+                defaultValue=""
+                options={[
+                  { value: "", label: allTagsLabel, color: "#6366F1" },
+                  ...tagOptions.map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                    color: t.color,
+                  })),
+                ]}
+                allTagsLabel={allTagsLabel}
+                noTagsLabel={noTagsLabel}
+                onChange={onTagChange}
+              />
+            </div>
+          ) : null}
+          {onSortChange && (
+            <div className="flex-1 sm:flex-none sm:w-[210px]">
+              <SortSelect
+                label={sortLabel}
+                value={sortValue ?? "newest"}
+                options={sortOptions}
+                onChange={onSortChange}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

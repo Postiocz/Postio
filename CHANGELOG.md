@@ -23,6 +23,18 @@
   - `src/messages/cs.json` — 4 nové klíče v sekci `posts`
   - `src/messages/en.json` — 4 nové klíče v sekci `posts`
   - `src/messages/uk.json` — 4 nové klíče v sekci `posts`
+  - `src/components/post-filters-row.tsx` — **2řádkový layout filtrů** (Platforma+Stav / Štítek+Seřadit)
+
+### 🐛 Fix — Chybějící i18n klíč `posts.cancel` (en/uk) a špatný namespace sort klíčů
+
+- **Kontext**: Klíče `sortNewestFirst`, `sortOldestFirst`, `sortByPublishDate` byly omylem vloženy pod namespace `calendar` místo `posts`. Navíc `posts.cancel` chyběl v EN a UK lokalizacích.
+- **Opravy**:
+  1. Sort klíče přesunuty z `calendar` → `posts` ve všech 3 jazycích.
+  2. Přidaný chybějící `cancel` do `posts` v `en.json` a `uk.json`.
+  3. Odstraněny duplikáty z `calendar`.
+- **Upravené soubory**:
+  - `src/messages/en.json` — `cancel` v `posts`, sort klíče přesunuty
+  - `src/messages/uk.json` — `cancel` v `posts`, sort klíče přesunuty
 
 ## 2026-06-28
 

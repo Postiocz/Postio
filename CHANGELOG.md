@@ -3,80 +3,28 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-06-29
+
+### ✨ Feature — Sorting (setřídění příspěvků) (#9)
+
+- **Kontext**: Uživatel mohl filtrovat příspěvky podle platformy, stavu a štítku, ale nemohl je třídit.
+- **Novinky**:
+  1. **Třetí dropdown „Seřadit"** v řádku filtrů (`PostFiltersRow`) se 3 režimy:
+     - **Nejnovější první** — `created_at DESC` (výchozí)
+     - **Nejstarší první** — `created_at ASC`
+     - **Podle data publikování** — `scheduled_at DESC`
+  2. **Server-side sort** v DB dotazu (`fetchPostPage`) — dynamický `.order()` podle zvoleného režimu. Cursor pro „Load more" automaticky přepíná mezi `created_at` a `scheduled_at`.
+  3. **i18n** — klíče `sortBy`, `sortNewestFirst`, `sortOldestFirst`, `sortByPublishDate` ve všech třech lokalizacích (cs/en/uk).
+  4. **Typ `PostSortOption`** exportován z `actions.ts` pro typovou bezpečnost.
+- **Upravené soubory**:
+  - `src/components/post-filters-row.tsx` — nový `SortSelect` + `ListOrdered` ikona, props `sortValue`/`onSortChange`
+  - `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` — state `activeSort`, handler `handleSortChange`, integrace do `applyFilters`/`handleLoadMore`
+  - `src/app/[locale]/(dashboard)/posts/actions.ts` — `PostSortOption`, dynamický `.order()`, cursor podle sort sloupce
+  - `src/messages/cs.json` — 4 nové klíče v sekci `posts`
+  - `src/messages/en.json` — 4 nové klíče v sekci `posts`
+  - `src/messages/uk.json` — 4 nové klíče v sekci `posts`
+
 ## 2026-06-28
-
-### ✨ Feat — Instagram soft-archive s potvrzovacím overlay dialogem
-
-- **Kontext**: Instagram Graph API nepodporuje mazání publikovaných příspěvků přes API. Předtím se po kliknutí na „Potvrdit smazání" rovnou spustila archivace a až pak se objevil toast *„Instagram nepodporuje smazání přes API…"*. Uživatel nevěděl, co se stane, dokud to už nebylo hotovo.
-- **Opravy**:
-  1. **`deleteFromMeta` v `publish.ts`** — Instagram se chová stejně jako LinkedIn: místo chyby `{ success: false }` archivoval řádek na `status: "archived"`, vyčistil `external_id`, uložil `archived_at` + `archive_reason`. Pokud není žádná jiná platforma published → `posts.status = "draft"`. Vrací `{ success: true, cannotDeleteViaApi: true }`.
-  2. **`DeletePostDialog`** — nová stavová proměnná `showApiWarning`. Když je mezi vybranými platformami Instagram nebo LinkedIn a uživatel klikne „Potvrdit smazání", objeví se **overlay dialog** přes celý dialog s:
-     - ⚠️ Ikona varování + názvy platforem
-     - Hláška: *„Instagram nepodporuje smazání přes API. Smažte příspěvek ručně přímo na Instagram."*
-     - Tlačítko **„Zpět"** → návrat k úpravě výběru platforem
-     - Tlačítko **„Rozumím"** (destructive) → teprve teď proběhne archivace
-  3. **Badge „⚠️ Ruční smazání"** — u checkboxů Instagram/LinkedIn se zobrazuje žlutý badge jako vizuální nápověda, že daná platforma nepodporuje API mazání.
-  4. **`_post-card.tsx`** — odstraněn duplicitní `toast.info` loop po akci (uživatel už varování viděl předem v overlay dialogu). Zůstává pouze krátký `toast.success` s potvrzením archivace.
-  5. **Logika loopu v `handleDeleteConfirm`** — rozlišení tří případů: `success && cannotDeleteViaApi` (Instagram/LinkedIn archivováni), `success` (API delete – Facebook/YouTube), `cannotDeleteViaApi` bez success (neočekávaný stav).
-- **Nové i18n klíče** (cs/en/uk) v sekci `posts`:
-  - `apiDeletionWarningTitle` — „Smazání přes API není podporováno" / "API deletion is not supported" / "Видалення через API не підтримується"
-  - `deleteDialogBack` — „Zpět" / "Go back" / "Назад"
-- **Upravené soubory**:
-  - `src/lib/actions/publish.ts` — Instagram soft-archive v `deleteFromMeta`
-  - `src/components/dashboard/delete-post-dialog.tsx` – overlay dialog, badge, confirm flow
-  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` – update loop logic, removed duplicate toast
-  - `src/messages/cs.json`, `en.json`, `uk.json` – nové i18n klíče
-- **Build**: `npx tsc --noEmit` 0 chyb ✅
-
-### 🐛 Fix — Instagram "Zobrazit na síti" otevírá konkrétní příspěvek
-
-- **Problém**: Tlačítko "Zobrazit na síti" pro Instagram přesměrovalo na `https://www.instagram.com/p/18094429262581422/` (numerické media ID místo shortcode), což vedlo na neplatnou stránku.
-- **Příčina**: Po publish se ukládalo pouze numerické media ID z Graph API (`external_id`). Instagram URL vyžadují shortcode (např. `DaI93LjicoF`), který nelze z media ID odvodit — je to nezávislý identifikátor.
-- **Oprava**:
-  1. **Po publish** — nový krok: `GET /{ig-user-id}/media?fields=id,permalink&limit=5` vyhledá čerstvý příspěvek v feedu a extrahuje shortcode z `permalink` URL.
-  2. **Ukládání** — `external_id` nyní ve formátu `shortcode|media_id` (např. `DaI93LjicoF|18094429262581422`). Shortcode pro URL, media_id pro mazání přes Graph API DELETE.
-  3. **buildLiveUrl** — parsuje formát `shortcode|media_id` a generuje správné `https://www.instagram.com/p/{shortcode}/`. Staré příspěvky s čistým numerickým ID mají fallback na hlavní stránku IG.
-  4. **deleteFromMeta** — extrahuje `media_id` z části za `|` pro mazání přes Graph API bez nutnosti dalšího resolve volání.
-- **Upravené soubory**:
-  - `src/lib/actions/publish.ts` — +`fetchInstagramShortcode()`, +`extractShortcodeFromPermalink()`, +`resolveInstagramMediaId()`, úprava publish flow a delete logic
-  - `src/components/preview-dialog.tsx` — `buildLiveUrl()` parsuje `shortcode|media_id` formát
-
-### ✨ Feat — Server-side filtrování příspěvků (#7)
-
-- **Kontext**: Filtry (platforma, status, štítek) běžely v `useMemo` na klientovi po stažení všech dat. U většího počtu příspěvků se stáhlo vše a filtrovalo lokálně — nefungovalo to správně s cursor pagination (filtrovaly se jen načtené posty, ne celá DB).
-- **Opravy**:
-  1. **Nový server action `fetchFilteredPosts(filters?)`** — fetchuje první stránku s aplikovanými filtry přímo v Supabase dotazu. Vrací `posts`, `hasMore`, `nextCursor`, `totalCount`.
-  2. **Rozšířený `fetchMorePosts(cursor, filters?)`** — "Load more" nyní respektuje aktivní filtry (předával se jen cursor).
-  3. **Interní funkce `getFilteredPostIds()`** — řeší dvoustupňový přístup: nejprve subquery na `post_platforms` (pro platform + status) a `post_tags` (pro tag), pak `.in("id", [...])` na hlavní dotaz. Více filtrů = průnik sad ID.
-  4. **Interní funkce `fetchPostPage()`** — shared implementace pro obě server actiony, včetně count query pro "X z Y" header.
-  5. **`PostsContainer` přepracován** — místo `useMemo` client-side filtru volá `fetchFilteredPosts()` při změně jakéhokoliv filtru. Přidán loading state (`isLoadingFilter`) s spinnerem během server fetch.
-  6. **"Load more" předává filtry** — cursor pagination nyní funguje správně i s aktivními filtry (načítá další stránku pouze z filtrované množiny).
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/posts/actions.ts` — kompletní přepsání, +`fetchFilteredPosts`, +`PostFilters` interface
-  - `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` — server-side filter calls, loading state, handleTagChange callback
-- **Build**: `npx tsc --noEmit` 0 chyb ✅, `npm run build` úspěšný ✅
-
-### ✨ Feat — Breakdown v Analytice podle štítků (Bod 4 z CLAUDE.md trigger)
-
-- **Kontext**: Trigger splněn — analytics page je plně funkční (metriky, grafy, časová období, top příspěvky). Uživatelé potřebovali vidět, které kategorie obsahu (interní štítky) mají nejlepší/nejhorší výkonnost.
-- **Implementace**:
-  1. **Nový server action `getTagBreakdown(days?)`** v `analytics/actions.ts` — agreguje příspěvky podle tagů s:
-     - Počtem přiřazení + procentem z celku
-     - Status breakdown (published/draft/scheduled/failed...)
-     - Platform breakdown (instagram/facebook/linkedin...)
-     - Top 10 tagů, ostatní agregovány do "Other"
-  2. **Nová komponenta `TagBreakdown`** v `src/components/analytics/tag-breakdown.tsx`:
-     - Horizontální bar chart — každý tag = řádek s barevnou tečkou, jménem, počtem + %
-     - Kliknutí na řádek otevře detail dialog se status + platform breakdown
-     - Loading state (spinner) + empty state s ikonou
-  3. **Integrace do `AnalyticsDashboard`** — tag breakdown sekce pod "Top Performing Posts", reaguje na změnu časového období (7/30/90 dní)
-  4. **Překlady** (cs/en/uk) — 10 nových klíčů v sekci `analytics`
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/analytics/actions.ts` — +`getTagBreakdown`
-  - `src/components/analytics/tag-breakdown.tsx` — nový soubor
-  - `src/app/[locale]/(dashboard)/analytics/analytics-dashboard.tsx` — integrace TagBreakdown
-  - `src/messages/cs.json`, `en.json`, `uk.json` — překlady
-- **Build**: `npx tsc --noEmit` 0 chyb ✅, `npm run build` úspěšný ✅
 
 ### 🐛 Fix – Chybějící i18n klíče `posts.youtube`, `posts.tiktok` a `posts.toast*`
 
@@ -4958,4 +4906,4 @@ select cron.schedule(
  - Vercel Cron vypnut: odstraněn `vercel.json` a Next.js cron route (Vercel Hobby limity); spouštění řešeno přes Supabase Cron (pg_cron)
  - Fix deploy: `tsconfig.json` vylučuje `supabase/functions/**`, aby Next.js typecheck nepadal na Deno remote importe (esm.sh / npm:)
  - Fix: `middleware.ts` vyjímá `/icon` a `/apple-icon` z middleware matcheru, aby se favicon/ikony neredirectovaly na login
- - ## Manuální synchronizace identity - Postiocz
+ - ## Manuální synchronizace identity - Postioczgit add .

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, ChevronDown, Share2, Tag as TagIcon, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, ListOrdered, Share2, Tag as TagIcon, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -384,10 +384,143 @@ function TagFilterSelect({
   );
 }
 
+export type SortOption = "newest" | "oldest" | "publishDate";
+
+function SortSelect({
+  value,
+  label,
+  options,
+  onChange,
+}: {
+  value: SortOption;
+  label: string;
+  options: FilterOption[];
+  onChange: (value: SortOption) => void;
+}) {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = React.useState(false);
+  const isActive = value !== "newest";
+  const selectedLabel =
+    options.find((o) => o.value === value)?.label ?? label;
+
+  const triggerEl = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={isMobile ? () => setOpen(true) : undefined}
+      onKeyDown={
+        isMobile
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              setOpen(true);
+            }
+          : undefined
+      }
+      className={cn(
+        "flex w-full items-center gap-2 rounded-xl border px-3 transition-all outline-none bg-white/80 dark:bg-card/40 backdrop-blur-md border-black/[0.08] dark:border-white/[0.06] hover:border-indigo-500/30 dark:hover:border-indigo-500/30 focus-visible:ring-2 focus-visible:ring-indigo-500/20 h-10 sm:h-9 text-[13px] sm:text-[12px]",
+        isActive &&
+          "border-indigo-500/40 bg-indigo-500/10 dark:bg-indigo-500/10"
+      )}
+    >
+      <ListOrdered
+        className={cn(
+          "h-4 w-4 shrink-0",
+          isActive ? "text-indigo-500" : "text-muted-foreground/70"
+        )}
+      />
+
+      <span className="min-w-0 truncate">
+        <span className="text-muted-foreground/70">
+          {label}{" "}
+          <span className="text-muted-foreground/40">•</span>{" "}
+        </span>
+        <span className={cn(isActive && "text-indigo-700 dark:text-indigo-300")}>
+          {selectedLabel}
+        </span>
+      </span>
+
+      <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        {triggerEl}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent
+            className="top-auto bottom-0 left-0 right-0 w-full max-w-none translate-x-0 translate-y-0 rounded-t-[20px] rounded-b-none p-0"
+            showCloseButton={false}
+          >
+            <DialogHeader className="px-4 pt-4">
+              <DialogTitle className="flex items-center gap-2">
+                <ListOrdered className="h-4 w-4 text-indigo-500" />
+                {label}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="px-2 pb-4 pt-2">
+              <div className="max-h-[60vh] overflow-y-auto rounded-[20px] border border-black/5 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
+                {options.map((opt) => {
+                  const selected = opt.value === value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        onChange(opt.value as SortOption);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors",
+                        selected
+                          ? "bg-indigo-500/10 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-300"
+                          : "hover:bg-black/5 dark:hover:bg-white/[0.06]"
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                      {selected && <CheckCircle2 className="h-4 w-4 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>{triggerEl}</DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={8}
+        className="w-[--radix-dropdown-menu-trigger-width] p-2 rounded-[20px] border border-black/5 dark:border-white/10 bg-white/90 dark:bg-black/90 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-slate-900 dark:text-white"
+      >
+        <DropdownMenuRadioGroup value={value} onValueChange={(v) => onChange(v as SortOption)}>
+          {options.map((opt) => (
+            <DropdownMenuRadioItem
+              key={opt.value}
+              value={opt.value}
+              className="rounded-xl cursor-pointer"
+            >
+              {opt.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function PostFiltersRow({
   platformValue,
   statusValue,
+  sortValue,
   onChange,
+  onSortChange,
   allPlatformsLabel,
   allStatusLabel,
   statusDraftLabel,
@@ -398,16 +531,22 @@ export function PostFiltersRow({
   statusArchivedLabel,
   platformLabel = "Platforma",
   statusLabel = "Stav",
+  sortLabel = "Seřadit",
   tagValue = "",
   tagOptions = [],
   tagLabel = "Štítek",
   allTagsLabel = "Všechny štítky",
   noTagsLabel = "Zatím nemáte žádné štítky.",
   onTagChange,
+  tSortNewestFirst = "Nejnovější první",
+  tSortOldestFirst = "Nejstarší první",
+  tSortByPublishDate = "Podle data publikování",
 }: {
   platformValue: string;
   statusValue: string;
+  sortValue?: SortOption;
   onChange: (platform: string, status: string) => void;
+  onSortChange?: (sort: SortOption) => void;
   allPlatformsLabel: string;
   allStatusLabel: string;
   statusDraftLabel: string;
@@ -418,12 +557,16 @@ export function PostFiltersRow({
   statusArchivedLabel?: string;
   platformLabel?: string;
   statusLabel?: string;
+  sortLabel?: string;
   tagValue?: string;
   tagOptions?: UserTagOption[];
   tagLabel?: string;
   allTagsLabel?: string;
   noTagsLabel?: string;
   onTagChange?: (tag: string) => void;
+  tSortNewestFirst?: string;
+  tSortOldestFirst?: string;
+  tSortByPublishDate?: string;
 }) {
   const platformOptions: FilterOption[] = [
     { value: "", label: allPlatformsLabel || "Všechny platformy" },
@@ -447,6 +590,12 @@ export function PostFiltersRow({
     ...(statusArchivedLabel
       ? [{ value: "archived", label: statusArchivedLabel }]
       : []),
+  ];
+
+  const sortOptions: FilterOption[] = [
+    { value: "newest", label: tSortNewestFirst ?? "Nejnovější první" },
+    { value: "oldest", label: tSortOldestFirst ?? "Nejstarší první" },
+    { value: "publishDate", label: tSortByPublishDate ?? "Podle data publikování" },
   ];
 
   return (
@@ -491,6 +640,16 @@ export function PostFiltersRow({
           />
         </div>
       ) : null}
+      {onSortChange && (
+        <div className="flex-1 sm:flex-none sm:w-[210px]">
+          <SortSelect
+            label={sortLabel}
+            value={sortValue ?? "newest"}
+            options={sortOptions}
+            onChange={onSortChange}
+          />
+        </div>
+      )}
     </div>
   );
 }

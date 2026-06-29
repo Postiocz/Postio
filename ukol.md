@@ -1,7 +1,7 @@
 # 📋 Úkoly — Stránka "Příspěvky" (Posts)
 
 > Vytvořeno: 2026-06-27  
-> Poslední aktualizace: 2026-06-28 (relace 3)  
+> Poslední aktualizace: 2026-06-29 (relace 4)  
 > Status auditu: [originální audit z konverzace]
 
 ---
@@ -20,6 +20,7 @@
 | 6 | **Sync/cleanup → Vercel Cron** | `5cdcf88` | Žádný blocking server action při loadu stránky, cron každé 2h |
 | 14b | **Redukce props drilling (−14 props z PostCard)** | `5cdcf88` | PostCard používá useTranslations() místo 14 předávaných stringů |
 | 4 (správné) | **Cursor-based pagination** | `6f51594` + `e087798` | Keyset paginace (20/page + "Load more"), server action fetchMorePosts, normalizace postů do sdílené funkce. Žádný URL change — čistý client-side append. Split normalizePost z actions.ts kvůli "use server" constraintu. |
+| 9 | **Sorting (setřídění)** | TBD | Dropdown se 3 režimy: nejnovější první, nejstarší první, podle data publikování. Server-side order v DB dotazu, cursor respektuje sort sloupec (created_at / scheduled_at). i18n pro CS/EN/UK. |
 
 ---
 
@@ -38,11 +39,6 @@
 ---
 
 ### 🟢 Nízká priorita — UX vylepšení
-
-#### #9 — Žádné setřídění (sorting)
-- **Problém:** Uživatel může filtrovat, ale nemůže třídit ("nejnovější první", "nejstarší první", "podle data publikování").
-- **Řešení:** Přidat dropdown/select pro sort order do `PostFiltersRow`. Předat sort param do DB dotazu (`.order("created_at", { ascending: true/false })`).
-- **Odhad:** 40 min
 
 #### #10 — Bulk akce chybí
 - **Problém:** Uživatel nemůže vybrat více příspěvků a smazat/republishnout je najednou.
@@ -79,10 +75,8 @@
 
 | Pořadí | # | Co | Odhad | Priorita |
 |--------|---|----|-------|----------|
-| 1 | #7 | Server-side filtrování | 1h | Střední |
-| 2 | #9 | Sorting | 40 min | Nízká |
-| 3 | #12 | Media preview click → lightbox | 20 min | Nízká |
-| 4 | #13 | Expand/collapse text | 25 min | Nízká |
-| 5 | #10 | Bulk akce | 2h | Nízká |
+| 1 | #12 | Media preview click → lightbox | 20 min | Nízká |
+| 2 | #13 | Expand/collapse text | 25 min | Nízká |
+| 3 | #10 | Bulk akce | 2h | Nízká |
 
-**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection.
+**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** + **#9 (sorting)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection, **setřídění (3 režimy) s dynamickým cursor**.

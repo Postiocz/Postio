@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
-import { PostFiltersRow } from "@/components/post-filters-row";
+import { PostFiltersRow, type SortOption } from "@/components/post-filters-row";
 import { PostsList, PostListItem } from "./_post-card";
 import { fetchMorePosts, fetchFilteredPosts } from "./actions";
 
@@ -131,6 +131,7 @@ export function PostsContainer({
   const [activePlatform, setActivePlatform] = useState("");
   const [activeStatus, setActiveStatus] = useState("");
   const [activeTag, setActiveTag] = useState("");
+  const [activeSort, setActiveSort] = useState<SortOption>("newest");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadingFilter, setIsLoadingFilter] = useState(false);
   const [currentCursor, setCurrentCursor] = useState(nextCursor ?? null);
@@ -152,13 +153,14 @@ export function PostsContainer({
   // fetchFilteredPosts() to get a fresh first page from the server instead
   // of filtering the in-memory list locally.
   const applyFilters = useCallback(
-    async (platform: string, status: string, tagId: string) => {
+    async (platform: string, status: string, tagId: string, sort: SortOption) => {
       setIsLoadingFilter(true);
       try {
         const result = await fetchFilteredPosts({
           platform: platform || undefined,
           status: status || undefined,
           tagId: tagId || undefined,
+          sort,
         });
 
         setPosts(result.posts);
@@ -177,17 +179,25 @@ export function PostsContainer({
     (platform: string, status: string) => {
       setActivePlatform(platform);
       setActiveStatus(status);
-      applyFilters(platform, status, activeTag);
+      applyFilters(platform, status, activeTag, activeSort);
     },
-    [applyFilters, activeTag],
+    [applyFilters, activeTag, activeSort],
   );
 
   const handleTagChange = useCallback(
     (tagId: string) => {
       setActiveTag(tagId);
-      applyFilters(activePlatform, activeStatus, tagId);
+      applyFilters(activePlatform, activeStatus, tagId, activeSort);
     },
-    [applyFilters, activePlatform, activeStatus],
+    [applyFilters, activePlatform, activeStatus, activeSort],
+  );
+
+  const handleSortChange = useCallback(
+    (sort: SortOption) => {
+      setActiveSort(sort);
+      applyFilters(activePlatform, activeStatus, activeTag, sort);
+    },
+    [applyFilters, activePlatform, activeStatus, activeTag],
   );
 
   const hasActiveFilter = useMemo(
@@ -209,6 +219,7 @@ export function PostsContainer({
         platform: activePlatform || undefined,
         status: activeStatus || undefined,
         tagId: activeTag || undefined,
+        sort: activeSort,
       });
 
       if (result.posts.length > 0) {
@@ -220,7 +231,7 @@ export function PostsContainer({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [currentCursor, isLoadingMore, activePlatform, activeStatus, activeTag]);
+  }, [currentCursor, isLoadingMore, activePlatform, activeStatus, activeTag, activeSort]);
 
   return (
     <>
@@ -249,7 +260,9 @@ export function PostsContainer({
         <PostFiltersRow
           platformValue={activePlatform}
           statusValue={activeStatus}
+          sortValue={activeSort}
           onChange={handleFilterChange}
+          onSortChange={handleSortChange}
           allPlatformsLabel={tAllPlatforms}
           allStatusLabel={tFilterAll}
           statusDraftLabel={tStatusDraft}
@@ -264,6 +277,9 @@ export function PostsContainer({
           allTagsLabel={tAllTags}
           noTagsLabel={tNoTagsAvailable}
           onTagChange={handleTagChange}
+          tSortNewestFirst={t("sortNewestFirst")}
+          tSortOldestFirst={t("sortOldestFirst")}
+          tSortByPublishDate={t("sortByPublishDate")}
         />
       </div>
 

@@ -6,6 +6,14 @@ import { normalizePost, type NormalizedPost } from "./normalize-post";
 const PAGE_SIZE = 20;
 
 /**
+ * Sort options for the posts list (#9).
+ * - "newest" — created_at DESC (default)
+ * - "oldest" — created_at ASC
+ * - "publishDate" — scheduled_at DESC NULLS last
+ */
+export type PostSortOption = "newest" | "oldest" | "publishDate";
+
+/**
  * Shared filter params for both initial fetch and "Load more".
  * Empty string means "no filter" (all values).
  */
@@ -13,6 +21,7 @@ export interface PostFilters {
   platform?: string; // e.g. "instagram", "facebook", ""
   status?: string;   // e.g. "draft", "published", ""
   tagId?: string;    // tag UUID, "" = no filter
+  sort?: PostSortOption; // sorting order (default: "newest")
 }
 
 /**
@@ -110,15 +119,33 @@ async function fetchPostPage(
   // Resolve filtered post_ids (may be undefined = no filter)
   const filteredIds = await getFilteredPostIds(supabase, userId, filters);
 
+  // Determine sort column and direction (#9)
+  const sort = filters?.sort ?? "newest";
+  let orderBy: string = "created_at";
+  let orderAsc = false; // default = DESC (newest first)
+
+  if (sort === "oldest") {
+    orderBy = "created_at";
+    orderAsc = true;
+  } else if (sort === "publishDate") {
+    orderBy = "scheduled_at";
+    orderAsc = false; // most recent publish date first
+  }
+
   let query = supabase
     .from("posts")
     .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .order(orderBy, { ascending: orderAsc });
 
-  // Apply cursor (for "Load more")
+  // Apply cursor (for "Load more").
+  // When sorting by publishDate, cursor compares against scheduled_at.
   if (cursor) {
-    query = query.gt("created_at", cursor);
+    if (sort === "publishDate") {
+      query = query.gt("scheduled_at", cursor);
+    } else {
+      query = query.gt("created_at", cursor);
+    }
   }
 
   // Apply ID filter (intersection of platform + status + tag)
@@ -160,8 +187,8 @@ async function fetchPostPage(
  * Server action for cursor-based pagination ("Load more" button).
  * Returns the next page of posts appended as NormalizedPost[] plus metadata.
  *
- * @param cursor - `created_at` of the last visible row
- * @param filters - optional server-side filters (platform, status, tag)
+ * @param cursor - sort column value of the last visible row (created_at or scheduled_at)
+ * @param filters - optional server-side filters (platform, status, tag, sort)
  */
 export async function fetchMorePosts(
   cursor: string,
@@ -194,9 +221,12 @@ export async function fetchMorePosts(
 
   const normalized = pagedPosts.map(normalizePost);
 
+  // Cursor column depends on active sort (#9)
+  const sort = filters?.sort ?? "newest";
+  const cursorField = sort === "publishDate" ? "scheduled_at" : "created_at";
   const nextCursor =
     pagedPosts.length >= PAGE_SIZE
-      ? pagedPosts[pagedPosts.length - 1]?.created_at ?? null
+      ? (pagedPosts[pagedPosts.length - 1]?.[cursorField] as string | undefined) ?? null
       : null;
 
   return { posts: normalized, hasMore, nextCursor };
@@ -241,9 +271,12 @@ export async function fetchFilteredPosts(
 
   const normalized = pagedPosts.map(normalizePost);
 
+  // Cursor column depends on active sort (#9)
+  const sort = filters?.sort ?? "newest";
+  const cursorField = sort === "publishDate" ? "scheduled_at" : "created_at";
   const nextCursor =
     pagedPosts.length >= PAGE_SIZE
-      ? pagedPosts[pagedPosts.length - 1]?.created_at ?? null
+      ? (pagedPosts[pagedPosts.length - 1]?.[cursorField] as string | undefined) ?? null
       : null;
 
   return { posts: normalized, hasMore, nextCursor, totalCount };

@@ -1,2 +1,0 @@
-@echo off
-wt -w 0 new-tab --title "Claude Code - Mistral" wsl -e bash -c "export ANTHROPIC_BASE_URL=https://router.bynara.id/v1 && export ANTHROPIC_DEFAULT_OPUS_MODEL=mistral-large && export ANTHROPIC_DEFAULT_SONNET_MODEL=mistral-large && export ANTHROPIC_DEFAULT_HAIKU_MODEL=mistral-large && cd /mnt/c/VS_Code/Postio && claude"

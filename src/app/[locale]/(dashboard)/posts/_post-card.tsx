@@ -183,6 +183,8 @@ export function PostCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
+  // #13 — Content expand/collapse state
+  const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
   const t = useTranslations("posts");
   // next-intl's parameterized t() can return undefined; this helper always returns string
@@ -541,9 +543,26 @@ export function PostCard({
             </Badge>
           </div>
 
-          {/* Post content – text with line clamp */}
-          <div className="text-base text-foreground/90 whitespace-pre-line leading-relaxed line-clamp-3 mb-3">
-            {post.content}
+          {/* Post content – text with line clamp and expand/collapse (#13) */}
+          <div className="mb-3">
+            <div
+              className={cn(
+                "text-base text-foreground/90 whitespace-pre-line leading-relaxed",
+                isExpanded ? "" : "line-clamp-3"
+              )}
+            >
+              {post.content}
+            </div>
+            {/* Show expand/collapse button only if content is long enough to be clamped */}
+            {post.content.split("\n").length > 3 || post.content.length > 180 ? (
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="mt-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium transition-colors"
+              >
+                {isExpanded ? tv("showLess", {}, "Zobrazit méně") : tv("showMore", {}, "Zobrazit více")}
+              </button>
+            ) : null}
           </div>
 
           {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}

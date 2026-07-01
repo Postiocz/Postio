@@ -5,6 +5,20 @@
 
 ## 2026-07-01
 
+### ✨ Feature — Content expand/collapse v PostCard (#13)
+
+- **Kontext**: Dlouhé příspěvky byly oříznuty na 3 řádky (`line-clamp-3`) bez možnosti zobrazit celý obsah. Uživatel musel otevřít Edit/Preview dialog, aby viděl kompletní text.
+- **Řešení**: Přidán expand/collapse stav přímo na PostCard s tlačítkem „Zobrazit více" / „Zobrazit méně".
+  1. **State `isExpanded`** — lokální stav v `PostCard`, resetuje se při změně filtrů/stránkování (při remountování karty).
+  2. **Podmíněné zobrazení tlačítka** — zobrazuje se pouze když obsah překračuje 3 řádky NEBO je delší než 180 znaků (heuristika pro delší řádky bez zalomení).
+  3. **Plynulý přechod** — při expandování se odstraní `line-clamp-3`, obsah se rozbalí bez layout shiftu.
+  4. **i18n** — klíče `showMore` a `showLess` přidány do `cs.json`, `en.json`, `uk.json` v namespace `posts`.
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` — state `isExpanded`, podmíněné `line-clamp-3`, tlačítko s `tv("showMore")`/`tv("showLess")`
+  - `src/messages/cs.json` — `showMore: "Zobrazit více"`, `showLess: "Zobrazit méně"`
+  - `src/messages/en.json` — `showMore: "Show more"`, `showLess: "Show less"`
+  - `src/messages/uk.json` — `showMore: "Показати більше"`, `showLess: "Показати менше"`
+
 ### ✨ Feature — Media preview lightbox (#12)
 
 - **Kontext**: Thumbnail média v PostCard měl `pointer-events-none`, takže uživatel nemohl obrázek/video rozkliknout a podívat se na něj ve větším měřítku. Jedinou možností byl PreviewDialog (očníko), který zobrazoval simulaci feedu, ne samotné médium.

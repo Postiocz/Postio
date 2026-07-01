@@ -42,11 +42,7 @@
 
 ### 🟢 Nízká priorita — UX vylepšení
 
-#### #13 — Content truncation na 3 řádky bez "Show more"
-- **Soubor:** `_post-card.tsx`, řádek 552
-- **Problém:** `line-clamp-3` ořezává dlouhé příspěvky bez možnosti rozbalit.
-- **Řešení:** Přidat expand/collapse state ("Zobrazit více" / "Zobrazit méně").
-- **Odhad:** 25 min
+*(vše hotovo — #13 dokončen 2026-07-01)*
 
 ---
 
@@ -66,6 +62,6 @@
 
 | Pořadí | # | Co | Odhad | Priorita |
 |--------|---|----|-------|----------|
-| 1 | #13 | Expand/collapse text | 25 min | Nízká |
+| — | — | Vše hotovo | — | — |
 
-**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** + **#9 (sorting)** + **#10 (bulk akce)** + **#12 (media preview lightbox)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection, **setřídění (3 režimy) s dynamickým cursor**, **bulk výběr + smazání vybraných**, **fullscreen media preview s navigací**.
+**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** + **#9 (sorting)** + **#10 (bulk akce)** + **#12 (media preview lightbox)** + **#13 (expand/collapse text)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection, **setřídění (3 režimy) s dynamickým cursor**, **bulk výběr + smazání vybraných**, **fullscreen media preview s navigací**, **expand/collapse textu**.

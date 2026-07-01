@@ -343,6 +343,45 @@ export async function deletePost(id: string) {
 }
 
 /**
+ * Bulk-delete multiple posts from the Postio DB (#10).
+ * Does NOT attempt per-post API deletion (e.g. Meta Graph) — that is handled
+ * by the single-post `deletePost` flow. This is a fast, client-initiated
+ * "remove from app" action for drafts / scheduled / failed posts.
+ *
+ * @param ids - array of post IDs to delete
+ */
+export async function bulkDeletePosts(ids: string[]) {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "You must be logged in to delete posts." };
+  }
+
+  if (ids.length === 0) {
+    return { success: false, error: "No posts selected." };
+  }
+
+  // Delete only posts belonging to this user (RLS enforces this too)
+  const { error } = await supabase
+    .from("posts")
+    .delete()
+    .in("id", ids)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error bulk-deleting posts:", error);
+    return { success: false, error: error.message };
+  }
+
+  revalidateAllLocales("/dashboard");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  return { success: true, deletedCount: ids.length };
+}
+
+/**
  * Sync post status with the external platform.
  * Checks if a published post still exists on the platform it was
  * uploaded to. If not, marks it as 'removed_externally'.

@@ -2,12 +2,15 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { FileText, Loader2, Plus } from "lucide-react";
+import { FileText, Loader2, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { PostFiltersRow, type SortOption } from "@/components/post-filters-row";
 import { PostsList, PostListItem } from "./_post-card";
 import { fetchMorePosts, fetchFilteredPosts } from "./actions";
+import { bulkDeletePosts } from "@/lib/actions/posts";
+import { toast } from "sonner";
 
 export function PostsContainer({
   initialPosts,
@@ -147,6 +150,8 @@ export function PostsContainer({
   useEffect(() => {
     setPosts(initialPosts);
     setFilteredCount(postsCount);
+    // Clear bulk selection when the server re-renders with fresh data (#10)
+    setSelectedIds(new Set());
   }, [initialPosts, postsCount]);
 
   // Debounced server-side filter fetch. When any filter changes, we call
@@ -155,6 +160,8 @@ export function PostsContainer({
   const applyFilters = useCallback(
     async (platform: string, status: string, tagId: string, sort: SortOption) => {
       setIsLoadingFilter(true);
+      // Clear bulk selection on filter change (#10)
+      setSelectedIds(new Set());
       try {
         const result = await fetchFilteredPosts({
           platform: platform || undefined,
@@ -209,6 +216,61 @@ export function PostsContainer({
     setPosts((prev) => prev.filter((p) => p.id !== id));
     setFilteredCount((prev) => Math.max(0, prev - 1));
   }, []);
+
+  // Bulk selection state (#10)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const handleToggleSelect = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.size === posts.length) {
+      // Deselect all
+      setSelectedIds(new Set());
+    } else {
+      // Select all visible
+      setSelectedIds(new Set(posts.map((p) => p.id)));
+    }
+  }, [posts, selectedIds.size]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const hasSelection = selectedIds.size > 0;
+
+  // Bulk delete handler (#10)
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const result = await bulkDeletePosts(ids);
+      if (result.success) {
+        setPosts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
+        setFilteredCount((prev) => Math.max(0, prev - selectedIds.size));
+        setSelectedIds(new Set());
+        toast.success(t("toastBulkDeleteSuccess", { count: ids.length }) ?? `${ids.length} posts deleted`);
+      } else {
+        toast.error(result.error ?? t("toastBulkDeleteError") ?? "Bulk delete failed");
+      }
+    } catch (e) {
+      console.error("Bulk delete error:", e);
+      toast.error(t("toastBulkDeleteError") ?? "An unexpected error occurred");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }, [selectedIds, t]);
 
   // "Load more" handler — calls server action with current filters, appends posts.
   const handleLoadMore = useCallback(async () => {
@@ -319,12 +381,63 @@ export function PostsContainer({
         ) : (
           !isLoadingFilter && (
             <div className="space-y-6">
+              {/* Bulk action bar (#10) */}
+              {hasSelection && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="sticky top-4 z-50 flex items-center justify-between gap-3 rounded-[20px] border border-indigo-200/60 dark:border-indigo-500/30 bg-indigo-50/80 dark:bg-indigo-950/40 backdrop-blur-xl px-5 py-3 shadow-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                      {t("bulkSelected", { count: selectedIds.size })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      className="text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-200 underline"
+                    >
+                      {selectedIds.size === posts.length ? t("deselectAll") ?? "Deselect all" : t("selectAll") ?? "Select all"}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={isBulkDeleting}
+                      onClick={handleBulkDelete}
+                      className="gap-1.5 rounded-full text-xs"
+                    >
+                      {isBulkDeleting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      {t("bulkDelete")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={handleClearSelection}
+                      className="h-7 w-7 rounded-full"
+                      title={t("cancel") ?? "Cancel"}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
               <PostsList
                 posts={posts}
                 locale={locale}
                 tLabels={tLabels}
                 tAi={tAi}
                 onDeleted={handleDeleted}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
               />
 
               {/* Load More — cursor-based pagination (#4) */}

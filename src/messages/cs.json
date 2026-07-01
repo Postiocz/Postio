@@ -148,7 +148,7 @@
     "previewInstagramTab": "Instagram",
     "previewYoutubeTab": "YouTube",
     "previewLinkedinTab": "LinkedIn",
-   "filterAll": "Vše",
+    "filterAll": "Vše",
     "editPost": "Upravit příspěvek",
     "postUpdated": "Příspěvek aktualizován",
     "remoteEditSuccess": "Text byl upraven v Postio i na sociální síti.",
@@ -192,6 +192,10 @@
     "toastSmartDeleteError": "Nastala chyba při chytrém mazání.",
     "toastApiNotSupported": "{platform} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na {platform}.",
     "apiDeletionWarningTitle": "Smazání přes API není podporováno",
+    "bulkDelete": "Smazat vybrané",
+    "bulkArchive": "Archivovat vybrané",
+    "bulkSelected": "{count} vybráno",
+    "bulkDeleteConfirm": "Opravdu chcete smazat {count} vybraných příspěvků? Tato akce je odstraní z Postio.",
     "deleteDialogBack": "Zpět",
     "toastUnderstood": "Rozumím",
     "toastDeleteFailedPlatform": "Smazání z {platform} selhalo.",
@@ -222,7 +226,13 @@
       "Říjen",
       "Listopad",
       "Prosinec"
-    ]
+    ],
+    "toastBulkDeleteSuccess": "{count} příspěvků smazáno",
+    "toastBulkDeleteError": "Chyba při hromadném mazání",
+    "selectAll": "Vybrat vše",
+    "deselectAll": "Zrušit výběr",
+    "select": "Vybrat",
+    "deselect": "Zrušit výběr"
   },
   "dashboard": {
     "title": "Vítejte v Postio",
@@ -394,6 +404,10 @@
     "toastSmartDeleteError": "Nastala chyba při chytrém mazání.",
     "toastApiNotSupported": "{platform} nepodporuje smazání přes API. Smažte příspěvek ručně přímo na {platform}.",
     "apiDeletionWarningTitle": "Smazání přes API není podporováno",
+    "bulkDelete": "Smazat vybrané",
+    "bulkArchive": "Archivovat vybrané",
+    "bulkSelected": "{count} vybráno",
+    "bulkDeleteConfirm": "Opravdu chcete smazat {count} vybraných příspěvků? Tato akce je odstraní z Postio.",
     "deleteDialogBack": "Zpět",
     "toastUnderstood": "Rozumím",
     "toastDeleteFailedPlatform": "Smazání z {platform} selhalo.",
@@ -401,7 +415,15 @@
     "toastLinkedInArchivedSingle": "LinkedIn zůstává v Postiu jako archivovaný (šedá ikona) – smažte ho ručně na LinkedInu.",
     "toastArchivedReminder": "Příspěvek zůstává v Postiu se šedými ikonami pro {platforms} – smažte ho ručně na těchto sítích.",
     "loadMore": "Načíst více",
-    "loadingMore": "Načítám…"
+    "loadingMore": "Načítám…",
+    "toastBulkDeleteSuccess": "{count} příspěvků smazáno",
+    "toastBulkDeleteError": "Chyba při hromadném mazání",
+    "selectAll": "Vybrat vše",
+    "deselectAll": "Zrušit výběr",
+    "select": "Vybrat",
+    "deselect": "Zrušit výběr",
+    "showMore": "Zobrazit více",
+    "showLess": "Zobrazit méně"
   },
   "accounts": {
     "title": "Sociální účty",

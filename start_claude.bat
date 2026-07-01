@@ -1,2 +1,0 @@
-@echo off
-wt -w 0 new-tab --title "Claude Code" wsl -e bash -c "export ANTHROPIC_BASE_URL=http://localhost:8001 && export ANTHROPIC_API_KEY=sk-no-key-required && export CLAUDE_CODE_ATTRIBUTION_HEADER=0 && cd /mnt/c/VS_Code/Postio && claude --model unsloth/Qwen3.6-27B --bare --exclude-dynamic-system-prompt-sections"

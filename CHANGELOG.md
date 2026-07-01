@@ -5,6 +5,17 @@
 
 ## 2026-07-01
 
+### ♻️ Refactor — Dokončení props drilling cleanup (#14)
+
+- **Kontext**: `tLabels` (30+ properties) a `tAi` (9 properties) se předávaly přes 4 úrovně komponent: `page.tsx` → `PostsContainer` → `PostsList` → `PostCard` → `EditPostDialog` / `PreviewDialog` / `AIAssistantButton`. Každá úroveň musela mít tyto props ve svém interface, i když je nepoužívala přímo.
+- **Řešení**: Všechny dialogy a tlačítka nyní používají vlastní `useTranslations()` hook z `next-intl`:
+  1. **`EditPostDialog`** — vlastní `useTranslations("posts")`, již nepřijímá `tLabels` (30+ props) ani `tAi`
+  2. **`PreviewDialog`** — vlastní `useTranslations("posts")`, již nepřijímá `labels` prop (8+ keys). Standalone funkce `renderPreviewForPlatform` dostává jen 2 řetězce (`captionHintLabel`, `noMediaLabel`) místo celého objektu
+  3. **`AIAssistantButton`** — vlastní `useTranslations("ai")`, již nepřijímá `t: AiTranslations` prop (9 keys)
+  4. **Props chain vyčištěn** — `tLabels` a `tAi` odstraněny z: `page.tsx`, `_posts-container.tsx`, `_post-card.tsx` (PostsList + PostCard), `_calendar-client.tsx`, `_calendar-view.tsx`, `calendar/page.tsx`, `posts/new/page.tsx`
+  5. **Parameterizované překlady** — `unsupportedFormat` nyní používá `t("unsupportedFormat", { type })` místo hardcoded fallbacku
+- **Dopad**: −400+ řádků props interface + call site boilerplate, čistší rozhraní komponent, snazší testování a reuses
+
 ### ✨ Feature — Content expand/collapse v PostCard (#13)
 
 - **Kontext**: Dlouhé příspěvky byly oříznuty na 3 řádky (`line-clamp-3`) bez možnosti zobrazit celý obsah. Uživatel musel otevřít Edit/Preview dialog, aby viděl kompletní text.

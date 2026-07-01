@@ -42,7 +42,6 @@ export function CalendarClient({
   months,
   locale,
   tCalendar,
-  tAi,
 }: {
   posts: Post[];
   platforms: { id: string; label: string }[];
@@ -120,18 +119,6 @@ export function CalendarClient({
       thisMonth: string;
     };
   };
-  tAi: {
-    aiAssistant: string;
-    improveText: string;
-    shortenText: string;
-    generateTags: string;
-    aiThinking: string;
-    aiSuccess: string;
-    aiError: string;
-    aiEmptyContent: string;
-    generateFromImage: string;
-    aiNoImage: string;
-  };
 }) {
   const [platformFilter, setPlatformFilter] = React.useState(initialPlatform);
   const [statusFilter, setStatusFilter] = React.useState(initialStatus);
@@ -173,7 +160,6 @@ export function CalendarClient({
         months={months}
         locale={locale}
         tCalendar={tCalendar}
-        tAi={tAi}
       />
     </div>
   );

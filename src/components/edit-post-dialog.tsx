@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -98,116 +99,6 @@ interface EditPostDialogProps {
   onOpenChange: (open: boolean) => void;
   post: EditPostData | null;
   locale: string;
-  tLabels: {
-    newPost: string;
-    editPost: string;
-    content: string;
-    contentPlaceholder: string;
-    selectPlatforms: string;
-    saveDraft: string;
-    schedule: string;
-    publishNow: string;
-    scheduledAt: string;
-    saving: string;
-    addTags: string;
-    locationPlaceholder: string;
-    postCreated: string;
-    postUpdated: string;
-    errorSaving: string;
-    characterCount: string;
-    maxFilesReached: string;
-    addMedia: string;
-    dropMedia: string;
-    uploading: string;
-    /** Label shown over a media tile while the image is being compressed. */
-    optimizingImage?: string;
-    fileOptimized?: string;
-    compressionError?: string;
-    uploadError: string;
-    uploadSuccess: string;
-    fileTooLarge: string;
-    fileTooLargeImage: string;
-    fileTooLargeVideo: string;
-    fileDeleted: string;
-    invalidFileType: string;
-    /**
-     * Strict format rejection. Receives the offending MIME type as `{type}`.
-     * Example: "Formát image/gif není podporován. Použijte JPG, PNG, WEBP nebo MP4/MOV."
-     */
-    unsupportedFormat?: (values: { type: string }) => string;
-    /** Toast shown when a video is larger than the 50 MB limit. */
-    videoTooLarge?: string;
-    /** Toast shown when a video is shorter than 640 px on its shortest side. */
-    videoLowResolution?: string;
-    /**
-     * Hard-block banner shown above the action buttons when a post is
-     * configured for Instagram but contains a video whose shorter side is
-     * below the platform's minimum resolution.
-     */
-    instagramVideoTooSmall?: string;
-    /**
-     * Secondary line of the Instagram-resolution banner – explains why and
-     * how to fix it (e.g. regenerate at 1080 × 1920 px).
-     */
-    instagramVideoTooSmallHint?: string;
-    statusDraft: string;
-    statusScheduled: string;
-    statusPublished: string;
-    statusFailed: string;
-    // Internal organization tags (Nastavení → Štítky)
-    internalTags: string;
-    internalTagsPlaceholder: string;
-    createTag: string;
-    noInternalTags: string;
-    selectColor: string;
-    add: string;
-    cancel: string;
-    /** Button label – saves only internal metadata (tags, location) without touching published content on social networks. */
-    saveMetadata?: string;
-    /** Toast shown after internal metadata is successfully saved. */
-    metadataSaved?: string;
-    remoteEditSuccess?: string;
-    photoChangeNotAllowed?: string;
-    updateOnSocials?: string;
-    onlyTextUpdatePossible?: string;
-    igEditNotSupported?: string;
-    publishToSelected?: string;
-    additionalPublishSuccess?: string;
-    // Post preview (real-time FB/IG/YT simulation)
-    previewTitle?: string;
-    previewFacebookTab?: string;
-    previewInstagramTab?: string;
-    /**
-     * Label for the YouTube preview tab. Only required when the post
-     * targets YouTube (i.e. `availablePlatforms` includes "youtube").
-     */
-    previewYoutubeTab?: string;
-    /**
-     * Label for the LinkedIn preview tab. Only required when the post
-     * targets LinkedIn (i.e. `availablePlatforms` includes "linkedin").
-     */
-    previewLinkedinTab?: string;
-    previewNoMedia?: string;
-    previewPlaceholderName?: string;
-    previewCaptionHint?: string;
-    // Prompt 003 – Post detail preview mode
-    postDetail?: string;
-    editPostButton?: string;
-    viewLivePost?: string;
-    noPublishedPlatforms?: string;
-  };
-  tAi?: {
-    aiAssistant: string;
-    improveText: string;
-    shortenText: string;
-    generateTags: string;
-    aiThinking: string;
-    aiSuccess: string;
-    aiError: string;
-    aiEmptyContent: string;
-    generateFromImage: string;
-    aiNoImage: string;
-  };
 }
 
 export function EditPostDialog({
@@ -215,9 +106,9 @@ export function EditPostDialog({
   onOpenChange,
   post,
   locale,
-  tLabels,
-  tAi,
 }: EditPostDialogProps) {
+  // #14 — Own i18n instead of props drilling (was 30+ tLabels + 9 tAi props)
+  const t = useTranslations("posts");
   const isEdit = !!post?.id;
   const router = useRouter();
 
@@ -295,7 +186,7 @@ export function EditPostDialog({
             .in("platform", ["facebook", "instagram", "youtube", "linkedin"]),
         ]);
         if (cancelled) return;
-        const fallbackName = userRes.data?.full_name ?? tLabels.previewPlaceholderName ?? "Postio";
+        const fallbackName = userRes.data?.full_name ?? t("previewPlaceholderName") ?? "Postio";
         const fallbackAvatar = userRes.data?.avatar_url ?? null;
         const fb = accountsRes.data?.find((a) => a.platform === "facebook");
         const ig = accountsRes.data?.find((a) => a.platform === "instagram");
@@ -325,33 +216,30 @@ export function EditPostDialog({
     return () => {
       cancelled = true;
     };
-  }, [userId, open, supabase, tLabels.previewPlaceholderName]);
+  }, [userId, open, supabase, t("previewPlaceholderName")]);
 
   const uploadLabels = {
-    tooManyFiles: tLabels.maxFilesReached,
-    uploadSuccess: tLabels.uploadSuccess,
-    uploadError: tLabels.uploadError,
-    fileDeleted: tLabels.fileDeleted ?? "File deleted",
-    invalidFileType: tLabels.invalidFileType ?? "Unsupported file format",
+    tooManyFiles: t("maxFilesReached"),
+    uploadSuccess: t("uploadSuccess"),
+    uploadError: t("uploadError"),
+    fileDeleted: t("fileDeleted") ?? "File deleted",
+    invalidFileType: t("invalidFileType") ?? "Unsupported file format",
     // Default to a function (the hook expects a callable for unsupportedFormat
     // so it can pass the offending MIME type). Consumers that don't supply
     // their own get a generic English fallback.
-    unsupportedFormat:
-      tLabels.unsupportedFormat ??
-      ((values: { type: string }) =>
-        `Format ${values.type} is not supported. Please use JPG, PNG, WEBP or MP4/MOV.`),
-    videoTooLarge: tLabels.videoTooLarge ?? "Video is too large (max 50 MB). Please reduce its size.",
-    videoLowResolution: tLabels.videoLowResolution ?? "Video has a low resolution (less than 640px). It may look blurry on social networks.",
+    unsupportedFormat: (values: { type: string }) => t("unsupportedFormat", values) ?? `Format ${values.type} is not supported.`,
+    videoTooLarge: t("videoTooLarge") ?? "Video is too large (max 50 MB). Please reduce its size.",
+    videoLowResolution: t("videoLowResolution") ?? "Video has a low resolution (less than 640px). It may look blurry on social networks.",
     instagramVideoTooSmall:
-      tLabels.instagramVideoTooSmall ?? "This video cannot be published on Instagram.",
+      t("instagramVideoTooSmall") ?? "This video cannot be published on Instagram.",
     instagramVideoTooSmallHint:
-      tLabels.instagramVideoTooSmallHint ??
+      t("instagramVideoTooSmallHint") ??
       "Instagram does not support videos with low resolution (minimum 640 × 1138 px). Please regenerate the video at a higher resolution (recommended 1080 × 1920 px).",
-    fileTooLargeImage: tLabels.fileTooLargeImage ?? "Image is too large (max 50 MB).",
-    fileTooLargeVideo: tLabels.fileTooLargeVideo ?? "File is too large. Max limit for videos is 20MB.",
-    optimizingImage: tLabels.optimizingImage ?? "File is too large (over 5 MB). Postio is now automatically optimizing it for social networks...",
-    fileOptimized: tLabels.fileOptimized ?? "Image optimized",
-    compressionError: tLabels.compressionError ?? "Could not optimize the image, uploading the original file.",
+    fileTooLargeImage: t("fileTooLargeImage") ?? "Image is too large (max 50 MB).",
+    fileTooLargeVideo: t("fileTooLargeVideo") ?? "File is too large. Max limit for videos is 20MB.",
+    optimizingImage: t("optimizingImage") ?? "File is too large (over 5 MB). Postio is now automatically optimizing it for social networks...",
+    fileOptimized: t("fileOptimized") ?? "Image optimized",
+    compressionError: t("compressionError") ?? "Could not optimize the image, uploading the original file.",
   };
   const {
     items: mediaItems,
@@ -388,16 +276,16 @@ export function EditPostDialog({
   // when a consumer didn't wire up the new optional translation keys.
   const previewLabels = useMemo(
     () => ({
-      previewTitle: tLabels.previewTitle ?? "Náhled",
-      facebookTab: tLabels.previewFacebookTab ?? "Facebook",
-      instagramTab: tLabels.previewInstagramTab ?? "Instagram",
-      youtubeTab: tLabels.previewYoutubeTab ?? "YouTube",
-      linkedinTab: tLabels.previewLinkedinTab ?? "LinkedIn",
-      noMedia: tLabels.previewNoMedia ?? "Žádná média",
-      placeholderName: tLabels.previewPlaceholderName ?? "Postio",
-      captionHint: tLabels.previewCaptionHint ?? "Sem napište text příspěvku…",
+      previewTitle: t("previewTitle") ?? "Náhled",
+      facebookTab: t("previewFacebookTab") ?? "Facebook",
+      instagramTab: t("previewInstagramTab") ?? "Instagram",
+      youtubeTab: t("previewYoutubeTab") ?? "YouTube",
+      linkedinTab: t("previewLinkedinTab") ?? "LinkedIn",
+      noMedia: t("previewNoMedia") ?? "Žádná média",
+      placeholderName: t("previewPlaceholderName") ?? "Postio",
+      captionHint: t("previewCaptionHint") ?? "Sem napište text příspěvku…",
     }),
-    [tLabels],
+    [t],
   );
 
   // Decide which preview tabs should be visible. A tab is shown only when
@@ -654,7 +542,7 @@ export function EditPostDialog({
     async (newStatus: "draft" | "scheduled") => {
       if (!content.trim()) return;
       if (hasUploading()) {
-        toast.info(tLabels.uploading);
+        toast.info(t("uploading"));
         return;
       }
       // -------------------------------------------------------------------
@@ -666,7 +554,7 @@ export function EditPostDialog({
       // -------------------------------------------------------------------
       if (isInstagramVideoIncompatible && platforms.includes("instagram") && newStatus === "scheduled") {
         const msg =
-          tLabels.instagramVideoTooSmall ??
+          t("instagramVideoTooSmall") ??
           "Toto video nelze na Instagramu publikovat.";
         setError(msg);
         toast.error(msg);
@@ -686,7 +574,7 @@ export function EditPostDialog({
         if (isEdit && post?.id && isAnyPublished) {
           // Instagram does not support editing captions of published posts
           if (isInstagramPublished) {
-            const msg = tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu.";
+            const msg = t("igEditNotSupported") ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu.";
             setError(msg);
             toast.error(msg);
             setLoading(false);
@@ -694,7 +582,7 @@ export function EditPostDialog({
           }
           // Twitter (X) does not support editing tweets via API
           if (isTwitterPublished) {
-            const msg = (tLabels as unknown as Record<string, string>).twEditNotSupported ?? "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu.";
+            const msg = t("twEditNotSupported") ?? "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu.";
             setError(msg);
             toast.error(msg);
             setLoading(false);
@@ -708,7 +596,7 @@ export function EditPostDialog({
             originalMedia.some((url, i) => url !== currentMedia[i]);
 
           if (mediaChanged) {
-            toast.error(tLabels.photoChangeNotAllowed ?? "Změna fotky u publikovaného postu není možná. Pro změnu fotky musíte příspěvek publikovat znovu.");
+            toast.error(t("photoChangeNotAllowed") ?? "Změna fotky u publikovaného postu není možná. Pro změnu fotky musíte příspěvek publikovat znovu.");
             setLoading(false);
             return;
           }
@@ -719,14 +607,14 @@ export function EditPostDialog({
           });
 
           if (result.success) {
-            toast.success(tLabels.remoteEditSuccess ?? "Text byl upraven v Postio i na sociální síti.");
+            toast.success(t("remoteEditSuccess") ?? "Text byl upraven v Postio i na sociální síti.");
             onOpenChange(false);
             router.refresh();
             return;
           }
 
-          setError(result.error ?? tLabels.errorSaving);
-          toast.error(result.error ?? tLabels.errorSaving);
+          setError(result.error ?? t("errorSaving"));
+          toast.error(result.error ?? t("errorSaving"));
           setLoading(false);
           return;
         }
@@ -756,16 +644,16 @@ export function EditPostDialog({
         }
 
         if (result.success) {
-          toast.success(isEdit ? tLabels.postUpdated : tLabels.postCreated);
+          toast.success(isEdit ? t("postUpdated") : t("postCreated"));
           await router.refresh();
           onOpenChange(false);
         } else {
-          setError(result.error ?? tLabels.errorSaving);
-          toast.error(result.error ?? tLabels.errorSaving);
+          setError(result.error ?? t("errorSaving"));
+          toast.error(result.error ?? t("errorSaving"));
         }
       } catch {
-        setError(tLabels.errorSaving);
-        toast.error(tLabels.errorSaving);
+        setError(t("errorSaving"));
+        toast.error(t("errorSaving"));
       } finally {
         setLoading(false);
       }
@@ -773,7 +661,7 @@ export function EditPostDialog({
     [
       content, platforms, scheduledAt, status, location, tags, tagDraft,
       isEdit, post, hasUploading, getMediaUrls, handleCommitRemainingTag,
-      normalizeScheduledAt, onOpenChange, tLabels, isInstagramPublished,
+      normalizeScheduledAt, onOpenChange, t, isInstagramPublished,
     ]
   );
 
@@ -786,7 +674,7 @@ export function EditPostDialog({
   const handleSaveMetadata = useCallback(async () => {
     if (!isEdit || !post?.id) return;
     if (hasUploading()) {
-      toast.info(tLabels.uploading);
+      toast.info(t("uploading"));
       return;
     }
     setLoading(true);
@@ -798,29 +686,29 @@ export function EditPostDialog({
         tagIds: selectedTagIds,
       });
       if (result.success) {
-        toast.success(tLabels.metadataSaved ?? "Interní metadata byla uložena.");
+        toast.success(t("metadataSaved") ?? "Interní metadata byla uložena.");
         await router.refresh();
         onOpenChange(false);
       } else {
-        setError(result.error ?? tLabels.errorSaving);
-        toast.error(result.error ?? tLabels.errorSaving);
+        setError(result.error ?? t("errorSaving"));
+        toast.error(result.error ?? t("errorSaving"));
       }
     } catch {
-      setError(tLabels.errorSaving);
-      toast.error(tLabels.errorSaving);
+      setError(t("errorSaving"));
+      toast.error(t("errorSaving"));
     } finally {
       setLoading(false);
     }
-  }, [isEdit, post, location, tags, selectedTagIds, hasUploading, onOpenChange, router, tLabels]);
+  }, [isEdit, post, location, tags, selectedTagIds, hasUploading, onOpenChange, router, t]);
 
   const handleUpdateOnSocials = async () => {
     if (!content.trim() || !isEdit || !post?.id) return;
     if (hasUploading()) {
-      toast.info(tLabels.uploading);
+      toast.info(t("uploading"));
       return;
     }
     if (mediaChanged) {
-      toast.error(tLabels.onlyTextUpdatePossible ?? tLabels.photoChangeNotAllowed ?? "U publikovaného postu lze měnit pouze text.");
+      toast.error(t("onlyTextUpdatePossible") ?? t("photoChangeNotAllowed") ?? "U publikovaného postu lze měnit pouze text.");
       return;
     }
 
@@ -834,17 +722,17 @@ export function EditPostDialog({
       });
 
       if (result.success) {
-        toast.success(tLabels.remoteEditSuccess ?? "Text byl upraven v Postio i na sociální síti.");
+        toast.success(t("remoteEditSuccess") ?? "Text byl upraven v Postio i na sociální síti.");
         await router.refresh();
         onOpenChange(false);
         return;
       }
 
-      setError(result.error ?? tLabels.errorSaving);
-      toast.error(result.error ?? tLabels.errorSaving);
+      setError(result.error ?? t("errorSaving"));
+      toast.error(result.error ?? t("errorSaving"));
     } catch {
-      setError(tLabels.errorSaving);
-      toast.error(tLabels.errorSaving);
+      setError(t("errorSaving"));
+      toast.error(t("errorSaving"));
     } finally {
       setIsUpdating(false);
     }
@@ -857,11 +745,11 @@ export function EditPostDialog({
   const handleUpdatePlatform = async (targetPlatform: string) => {
     if (!content.trim() || !isEdit || !post?.id) return;
     if (hasUploading()) {
-      toast.info(tLabels.uploading);
+      toast.info(t("uploading"));
       return;
     }
     if (mediaChanged) {
-      toast.error(tLabels.onlyTextUpdatePossible ?? "U publikovaného postu lze měnit pouze text.");
+      toast.error(t("onlyTextUpdatePossible") ?? "U publikovaného postu lze měnit pouze text.");
       return;
     }
 
@@ -883,11 +771,11 @@ export function EditPostDialog({
         return;
       }
 
-      setError(result.error ?? tLabels.errorSaving);
-      toast.error(result.error ?? tLabels.errorSaving);
+      setError(result.error ?? t("errorSaving"));
+      toast.error(result.error ?? t("errorSaving"));
     } catch {
-      setError(tLabels.errorSaving);
-      toast.error(tLabels.errorSaving);
+      setError(t("errorSaving"));
+      toast.error(t("errorSaving"));
     } finally {
       setUpdatingPlatforms((prev) => ({ ...prev, [targetPlatform]: false }));
     }
@@ -896,7 +784,7 @@ export function EditPostDialog({
   const handlePublishAdditional = async (targetPlatform: string) => {
     if (!isEdit || !post?.id) return;
     if (hasUploading()) {
-      toast.info(tLabels.uploading);
+      toast.info(t("uploading"));
       return;
     }
     // -------------------------------------------------------------------
@@ -912,7 +800,7 @@ export function EditPostDialog({
     // -------------------------------------------------------------------
     if (targetPlatform === "instagram" && isInstagramVideoIncompatible) {
       const msg =
-        tLabels.instagramVideoTooSmall ??
+        t("instagramVideoTooSmall") ??
         "Toto video nelze na Instagramu publikovat.";
       // NOTE: we intentionally do NOT call `setError(msg)` here – that would
       // show a red error banner at the top of the dialog (in the scrollable
@@ -934,17 +822,17 @@ export function EditPostDialog({
 
       if (result.success) {
         console.log("handlePublishAdditional: úspěšně publikováno na", targetPlatform);
-        toast.success(tLabels.additionalPublishSuccess ?? `Příspěvek byl publikován na ${targetPlatform}!`);
+        toast.success(t("additionalPublishSuccess") ?? `Příspěvek byl publikován na ${targetPlatform}!`);
         await router.refresh();
         onOpenChange(false);
         return;
       }
 
-      setError(result.error ?? tLabels.errorSaving);
-      toast.error(result.error ?? tLabels.errorSaving);
+      setError(result.error ?? t("errorSaving"));
+      toast.error(result.error ?? t("errorSaving"));
     } catch {
-      setError(tLabels.errorSaving);
-      toast.error(tLabels.errorSaving);
+      setError(t("errorSaving"));
+      toast.error(t("errorSaving"));
     } finally {
       setIsPublishingAdditional(false);
     }
@@ -953,7 +841,7 @@ export function EditPostDialog({
   const handlePublishNow = async () => {
     if (!content.trim()) return;
     if (hasUploading()) {
-      toast.info(tLabels.uploading);
+      toast.info(t("uploading"));
       return;
     }
     // -------------------------------------------------------------------
@@ -964,7 +852,7 @@ export function EditPostDialog({
     // -------------------------------------------------------------------
     if (isInstagramVideoIncompatible) {
       const msg =
-        tLabels.instagramVideoTooSmall ??
+        t("instagramVideoTooSmall") ??
         "Toto video nelze na Instagramu publikovat.";
       setError(msg);
       toast.error(msg);
@@ -994,7 +882,7 @@ export function EditPostDialog({
           });
 
           if (!saveResult.success) {
-            const msg = saveResult.error ?? tLabels.errorSaving;
+            const msg = saveResult.error ?? t("errorSaving");
             setError(msg);
             toast.error(msg);
             return;
@@ -1014,7 +902,7 @@ export function EditPostDialog({
           });
 
           if (!createResult.success || !createResult.data?.id) {
-            const msg = createResult.error ?? tLabels.errorSaving;
+            const msg = createResult.error ?? t("errorSaving");
             setError(msg);
             toast.error(msg);
             return;
@@ -1114,7 +1002,7 @@ export function EditPostDialog({
             emptyAspect,
           )}
         >
-          {tLabels.previewNoMedia ?? "Žádná média"}
+          {t("previewNoMedia") ?? "Žádná média"}
         </div>
       );
     }
@@ -1160,7 +1048,7 @@ export function EditPostDialog({
       linkedin: linkedinProfile,
     };
     const profile = profileMap[platformId as keyof typeof profileMap]
-      ?? { displayName: tLabels.previewPlaceholderName ?? "Postio" };
+      ?? { displayName: t("previewPlaceholderName") ?? "Postio" };
 
     if (platformId === "facebook") {
       return (
@@ -1182,7 +1070,7 @@ export function EditPostDialog({
                 <p className="mb-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#e4e6eb]">{content}</p>
               ) : (
                 <p className="mb-1.5 text-[13px] italic text-[#b0b3b8]/60">
-                  {tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}
+                  {t("previewCaptionHint") ?? "Sem napište text příspěvku…"}
                 </p>
               )}
               <PreviewMediaArea media={previewMedia} aspect="feed" />
@@ -1244,7 +1132,7 @@ export function EditPostDialog({
                   {content}
                 </p>
               ) : (
-                <p className="italic text-white/40">{tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}</p>
+                <p className="italic text-white/40">{t("previewCaptionHint") ?? "Sem napište text příspěvku…"}</p>
               )}
             </div>
           </article>
@@ -1274,7 +1162,7 @@ export function EditPostDialog({
                 <p className="whitespace-pre-wrap break-words px-2.5 pt-1.5 text-[13px] leading-relaxed text-[#e4e6eb]">{content}</p>
               ) : (
                 <p className="px-2.5 pt-1.5 text-[13px] italic text-[#b0b3b8]/60">
-                  {tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}
+                  {t("previewCaptionHint") ?? "Sem napište text příspěvku…"}
                 </p>
               )}
               {previewMedia.length > 0 && (
@@ -1320,7 +1208,7 @@ export function EditPostDialog({
               {content.trim() ? (
                 <span className="line-clamp-2 whitespace-pre-wrap break-words">{content}</span>
               ) : (
-                <span className="italic text-white/40">{tLabels.previewCaptionHint ?? "Sem napište text příspěvku…"}</span>
+                <span className="italic text-white/40">{t("previewCaptionHint") ?? "Sem napište text příspěvku…"}</span>
               )}
             </h2>
             <div className="flex items-center gap-2 px-3 pt-2">
@@ -1374,8 +1262,8 @@ export function EditPostDialog({
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold">
               {viewMode === "preview"
-                ? (tLabels.postDetail ?? "Detail příspěvku")
-                : (isEdit ? tLabels.editPost : tLabels.newPost)}
+                ? (t("postDetail") ?? "Detail příspěvku")
+                : (isEdit ? t("editPost") : t("newPost"))}
             </DialogTitle>
             {viewMode === "preview" && isEdit && (
               <Button
@@ -1386,7 +1274,7 @@ export function EditPostDialog({
                 className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06] gap-1.5 text-sm"
               >
                 <Pencil className="h-3.5 w-3.5" />
-                {tLabels.editPostButton ?? "Upravit"}
+                {t("editPostButton") ?? "Upravit"}
               </Button>
             )}
           </div>
@@ -1441,7 +1329,7 @@ export function EditPostDialog({
                           className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-300 transition-all hover:bg-indigo-500/20"
                         >
                           <ExternalLink className="h-4 w-4" />
-                          {tLabels.viewLivePost ?? "View live post"}
+                          {t("viewLivePost") ?? "View live post"}
                         </a>
                       );
                     }
@@ -1452,7 +1340,7 @@ export function EditPostDialog({
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/60">
                 <Info className="mb-2 h-8 w-8" />
-                <p className="text-sm">{tLabels.noPublishedPlatforms ?? "Tento příspěvek ještě nebyl publikován."}</p>
+                <p className="text-sm">{t("noPublishedPlatforms") ?? "Tento příspěvek ještě nebyl publikován."}</p>
               </div>
             )}
           </div>
@@ -1475,14 +1363,14 @@ export function EditPostDialog({
           {isEdit && (
             <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground/80">
-                {tLabels.statusDraft}
+                {t("statusDraft")}
               </Label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: "draft", label: tLabels.statusDraft },
-                  { value: "scheduled", label: tLabels.statusScheduled },
-                  { value: "published", label: tLabels.statusPublished },
-                  { value: "failed", label: tLabels.statusFailed },
+                  { value: "draft", label: t("statusDraft") },
+                  { value: "scheduled", label: t("statusScheduled") },
+                  { value: "published", label: t("statusPublished") },
+                  { value: "failed", label: t("statusFailed") },
                 ].map((s) => {
                   const isSelected = status === s.value;
                   return (
@@ -1509,10 +1397,9 @@ export function EditPostDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="edit-content" className="text-sm font-medium text-muted-foreground/80">
-                {tLabels.content}
+                {t("content")}
               </Label>
-              {tAi && (
-                <AIAssistantButton
+              <AIAssistantButton
                   content={content}
                   onContentReplace={(text) => setContent(text)}
                   onTagsAdd={(newTags) => {
@@ -1523,20 +1410,18 @@ export function EditPostDialog({
                     });
                   }}
                   imageUrl={firstImageUrl}
-                  t={tAi}
                 />
-              )}
             </div>
             <Textarea
               id="edit-content"
-              placeholder={tLabels.contentPlaceholder}
+              placeholder={t("contentPlaceholder")}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="min-h-[120px] resize-y rounded-xl transition-all focus:ring-0 text-slate-900 dark:text-white bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus:bg-white focus:border-indigo-500/30 dark:focus:bg-black/40 dark:focus:border-indigo-500/50 placeholder:text-slate-400 dark:placeholder:text-muted-foreground/30"
             />
             <div className="flex justify-end text-xs text-muted-foreground/60">
               <span className={content.length > 280 ? "text-destructive" : ""}>
-                {content.length} {tLabels.characterCount}
+                {content.length} {t("characterCount")}
               </span>
             </div>
           </div>
@@ -1544,7 +1429,7 @@ export function EditPostDialog({
           {/* Media */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
-              {tLabels.addMedia}
+              {t("addMedia")}
             </Label>
             <input
               ref={mediaInputRef}
@@ -1557,7 +1442,7 @@ export function EditPostDialog({
                 if (files.length > 0) {
                   const tooLarge = files.some((f) => f.size > 50 * 1024 * 1024);
                   if (tooLarge) {
-                    toast.error(tLabels.fileTooLarge);
+                    toast.error(t("fileTooLarge"));
                     return;
                   }
                   addMediaFiles(files);
@@ -1591,7 +1476,7 @@ export function EditPostDialog({
                 if (files.length > 0) {
                   const tooLarge = files.some((f) => f.size > 50 * 1024 * 1024);
                   if (tooLarge) {
-                    toast.error(tLabels.fileTooLarge);
+                    toast.error(t("fileTooLarge"));
                     return;
                   }
                   addMediaFiles(files);
@@ -1608,7 +1493,7 @@ export function EditPostDialog({
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-foreground">
-                    {tLabels.addMedia}
+                    {t("addMedia")}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground/60">
                     <Film className="h-3.5 w-3.5" />
@@ -1631,7 +1516,7 @@ export function EditPostDialog({
                       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
                         <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
                         <span className="text-[10px] font-medium text-purple-200/80">
-                          {tLabels.optimizingImage ?? "Optimalizuji..."}
+                          {t("optimizingImage") ?? "Optimalizuji..."}
                         </span>
                       </div>
                     )}
@@ -1639,7 +1524,7 @@ export function EditPostDialog({
                       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
                         <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
                         <span className="text-[10px] font-medium text-indigo-200/80">
-                          {tLabels.uploading}
+                          {t("uploading")}
                         </span>
                       </div>
                     )}
@@ -1681,14 +1566,14 @@ export function EditPostDialog({
           {isEdit && mediaChanged && (
             <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-              <span>{tLabels.onlyTextUpdatePossible ?? "U publikovaného postu lze měnit pouze text. Pro změnu fotky musíte příspěvek smazat a vytvořit znovu."}</span>
+              <span>{t("onlyTextUpdatePossible") ?? "U publikovaného postu lze měnit pouze text. Pro změnu fotky musíte příspěvek smazat a vytvořit znovu."}</span>
             </div>
           )}
 
           {/* Platforms */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
-              {tLabels.selectPlatforms}
+              {t("selectPlatforms")}
             </Label>
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((platform) => {
@@ -1739,7 +1624,7 @@ export function EditPostDialog({
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder={tLabels.locationPlaceholder}
+                placeholder={t("locationPlaceholder")}
                 className="h-10 rounded-xl pl-10 transition-all focus-visible:ring-0 text-slate-900 dark:text-white bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus-visible:bg-white focus-visible:border-indigo-500/30 dark:focus-visible:bg-black/40 dark:focus-visible:border-indigo-500/50 placeholder:text-slate-400 dark:placeholder:text-muted-foreground/30"
               />
             </div>
@@ -1748,7 +1633,7 @@ export function EditPostDialog({
           {/* Tags */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
-              {tLabels.addTags}
+              {t("addTags")}
             </Label>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -1782,7 +1667,7 @@ export function EditPostDialog({
                 }
               }}
               onBlur={() => commitTag(tagDraft)}
-              placeholder={tLabels.addTags}
+              placeholder={t("addTags")}
               className="h-10 rounded-xl transition-all focus-visible:ring-0 text-slate-900 dark:text-white bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus-visible:bg-white focus-visible:border-indigo-500/30 dark:focus-visible:bg-black/40 dark:focus-visible:border-indigo-500/50 placeholder:text-slate-400 dark:placeholder:text-muted-foreground/30"
             />
           </div>
@@ -1790,18 +1675,18 @@ export function EditPostDialog({
           {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
-              {tLabels.internalTags}
+              {t("internalTags")}
             </Label>
             <TagPicker
               selectedTagIds={selectedTagIds}
               onChange={setSelectedTagIds}
               t={{
-                placeholder: tLabels.internalTagsPlaceholder,
-                createTag: tLabels.createTag,
-                noTags: tLabels.noInternalTags,
-                selectColor: tLabels.selectColor,
-                add: tLabels.add,
-                cancel: tLabels.cancel,
+                placeholder: t("internalTagsPlaceholder"),
+                createTag: t("createTag"),
+                noTags: t("noInternalTags"),
+                selectColor: t("selectColor"),
+                add: t("add"),
+                cancel: t("cancel"),
               }}
             />
           </div>
@@ -1809,7 +1694,7 @@ export function EditPostDialog({
           {/* Schedule */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
-              {tLabels.scheduledAt}
+              {t("scheduledAt")}
             </Label>
             <DateTimePicker
               value={scheduledAt}
@@ -1853,11 +1738,11 @@ export function EditPostDialog({
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
               <div className="space-y-0.5">
                 <p className="font-medium">
-                  {tLabels.instagramVideoTooSmall ??
+                  {t("instagramVideoTooSmall") ??
                     "Toto video nelze na Instagramu publikovat."}
                 </p>
                 <p className="text-xs text-rose-200/70">
-                  {tLabels.instagramVideoTooSmallHint ??
+                  {t("instagramVideoTooSmallHint") ??
                     "Instagram nepodporuje videa s nízkým rozlišením (minimálně 640 × 1138 px). Přegenerujte prosím video ve vyšším rozlišení (doporučeno 1080 × 1920 px)."}
                 </p>
               </div>
@@ -1879,7 +1764,7 @@ export function EditPostDialog({
                   >
                     {isPublishingAdditional && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {Icon && <Icon className="mr-2 h-4 w-4" />}
-                    {tLabels.publishToSelected ?? "Publikovat"} na {platformLabel}
+                    {t("publishToSelected") ?? "Publikovat"} na {platformLabel}
                   </Button>
                 );
               })}
@@ -1888,7 +1773,7 @@ export function EditPostDialog({
               {isInstagramPublished && (
                 <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                  <span>{tLabels.igEditNotSupported ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu."}</span>
+                  <span>{t("igEditNotSupported") ?? "Instagram neumožňuje úpravu textu u již zveřejněných příspěvků. Pokud chcete text změnit, musíte příspěvek v Postio smazat a publikovat znovu."}</span>
                 </div>
               )}
 
@@ -1896,7 +1781,7 @@ export function EditPostDialog({
               {isTwitterPublished && (
                 <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                  <span>{(tLabels as unknown as Record<string, string>).twEditNotSupported ?? "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu."}</span>
+                  <span>{t("twEditNotSupported") ?? "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu."}</span>
                 </div>
               )}
 
@@ -1942,7 +1827,7 @@ export function EditPostDialog({
                   )}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {tLabels.saveMetadata ?? "Uložit interní metadata"}
+                  {t("saveMetadata") ?? "Uložit interní metadata"}
                 </Button>
                 <div className="flex gap-3">
                   <Button
@@ -1951,7 +1836,7 @@ export function EditPostDialog({
                     variant="outline"
                     className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
                   >
-                    {tLabels.cancel ?? "Zrušit"}
+                    {t("cancel") ?? "Zrušit"}
                   </Button>
                 </div>
               </div>
@@ -1968,7 +1853,7 @@ export function EditPostDialog({
                 className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? tLabels.saving : tLabels.saveDraft}
+                {loading ? t("saving") : t("saveDraft")}
               </Button>
               <Button
                 type="button"
@@ -1981,11 +1866,11 @@ export function EditPostDialog({
                   publishing ||
                   isInstagramVideoIncompatible
                 }
-                title={isInstagramVideoIncompatible ? tLabels.instagramVideoTooSmall : undefined}
+                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? tLabels.saving : tLabels.schedule}
+                {loading ? t("saving") : t("schedule")}
               </Button>
               <Button
                 type="button"
@@ -1997,11 +1882,11 @@ export function EditPostDialog({
                   publishing ||
                   isInstagramVideoIncompatible
                 }
-                title={isInstagramVideoIncompatible ? tLabels.instagramVideoTooSmall : undefined}
+                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
                 {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {publishing ? tLabels.saving : tLabels.publishNow}
+                {publishing ? t("saving") : t("publishNow")}
               </Button>
             </>
           )}

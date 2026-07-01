@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ExternalLink, Globe } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -110,26 +110,14 @@ export function PreviewDialog({
   onOpenChange,
   post,
   userId,
-  labels,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   post: PreviewPostData | null;
   userId?: string;
-  labels: {
-    title: string;
-    viewLive: string;
-    noPublishedPlatforms: string;
-    placeholderName: string;
-    captionHint: string;
-    noMedia: string;
-    // Tab labels
-    facebookTab?: string;
-    instagramTab?: string;
-    youtubeTab?: string;
-    linkedinTab?: string;
-  };
 }) {
+  // #14 — Own i18n instead of props drilling (was labels prop with 8+ keys)
+  const t = useTranslations("posts");
   // Load profiles for the preview avatars
   const [profiles, setProfiles] = useState<Record<string, PreviewProfile | null>>({
     facebook: null,
@@ -160,7 +148,7 @@ export function PreviewDialog({
             .in("platform", PREVIEWABLE_PLATFORMS),
         ]);
         if (cancelled) return;
-        const fallbackName = userRes.data?.full_name ?? labels.placeholderName;
+        const fallbackName = userRes.data?.full_name ?? t("previewPlaceholderName");
         const fallbackAvatar = userRes.data?.avatar_url ?? null;
         const newProfiles: Record<string, PreviewProfile | null> = {};
         for (const p of PREVIEWABLE_PLATFORMS) {
@@ -181,7 +169,7 @@ export function PreviewDialog({
     return () => {
       cancelled = true;
     };
-  }, [userId, open, post?.id, labels.placeholderName]);
+  }, [userId, open, post?.id, t]);
 
   // Determine which platforms have this post published
   const publishedPlatforms = useMemo<PreviewPostPlatform[]>(() => {
@@ -216,7 +204,7 @@ export function PreviewDialog({
 
   // Resolve profile for active tab
   const activeProfile = useMemo((): PreviewProfile => {
-    return profiles[activeTab] ?? { displayName: labels.placeholderName };
+    return profiles[activeTab] ?? { displayName: t("previewPlaceholderName") };
   }, [profiles, activeTab]);
 
   // Media items for preview
@@ -232,14 +220,14 @@ export function PreviewDialog({
   const getTabLabel = useCallback(
     (p: PreviewPlatform): string => {
       const map: Record<PreviewPlatform, string> = {
-        facebook: labels.facebookTab ?? PLATFORM_LABELS.facebook,
-        instagram: labels.instagramTab ?? PLATFORM_LABELS.instagram,
-        youtube: labels.youtubeTab ?? PLATFORM_LABELS.youtube,
-        linkedin: labels.linkedinTab ?? PLATFORM_LABELS.linkedin,
+        facebook: t("previewFacebookTab") ?? PLATFORM_LABELS.facebook,
+        instagram: t("previewInstagramTab") ?? PLATFORM_LABELS.instagram,
+        youtube: t("previewYoutubeTab") ?? PLATFORM_LABELS.youtube,
+        linkedin: t("previewLinkedinTab") ?? PLATFORM_LABELS.linkedin,
       };
       return map[p];
     },
-    [labels],
+    [t],
   );
 
   if (!post) return null;
@@ -253,7 +241,7 @@ export function PreviewDialog({
         {/* Header – fixed */}
         <DialogHeader className="px-4 pt-4 pb-1.5 flex-shrink-0">
           <DialogTitle className="text-xs font-medium text-muted-foreground/80">
-            {labels.title}
+            {t("title")}
           </DialogTitle>
         </DialogHeader>
 
@@ -304,13 +292,14 @@ export function PreviewDialog({
                 previewMedia,
                 activeProfile,
                 post.location,
-                labels,
+                t("previewCaptionHint"),
+                t("previewNoMedia"),
               )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/60">
               <Globe className="mb-2 h-7 w-7" />
-              <p className="text-xs">{labels.noPublishedPlatforms}</p>
+              <p className="text-xs">{t("noPublishedPlatforms")}</p>
             </div>
           )}
 
@@ -324,7 +313,7 @@ export function PreviewDialog({
                 className="flex items-center justify-center gap-2 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-medium text-indigo-300 transition-all hover:bg-indigo-500/20"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                {labels.viewLive}
+                {t("viewLive")}
               </a>
             </div>
           )}
@@ -481,11 +470,8 @@ function renderPreviewForPlatform(
   media: { previewUrl: string; kind: "image" | "video" }[],
   profile: PreviewProfile,
   location: string | null,
-  labels: {
-    placeholderName: string;
-    captionHint: string;
-    noMedia: string;
-  },
+  captionHintLabel: string,
+  noMediaLabel: string,
 ) {
   switch (platform) {
     case "facebook":
@@ -512,10 +498,10 @@ function renderPreviewForPlatform(
                 </p>
               ) : (
                 <p className="mb-1 text-[12px] italic text-[#b0b3b8]/60">
-                  {labels.captionHint}
+                  {captionHintLabel}
                 </p>
               )}
-              <PreviewMediaArea media={media} aspect="feed" noMediaLabel={labels.noMedia} />
+              <PreviewMediaArea media={media} aspect="feed" noMediaLabel={noMediaLabel} />
               <div className="mt-1 flex items-center justify-between text-[10px] text-[#b0b3b8]">
                 <span className="flex items-center gap-1">
                   <span className="flex -space-x-1">
@@ -558,7 +544,7 @@ function renderPreviewForPlatform(
               </div>
               <p className="truncate text-[12px] font-semibold">{profile.displayName}</p>
             </header>
-            <PreviewMediaArea media={media} aspect="square" noMediaLabel={labels.noMedia} />
+            <PreviewMediaArea media={media} aspect="square" noMediaLabel={noMediaLabel} />
             <div className="flex items-center gap-3 px-2.5 py-1 text-base">
               <span aria-hidden className="cursor-default">♡</span>
               <span aria-hidden className="cursor-default">💬</span>
@@ -573,7 +559,7 @@ function renderPreviewForPlatform(
                   {content}
                 </p>
               ) : (
-                <p className="italic text-white/40">{labels.captionHint}</p>
+                <p className="italic text-white/40">{captionHintLabel}</p>
               )}
             </div>
           </article>
@@ -584,14 +570,14 @@ function renderPreviewForPlatform(
       return (
         <div className="flex flex-col min-h-0 bg-[#0f0f0f] text-white">
           <article className="flex-1 overflow-visible">
-            <PreviewMediaArea media={media} aspect="video" noMediaLabel={labels.noMedia} />
+            <PreviewMediaArea media={media} aspect="video" noMediaLabel={noMediaLabel} />
             <h2 className="px-2.5 pt-1.5 text-[12px] font-semibold leading-snug text-white">
               {content.trim() ? (
                 <span className="line-clamp-2 whitespace-pre-wrap break-words">
                   {content}
                 </span>
               ) : (
-                <span className="italic text-white/40">{labels.captionHint}</span>
+                <span className="italic text-white/40">{captionHintLabel}</span>
               )}
             </h2>
             <div className="flex items-center gap-1.5 px-2.5 pt-1.5">
@@ -665,12 +651,12 @@ function renderPreviewForPlatform(
                 </p>
               ) : (
                 <p className="px-2 pt-1 text-[12px] italic text-[#b0b3b8]/60">
-                  {labels.captionHint}
+                  {captionHintLabel}
                 </p>
               )}
               {media.length > 0 ? (
                 <div className="mt-1 overflow-hidden bg-black">
-                  <PreviewMediaArea media={media} aspect="feed" noMediaLabel={labels.noMedia} />
+                  <PreviewMediaArea media={media} aspect="feed" noMediaLabel={noMediaLabel} />
                 </div>
               ) : null}
               <div className="flex items-center justify-between px-2 pb-0.5 pt-1 text-[9px] text-[#b0b3b8]">

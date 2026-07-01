@@ -189,19 +189,7 @@ interface CalendarViewProps {
       thisMonth: string;
     };
   };
-  tAi?: {
-    aiAssistant: string;
-    improveText: string;
-    shortenText: string;
-    generateTags: string;
-    aiThinking: string;
-    aiSuccess: string;
-    aiError: string;
-    aiEmptyContent: string;
-    generateFromImage: string;
-    aiNoImage: string;
-  };
-}
+ }
 
 export function CalendarView({
   posts,
@@ -213,7 +201,6 @@ export function CalendarView({
   months,
   locale,
   tCalendar,
-  tAi,
 }: CalendarViewProps) {
   if (!posts) return null;
 
@@ -1407,20 +1394,17 @@ export function CalendarView({
                 <Label htmlFor="modal-content" className="text-sm font-medium text-muted-foreground/80">
                   {tCalendar.content || "Obsah"}
                 </Label>
-                {tAi && (
-                  <AIAssistantButton
-                    content={formContent}
-                    onContentReplace={(text) => setFormContent(text)}
-                    onTagsAdd={(newTags) => {
-                      setFormTags((prev) => {
-                        const existing = new Set(prev.map((tag) => tag.toLowerCase()));
-                        const added = newTags.filter((tag) => !existing.has(tag.toLowerCase()));
-                        return added.length > 0 ? [...prev, ...added] : prev;
-                      });
-                    }}
-                    t={tAi}
-                  />
-                )}
+                <AIAssistantButton
+                  content={formContent}
+                  onContentReplace={(text) => setFormContent(text)}
+                  onTagsAdd={(newTags) => {
+                    setFormTags((prev) => {
+                      const existing = new Set(prev.map((tag) => tag.toLowerCase()));
+                      const added = newTags.filter((tag) => !existing.has(tag.toLowerCase()));
+                      return added.length > 0 ? [...prev, ...added] : prev;
+                    });
+                  }}
+                />
               </div>
               <Textarea
                 id="modal-content"
@@ -1595,55 +1579,6 @@ export function CalendarView({
         }}
         post={editingPost}
         locale={locale}
-        tLabels={{
-          newPost: tCalendar.newPost || "Nový příspěvek",
-          editPost: tCalendar.editPost || "Upravit příspěvek",
-          content: tCalendar.content || "Obsah",
-          contentPlaceholder: tCalendar.contentPlaceholder || "Napište příspěvek...",
-          selectPlatforms: tCalendar.selectPlatforms || "Vyberte platformy",
-          saveDraft: tCalendar.saveDraft || "Koncept",
-          schedule: tCalendar.schedule || "Naplánovat",
-          publishNow: tCalendar.publishNow || "Publikovat",
-          scheduledAt: tCalendar.scheduledAt || "Naplánovat",
-          saving: tCalendar.saving || "Ukládání...",
-          addTags: tCalendar.addTags || "Štítky",
-          internalTags: tCalendar.internalTags || "Interní štítky (organizace)",
-          internalTagsPlaceholder: tCalendar.internalTagsPlaceholder || "Vyberte štítky…",
-          createTag: tCalendar.createTag || "Vytvořit štítek",
-          noInternalTags: tCalendar.noInternalTags || "Žádné další štítky",
-          selectColor: tCalendar.selectColor || "Barva:",
-          add: tCalendar.add || "Přidat",
-          cancel: tCalendar.cancel || "Zrušit",
-          locationPlaceholder: tCalendar.locationPlaceholder || "Přidejte lokaci...",
-          postCreated: tCalendar.postCreated || "Příspěvek vytvořen!",
-          postUpdated: tCalendar.postUpdated || "Příspěvek aktualizován",
-          errorSaving: tCalendar.errorSaving || "Chyba při ukládání",
-          characterCount: tCalendar.characterCount || "/ 280",
-          maxFilesReached: tCalendar.maxFilesReached || "Maximální počet souborů dosažen",
-          addMedia: tCalendar.addMedia || "Média",
-          dropMedia: tCalendar.dropMedia || "",
-          uploading: tCalendar.uploading || "",
-          uploadError: tCalendar.uploadError || "",
-          uploadSuccess: tCalendar.uploadSuccess || "",
-          fileTooLarge: tCalendar.fileTooLarge || "",
-          fileTooLargeImage: tCalendar.fileTooLargeImage || "",
-          fileTooLargeVideo: tCalendar.fileTooLargeVideo || "",
-          fileDeleted: tCalendar.fileDeleted || "",
-          invalidFileType: tCalendar.invalidFileType || "",
-          statusDraft: tCalendar.statusDraft || "Koncept",
-          statusScheduled: tCalendar.statusScheduled || "Naplánované",
-          statusPublished: tCalendar.statusPublished || "Publikované",
-          statusFailed: tCalendar.statusFailed || "Neúspěšné",
-          remoteEditSuccess: "Text byl upraven v Postio i na sociální síti.",
-          photoChangeNotAllowed: "Změna fotky u publikovaného postu není možná.",
-          updateOnSocials: "Aktualizovat na sítích",
-          onlyTextUpdatePossible: "U publikovaného postu lze měnit pouze text.",
-          viewLivePost: tCalendar.viewLivePost || "Zobrazit příspěvek",
-          editPostButton: tCalendar.editPostButton || "Upravit",
-          postDetail: tCalendar.postDetail || "Detail příspěvku",
-          noPublishedPlatforms: tCalendar.noPublishedPlatforms || "Tento příspěvek ještě nebyl publikován.",
-        }}
-        tAi={tAi}
       />
 
       {/* Prompt 007 – Standalone Preview Dialog (Eye mode) */}
@@ -1664,18 +1599,6 @@ export function CalendarView({
           tags: previewPost.tags ?? [],
           media_urls: previewPost.media_urls ?? [],
         } : null}
-        labels={{
-          title: tCalendar.previewTitle || "Náhled příspěvku",
-          viewLive: tCalendar.viewLivePost || "Zobrazit na síti",
-          noPublishedPlatforms: tCalendar.noPublishedPlatforms || "Tento příspěvek ještě nebyl publikován.",
-          placeholderName: tCalendar.previewPlaceholderName || "Postio",
-          captionHint: tCalendar.previewCaptionHint || "Sem napište text příspěvku…",
-          noMedia: tCalendar.previewNoMedia || "Žádná média",
-          facebookTab: tCalendar.previewFacebookTab,
-          instagramTab: tCalendar.previewInstagramTab,
-          youtubeTab: tCalendar.previewYoutubeTab,
-          linkedinTab: tCalendar.previewLinkedinTab,
-        }}
       />
 
       {/* Hover Preview – Desktop Only */}

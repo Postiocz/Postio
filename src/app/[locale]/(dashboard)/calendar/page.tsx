@@ -12,7 +12,6 @@ export default async function CalendarPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "calendar" });
-  const tAi = await getTranslations({ locale, namespace: "ai" });
   const sp = await searchParams;
 
   const supabase = await createClient();
@@ -156,18 +155,6 @@ export default async function CalendarPage({
             drafts: t("stats.drafts"),
             thisMonth: t("stats.thisMonth"),
           },
-        }}
-        tAi={{
-          aiAssistant: tAi("aiAssistant"),
-          improveText: tAi("improveText"),
-          shortenText: tAi("shortenText"),
-          generateTags: tAi("generateTags"),
-          aiThinking: tAi("aiThinking"),
-          aiSuccess: tAi("aiSuccess"),
-          aiError: tAi("aiError"),
-          aiEmptyContent: tAi("aiEmptyContent"),
-          generateFromImage: tAi("generateFromImage"),
-          aiNoImage: tAi("aiNoImage"),
         }}
       />
     </div>

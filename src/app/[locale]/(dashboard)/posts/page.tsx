@@ -38,7 +38,6 @@ export default async function PostsPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "posts" });
-  const tAi = await getTranslations({ locale, namespace: "ai" });
   const supabase = await createClient();
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -106,72 +105,6 @@ export default async function PostsPage({
           tFilterByTag={t("filterByTag")}
           tAllTags={t("allTags")}
           tNoTagsAvailable={t("noTagsAvailable")}
-          tLabels={{
-            newPost: t("newPost"),
-            editPost: t("editPost"),
-            content: t("content"),
-            contentPlaceholder: t("contentPlaceholder"),
-            selectPlatforms: t("selectPlatforms"),
-            saveDraft: t("saveDraft"),
-            schedule: t("schedule"),
-            publishNow: t("publishNow"),
-            scheduledAt: t("scheduledAt"),
-            saving: t("saving"),
-            addTags: t("addTags"),
-            internalTags: t("internalTags"),
-            internalTagsPlaceholder: t("internalTagsPlaceholder"),
-            createTag: t("createTag"),
-            noInternalTags: t("noInternalTags"),
-            selectColor: t("selectColor"),
-            add: t("add"),
-            cancel: t("cancel"),
-            locationPlaceholder: t("locationPlaceholder"),
-            postCreated: t("postCreated"),
-            postUpdated: t("postUpdated"),
-            errorSaving: t("errorSaving"),
-            characterCount: t("characterCount"),
-            maxFilesReached: t("maxFilesReached"),
-            addMedia: t("addMedia"),
-            dropMedia: t("dropMedia"),
-            uploading: t("uploading"),
-            uploadError: t("uploadError"),
-            uploadSuccess: t("uploadSuccess"),
-            fileTooLarge: t("fileTooLarge"),
-            fileTooLargeImage: t("fileTooLargeImage"),
-            fileTooLargeVideo: t("fileTooLargeVideo"),
-            fileDeleted: t("fileDeleted"),
-            invalidFileType: t("invalidFileType"),
-            statusDraft: t("statusDraft"),
-            statusScheduled: t("statusScheduled"),
-            statusPublished: t("statusPublished"),
-            statusFailed: t("statusFailed"),
-            remoteEditSuccess: t("remoteEditSuccess"),
-            photoChangeNotAllowed: t("photoChangeNotAllowed"),
-            updateOnSocials: t("updateOnSocials"),
-            onlyTextUpdatePossible: t("onlyTextUpdatePossible"),
-            previewTitle: t("previewTitle"),
-            viewLive: t("viewLive"),
-            noPublishedPlatforms: t("noPublishedPlatforms"),
-            previewPlaceholderName: t("previewPlaceholderName"),
-            previewCaptionHint: t("previewCaptionHint"),
-            previewNoMedia: t("previewNoMedia"),
-            previewFacebookTab: t("previewFacebookTab"),
-            previewInstagramTab: t("previewInstagramTab"),
-            previewYoutubeTab: t("previewYoutubeTab"),
-            previewLinkedinTab: t("previewLinkedinTab"),
-          }}
-          tAi={{
-            aiAssistant: tAi("aiAssistant"),
-            improveText: tAi("improveText"),
-            shortenText: tAi("shortenText"),
-            generateTags: tAi("generateTags"),
-            aiThinking: tAi("aiThinking"),
-            aiSuccess: tAi("aiSuccess"),
-            aiError: tAi("aiError"),
-            aiEmptyContent: tAi("aiEmptyContent"),
-            generateFromImage: tAi("generateFromImage"),
-            aiNoImage: tAi("aiNoImage"),
-          }}
           hasMore={hasMore}
           nextCursor={lastCursor}
         />

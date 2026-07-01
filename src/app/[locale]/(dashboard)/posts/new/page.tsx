@@ -33,8 +33,7 @@ const MAX_MEDIA_FILES = 10;
 
 export default function NewPostPage() {
   const t = useTranslations("posts");
-  const tAi = useTranslations("ai");
-  const router = useRouter();
+   const router = useRouter();
   const { locale } = useParams();
   const [content, setContent] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
@@ -383,18 +382,6 @@ export default function NewPostPage() {
                   });
                 }}
                 imageUrl={firstImageUrl}
-                t={{
-                  aiAssistant: tAi("aiAssistant"),
-                  improveText: tAi("improveText"),
-                  shortenText: tAi("shortenText"),
-                  generateTags: tAi("generateTags"),
-                  aiThinking: tAi("aiThinking"),
-                  aiSuccess: tAi("aiSuccess"),
-                  aiError: tAi("aiError"),
-                  aiEmptyContent: tAi("aiEmptyContent"),
-                  generateFromImage: tAi("generateFromImage"),
-                  aiNoImage: tAi("aiNoImage"),
-                }}
               />
             </div>
             <Textarea

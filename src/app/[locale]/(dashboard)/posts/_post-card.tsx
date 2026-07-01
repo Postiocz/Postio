@@ -93,8 +93,6 @@ export function PostCard({
   locale,
   onDeleted,
   animationDelay = 0,
-  tLabels,
-  tAi,
   isSelected = false,
   onSelectChange,
 }: {
@@ -106,75 +104,6 @@ export function PostCard({
   isSelected?: boolean;
   /** Callback when the user toggles selection for this post. */
   onSelectChange?: (id: string, checked: boolean) => void;
-  tLabels: {
-    newPost: string;
-    editPost: string;
-    content: string;
-    contentPlaceholder: string;
-    selectPlatforms: string;
-    saveDraft: string;
-    schedule: string;
-    publishNow: string;
-    scheduledAt: string;
-    saving: string;
-    addTags: string;
-    locationPlaceholder: string;
-    postCreated: string;
-    postUpdated: string;
-    errorSaving: string;
-    characterCount: string;
-    maxFilesReached: string;
-    addMedia: string;
-    dropMedia: string;
-    uploading: string;
-    uploadError: string;
-    uploadSuccess: string;
-    fileTooLarge: string;
-    fileTooLargeImage: string;
-    fileTooLargeVideo: string;
-    fileDeleted: string;
-    invalidFileType: string;
-    statusDraft: string;
-    statusScheduled: string;
-    statusPublished: string;
-    statusFailed: string;
-    // Internal organization tags (Nastavení → Štítky)
-    internalTags: string;
-    internalTagsPlaceholder: string;
-    createTag: string;
-    noInternalTags: string;
-    selectColor: string;
-    add: string;
-    cancel: string;
-    remoteEditSuccess?: string;
-    photoChangeNotAllowed?: string;
-    updateOnSocials?: string;
-    onlyTextUpdatePossible?: string;
-    // Preview dialog labels
-    preview?: string;
-    previewTitle?: string;
-    viewLive?: string;
-    noPublishedPlatforms?: string;
-    previewPlaceholderName?: string;
-    previewCaptionHint?: string;
-    previewNoMedia?: string;
-    previewFacebookTab?: string;
-    previewInstagramTab?: string;
-    previewYoutubeTab?: string;
-    previewLinkedinTab?: string;
-  };
-  tAi?: {
-    aiAssistant: string;
-    improveText: string;
-    shortenText: string;
-    generateTags: string;
-    aiThinking: string;
-    aiSuccess: string;
-    aiError: string;
-    aiEmptyContent: string;
-    generateFromImage: string;
-    aiNoImage: string;
-  };
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -410,7 +339,7 @@ export function PostCard({
           variant="ghost"
           size="icon-sm"
           className="h-8 w-8 relative z-[50] cursor-pointer bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10"
-          title={tLabels.preview ?? "Náhled"}
+          title={t("previewTitle")}
           onClick={() => setPreviewOpen(true)}
         >
           <Eye className="h-3.5 w-3.5" />
@@ -630,7 +559,6 @@ export function PostCard({
     <EditPostDialog
       open={editOpen}
       onOpenChange={setEditOpen}
-      tAi={tAi}
       post={{
         id: post.id,
         content: post.content,
@@ -644,7 +572,6 @@ export function PostCard({
         media_urls: post.media_urls ?? [],
       }}
       locale={locale}
-      tLabels={tLabels}
     />
 
     <DeletePostDialog
@@ -680,18 +607,6 @@ export function PostCard({
         tags: post.tags ?? [],
         media_urls: post.media_urls ?? [],
       }}
-      labels={{
-        title: tLabels.previewTitle ?? "Náhled příspěvku",
-        viewLive: tLabels.viewLive ?? "Zobrazit na síti",
-        noPublishedPlatforms: tLabels.noPublishedPlatforms ?? "Tento příspěvek ještě nebyl publikován.",
-        placeholderName: tLabels.previewPlaceholderName ?? "Postio",
-        captionHint: tLabels.previewCaptionHint ?? "Sem napište text příspěvku…",
-        noMedia: tLabels.previewNoMedia ?? "Žádná média",
-        facebookTab: tLabels.previewFacebookTab,
-        instagramTab: tLabels.previewInstagramTab,
-        youtubeTab: tLabels.previewYoutubeTab,
-        linkedinTab: tLabels.previewLinkedinTab,
-      }}
     />
 
     {/* #12 — Media lightbox: click thumbnail to view all media fullscreen */}
@@ -707,83 +622,12 @@ export function PostCard({
 export function PostsList({
   posts,
   locale,
-  tLabels,
-  tAi,
   onDeleted,
   selectedIds = new Set<string>(),
   onToggleSelect,
 }: {
   posts: PostListItem[];
   locale: string;
-  tLabels: {
-    newPost: string;
-    editPost: string;
-    content: string;
-    contentPlaceholder: string;
-    selectPlatforms: string;
-    saveDraft: string;
-    schedule: string;
-    publishNow: string;
-    scheduledAt: string;
-    saving: string;
-    addTags: string;
-    locationPlaceholder: string;
-    postCreated: string;
-    postUpdated: string;
-    errorSaving: string;
-    characterCount: string;
-    maxFilesReached: string;
-    addMedia: string;
-    dropMedia: string;
-    uploading: string;
-    uploadError: string;
-    uploadSuccess: string;
-    fileTooLarge: string;
-    fileTooLargeImage: string;
-    fileTooLargeVideo: string;
-    fileDeleted: string;
-    invalidFileType: string;
-    statusDraft: string;
-    statusScheduled: string;
-    statusPublished: string;
-    statusFailed: string;
-    // Internal organization tags (Nastavení → Štítky)
-    internalTags: string;
-    internalTagsPlaceholder: string;
-    createTag: string;
-    noInternalTags: string;
-    selectColor: string;
-    add: string;
-    cancel: string;
-    remoteEditSuccess?: string;
-    photoChangeNotAllowed?: string;
-    updateOnSocials?: string;
-    onlyTextUpdatePossible?: string;
-    // Preview dialog labels
-    preview?: string;
-    previewTitle?: string;
-    viewLive?: string;
-    noPublishedPlatforms?: string;
-    previewPlaceholderName?: string;
-    previewCaptionHint?: string;
-    previewNoMedia?: string;
-    previewFacebookTab?: string;
-    previewInstagramTab?: string;
-    previewYoutubeTab?: string;
-    previewLinkedinTab?: string;
-  };
-  tAi?: {
-    aiAssistant: string;
-    improveText: string;
-    shortenText: string;
-    generateTags: string;
-    aiThinking: string;
-    aiSuccess: string;
-    aiError: string;
-    aiEmptyContent: string;
-    generateFromImage: string;
-    aiNoImage: string;
-  };
   onDeleted?: (id: string) => void;
   /** Set of post IDs currently selected for bulk actions (#10). */
   selectedIds?: Set<string>;
@@ -800,8 +644,6 @@ export function PostsList({
             locale={locale}
             animationDelay={Math.min(index * 0.04, 0.2)}
             onDeleted={onDeleted}
-            tLabels={tLabels}
-            tAi={tAi}
             isSelected={selectedIds.has(post.id)}
             onSelectChange={onToggleSelect}
           />

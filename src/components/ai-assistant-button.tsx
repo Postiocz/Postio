@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Sparkles, Wand2, Scissors, Hash, Loader2, ImagePlus } from "lucide-react";
 import {
   DropdownMenu,
@@ -10,25 +11,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
-interface AiTranslations {
-  aiAssistant: string;
-  improveText: string;
-  shortenText: string;
-  generateTags: string;
-  aiThinking: string;
-  aiSuccess: string;
-  aiError: string;
-  aiEmptyContent: string;
-  generateFromImage: string;
-  aiNoImage: string;
-}
-
 interface AIAssistantButtonProps {
   content: string;
   onContentReplace: (text: string) => void;
   onTagsAdd: (tags: string[]) => void;
   imageUrl?: string | null;
-  t: AiTranslations;
 }
 
 export function AIAssistantButton({
@@ -36,15 +23,16 @@ export function AIAssistantButton({
   onContentReplace,
   onTagsAdd,
   imageUrl,
-  t,
 }: AIAssistantButtonProps) {
+  // #14 — Own i18n instead of props drilling (was 9 tAi props)
+  const t = useTranslations("ai");
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
   const handleTextAction = useCallback(
     async (action: "improve" | "shorten" | "hashtags") => {
       if (!content.trim()) {
-        toast.info(t.aiEmptyContent);
+        toast.info(t("aiEmptyContent"));
         setOpen(false);
         return;
       }
@@ -65,7 +53,7 @@ export function AIAssistantButton({
 
         if (!response.ok || !data.success) {
           console.error("🤖 AI API Error:", data.error || "Unknown error");
-          throw new Error(data.error || t.aiError);
+          throw new Error(data.error || t("aiError"));
         }
 
         if (action === "hashtags") {
@@ -74,23 +62,23 @@ export function AIAssistantButton({
             .filter((tag: string) => tag.startsWith("#"))
             .slice(0, 10);
           onTagsAdd(hashtags);
-          toast.success(t.aiSuccess);
+          toast.success(t("aiSuccess"));
         } else {
           onContentReplace(data.result);
-          toast.success(t.aiSuccess);
+          toast.success(t("aiSuccess"));
         }
       } catch {
-        toast.error(t.aiError);
+        toast.error(t("aiError"));
       } finally {
         setIsLoading(false);
       }
     },
-    [content, onContentReplace, onTagsAdd, t.aiAssistant, t.aiEmptyContent, t.aiError, t.aiSuccess]
+    [content, onContentReplace, onTagsAdd, t]
   );
 
   const handleGenerateFromImage = useCallback(async () => {
     if (!imageUrl) {
-      toast.info(t.aiNoImage);
+      toast.info(t("aiNoImage"));
       setOpen(false);
       return;
     }
@@ -115,17 +103,17 @@ export function AIAssistantButton({
 
       if (!response.ok || !data.success) {
         console.error("🤖 AI Vision API Error:", data.error || "Unknown error");
-        throw new Error(data.error || t.aiError);
+        throw new Error(data.error || t("aiError"));
       }
 
       onContentReplace(data.result);
-      toast.success(t.aiSuccess);
+      toast.success(t("aiSuccess"));
     } catch {
-      toast.error(t.aiError);
+      toast.error(t("aiError"));
     } finally {
       setIsLoading(false);
     }
-  }, [content, imageUrl, onContentReplace, t.aiNoImage, t.aiError, t.aiSuccess]);
+  }, [content, imageUrl, onContentReplace, t]);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -140,12 +128,12 @@ export function AIAssistantButton({
           {isLoading ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>{t.aiThinking}</span>
+              <span>{t("aiThinking")}</span>
             </>
           ) : (
             <>
               <Sparkles className="h-3.5 w-3.5" />
-              <span>{t.aiAssistant}</span>
+              <span>{t("aiAssistant")}</span>
             </>
           )}
         </button>
@@ -161,7 +149,7 @@ export function AIAssistantButton({
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
         >
           <Wand2 className="h-4 w-4 text-indigo-400" />
-          <span>{t.improveText}</span>
+          <span>{t("improveText")}</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem
@@ -169,7 +157,7 @@ export function AIAssistantButton({
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
         >
           <Scissors className="h-4 w-4 text-pink-400" />
-          <span>{t.shortenText}</span>
+          <span>{t("shortenText")}</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem
@@ -177,7 +165,7 @@ export function AIAssistantButton({
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
         >
           <Hash className="h-4 w-4 text-emerald-400" />
-          <span>{t.generateTags}</span>
+          <span>{t("generateTags")}</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem
@@ -186,7 +174,7 @@ export function AIAssistantButton({
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ImagePlus className="h-4 w-4 text-amber-400" />
-          <span>{t.generateFromImage}</span>
+          <span>{t("generateFromImage")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

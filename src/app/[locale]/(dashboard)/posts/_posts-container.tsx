@@ -29,8 +29,6 @@ export function PostsContainer({
   tStatusArchived,
   tNoPosts,
   tNoPostsSubtitle,
-  tLabels,
-  tAi,
   tFilterByTag,
   tAllTags,
   tNoTagsAvailable,
@@ -53,75 +51,6 @@ export function PostsContainer({
   tStatusArchived: string;
   tNoPosts: string;
   tNoPostsSubtitle: string;
-  tLabels: {
-    newPost: string;
-    editPost: string;
-    content: string;
-    contentPlaceholder: string;
-    selectPlatforms: string;
-    saveDraft: string;
-    schedule: string;
-    publishNow: string;
-    scheduledAt: string;
-    saving: string;
-    addTags: string;
-    locationPlaceholder: string;
-    postCreated: string;
-    postUpdated: string;
-    errorSaving: string;
-    characterCount: string;
-    maxFilesReached: string;
-    addMedia: string;
-    dropMedia: string;
-    uploading: string;
-    uploadError: string;
-    uploadSuccess: string;
-    fileTooLarge: string;
-    fileTooLargeImage: string;
-    fileTooLargeVideo: string;
-    fileDeleted: string;
-    invalidFileType: string;
-    statusDraft: string;
-    statusScheduled: string;
-    statusPublished: string;
-    statusFailed: string;
-    // Internal organization tags (Nastavení → Štítky)
-    internalTags: string;
-    internalTagsPlaceholder: string;
-    createTag: string;
-    noInternalTags: string;
-    selectColor: string;
-    add: string;
-    cancel: string;
-    remoteEditSuccess?: string;
-    photoChangeNotAllowed?: string;
-    updateOnSocials?: string;
-    onlyTextUpdatePossible?: string;
-    // Preview dialog labels
-    preview?: string;
-    previewTitle?: string;
-    viewLive?: string;
-    noPublishedPlatforms?: string;
-    previewPlaceholderName?: string;
-    previewCaptionHint?: string;
-    previewNoMedia?: string;
-    previewFacebookTab?: string;
-    previewInstagramTab?: string;
-    previewYoutubeTab?: string;
-    previewLinkedinTab?: string;
-  };
-  tAi?: {
-    aiAssistant: string;
-    improveText: string;
-    shortenText: string;
-    generateTags: string;
-    aiThinking: string;
-    aiSuccess: string;
-    aiError: string;
-    aiEmptyContent: string;
-    generateFromImage: string;
-    aiNoImage: string;
-  };
   tFilterByTag: string;
   tAllTags: string;
   tNoTagsAvailable: string;
@@ -433,8 +362,6 @@ export function PostsContainer({
               <PostsList
                 posts={posts}
                 locale={locale}
-                tLabels={tLabels}
-                tAi={tAi}
                 onDeleted={handleDeleted}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}

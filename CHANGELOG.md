@@ -3,6 +3,45 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-07-01
+
+### ✨ Feature — Media preview lightbox (#12)
+
+- **Kontext**: Thumbnail média v PostCard měl `pointer-events-none`, takže uživatel nemohl obrázek/video rozkliknout a podívat se na něj ve větším měřítku. Jedinou možností byl PreviewDialog (očníko), který zobrazoval simulaci feedu, ne samotné médium.
+- **Novinky**:
+  1. **Nová komponenta `MediaPreviewDialog`** (`src/components/media-preview-dialog.tsx`) — fullscreen dialog na zobrazení médií:
+     - Obrázky i videa (s `controls` + `autoPlay` u videí)
+     - `object-contain` — celá kompozice vidět bez ořezu
+     - Navigace šipkami (levá/pravá tlačítka) + klávesnice (←/→) pro příspěvky s více médii
+     - Tečkový indikátor dole (`1/3`, `2/3`…) s kliknutím na libovolné médium
+     - Auto-reset na první médium při otevření
+  2. **PostCard media thumbnail je nyní klikací** — odstraněn `pointer-events-none`, přidán `cursor-pointer` + `hover:ring-2 hover:ring-indigo-500/30` pro vizuální affordance.
+  3. **Radix a11y fix** — vizuálně skrytý `DialogTitle` (`sr-only` style) s dynamickým textem („Media preview 2 of 3") splňuje požadavek Radix UI na přístupnost.
+- **Upravené soubory**:
+  - `src/components/media-preview-dialog.tsx` — nová komponenta (140 řádků)
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` — import, state `mediaPreviewOpen`, odstraněn `pointer-events-none`, přidán `onClick` + hover ring, render `<MediaPreviewDialog>`
+
+### ✨ Feature — Bulk akce (hromadný výběr + smazání) (#10)
+
+- **Kontext**: Uživatel mohl mazat příspěvky pouze po jednom (klik na ikonu koše → dialog → potvrzení). Při úklidu desítek draftů nebo neúspěšných příspěvků to bylo pracné.
+- **Novinky**:
+  1. **Checkboxy integrované do akčních tlačítek PostCard** — ikona `CheckSquare` / `Square` inline s Edit / Preview / Delete (vpravo nahoře, objeví se při hoveru). Stejný vizuální styl jako ostatní tlačítka (`h-8 w-8`, backdrop-blur, border). Vybraná karta má zvýrazněný indigo border + ring.
+  2. **Bulk action bar** — sticky floating bar nad seznamem, zobrazuje se při výběru ≥1 příspěvku. Obsahuje:
+     - Počet vybraných („3 vybráno") s i18n parametrem `{count}`
+     - Odkaz „Vybrat vše" / „Zrušit výběr" pro rychlý toggle všech viditelných
+     - Tlačítko **„Smazat vybrané"** (destructive, s loaderem při zpracování)
+     - Tlačítko **✕** pro zrušení výběru
+  3. **Server action `bulkDeletePosts(ids[])`** — efektivní `.in("id", ids)` DELETE v Supabase, revaliduje `/posts`, `/calendar`, `/dashboard`. Bez API volání na platformy (to řeší single-post `deletePost`).
+  4. **Automatické čištění výběru** při změně filtrů, server re-renderu a po úspěšném smazání.
+  5. **i18n** — klíče `bulkDelete`, `bulkArchive`, `bulkSelected`, `bulkDeleteConfirm`, `toastBulkDeleteSuccess`, `toastBulkDeleteError`, `selectAll`, `deselectAll`, `select`, `deselect` ve všech třech lokalizacích (cs/en/uk).
+- **Upravené soubory**:
+  - `src/lib/actions/posts.ts` — nový export `bulkDeletePosts(ids: string[])`
+  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx` — props `isSelected`/`onSelectChange`, checkbox inline v řádku akčních tlačítek, zvýraznění borderu vybrané karty
+  - `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` — state `selectedIds`, bulk action bar (motion.div), handlers `handleToggleSelect`/`handleSelectAll`/`handleClearSelection`/`handleBulkDelete`, čištění při filtru/re-renderu
+  - `src/messages/cs.json` — 10 nových klíčů v namespacech `posts` + `calendar`
+  - `src/messages/en.json` — 10 nových klíčů v namespacech `posts` + `calendar`
+  - `src/messages/uk.json` — 10 nových klíčů v namespacech `posts` + `calendar`
+
 ## 2026-06-29
 
 ### ✨ Feature — Sorting (setřídění příspěvků) (#9)

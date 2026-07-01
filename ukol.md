@@ -1,7 +1,7 @@
 # 📋 Úkoly — Stránka "Příspěvky" (Posts)
 
 > Vytvořeno: 2026-06-27  
-> Poslední aktualizace: 2026-06-29 (relace 4)  
+> Poslední aktualizace: 2026-07-01 (relace 5)  
 > Status auditu: [originální audit z konverzace]
 
 ---
@@ -21,6 +21,8 @@
 | 14b | **Redukce props drilling (−14 props z PostCard)** | `5cdcf88` | PostCard používá useTranslations() místo 14 předávaných stringů |
 | 4 (správné) | **Cursor-based pagination** | `6f51594` + `e087798` | Keyset paginace (20/page + "Load more"), server action fetchMorePosts, normalizace postů do sdílené funkce. Žádný URL change — čistý client-side append. Split normalizePost z actions.ts kvůli "use server" constraintu. |
 | 9 | **Sorting (setřídění)** | TBD | Dropdown se 3 režimy: nejnovější první, nejstarší první, podle data publikování. Server-side order v DB dotazu, cursor respektuje sort sloupec (created_at / scheduled_at). i18n pro CS/EN/UK. |
+| 10 | **Bulk akce (checkboxy + „Smazat vybrané")** | TBD | Checkbox na každém PostCard, bulk action bar (sticky) s počtem vybraných, „Vybrat vše", „Smazat vybrané". Server action `bulkDeletePosts` v `posts.ts`. Automatické čištění výběru při změně filtrů. i18n pro CS/EN/UK. |
+| 12 | **Media preview lightbox** | `3b55d81` + `3b7d4c0` | Klik na thumbnail otevře fullscreen dialog s navigací (šipky, klávesnice ←/→), tečkový indikátor pro více médií. Odstraněn `pointer-events-none`, přidán hover ring. Radix a11y fix — vizuálně skrytý `DialogTitle`. |
 
 ---
 
@@ -39,17 +41,6 @@
 ---
 
 ### 🟢 Nízká priorita — UX vylepšení
-
-#### #10 — Bulk akce chybí
-- **Problém:** Uživatel nemůže vybrat více příspěvků a smazat/republishnout je najednou.
-- **Řešení:** Checkboxy na PostCard + bulk action bar s "Smazat vybrané" / "Archivovat vybrané".
-- **Odhad:** 2h
-
-#### #12 — Media preview pointer-events-none
-- **Soubor:** `_post-card.tsx`, řádek 470
-- **Problém:** `className="relative pointer-events-none ..."` — uživatel nemůže rozkliknout/zvětšit obrázek.
-- **Řešení:** Odstranit `pointer-events-none` a přidat onClick → otevřít PreviewDialog nebo lightbox.
-- **Odhad:** 20 min
 
 #### #13 — Content truncation na 3 řádky bez "Show more"
 - **Soubor:** `_post-card.tsx`, řádek 552
@@ -75,8 +66,6 @@
 
 | Pořadí | # | Co | Odhad | Priorita |
 |--------|---|----|-------|----------|
-| 1 | #12 | Media preview click → lightbox | 20 min | Nízká |
-| 2 | #13 | Expand/collapse text | 25 min | Nízká |
-| 3 | #10 | Bulk akce | 2h | Nízká |
+| 1 | #13 | Expand/collapse text | 25 min | Nízká |
 
-**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** + **#9 (sorting)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection, **setřídění (3 režimy) s dynamickým cursor**.
+**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** + **#9 (sorting)** + **#10 (bulk akce)** + **#12 (media preview lightbox)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection, **setřídění (3 režimy) s dynamickým cursor**, **bulk výběr + smazání vybraných**, **fullscreen media preview s navigací**.

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Eye } from "lucide-react";
+import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Eye, CheckSquare, Square } from "lucide-react";
 import {
   Instagram,
   Facebook,
@@ -23,6 +23,7 @@ import { EditPostDialog } from "@/components/edit-post-dialog";
 import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
 import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
 import { PreviewDialog } from "@/components/preview-dialog";
+import { MediaPreviewDialog } from "@/components/media-preview-dialog";
 import { toast } from "sonner";
 import type { PostStatus, PlatformStatus } from "@/lib/types";
 
@@ -94,11 +95,17 @@ export function PostCard({
   animationDelay = 0,
   tLabels,
   tAi,
+  isSelected = false,
+  onSelectChange,
 }: {
   post: PostListItem;
   locale: string;
   onDeleted?: (id: string) => void;
   animationDelay?: number;
+  /** Whether this post is selected for bulk actions (#10). */
+  isSelected?: boolean;
+  /** Callback when the user toggles selection for this post. */
+  onSelectChange?: (id: string, checked: boolean) => void;
   tLabels: {
     newPost: string;
     editPost: string;
@@ -174,6 +181,7 @@ export function PostCard({
   const [smartDeleteOpen, setSmartDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
   const router = useRouter();
   const t = useTranslations("posts");
@@ -360,10 +368,32 @@ export function PostCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.26, ease: "easeOut", delay: animationDelay }}
-      className="relative group bg-white/80 dark:bg-card/40 backdrop-blur-md border border-black/[0.08] dark:border-white/[0.06] rounded-[20px] p-5 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl"
+      className={cn(
+        "relative group bg-white/80 dark:bg-card/40 backdrop-blur-md border rounded-[20px] p-5 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl",
+        isSelected ? "border-indigo-500/50 dark:border-indigo-500/40 ring-1 ring-indigo-500/20" : "border-black/[0.08] dark:border-white/[0.06]",
+      )}
     >
-      {/* Action buttons – top right */}
+      {/* Action buttons – top right (checkbox integrated here on hover) */}
       <div className="absolute top-5 right-5 flex gap-1 z-[50] sm:opacity-0 group-hover:sm:opacity-100 transition-opacity">
+        {/* Bulk selection checkbox — inline with action buttons (#10) */}
+        {onSelectChange && (
+          <button
+            type="button"
+            onClick={() => onSelectChange(post.id, !isSelected)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border transition-all duration-150 bg-white/60 dark:bg-white/5 backdrop-blur-sm border-black/[0.06] dark:border-white/10"
+            style={{
+              borderColor: isSelected ? "rgb(99 102 241 / 0.5)" : undefined,
+              backgroundColor: isSelected ? "rgb(99 102 241 / 0.1)" : undefined,
+            }}
+            title={isSelected ? t("deselect") ?? "Deselect" : t("select") ?? "Select"}
+          >
+            {isSelected ? (
+              <CheckSquare className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" strokeWidth={3} />
+            ) : (
+              <Square className="h-3.5 w-3.5 text-muted-foreground/40" />
+            )}
+          </button>
+        )}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -425,10 +455,13 @@ export function PostCard({
       </div>
 
       <div className="flex flex-col sm:flex-row gap-5">
-        {/* Media Preview – left on desktop, top on mobile */}
+        {/* Media Preview – left on desktop, top on mobile (#12: clickable lightbox) */}
         {hasMedia && primaryMedia && (
-          <div className="relative pointer-events-none sm:w-48 sm:min-w-48 sm:max-w-48 w-full shrink-0">
-            <div className="relative overflow-hidden rounded-xl border border-white/10 dark:border-white/10 aspect-video sm:aspect-square sm:sticky sm:top-0">
+          <div className="relative sm:w-48 sm:min-w-48 sm:max-w-48 w-full shrink-0">
+            <div
+              className="relative overflow-hidden rounded-xl border border-white/10 dark:border-white/10 aspect-video sm:aspect-square sm:sticky sm:top-0 cursor-pointer hover:ring-2 hover:ring-indigo-500/30 transition-all"
+              onClick={() => setMediaPreviewOpen(true)}
+            >
               {isVideo ? (
                 <video
                   src={primaryMedia}
@@ -641,6 +674,13 @@ export function PostCard({
         linkedinTab: tLabels.previewLinkedinTab,
       }}
     />
+
+    {/* #12 — Media lightbox: click thumbnail to view all media fullscreen */}
+    <MediaPreviewDialog
+      open={mediaPreviewOpen}
+      onOpenChange={setMediaPreviewOpen}
+      mediaUrls={post.media_urls ?? []}
+    />
     </>
   );
 }
@@ -651,6 +691,8 @@ export function PostsList({
   tLabels,
   tAi,
   onDeleted,
+  selectedIds = new Set<string>(),
+  onToggleSelect,
 }: {
   posts: PostListItem[];
   locale: string;
@@ -724,6 +766,10 @@ export function PostsList({
     aiNoImage: string;
   };
   onDeleted?: (id: string) => void;
+  /** Set of post IDs currently selected for bulk actions (#10). */
+  selectedIds?: Set<string>;
+  /** Callback when the user toggles selection for a single post. */
+  onToggleSelect?: (id: string, checked: boolean) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -737,6 +783,8 @@ export function PostsList({
             onDeleted={onDeleted}
             tLabels={tLabels}
             tAi={tAi}
+            isSelected={selectedIds.has(post.id)}
+            onSelectChange={onToggleSelect}
           />
         ))}
       </AnimatePresence>

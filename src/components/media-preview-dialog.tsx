@@ -2,9 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+const SR_STYLE: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  borderWidth: 0,
+};
 
 export function MediaPreviewDialog({
   open,
@@ -46,6 +58,9 @@ export function MediaPreviewDialog({
         className="max-w-[calc(100vw-2rem)] w-full h-[calc(100vh-2rem)] max-h-[85vh] p-0 rounded-[20px] bg-black/95 backdrop-blur-xl border border-white/10 overflow-hidden flex items-center justify-center"
         onKeyDown={handleKeyDown}
       >
+        {/* Required by Radix for a11y – visually hidden */}
+        <DialogTitle style={SR_STYLE}>Media preview {totalCount > 1 ? `${currentIndex + 1} of ${totalCount}` : ""}</DialogTitle>
+
         {/* Close button */}
         <DialogClose asChild>
           <Button

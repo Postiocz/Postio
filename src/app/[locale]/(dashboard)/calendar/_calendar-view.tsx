@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ArrowLeft, Film, Image as ImageIcon, Loader2, MapPin, X, Clock, Check, AlertCircle, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, Loader2, MapPin, X, Clock, Check, AlertCircle, Play } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -39,6 +39,7 @@ import { publishPost } from "@/lib/actions/publish";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { toast } from "sonner";
 import NextImage from "next/image";
+import { useRouter } from "next/navigation";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 import { PreviewDialog } from "@/components/preview-dialog";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
@@ -47,6 +48,8 @@ import { StatsCards } from "@/components/calendar/stats-cards";
 import { ViewSwitcher, type CalendarViewMode } from "@/components/calendar/view-switcher";
 import { MiniCalendar } from "@/components/calendar/mini-calendar";
 import { CurrentTimeIndicator } from "@/components/calendar/current-time-indicator";
+import type { PostPlatform, Post } from "@/types/calendar";
+import { PLATFORMS } from "@/lib/constants/platforms";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -57,15 +60,6 @@ const PlatformIconMap: Record<string, React.ElementType> = {
   tiktok: TikTok,
 };
 
-const PLATFORMS = [
-  { id: "instagram", label: "Instagram" },
-  { id: "facebook", label: "Facebook" },
-  { id: "twitter", label: "Twitter/X" },
-  { id: "linkedin", label: "LinkedIn" },
-  { id: "youtube", label: "YouTube" },
-  { id: "tiktok", label: "TikTok" },
-];
-
 const MAX_MEDIA_FILES = 10;
 
 type MediaItem = {
@@ -74,34 +68,6 @@ type MediaItem = {
   previewUrl: string;
   kind: "image" | "video";
 };
-
-export type PostPlatform = {
-  id: string;
-  post_id: string;
-  platform: string;
-  status: string;
-  scheduled_at: string | null;
-  published_at: string | null;
-  external_id: string | null;
-  publish_error: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-interface Post {
-  id: string;
-  content: string;
-  platforms: string[];
-  post_platforms?: PostPlatform[];
-  scheduled_at: string | null;
-  status: string;
-  location: string | null;
-  tags: string[];
-  post_tags?: { id: string; name: string; color: string }[];
-  media_urls: string[];
-  published_platforms?: string[];
-  external_ids?: Record<string, string> | null;
-}
 
 interface CalendarViewProps {
   posts: Post[];
@@ -204,6 +170,7 @@ export function CalendarView({
 }: CalendarViewProps) {
   if (!posts) return null;
 
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   // Prompt 002 – rozšířený view state: Agenda / Day / Week / Month / Year.
   // Typ `CalendarViewMode` je importovaný z `@/components/calendar/view-switcher`,
@@ -436,7 +403,7 @@ export function CalendarView({
         if (publishResult.success) {
           toast.success("Příspěvek byl úspěšně publikován!");
           handleCloseModal();
-          window.location.reload();
+          router.refresh();
           return;
         }
 
@@ -460,7 +427,7 @@ export function CalendarView({
       if (result.success) {
         toast.success(tCalendar.postCreated || "Příspěvek vytvořen!");
         handleCloseModal();
-        window.location.reload();
+        router.refresh();
         return;
       }
 
@@ -498,21 +465,29 @@ export function CalendarView({
     });
   }, [posts, platformFilter, statusFilter, tagFilter]);
 
-  const getPostsForDayEffective = useCallback((day: Date) => {
+  // Memoizovaná mapa den → posty. Místo O(n) filteru pro každý den
+  // se jednou projdou všechny posty a rozloží do Map podle display date.
+  const postsByDay = useMemo(() => {
+    const map = new Map<string, Post[]>();
     const today = new Date();
-    return effectiveFilteredPosts.filter((post) => {
-      // For published posts we must look at published_at (not scheduled_at /
-      // created_at fallback), otherwise posts published "today" via
-      // "Publikovat nyní" but created as a draft on a previous day
-      // would never match today's cell.
+    effectiveFilteredPosts.forEach((post) => {
       const displayDate = getPostDisplayDate(post);
-      if (!displayDate) {
-        return isSameDay(today, day);
+      let key: string;
+      if (displayDate) {
+        key = format(new Date(displayDate), "yyyy-MM-dd");
+      } else {
+        // Post bez data → zobrazíme na dnešku
+        key = format(today, "yyyy-MM-dd");
       }
-      const postDate = new Date(displayDate);
-      return isSameDay(postDate, day);
+      map.set(key, [...(map.get(key) ?? []), post]);
     });
+    return map;
   }, [effectiveFilteredPosts, getPostDisplayDate]);
+
+  const getPostsForDayEffective = useCallback((day: Date) => {
+    const key = format(day, "yyyy-MM-dd");
+    return postsByDay.get(key) ?? [];
+  }, [postsByDay]);
 
   const monthLabel = months[month];
 
@@ -594,6 +569,13 @@ export function CalendarView({
     setHoveredPost(null);
   }, []);
 
+  // #11 — Skrýt hover preview při scrollu, aby fixed tooltip nepřekrýval obsah
+  useEffect(() => {
+    const handleScroll = () => setHoveredPost(null);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const getPlatformColor = useCallback((platformId: string): string => {
     const colors: Record<string, string> = {
       instagram: "text-pink-500",
@@ -612,6 +594,8 @@ export function CalendarView({
       {/* Prompt 002 – Stats Cards (zobrazí se vždy, nad všemi view módy) */}
       <StatsCards
         posts={effectiveFilteredPosts}
+        currentDate={currentDate}
+        getDisplayDate={getPostDisplayDate}
         t={{
           totalPublished: tCalendar.stats?.totalPublished ?? "Total Published",
           totalScheduled: tCalendar.stats?.totalScheduled ?? "Total Scheduled",
@@ -1187,6 +1171,9 @@ export function CalendarView({
                     {mDays.map((day, dayIdx) => {
                       const inMonth = isSameMonth(day, m);
                       const today = isToday(day);
+                      const dayKey = format(day, "yyyy-MM-dd");
+                      const dayPosts = postsByDay.get(dayKey) ?? [];
+                      const hasPosts = dayPosts.length > 0;
                       return (
                         <button
                           key={dayIdx}
@@ -1196,13 +1183,19 @@ export function CalendarView({
                             setView("month");
                           }}
                           className={cn(
-                            "flex h-4 w-full items-center justify-center rounded text-[9px] transition-all",
+                            "relative flex h-5 w-full items-center justify-center rounded text-[9px] transition-all",
                             !inMonth && "text-transparent",
-                            inMonth && !today && "text-foreground/70 hover:bg-white/70 dark:hover:bg-white/[0.06]",
-                            today && "bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-semibold"
+                            inMonth && !today && !hasPosts && "text-foreground/70 hover:bg-white/70 dark:hover:bg-white/[0.06]",
+                            today && "bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-semibold",
+                            hasPosts && !today && "font-semibold text-foreground"
                           )}
                         >
                           {format(day, "d")}
+                          {hasPosts && (
+                            <span className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 flex h-[3px] w-[3px]">
+                              <span className="h-[3px] w-[3px] rounded-full bg-indigo-500 dark:bg-indigo-400" />
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -1413,11 +1406,24 @@ export function CalendarView({
                 onChange={(e) => setFormContent(e.target.value)}
                 className="min-h-[120px] resize-y bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
               />
-              <div className="flex justify-end text-xs text-muted-foreground/60">
-                <span className={formContent.length > 280 ? "text-destructive" : ""}>
-                  {formContent.length} {tCalendar.characterCount || "/ 280"}
-                </span>
-              </div>
+              {/* #12 — Dynamický character limit podle vybraných platforem */}
+              {(() => {
+                const limits: Record<string, number> = {
+                  twitter: 280, x: 280, instagram: 2200, linkedin: 3000,
+                  facebook: Infinity, youtube: 5000, tiktok: 4000,
+                };
+                const maxLimit = formPlatforms.length > 0
+                  ? Math.min(...formPlatforms.map((p) => limits[p] ?? Infinity))
+                  : Infinity;
+                return (
+                  <div className="flex justify-end text-xs text-muted-foreground/60">
+                    <span className={maxLimit !== Infinity && formContent.length > maxLimit ? "text-destructive" : ""}>
+                      {formContent.length}
+                      {maxLimit !== Infinity ? ` / ${maxLimit}` : ""}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Platforms */}

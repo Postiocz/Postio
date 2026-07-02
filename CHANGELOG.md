@@ -3,6 +3,64 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-07-02
+
+### 🐛 Fix — Calendar: `window.location.reload()` → `router.refresh()` (#1)
+
+- **Soubor**: `_calendar-view.tsx` (ř. 439, 463)
+- **Problém**: Tvrdý reload celé stránky po vytvoření příspěvku z kalendáře ničil UX — ztráta stavu filtrů, view módu a scroll pozice. Anti-pattern v Next.js App Router.
+- **Řešení**: Import `useRouter` z `next/navigation`, oba výskyty `window.location.reload()` → `router.refresh()`. Data se obnoví přes RSC, client state (filtry, view mód) zůstane zachován.
+
+### 🐛 Fix — StatsCards počítají jen z aktuálního měsíce (#8)
+
+- **Soubory**: `stats-cards.tsx`, `_calendar-view.tsx`
+- **Problém**: Label káry říkal "Tento měsíc", ale stats počítaly ze všech filtrovaných postů bez ohledu na datum. Uživatel s 200 posty za rok viděl "200" i když v měsíci byly jen 3.
+- **Řešení**: `StatsCards` je nyní generická `<T extends PostForStats>`, přijímá `currentDate: Date` a `getDisplayDate` callback. Všechny 4 staty (published/scheduled/failed/drafts) se filtrují i podle `isSameMonth(getDisplayDate(post), currentDate)`.
+
+### 🛡️ Fix — Calendar DB query `.limit(500)` (#6)
+
+- **Soubor**: `calendar/page.tsx`
+- **Problém**: Načítaly se všechny posty uživatele bez limitu. Při stovkách příspěvků = velká odpověď + pomalý render.
+- **Řešení**: Přidán `.limit(500)` jako ochranná brzda na Supabase query.
+
+### ♻️ Refactor — Memoizace postsByDay (#5)
+
+- **Soubor**: `_calendar-view.tsx`
+- **Problém**: `getPostsForDayEffective(day)` při každém renderu projel všechny posty pro každý den (~35× měsíčně = O(n×dny)).
+- **Řešení**: Jednou O(n) `useMemo` Map<string, Post[]> rozloží posty podle `"yyyy-MM-dd"` klíče. Každý den pak dělá O(1) `.get(key)` lookup místo lineárního filteru.
+
+### ♻️ Refactor — Duplicitní typy a konstanty (#3+4)
+
+- **Nové soubory**: `src/types/calendar.ts`, `src/lib/constants/platforms.ts`
+- **Problém**: Typ `PostPlatform` definovaný dvakrát (`_calendar-client.tsx` + `_calendar-view.tsx`), typ `Post` také dvakrát, konstanta `PLATFORMS` v `_calendar-view.tsx` i `page.tsx`.
+- **Řešení**: Single source of truth — `PostPlatform` + `Post` v `src/types/calendar.ts`, `PLATFORMS` v `src/lib/constants/platforms.ts`. Všechny 3 soubory (`_calendar-view.tsx`, `_calendar-client.tsx`, `page.tsx`) importují odtud.
+
+### 🐛 Fix — Hover preview skryt při scrollu (#11)
+
+- **Soubor**: `_calendar-view.tsx`
+- **Problém**: Hover preview měl `fixed` pozici — při scrollování zůstával na místě a překrýval obsah.
+- **Řešení**: `useEffect` s `window.addEventListener("scroll", ...)` resetuje `hoveredPost` na `null`. Passive listener pro plynulý scroll, cleanup v returnu.
+
+### ✨ Feature — Dynamický character limit podle platforem (#12)
+
+- **Soubor**: `_calendar-view.tsx`
+- **Problém**: Vždy ukazoval `/ 280` (Twitter limit), ale Instagram = 2200, LinkedIn = 3000, YouTube = 5000.
+- **Řešení**: Limit se počítá jako `Math.min()` z vybraných platforem (`twitter: 280`, `instagram: 2200`, `linkedin: 3000`, `facebook: ∞`, `youtube: 5000`, `tiktok: 4000`). Při více platformách se použije nejpřísnější limit. Bez vybrané platformy se limit nezobrazuje. Překročený limit = `text-destructive`.
+
+### 🐛 Fix — Year view: dny s příspěvky neměly vizuální indikátor (#18)
+
+- **Soubor**: `_calendar-view.tsx`
+- **Problém**: V ročním zobrazení (year view) se v mini-měsících zobrazovaly jen čísla dní bez jakékoliv informace o příspěvcích. Uživatel musel kliknout na měsíc a přepnout se do month view, aby viděl kde má posty. Badge s počtem příspěvků byl nad měsícem, ale uvnitř gridu žádná vizuální vazba.
+- **Řešení**: Každý den v year view nyní používá memoizovanou mapu `postsByDay` pro O(1) lookup. Dny s příspěvky mají indigo tečku pod číslem dne + tučnější text (`font-semibold`). Dnes + příspěvky = gradient pozadí (zachováno původní chování).
+
+### 🧹 Chore — Odstranění nepoužitých importů (#17)
+
+- **Soubor**: `_calendar-view.tsx`
+- **Problém**: `ArrowLeft`, `Film`, `Image as ImageIcon` importovány z `lucide-react`, ale nikde nepoužity.
+- **Řešení**: Odstraněny z importu.
+
+---
+
 ## 2026-07-01
 
 ### ♻️ Refactor — Dokončení props drilling cleanup (#14)

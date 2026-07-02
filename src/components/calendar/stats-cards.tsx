@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, CalendarClock, AlertTriangle, FileEdit } from "lucide-react";
+import { isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface PostForStats {
@@ -8,8 +9,10 @@ interface PostForStats {
   post_platforms?: { status: string }[];
 }
 
-interface StatsCardsProps {
-  posts: PostForStats[];
+interface StatsCardsProps<T extends PostForStats = PostForStats> {
+  posts: T[];
+  currentDate: Date;
+  getDisplayDate: (post: T) => string | null;
   t: {
     totalPublished: string;
     totalScheduled: string;
@@ -29,13 +32,19 @@ interface StatsCardsProps {
  * Glassmorphism styl (Pure Black #000, radius 20px, backdrop-blur) konzistentni
  * se zbytkem Postio kalendare.
  */
-export function StatsCards({ posts, t }: StatsCardsProps) {
+export function StatsCards<T extends PostForStats = PostForStats>({ posts, currentDate, getDisplayDate, t }: StatsCardsProps<T>) {
   // Pocitame z `post.status`, ktery je agregovan na strane serveru v page.tsx.
   // Nepocitame z post_platforms, abychom nezdvojovali "1 prispevek na 3 site = 3".
-  const published = posts.filter((p) => p.status === "published").length;
-  const scheduled = posts.filter((p) => p.status === "scheduled").length;
-  const failed = posts.filter((p) => p.status === "failed").length;
-  const drafts = posts.filter((p) => p.status === "draft").length;
+  // Filtrujeme i podle aktualniho mesice — label rika "Tento měsíc", tak i počítáme jen jeho posty.
+  const inMonth = (p: T) => {
+    const d = getDisplayDate(p);
+    return d && isSameMonth(new Date(d), currentDate);
+  };
+
+  const published = posts.filter((p) => p.status === "published" && inMonth(p)).length;
+  const scheduled = posts.filter((p) => p.status === "scheduled" && inMonth(p)).length;
+  const failed = posts.filter((p) => p.status === "failed" && inMonth(p)).length;
+  const drafts = posts.filter((p) => p.status === "draft" && inMonth(p)).length;
 
   const cards = [
     {

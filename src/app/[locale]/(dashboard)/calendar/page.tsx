@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTags } from "@/lib/actions/tag-actions";
 import { CalendarClient } from "./_calendar-client";
+import { PLATFORMS } from "@/lib/constants/platforms";
 
 export default async function CalendarPage({
   params,
@@ -25,7 +26,8 @@ export default async function CalendarPage({
     .from("posts")
     .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   const { data: rawPosts, error: postsError } = await query;
 
@@ -63,14 +65,7 @@ export default async function CalendarPage({
     };
   });
 
-  const platforms = [
-    { id: "instagram", label: "Instagram" },
-    { id: "facebook", label: "Facebook" },
-    { id: "twitter", label: "Twitter/X" },
-    { id: "linkedin", label: "LinkedIn" },
-    { id: "youtube", label: "YouTube" },
-    { id: "tiktok", label: "TikTok" },
-  ];
+  const platforms = PLATFORMS.map(p => ({ id: p.id, label: p.label }));
 
   // Load user's internal tags for the tag filter dropdown
   const tagsResult = await getUserTags();

@@ -252,11 +252,11 @@
 |část|Popis|Odhad|Stav|
 |---|---|---|---|
 |~~18a~~|~~`_calendar-view.tsx`: `handleDayClick` – blokovat otevírání New Post modalu pro minulé datumy~~|30 min|✅ Hotovo (`fadf202`) — toast CS/EN/UK, existující posty se otevírají normálně|
-|18b|`EditPostDialog`: Přidat platform selector pro editaci platforem u existujícího postu|45 min|⬜|
-|18c|Server action `updatePostPlatformsAction` (nebo rozšíření `createPostAction`) pro přidání/odebrání platforem|15 min|⬜|
-|18d|Integrace + testy|15 min|⬜|
+|18b|`EditPostDialog`: Přidat platform selector pro editaci platforem u existujícího postu|45 min|✅ Hotovo — `hasMetadataChanges` detekuje změny platforem, `handleSaveMetadata` volá `updatePost` s `platforms`, publikované platformy zůstávají zamčené (`pointer-events-none`)
+|18c|Server action `updatePostPlatformsAction` (nebo rozšíření `createPostAction`) pro přidání/odebrání platforem|15 min|✅ Hotovo — `updatePost` v `posts.ts` (ř.179-218) již umí dual-write sync platforem do `post_platforms` (add new as draft, remove non-published)
+|18d|Integrace + testy|15 min|✅ Hotovo — platformy se ukládají přes "Uložit interní metadata" tlačítko u publikovaných postů, toggle funguje pro nepublikované platformy
 
-**Celkem #18 zbývá: ~1 hodina (18b + 18c + 18d)**
+**Celkem #18 zbývá: 0 — vše hotovo**
 
 ---
 
@@ -264,4 +264,4 @@
 **Hotovo relace 2:** #14 + #16 = **2 úkoly, ~35 min**  
 **Hotovo relace 3:** #10 + #18a (součást commitu `fadf202`) = **1 úkol, ~20 min**  
 **Hotovo relace 4:** #13 = **1 úkol, ~90 min** (8 nových komponent, −581 řádků)  
-**Zbývá:** 3 úkoly kalendáře + #18b-c-d (~1h) = **~3.5 hodiny**
+**Zbývá:** 3 úkoly kalendáře (#7, #9, #15) = **~2.5 hodiny**

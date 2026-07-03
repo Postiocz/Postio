@@ -429,12 +429,21 @@ export function EditPostDialog({
     const currentLocation = location.trim();
     const originalTags = [...(post.tags ?? [])].sort().join(",");
     const currentTags = [...tags].sort().join(",");
+    // #18b — Detect platform changes: compare form state + published platforms vs original
+    const originalPlatforms = (post.platforms ?? []).sort().join(",");
+    const publishedPlatforms = (post.post_platforms ?? [])
+      .filter((p) => p.status === "published")
+      .map((p) => p.platform)
+      .sort();
+    // Current intended platforms = form selection union published (locked) platforms
+    const currentPlatforms = [...new Set([...platforms, ...publishedPlatforms])].sort().join(",");
     return (
       originalTagIds !== currentTagIds ||
       originalLocation !== currentLocation ||
-      originalTags !== currentTags
+      originalTags !== currentTags ||
+      originalPlatforms !== currentPlatforms
     );
-  }, [isEdit, post, selectedTagIds, location, tags]);
+  }, [isEdit, post, selectedTagIds, location, tags, platforms]);
 
   // ---------------------------------------------------------------------
   // Instagram hard-block: if the post is destined for Instagram AND it has
@@ -667,9 +676,14 @@ export function EditPostDialog({
 
   /**
    * Save only the internal-only metadata of a published post (location, inline hashtags,
-   * internal organization tags via post_tags). Does NOT touch the published content
+   * internal organization tags via post_tags, platforms). Does NOT touch the published content
    * on social networks. Safe to call repeatedly – updatePost never modifies
    * published_platforms, published_at, external_ids or status.
+   *
+   * #18b — Platforms are included: new platforms get added as `draft` rows in
+   * `post_platforms`. Published platforms cannot be removed (they are locked
+   * in the UI and excluded from the toggle state). updatePost handles the
+   * diff internally (adds new, skips published/publishing for removal).
    */
   const handleSaveMetadata = useCallback(async () => {
     if (!isEdit || !post?.id) return;
@@ -680,7 +694,16 @@ export function EditPostDialog({
     setLoading(true);
     setError(null);
     try {
+      // #18b — Include platforms in metadata save.
+      // `platforms` state contains only non-published platforms (published ones
+      // are filtered out on dialog open). union with published for the full list.
+      const publishedPlatforms = (post.post_platforms ?? [])
+        .filter((p) => p.status === "published")
+        .map((p) => p.platform);
+      const allPlatforms = [...new Set([...platforms, ...publishedPlatforms])];
+
       const result = await updatePost(post.id, {
+        platforms: allPlatforms,
         location: location.trim() || "",
         tags,
         tagIds: selectedTagIds,
@@ -699,7 +722,7 @@ export function EditPostDialog({
     } finally {
       setLoading(false);
     }
-  }, [isEdit, post, location, tags, selectedTagIds, hasUploading, onOpenChange, router, t]);
+  }, [isEdit, post, platforms, location, tags, selectedTagIds, hasUploading, onOpenChange, router, t]);
 
   const handleUpdateOnSocials = async () => {
     if (!content.trim() || !isEdit || !post?.id) return;

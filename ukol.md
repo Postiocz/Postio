@@ -127,16 +127,19 @@
 
 ---
 
-#### #9 — ~~Modal pro nový příspěvek: chybí upload médií~~ ⬜
+#### #9 — Modal pro nový příspěvek: upload médií ✅ Hotovo
 
-**Soubor:** `_calendar-view.tsx` řádky 1371–1571  
-**Problém:** Formulář v kalendáři neumí nahrát obrázky/videa, zatímco `/posts/new` a `EditPostDialog` ano. Inkonzistence.
+**Soubor:** `_calendar-view.tsx`  
+**Problém byl:** Formulář v kalendáři neumí nahrát obrázky/videa, zatímco `/posts/new` a `EditPostDialog` ano. Inkonzistence.
 
-**Co udělat:**
-1. Přidat media upload sekci do New Post modalu (stejný pattern jako v `posts/new/page.tsx`)
-2. Předat `mediaUrls` do `createPostAction`
+**Řešení:**
+1. Přidán `useMediaUpload` hook do `_calendar-view.tsx` (userId fetch, upload labels)
+2. Media upload sekce do inline modálu — drag & drop + click, max 10 souborů, grid preview (obrázky i videa), status indikátory (optimizing/uploading/ready)
+3. `mediaUrls: getMediaUrls()` předáváno do `createPostAction` místo hardcoded `[]`
+4. `hasUploading()` blokuje submit tlačítka během nahrávání
+5. AI Vision integrace — `firstImageUrl` předáván do `AIAssistantButton`
 
-**Odhad:** ~60 min
+**Odhad:** ~60 min ✅
 
 ---
 
@@ -243,7 +246,7 @@
 | ~~11~~ | ~~**#10**~~ | ~~Klik na prázdný den — chování~~ | 20 min | 🟢 UX | ✅ Hotovo (`fadf202`) |
 | ~~12~~ | ~~**#13**~~ | ~~Rozdělení souboru (980 řádků → 8 komponent)~~ | 90 min | 🔵 Refactor | ✅ Hotovo (`60e2d39`) |
 | ~~1~~ | ~~**#7**~~ | ~~Mobile view přepínač pohledů~~ | 45 min | 🟢 UX | ✅ Hotovo |
-| 2 | **#9** | Media upload do calendar modalu | 60 min | 🟢 UX | ⬜ Zbývá |
+| ~~2~~ | ~~**#9**~~ | ~~Media upload do calendar modalu~~ | 60 min | 🟢 UX | ✅ Hotovo |
 | 3 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
 
 ## 📋 Úkoly — Rozšíření (nové)
@@ -265,4 +268,4 @@
 **Hotovo relace 2:** #14 + #16 = **2 úkoly, ~35 min**  
 **Hotovo relace 3:** #10 + #18a (součást commitu `fadf202`) = **1 úkol, ~20 min**  
 **Hotovo relace 4:** #13 = **1 úkol, ~90 min** (8 nových komponent, −581 řádků)  
-**Zbývá:** 3 úkoly kalendáře (#7, #9, #15) = **~2.5 hodiny**
+**Zbývá:** 1 úkol kalendáře (#15 — ARIA/Keyboard navigace) = **~40 min**

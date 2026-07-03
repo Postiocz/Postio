@@ -19,7 +19,7 @@ import {
   startOfWeek as dfnStartOfWeek,
   endOfWeek,
 } from "date-fns";
-import { ChevronLeft, Calendar as CalendarIcon, Loader2, MapPin, X } from "lucide-react";
+import { Calendar as CalendarIcon, CheckCircle2, ChevronLeft, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,9 @@ import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import NextImage from "next/image";
+import { createClient } from "@/lib/supabase/client";
+import { useMediaUpload } from "@/hooks/use-media-upload";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 import { PreviewDialog } from "@/components/preview-dialog";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
@@ -48,8 +51,9 @@ import { DayTimelineView } from "@/components/calendar/day-timeline-view";
 import { AgendaListView } from "@/components/calendar/agenda-list-view";
 import { YearMiniGrid } from "@/components/calendar/year-mini-grid";
 import { MobileAgendaView } from "@/components/calendar/mobile-agenda-view";
-import { NewPostModal } from "@/components/calendar/new-post-modal";
 import { HoverPreview } from "@/components/calendar/hover-preview";
+
+const MAX_MEDIA_FILES = 10;
 
 interface CalendarViewProps {
   posts: Post[];
@@ -184,6 +188,39 @@ export function CalendarView({
   const [formSelectedTagIds, setFormSelectedTagIds] = useState<string[]>([]);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isDraggingMedia, setIsDraggingMedia] = useState(false);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Get current user ID
+  useEffect(() => {
+    const supabase = createClient();
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
+
+  const uploadLabels = {
+    tooManyFiles: tCalendar.maxFilesReached || "Maximum number of files reached",
+    uploadSuccess: tCalendar.uploadSuccess || "File uploaded successfully",
+    uploadError: tCalendar.uploadError || "Error uploading file",
+    fileDeleted: tCalendar.fileDeleted || "File has been deleted",
+    invalidFileType: tCalendar.invalidFileType || "Unsupported file format",
+    unsupportedFormat: ({ type }: { type: string }) =>
+      `Formát ${type || "unknown"} není podporován. Použijte JPG, PNG, WEBP nebo MP4/MOV.`,
+    videoTooLarge: tCalendar.fileTooLargeVideo || "Video je příliš velké (max. 50 MB).",
+    videoLowResolution: "Video má nízké rozlišení (méně než 640px).",
+    instagramVideoTooSmall: "Toto video nelze na Instagramu publikovat.",
+    instagramVideoTooSmallHint: "Instagram nepodporuje videa s nízkým rozlišením.",
+    fileTooLargeImage: tCalendar.fileTooLargeImage || "Image is too large (max 50 MB).",
+    fileTooLargeVideo: tCalendar.fileTooLargeVideo || "File is too large. Max limit for videos is 20MB.",
+    optimizingImage: "Soubor je příliš velký, optimalizuji...",
+    fileOptimized: "Obrázek optimalizován",
+    compressionError: "Nelze optimalizovat obrázek, nahrávám originál.",
+  };
+  const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -297,6 +334,12 @@ export function CalendarView({
     setFormError(null);
   }, []);
 
+  // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
+  const firstImageUrl = useMemo(() => {
+    const firstImage = mediaItems.find((item) => item.kind === "image" && item.status === "ready" && item.url);
+    return firstImage?.url ?? null;
+  }, [mediaItems]);
+
   const handleOpenNewPostModal = useCallback((day: Date) => {
     setModalDay(day);
     const dateStr = format(day, "yyyy-MM-dd");
@@ -345,11 +388,16 @@ export function CalendarView({
 
   const handleFormSubmit = useCallback(async (status: "draft" | "scheduled" | "published") => {
     if (!formContent.trim()) return;
+    if (hasUploading()) {
+      toast.info(tCalendar.uploading || "Nahrávání médií...");
+      return;
+    }
     setFormLoading(true);
     setFormError(null);
 
     try {
       const normalizedScheduledAt = normalizeScheduledAt(formScheduledAt);
+      const mediaUrls = getMediaUrls();
 
       if (status === "published") {
         if (formPlatforms.length === 0) {
@@ -367,7 +415,7 @@ export function CalendarView({
           location: formLocation.trim() || undefined,
           tags: formTags.length > 0 ? formTags : undefined,
           tagIds: formSelectedTagIds,
-          mediaUrls: [],
+          mediaUrls,
         });
 
         if (!createResult.success || !createResult.data?.id) {
@@ -399,7 +447,7 @@ export function CalendarView({
         location: formLocation.trim() || undefined,
         tags: formTags.length > 0 ? formTags : undefined,
         tagIds: formSelectedTagIds,
-        mediaUrls: [],
+        mediaUrls,
       });
 
       if (result.success) {
@@ -417,7 +465,7 @@ export function CalendarView({
     } finally {
       setFormLoading(false);
     }
-  }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, formSelectedTagIds, tCalendar, handleCloseModal, normalizeScheduledAt]);
+  }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, formSelectedTagIds, tCalendar, handleCloseModal, normalizeScheduledAt, getMediaUrls, hasUploading]);
 
   const handlePostClick = useCallback((post: Post, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -765,6 +813,7 @@ export function CalendarView({
                       return added.length > 0 ? [...prev, ...added] : prev;
                     });
                   }}
+                  imageUrl={firstImageUrl}
                 />
               </div>
               <Textarea
@@ -791,6 +840,139 @@ export function CalendarView({
                   </div>
                 );
               })()}
+            </div>
+
+            {/* Media Upload (#9) */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-muted-foreground/80">
+                {tCalendar.addMedia || "Média"}
+              </Label>
+              <input
+                ref={mediaInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length > 0) {
+                    const tooLarge = files.some(f => f.size > 50 * 1024 * 1024);
+                    if (tooLarge) {
+                      toast.error(tCalendar.fileTooLarge || "Soubor je příliš velký (max. 50 MB).");
+                      return;
+                    }
+                    addMediaFiles(files);
+                  }
+                  e.currentTarget.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => mediaInputRef.current?.click()}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingMedia(true);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingMedia(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingMedia(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingMedia(false);
+                  const files = Array.from(e.dataTransfer.files ?? []);
+                  if (files.length > 0) {
+                    const tooLarge = files.some(f => f.size > 50 * 1024 * 1024);
+                    if (tooLarge) {
+                      toast.error(tCalendar.fileTooLarge || "Soubor je příliš velký (max. 50 MB).");
+                      return;
+                    }
+                    addMediaFiles(files);
+                  }
+                }}
+                className={cn(
+                  "group relative w-full rounded-xl border border-dashed border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.02] p-4 text-left transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.05]",
+                  isDraggingMedia && "border-indigo-500/50 bg-indigo-50/50 dark:bg-indigo-500/10"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/[0.05]">
+                    <ImageIcon className="h-5 w-5 text-muted-foreground/60" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground/80 truncate">
+                      {tCalendar.addMedia || "Přidat média"}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground/60">
+                      <Film className="h-3 w-3" />
+                      <span>{mediaItems.length}/{MAX_MEDIA_FILES}</span>
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {mediaItems.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {mediaItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.02]"
+                    >
+                      {item.status === "optimizing" && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                          <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
+                        </div>
+                      )}
+                      {item.status === "uploading" && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                          <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
+                        </div>
+                      )}
+                      {item.status === "ready" && (
+                        <div className="absolute left-1.5 top-1.5 z-10 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                        </div>
+                      )}
+                      {item.kind === "image" ? (
+                        <NextImage
+                          src={item.previewUrl}
+                          alt="Media preview"
+                          width={0}
+                          height={0}
+                          sizes="100vw"
+                          style={{ width: "100%", height: "auto" }}
+                          className="h-20 w-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <video
+                          src={item.previewUrl}
+                          className="h-20 w-full object-cover"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeMediaItem(item.id)}
+                        className="absolute right-1.5 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
+                        aria-label="Remove"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Platforms */}
@@ -914,30 +1096,30 @@ export function CalendarView({
             <Button
               type="button"
               onClick={() => handleFormSubmit("draft")}
-              disabled={!formContent.trim() || formLoading}
+              disabled={!formContent.trim() || formLoading || hasUploading()}
               variant="outline"
               className="rounded-xl border-gray-200 bg-gray-50 hover:bg-gray-100 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
             >
-              {formLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {formLoading ? (tCalendar.saving || "Ukládání...") : (tCalendar.saveDraft || "Koncept")}
+              {(formLoading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {(formLoading || hasUploading()) ? (tCalendar.saving || "Ukládání...") : (tCalendar.saveDraft || "Koncept")}
             </Button>
             <Button
               type="button"
               onClick={() => handleFormSubmit("scheduled")}
-              disabled={!formContent.trim() || !formScheduledAt || formLoading}
+              disabled={!formContent.trim() || !formScheduledAt || formLoading || hasUploading()}
               className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
             >
-              {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarIcon className="mr-2 h-4 w-4" />}
-              {formLoading ? (tCalendar.saving || "Ukládání...") : (tCalendar.schedule || "Naplánovat")}
+              {(formLoading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarIcon className="mr-2 h-4 w-4" />}
+              {(formLoading || hasUploading()) ? (tCalendar.saving || "Ukládání...") : (tCalendar.schedule || "Naplánovat")}
             </Button>
             <Button
               type="button"
               onClick={() => handleFormSubmit("published")}
-              disabled={!formContent.trim() || formPlatforms.length === 0 || formLoading}
+              disabled={!formContent.trim() || formPlatforms.length === 0 || formLoading || hasUploading()}
               className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
             >
-              {formLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {formLoading ? (tCalendar.saving || "Ukládání...") : (tCalendar.publishNow || "Publikovat")}
+              {(formLoading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {(formLoading || hasUploading()) ? (tCalendar.saving || "Ukládání...") : (tCalendar.publishNow || "Publikovat")}
             </Button>
           </div>
         </DialogContent>

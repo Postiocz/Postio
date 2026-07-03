@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { updatePost } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
-import { ArrowLeft, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import { publishAdditionalPlatforms } from "@/lib/actions/publish";
+import { deleteFromMeta } from "@/lib/actions/publish";
+import { ArrowLeft, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, MapPin, X, Plus, Trash2, Lock, Send, ExternalLink } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -21,7 +23,17 @@ import { TagPicker } from "@/components/tag-picker";
 
 const PLATFORMS = ["instagram", "facebook", "twitter", "linkedin", "youtube", "tiktok"];
 
+// Platforms that don't support editing published posts
+const NON_EDITABLE_PLATFORMS = ["instagram", "linkedin", "tiktok"];
+
 const MAX_MEDIA_FILES = 10;
+
+interface PostPlatform {
+  platform: string;
+  status: string;
+  external_id: string | null;
+  scheduled_at: string | null;
+}
 
 export default function EditPostPage() {
   const t = useTranslations("posts");
@@ -43,6 +55,10 @@ export default function EditPostPage() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  // Platform management state
+  const [postPlatforms, setPostPlatforms] = useState<PostPlatform[]>([]);
+  const [platformPublishing, setPlatformPublishing] = useState<string | null>(null);
+  const [platformDeleting, setPlatformDeleting] = useState<string | null>(null);
   // Snapshot of the original post used to detect "internal metadata" changes
   // (location, inline hashtags, internal organization tags) without re-publishing
   // the post on social networks.
@@ -112,7 +128,7 @@ export default function EditPostPage() {
     (async () => {
       const { data: postData, error: err } = (await supabase
         .from("posts")
-        .select("*, post_tags(tags(id, name, color))")
+        .select("*, post_platforms(platform, status, external_id, scheduled_at), post_tags(tags(id, name, color))")
         .eq("id", id)
         .single()) as {
         data: {
@@ -123,6 +139,7 @@ export default function EditPostPage() {
           location: string | null;
           tags: string[];
           media_urls: string[];
+          post_platforms: PostPlatform[] | null;
           post_tags: { tags: { id: string; name: string; color: string } | null }[] | null;
         } | null;
         error: Error | null;
@@ -131,7 +148,6 @@ export default function EditPostPage() {
       if (err || !postData) return;
 
       setContent(postData.content);
-      setSelectedPlatforms(postData.platforms ?? []);
       setStatus(postData.status);
       setLocation(postData.location ?? "");
       setTags(postData.tags ?? []);
@@ -145,6 +161,13 @@ export default function EditPostPage() {
         .map((row) => row.tags?.id)
         .filter((t): t is string => typeof t === "string");
       setSelectedTagIds(existingTagIds);
+      // Load post_platforms with full details
+      setPostPlatforms(postData.post_platforms ?? []);
+      // Initialize selectedPlatforms from post.platforms (legacy) or post_platforms
+      const platformList = postData.platforms?.length
+        ? postData.platforms
+        : (postData.post_platforms ?? []).map((p) => p.platform);
+      setSelectedPlatforms(platformList);
       // Snapshot for change detection
       setOriginalPost({
         content: postData.content,

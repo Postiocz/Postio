@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, Loader2, MapPin, X, Clock, Check, AlertCircle, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, Loader2, MapPin, X, Clock, AlertCircle, Play } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -50,15 +50,7 @@ import { MiniCalendar } from "@/components/calendar/mini-calendar";
 import { CurrentTimeIndicator } from "@/components/calendar/current-time-indicator";
 import type { PostPlatform, Post } from "@/types/calendar";
 import { PLATFORMS } from "@/lib/constants/platforms";
-
-const PlatformIconMap: Record<string, React.ElementType> = {
-  instagram: Instagram,
-  facebook: Facebook,
-  twitter: Twitter,
-  linkedin: Linkedin,
-  youtube: Youtube,
-  tiktok: TikTok,
-};
+import { PostCalendarChip, PlatformIconsGroup, getChipStatusStyles, PlatformIconMap } from "@/components/calendar/post-calendar-chip";
 
 const MAX_MEDIA_FILES = 10;
 
@@ -330,10 +322,6 @@ export function CalendarView({
     setFormError(null);
   }, []);
 
-  const handleDayClick = useCallback((day: Date) => {
-    handleOpenNewPostModal(day);
-  }, [handleOpenNewPostModal]);
-
   const handleToggleFormPlatform = useCallback((platformId: string) => {
     setFormPlatforms((prev) =>
       prev.includes(platformId) ? prev.filter((p) => p !== platformId) : [...prev, platformId]
@@ -488,6 +476,31 @@ export function CalendarView({
     const key = format(day, "yyyy-MM-dd");
     return postsByDay.get(key) ?? [];
   }, [postsByDay]);
+
+  // #10 - Zakázat vytváření NOVÝCH příspěvků v minulosti
+  // Pokud je den v minulosti a nejsou na něj žádné příspěvky, zobrazíme toast a neotevřeme modal
+  const handleDayClick = useCallback((day: Date) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const clickedDay = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+
+    if (clickedDay < today) {
+      const dayPosts = getPostsForDayEffective(day);
+      if (dayPosts.length === 0) {
+        toast.info(
+          locale === "cs"
+            ? "Nelze vytvořit příspěvek pro minulý den."
+            : locale === "uk"
+            ? "Неможливо створити публікацію для минулого дня."
+            : "Cannot create a post for a past date."
+        );
+        return;
+      }
+      // Pokud jsou příspěvky, necháme otevřít Preview (klik na post) – handleDayClick se pro existující posty nevolá
+    }
+
+    handleOpenNewPostModal(day);
+  }, [handleOpenNewPostModal, getPostsForDayEffective, locale, toast]);
 
   const monthLabel = months[month];
 
@@ -726,72 +739,27 @@ export function CalendarView({
                 {/* Posts in this day */}
                 <div className="space-y-1">
                   {dayPosts.slice(0, 3).map((post) => {
-                    const platformsToRender = post.post_platforms || [];
                     const displayDate = getPostDisplayDate(post);
                     const time = displayDate ? formatTime(displayDate) : "";
 
                     return (
-                      <div
+                      <PostCalendarChip
                         key={post.id}
+                        post={post}
                         ref={(el) => {
                           if (el) postCardRefs.current.set(post.id, el);
                         }}
+                        iconSize="xs"
+                        contentLength={20}
+                        time={time}
+                        showPlatformBadges
                         onClick={(e) => handlePostClick(post, e)}
                         onMouseEnter={(e) => {
                           const target = e.currentTarget as HTMLDivElement;
                           handlePostHover(post, target);
                         }}
                         onMouseLeave={handlePostLeave}
-                        className={cn(
-                          "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-all hover:scale-[1.02] cursor-pointer lg:hover:scale-[1.02]",
-                          post.status === "published"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/20"
-                            : post.status === "scheduled"
-                            ? "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/20"
-                            : post.status === "publishing"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200 animate-pulse dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/20"
-                            : post.status === "failed"
-                            ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/20"
-                            : post.status === "draft"
-                            ? "bg-gray-50 text-muted-foreground border border-gray-200 opacity-70 dark:bg-white/[0.02] dark:text-muted-foreground/50 dark:border-white/5 dark:opacity-60"
-                            : post.status === "removed_externally"
-                            ? "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/20"
-                            : "bg-gray-50 text-muted-foreground border border-gray-200 dark:bg-white/5 dark:text-muted-foreground dark:border-white/5"
-                        )}
-                        title={post.content?.substring(0, 60)}
-                      >
-                        <div className="flex -space-x-1 shrink-0">
-                          {platformsToRender.map((p, idx) => {
-                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
-                            return (
-                              <div key={idx} className="relative flex items-center justify-center h-3 w-3">
-                                <Icon
-                                  className={cn(
-                                    "h-3 w-3 rounded-full",
-                                    p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
-                                    p.status === "failed" ? "text-red-600 dark:text-red-400" :
-                                    "text-inherit"
-                                  )}
-                                />
-                                {p.status === "published" && (
-                                  <div className="absolute -bottom-1 -right-1 flex h-2 w-2 items-center justify-center rounded-full bg-emerald-500">
-                                    <Check className="h-1.5 w-1.5 text-white" strokeWidth={4} />
-                                  </div>
-                                )}
-                                {p.status === "failed" && (
-                                  <div className="absolute -bottom-1 -right-1 flex h-2 w-2 items-center justify-center rounded-full bg-red-500">
-                                    <X className="h-1.5 w-1.5 text-white" strokeWidth={4} />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <span className="flex-shrink-0 ml-0.5">{time}</span>
-                        <span className="truncate">
-                          {post.content?.substring(0, 20)}
-                        </span>
-                      </div>
+                      />
                     );
                   })}
                   {dayPosts.length > 3 && (
@@ -852,53 +820,25 @@ export function CalendarView({
                 </div>
                 <div className="space-y-1">
                   {dayPosts.slice(0, 6).map((post) => {
-                    const platformsToRender = post.post_platforms || [];
                     const displayDate = getPostDisplayDate(post);
                     const time = displayDate ? formatTime(displayDate) : "";
                     return (
-                      <div
+                      <PostCalendarChip
                         key={post.id}
+                        post={post}
                         ref={(el) => {
                           if (el) postCardRefs.current.set(post.id, el);
                         }}
+                        iconSize="xs"
+                        contentLength={16}
+                        time={time}
                         onClick={(e) => handlePostClick(post, e)}
                         onMouseEnter={(e) => {
                           const target = e.currentTarget as HTMLDivElement;
                           handlePostHover(post, target);
                         }}
                         onMouseLeave={handlePostLeave}
-                        className={cn(
-                          "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-all hover:scale-[1.02] cursor-pointer",
-                          post.status === "published"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/20"
-                            : post.status === "scheduled"
-                            ? "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/20"
-                            : post.status === "failed"
-                            ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/20"
-                            : "bg-gray-50 text-muted-foreground border border-gray-200 opacity-70 dark:bg-white/[0.02] dark:border-white/5 dark:opacity-60"
-                        )}
-                      >
-                        <div className="flex -space-x-1 shrink-0">
-                          {platformsToRender.map((p, idx) => {
-                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
-                            return (
-                              <Icon
-                                key={idx}
-                                className={cn(
-                                  "h-3 w-3",
-                                  p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
-                                  p.status === "failed" ? "text-red-600 dark:text-red-400" :
-                                  "text-inherit"
-                                )}
-                              />
-                            );
-                          })}
-                        </div>
-                        <span className="flex-shrink-0 ml-0.5">{time}</span>
-                        <span className="truncate">
-                          {post.content?.substring(0, 16)}
-                        </span>
-                      </div>
+                      />
                     );
                   })}
                   {dayPosts.length > 6 && (
@@ -984,34 +924,12 @@ export function CalendarView({
                       onClick={() => handlePostClick(post, { stopPropagation: () => {} } as React.MouseEvent)}
                       className={cn(
                         "absolute left-16 right-4 rounded-lg border px-3 py-1.5 text-left transition-all hover:scale-[1.01]",
-                        post.status === "published"
-                          ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/20"
-                          : post.status === "scheduled"
-                          ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/20"
-                          : post.status === "failed"
-                          ? "bg-red-50 border-red-200 dark:bg-red-500/20 dark:border-red-500/20"
-                          : "bg-gray-50 border-gray-200 dark:bg-white/[0.02] dark:border-white/5"
+                        getChipStatusStyles(post.status)
                       )}
                       style={{ top: `${top}px`, minHeight: "32px" }}
                     >
                       <div className="flex items-center gap-2">
-                        <div className="flex -space-x-1 shrink-0">
-                          {platformsToRender.map((p, idx) => {
-                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
-                            return (
-                              <Icon
-                                key={idx}
-                                className={cn(
-                                  "h-3.5 w-3.5",
-                                  p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
-                                  p.status === "failed" ? "text-red-600 dark:text-red-400" :
-                                  p.status === "scheduled" ? "text-indigo-500 dark:text-indigo-400" :
-                                  "text-muted-foreground"
-                                )}
-                              />
-                            );
-                          })}
-                        </div>
+                        <PlatformIconsGroup platforms={platformsToRender} size="sm" />
                         <span className="text-[10px] font-semibold text-muted-foreground/70 shrink-0">
                           {formatTime(displayDate)}
                         </span>
@@ -1077,32 +995,10 @@ export function CalendarView({
                         onClick={(e) => handlePostClick(post, e)}
                         className={cn(
                           "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all hover:scale-[1.005]",
-                          post.status === "published"
-                            ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                            : post.status === "scheduled"
-                            ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/20"
-                            : post.status === "failed"
-                            ? "bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20"
-                            : "bg-gray-50 border-gray-200 dark:bg-white/[0.02] dark:border-white/5"
+                          getChipStatusStyles(post.status)
                         )}
                       >
-                        <div className="flex -space-x-1 shrink-0">
-                          {platformsToRender.map((p, idx) => {
-                            const Icon = PlatformIconMap[p.platform] || CalendarIcon;
-                            return (
-                              <Icon
-                                key={idx}
-                                className={cn(
-                                  "h-4 w-4",
-                                  p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
-                                  p.status === "failed" ? "text-red-600 dark:text-red-400" :
-                                  p.status === "scheduled" ? "text-indigo-500" :
-                                  "text-muted-foreground"
-                                )}
-                              />
-                            );
-                          })}
-                        </div>
+                        <PlatformIconsGroup platforms={platformsToRender} size="md" />
                         {time && (
                           <span className="text-xs text-muted-foreground/70 shrink-0 font-mono">
                             {time}
@@ -1247,7 +1143,7 @@ export function CalendarView({
               >
                 {/* Day Header */}
                 <div
-                  onClick={() => handleOpenNewPostModal(day)}
+                  onClick={() => handleDayClick(day)}
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]"
                 >
                   <div
@@ -1300,45 +1196,10 @@ export function CalendarView({
                           onClick={(e) => handlePostClick(post, e)}
                           className={cn(
                             "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all hover:scale-[1.01] active:scale-[0.99]",
-                            post.status === "published"
-                              ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                              : post.status === "scheduled"
-                              ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/20"
-                              : post.status === "failed"
-                              ? "bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20"
-                              : post.status === "draft"
-                              ? "bg-gray-50 border-gray-200 opacity-70 dark:bg-white/[0.02] dark:border-white/5 dark:opacity-60"
-                              : "bg-gray-50 border-gray-200 dark:bg-white/[0.02] dark:border-white/5"
+                            getChipStatusStyles(post.status)
                           )}
                         >
-                          <div className="flex -space-x-1 shrink-0">
-                            {platformsToRender.map((p, idx) => {
-                              const Icon = PlatformIconMap[p.platform] || CalendarIcon;
-                              return (
-                                <div key={idx} className="relative flex items-center justify-center h-4 w-4">
-                                  <Icon
-                                    className={cn(
-                                      "h-4 w-4 rounded-full",
-                                      p.status === "published" ? "text-emerald-600 dark:text-emerald-400" :
-                                      p.status === "failed" ? "text-red-600 dark:text-red-400" :
-                                      p.status === "scheduled" ? "text-indigo-400" :
-                                      "text-muted-foreground"
-                                    )}
-                                  />
-                                  {p.status === "published" && (
-                                    <div className="absolute -bottom-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-500">
-                                      <Check className="h-1.5 w-1.5 text-white" strokeWidth={4} />
-                                    </div>
-                                  )}
-                                  {p.status === "failed" && (
-                                    <div className="absolute -bottom-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500">
-                                      <X className="h-1.5 w-1.5 text-white" strokeWidth={4} />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <PlatformIconsGroup platforms={platformsToRender} size="md" showBadges />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-foreground/80 truncate">
                               {post.content?.substring(0, 60)}

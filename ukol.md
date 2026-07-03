@@ -68,7 +68,7 @@
 # 📋 Úkoly — Stránka "Kalendář" (Calendar)
 
 > Vytvořeno: 2026-07-02  
-> Poslední aktualizace: 2026-07-02 (relace 1 — #1,#3,#4,#5,#6,#8,#11,#12,#17 hotovo)  
+> Poslední aktualizace: 2026-07-03 (relace 2 — #14,#16 hotovo)  
 > Soubory: `src/app/[locale]/(dashboard)/calendar/page.tsx`, `_calendar-client.tsx`, `_calendar-view.tsx`  
 > Komponenty: `src/components/calendar/stats-cards.tsx`, `view-switcher.tsx`, `mini-calendar.tsx`, `current-time-indicator.tsx`
 
@@ -135,9 +135,11 @@
 
 ---
 
-#### #10 — ~~Klik na prázdný den: chování~~ ⬜
+#### #10 — ~~Klik na prázdný den: chování~~ ✅ Hotovo
 
-**Odhad:** ~20 min
+**Implementováno:** Zakázáno vytváření NOVÝCH příspěvků v minulosti. Pokud uživatel klikne na prázdný den v minulosti, zobrazí se toast: *"Nelze vytvořit příspěvek pro minulý den."* Klik na den s existujícími příspěvky funguje normálně (otevře se Preview/Edit stávajícího příspěvku).
+
+**Odhad:** ~20 min ✅
 
 ---
 
@@ -174,23 +176,18 @@
 
 ---
 
-#### #14 — ~~`PostCalendarChip` — extrakce opakujícího se JSX~~ ⬜
+#### #14 — ~~`PostCalendarChip` — extrakce opakujícího se JSX~~ ✅ Hotovo
 
-**Soubor:** `_calendar-view.tsx` — platform ikony + status barvy se opakuje ~6× (Month, Week, Day, Agenda desktop, Agenda mobile, hover preview)
+**Soubor:** `src/components/calendar/post-calendar-chip.tsx` (nový, 170 řádků)
 
-**Co udělat:**
-1. Vytvořit `post-calendar-chip.tsx`:
-   ```tsx
-   interface PostCalendarChipProps {
-     post: Post;
-     size?: 'xs' | 'sm' | 'md'; // kontroluje text-truncate délku + ikona velikost
-     showTime?: boolean;
-     onClick: (e: React.MouseEvent) => void;
-     onHoverEnter?: (el: HTMLDivElement) => void;
-     onHoverLeave?: () => void;
-   }
-   ```
-2. Nahradit všech ~6 opakujících se bloků
+**Co vytvořeno:**
+- `PostCalendarChip` — kompletní čip pro Month/Week/Mobile view
+- `PlatformIconsGroup` — sdílený renderer platform ikon s badgey (použit v Day, Agenda, Mobile)
+- `getChipStatusStyles(status)` — single source of truth pro status barvy
+- `getPlatformIconColor(status)` — single source of truth pro ikony platforem
+- `STATUS_STYLES` + `FALLBACK_STATUS` — exportované konstanty
+
+**Nahrazeno:** 5 opakujících se bloků v Month, Week, Day, Agenda desktop, Mobile Agenda view. Všech 6 statusů (published/scheduled/publishing/failed/draft/removed_externally) + fallback nyní jednotné.
 
 **Odhad:** ~30 min
 
@@ -210,14 +207,13 @@
 
 ---
 
-#### #16 — ~~Unifikovat status styling ve Week view~~ ⬜
+#### #16 — ~~Unifikovat status styling ve Week view~~ ✅ Hotovo (součást #14)
 
-**Soubor:** `_calendar-view.tsx` řádky 886–894  
-**Problém:** Week view má jen `published/scheduled/failed/fallback`, ale Month view má i `removed_externally` a `publishing`.
+**Problém byl:** Week view měl jen `published/scheduled/failed/fallback`, ale Month view měl i `removed_externally` a `publishing`.
 
-**Co udělat:** Po extrakci `PostCalendarChip` (#14) bude automaticky vyřešeno.
+**Řešení:** `getChipStatusStyles()` v `post-calendar-chip.tsx` vrací všech 6+1 statusů pro všechny pohledy. Week view nyní používá `PostCalendarChip` se stejným stylingem jako Month.
 
-**Odhad:** ~5 min (nebo řešeno jako součást #14)
+**Odhad:** ~5 min (řešeno jako součást #14)
 
 ---
 
@@ -237,13 +233,29 @@
 | ~~6~~ | ~~**#3+4**~~ | ~~Duplicitní typy a konstanty~~ | 15 min | 🔵 Refactor | ✅ Hotovo |
 | ~~7~~ | ~~**#11**~~ | ~~Hover preview skryt při scrollu~~ | 5 min | 🟢 UX | ✅ Hotovo |
 | ~~8~~ | ~~**#12**~~ | ~~Dynamický character limit~~ | 15 min | 🟢 UX | ✅ Hotovo |
-| 1 | **#14** | PostCalendarChip extrakce | 30 min | 🔵 Refactor | ⬜ Zbývá |
-| 2 | **#16** | Unifikovat status styling Week view | 5 min | 🔵 (součást #14) | ⬜ Zbývá |
-| 3 | **#10** | Klik na prázdný den — chování | 20 min | 🟢 UX | ⬜ Zbývá |
-| 4 | **#7** | Mobile view přepínač pohledů | 45 min | 🟢 UX | ⬜ Zbývá |
-| 5 | **#9** | Media upload do calendar modalu | 60 min | 🟢 UX | ⬜ Zbývá |
-| 6 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
-| 7 | **#13** | Rozdělení souboru (1695 → ~10 souborů) | 90 min | 🔵 Refactor | ⬜ Zbývá |
+| ~~9~~ | ~~**#14**~~ | ~~PostCalendarChip extrakce~~ | 30 min | 🔵 Refactor | ✅ Hotovo |
+| ~~10~~ | ~~**#16**~~ | ~~Unifikovat status styling Week view~~ | 5 min | 🔵 (součást #14) | ✅ Hotovo |
+| 1 | **#10** | Klik na prázdný den — chování | 20 min | 🟢 UX | ⬜ Zbývá |
+| 2 | **#7** | Mobile view přepínač pohledů | 45 min | 🟢 UX | ⬜ Zbývá |
+| 3 | **#9** | Media upload do calendar modalu | 60 min | 🟢 UX | ⬜ Zbývá |
+| 4 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
+| 5 | **#13** | Rozdělení souboru (1695 → ~10 souborů) | 90 min | 🔵 Refactor | ⬜ Zbývá |
+
+## 📋 Úkoly — Rozšíření (nové)
+
+### #18 — Kalendář: Omezení tvorbězení tvorby postů v minulosti + rozšíření platforem u existujících postů
+
+|část|Popis|Odhad|Stav|
+|---|---|---|---|
+|18a|`_calendar-view.tsx`: `handleDayClick` – blokovat otevírání New Post modalu pro minulé datumy (tooltip/info)|30 min|⬜|
+|18b|`EditPostDialog`: Přidat platform selector pro editaci platforem u existujícího postu|45 min|⬜|
+|18c|Server action `updatePostPlatformsAction` (nebo rozšíření `createPostAction`) pro přidání/odebrání platforem|15 min|⬜|
+|18d|Integrace + testy|15 min|⬜|
+
+**Celkem #18: ~1.5 hodiny**
+
+---
 
 **Hotovo relace 1:** #1 + #8 + #6 + #17 + #5 + #3+4 + #11 + #12 = **8 úkolů, ~107 min**  
-**Zbývá:** 7 úkolů, ~290 min (~4.8 hodiny)
+**Hotovo relace 2:** #14 + #16 = **2 úkoly, ~35 min**  
+**Zbývá:** 5 úkolů + #18 (~1.5h) = **~5.8 hodiny**

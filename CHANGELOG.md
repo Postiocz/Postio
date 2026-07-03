@@ -5,6 +5,20 @@
 
 ## 2026-07-03
 
+### ♿ A11y — ARIA grid + Keyboard navigation v Month & Week view (#15)
+
+- **Soubory**: `src/components/calendar/month-grid-view.tsx`, `week-grid-view.tsx`
+- **Problém**: Month i Week grid neměly ARIA role (`grid`/`row`/`gridcell`), dny nebyly focusovatelné přes Tab, žádná podpora klávesnice — screen reader a keyboard-only uživatelé se v kalendáři nemohli orientovat.
+- **Řešení**:
+  - `role="grid"` na kontejner s `aria-label` v 3 jazycích („Kalendář měsíce" / „Календар місяця" / „Month calendar")
+  - `role="row"` na každý řádek dnů, `role="gridcell"` na každou buňku, `role="columnheader"` + `aria-colindex` na hlavičky
+  - `aria-current="date"` na dnešní den, `aria-label` s datem + počtem postů na každé buňce
+  - **Roving tabindex pattern**: `tabIndex={isFocused ? 0 : -1}` — Tab fokusuje jeden „aktivní" den, pohyb probíhá šipkami uvnitř gridu
+  - Defaultní focus na **dnešek** (`todayIndex`), reset při změně měsíce (Month view)
+  - **Keyboard navigation**: ← → ↑ ↓ (pohyb mezi dny), Home/End (začátek/konec řádku), PageUp/PageDown (±1 měsíc v Month view), Enter/Space (otevřít den = stejný efekt jako kliknutí)
+  - Vizuální feedback: `!bg-indigo-500/10 ring-2 ring-inset ring-indigo-500/40` na fokusední buňku, konzistentní s design systémem (indigo gradient)
+- **Dopad**: Plná klávesnicová a screen reader podpora pro Month i Week view, WCAG 2.1 AA compliant grid navigace
+
 ### ✨ Feature — Mobile view switcher: Month + Agenda (#7)
 
 - **Soubor**: `src/components/calendar/mobile-agenda-view.tsx`

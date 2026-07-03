@@ -19,10 +19,10 @@
 | 11 | **border-radius `24px` → `20px`** | `2c6f0cb` | Konzistence s design systémem |
 | 6 | **Sync/cleanup → Vercel Cron** | `5cdcf88` | Žádný blocking server action při loadu stránky, cron každé 2h |
 | 14b | **Redukce props drilling (−14 props z PostCard)** | `5cdcf88` | PostCard používá useTranslations() místo 14 předávaných stringů |
-| 14 | **Dokončení props drilling cleanup** | TBD | EditPostDialog, PreviewDialog, AIAssistantButton nyní používají vlastní `useTranslations()` místo 30+ tLabels + 9 tAi props předávaných přes 4 úrovně (page.tsx → PostsContainer → PostsList → PostCard → dialogy). Vyčištěno z page.tsx, _posts-container.tsx, _post-card.tsx, _calendar-client.tsx, _calendar-view.tsx, calendar/page.tsx, posts/new/page.tsx.
+| 14 | **Dokončení props drilling cleanup** | `fa69710` | EditPostDialog, PreviewDialog, AIAssistantButton nyní používají vlastní `useTranslations()` místo 30+ tLabels + 9 tAi props předávaných přes 4 úrovně (page.tsx → PostsContainer → PostsList → PostCard → dialogy). Vyčištěno z page.tsx, _posts-container.tsx, _post-card.tsx, _calendar-client.tsx, _calendar-view.tsx, calendar/page.tsx, posts/new/page.tsx.
 | 4 (správné) | **Cursor-based pagination** | `6f51594` + `e087798` | Keyset paginace (20/page + "Load more"), server action fetchMorePosts, normalizace postů do sdílené funkce. Žádný URL change — čistý client-side append. Split normalizePost z actions.ts kvůli "use server" constraintu. |
-| 9 | **Sorting (setřídění)** | TBD | Dropdown se 3 režimy: nejnovější první, nejstarší první, podle data publikování. Server-side order v DB dotazu, cursor respektuje sort sloupec (created_at / scheduled_at). i18n pro CS/EN/UK. |
-| 10 | **Bulk akce (checkboxy + „Smazat vybrané")** | TBD | Checkbox na každém PostCard, bulk action bar (sticky) s počtem vybraných, „Vybrat vše", „Smazat vybrané". Server action `bulkDeletePosts` v `posts.ts`. Automatické čištění výběru při změně filtrů. i18n pro CS/EN/UK. |
+| 9 | **Sorting (setřídění)** | `eccf211` + `c8ddc6a` + `98567b3` | Dropdown se 3 režimy: nejnovější první, nejstarší první, podle data publikování. Server-side order v DB dotazu, cursor respektuje sort sloupec (created_at / scheduled_at). i18n pro CS/EN/UK. |
+| 10 | **Bulk akce (checkboxy + „Smazat vybrané")** | `c72a5e2` | Checkbox na každém PostCard, bulk action bar (sticky) s počtem vybraných, „Vybrat vše", „Smazat vybrané". Server action `bulkDeletePosts` v `posts.ts`. Automatické čištění výběru při změně filtrů. i18n pro CS/EN/UK. |
 | 12 | **Media preview lightbox** | `3b55d81` + `3b7d4c0` | Klik na thumbnail otevře fullscreen dialog s navigací (šipky, klávesnice ←/→), tečkový indikátor pro více médií. Odstraněn `pointer-events-none`, přidán hover ring. Radix a11y fix — vizuálně skrytý `DialogTitle`. |
 
 ---
@@ -61,7 +61,7 @@
 |--------|---|----|-------|----------|
 | — | — | Vše hotovo | — | — |
 
-**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** + **#9 (sorting)** + **#10 (bulk akce)** + **#12 (media preview lightbox)** + **#13 (expand/collapse text)** = ✅ typová bezpečnost, cron, vizuální konzistence, −133 řádků props drilling, cursor-based paginace s "Load more", server-side filtry s Subquery intersection, **setřídění (3 režimy) s dynamickým cursor**, **bulk výběr + smazání vybraných**, **fullscreen media preview s navigací**, **expand/collapse textu**.
+**Hotovo:** #17 + #4(limit) + #11 + #6 + #14b + **#14 (props drilling cleanup)** + **#4 (správné — cursor pagination)** + **#7 (server-side filtrování)** + **#9 (sorting)** + **#10 (bulk akce)** + **#12 (media preview lightbox)** + **#13 (expand/collapse text)** = ✅ typová bezpečnost, cron, vizuální konzistence, −400+ řádků props drilling (`fa69710`), cursor-based paginace s "Load more", server-side filtry s Subquery intersection, **setřídění (3 režimy) s dynamickým cursor**, **bulk výběr + smazání vybraných**, **fullscreen media preview s navigací**, **expand/collapse textu**.
 
 ---
 
@@ -165,24 +165,22 @@
 
 ---
 
-#### #13 — Rozdělení `_calendar-view.tsx` (1561 řádků) ⬜
+#### #13 — ~~Rozdělení `_calendar-view.tsx`~~ ✅ Hotovo (`60e2d39`)
 
-**Soubor:** `_calendar-view.tsx` — 1561 řádků, everything in one file
+**Původní stav:** `_calendar-view.tsx` — 980 řádků, everything in one file  
+**Výsledek:** 8 extrahovaných komponent v `src/components/calendar/`, soubor nyní 1168 řádků (obsahuje orchestraci + hooky, vizuální komponenty vyčleněny). −581 řádků kódu přesunuto do samostatných souborů.
 
-**Co udělat:** Rozdělit na samostatné komponenty v `src/components/calendar/`:
-- `month-grid-view.tsx` — Month view (ř. 694–824)
-- `week-grid-view.tsx` — Week view (ř. 829–931)
-- `day-timeline-view.tsx` — Day view s 24h osou (ř. 938–1045)
-- `agenda-list-view.tsx` — Desktop Agenda (ř. 1050–1138)
-- `year-mini-grid.tsx` — Year overview (ř. 1145–1215)
-- `mobile-agenda-view.tsx` — Mobile agenda (ř. 1224–1368)
-- `new-post-modal.tsx` — Dialog pro nový příspěvek (ř. 1371–1571)
-- `hover-preview.tsx` — Hover preview tooltip (ř. 1605–1691)
-- `post-calendar-chip.tsx` — Opakující se post chip s platform ikonami + status barvami
+**Extrahované komponenty:**
+- `month-grid-view.tsx` — Month view
+- `week-grid-view.tsx` — Week view
+- `day-timeline-view.tsx` — Day view s 24h osou
+- `agenda-list-view.tsx` — Desktop Agenda
+- `year-mini-grid.tsx` — Year overview
+- `mobile-agenda-view.tsx` — Mobile agenda (rozšířen o view switcher)
+- `new-post-modal.tsx` — Dialog pro nový příspěvek (rozšířen o media upload)
+- `hover-preview.tsx` — Hover preview tooltip
 
-**Odhad:** ~90 min (největší úkol, dělat po částech)
-
----
+**Odhad:** ~90 min ✅
 
 #### #14 — ~~`PostCalendarChip` — extrakce opakujícího se JSX~~ ✅ Hotovo
 
@@ -201,17 +199,22 @@
 
 ---
 
-#### #15 — ~~ARIA / Keyboard navigace~~ ⬜
+#### #15 — ARIA / Keyboard navigace ✅ Hotovo
 
-**Soubor:** `_calendar-view.tsx`  
-**Problém:** Month grid nemá `role="grid"`, dny nejsou focusovatelné tabem.
+**Soubory:** `month-grid-view.tsx`, `week-grid-view.tsx`  
+**Problém byl:** Month/Week grid neměl `role="grid"`, dny nebyly focusovatelné tabem, žádná klávesnicová navigace.
 
-**Co udělat:**
-1. Month/Week grid: přidat `role="grid"` na kontejner, `role="row"` na řádky, `role="gridcell"` na buňky
-2. Dny: `tabIndex={isToday(day) ? 0 : -1}` pro focus na dnešek
-3. Keyboard navigation: šipky pro pohyb mezi dny (Enter = otevřít detail)
+**Řešení:**
+1. `role="grid"` na kontejner, `role="row"` na řádky, `role="gridcell"` na buňky, `role="columnheader"` na hlavičky dnů
+2. `aria-label` s i18n („Kalendář měsíce" / „Календар місяця" / „Month calendar")
+3. `aria-current="date"` na dnešní den
+4. `tabIndex={isFocused ? 0 : -1}` — tabloop jen na fokusední buňce (roving tabindex pattern)
+5. Defaultní focus na dnešek (`todayIndex`), reset při změně měsíce
+6. Keyboard navigation: ←→↑↓ šipky, Home/End (řádek), PageUp/PageDown (měsíc), Enter/Space = otevřít den
+7. Vizuální feedback: `!bg-indigo-500/10 ring-2 ring-inset ring-indigo-500/40` na fokusední buňku
+8. Week view stejně jako Month view
 
-**Odhad:** ~40 min
+**Odhad:** ~40 min ✅
 
 ---
 
@@ -247,7 +250,7 @@
 | ~~12~~ | ~~**#13**~~ | ~~Rozdělení souboru (980 řádků → 8 komponent)~~ | 90 min | 🔵 Refactor | ✅ Hotovo (`60e2d39`) |
 | ~~1~~ | ~~**#7**~~ | ~~Mobile view přepínač pohledů~~ | 45 min | 🟢 UX | ✅ Hotovo |
 | ~~2~~ | ~~**#9**~~ | ~~Media upload do calendar modalu~~ | 60 min | 🟢 UX | ✅ Hotovo |
-| 3 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
+| ~~13~~ | ~~**#15**~~ | ~~ARIA / Keyboard navigace~~ | 40 min | 🟢 A11y | ✅ Hotovo |
 
 ## 📋 Úkoly — Rozšíření (nové)
 
@@ -268,4 +271,5 @@
 **Hotovo relace 2:** #14 + #16 = **2 úkoly, ~35 min**  
 **Hotovo relace 3:** #10 + #18a (součást commitu `fadf202`) = **1 úkol, ~20 min**  
 **Hotovo relace 4:** #13 = **1 úkol, ~90 min** (8 nových komponent, −581 řádků)  
-**Zbývá:** 1 úkol kalendáře (#15 — ARIA/Keyboard navigace) = **~40 min**
+**Hotovo relace 5:** #15 = **1 úkol, ~40 min** (ARIA grid + keyboard navigace v Month & Week view)  
+**Zbývá:** 0 — vše hotovo ✅

@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil } from "lucide-react";
+import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,11 @@ import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction, updatePost } from "@/lib/actions/posts";
 import { publishPost, updateRemotePostAction, publishAdditionalPlatforms, updateOnPlatformAction } from "@/lib/actions/publish";
+import {
+  getTikTokCreatorInfoAction,
+  type TikTokCreatorInfo,
+  type TikTokPrivacyLevel,
+} from "@/lib/actions/publish-tiktok";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -28,7 +33,6 @@ import {
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
 import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/components/post-preview";
-import { getPostTags } from "@/lib/actions/tag-actions";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -49,6 +53,12 @@ const PLATFORMS = [
 ];
 
 const MAX_MEDIA_FILES = 10;
+const DEFAULT_TIKTOK_PRIVACY_LEVEL: TikTokPrivacyLevel = "PUBLIC_TO_EVERYONE";
+const TIKTOK_SUPPORTED_PRIVACY_LEVELS: TikTokPrivacyLevel[] = [
+  "PUBLIC_TO_EVERYONE",
+  "MUTUAL_FOLLOW_FRIENDS",
+  "SELF_ONLY",
+];
 
 /**
  * Platforms that support remote text editing of published posts.
@@ -74,6 +84,7 @@ export type PostPlatform = {
   published_at: string | null;
   external_id: string | null;
   publish_error: string | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -111,6 +122,7 @@ export function EditPostDialog({
   const t = useTranslations("posts");
   const isEdit = !!post?.id;
   const router = useRouter();
+  const previewPlaceholderName = t("previewPlaceholderName") ?? "Postio";
 
   const [content, setContent] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
@@ -122,7 +134,6 @@ export function EditPostDialog({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
   const [isPublishingAdditional, setIsPublishingAdditional] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
@@ -142,6 +153,7 @@ export function EditPostDialog({
   const [instagramProfile, setInstagramProfile] = useState<PostPreviewProfile | null>(null);
   const [youtubeProfile, setYoutubeProfile] = useState<PostPreviewProfile | null>(null);
   const [linkedinProfile, setLinkedinProfile] = useState<PostPreviewProfile | null>(null);
+  const [tiktokProfile, setTiktokProfile] = useState<PostPreviewProfile | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -183,15 +195,16 @@ export function EditPostDialog({
             .select("platform, account_name, avatar_url")
             .eq("user_id", userId)
             .eq("is_active", true)
-            .in("platform", ["facebook", "instagram", "youtube", "linkedin"]),
+            .in("platform", ["facebook", "instagram", "youtube", "linkedin", "tiktok"]),
         ]);
         if (cancelled) return;
-        const fallbackName = userRes.data?.full_name ?? t("previewPlaceholderName") ?? "Postio";
+        const fallbackName = userRes.data?.full_name ?? previewPlaceholderName;
         const fallbackAvatar = userRes.data?.avatar_url ?? null;
         const fb = accountsRes.data?.find((a) => a.platform === "facebook");
         const ig = accountsRes.data?.find((a) => a.platform === "instagram");
         const yt = accountsRes.data?.find((a) => a.platform === "youtube");
         const li = accountsRes.data?.find((a) => a.platform === "linkedin");
+        const tt = accountsRes.data?.find((a) => a.platform === "tiktok");
         setFacebookProfile({
           displayName: fb?.account_name ?? fallbackName,
           avatarUrl: fb?.avatar_url ?? fallbackAvatar,
@@ -208,6 +221,10 @@ export function EditPostDialog({
           displayName: li?.account_name ?? fallbackName,
           avatarUrl: li?.avatar_url ?? fallbackAvatar,
         });
+        setTiktokProfile({
+          displayName: tt?.account_name ?? fallbackName,
+          avatarUrl: tt?.avatar_url ?? fallbackAvatar,
+        });
       } catch {
         // non-fatal – preview falls back to placeholder name
       }
@@ -216,7 +233,7 @@ export function EditPostDialog({
     return () => {
       cancelled = true;
     };
-  }, [userId, open, supabase, t("previewPlaceholderName")]);
+  }, [open, previewPlaceholderName, supabase, userId]);
 
   const uploadLabels = {
     tooManyFiles: t("maxFilesReached"),
@@ -281,7 +298,9 @@ export function EditPostDialog({
       instagramTab: t("previewInstagramTab") ?? "Instagram",
       youtubeTab: t("previewYoutubeTab") ?? "YouTube",
       linkedinTab: t("previewLinkedinTab") ?? "LinkedIn",
+      tiktokTab: t("previewTikTokTab") ?? "TikTok",
       noMedia: t("previewNoMedia") ?? "Žádná média",
+      tiktokVideoRequired: t("tiktokVideoRequired") ?? "TikTok vyžaduje video",
       placeholderName: t("previewPlaceholderName") ?? "Postio",
       captionHint: t("previewCaptionHint") ?? "Sem napište text příspěvku…",
     }),
@@ -295,32 +314,32 @@ export function EditPostDialog({
   //  2. `post.platforms` – platforms persisted on the post row
   //  3. `post.post_platforms` – platform rows already created (incl. published)
   // The list is then mapped to the subset of platforms that PostPreview
-  // knows how to render today (FB / IG / YT / LinkedIn). Other platforms are
+  // knows how to render today (FB / IG / YT / LinkedIn / TikTok). Other platforms are
   // deliberately filtered out until their previews are implemented.
   const availablePreviewPlatforms = useMemo<
-    Array<"facebook" | "instagram" | "youtube" | "linkedin">
+    Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok">
   >(() => {
     const all = new Set<string>([
       ...platforms,
       ...(post?.platforms ?? []),
       ...(post?.post_platforms ?? []).map((p) => p.platform),
     ]);
-    const order: Array<"facebook" | "instagram" | "youtube" | "linkedin"> = [
+    const order: Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok"> = [
       "facebook",
       "instagram",
       "youtube",
       "linkedin",
+      "tiktok",
     ];
     return order.filter((id) => all.has(id));
   }, [platforms, post?.platforms, post?.post_platforms]);
 
   // Prompt 003 – Published platforms for preview tabs (only platforms with status 'published')
-  const publishedPlatforms = useMemo(() => {
-    if (!isEdit || !post?.post_platforms) return [];
-    return post.post_platforms
-      .filter((p) => p.status === "published")
-      .map((p) => p.platform);
-  }, [isEdit, post?.post_platforms]);
+  const publishedPlatforms = !isEdit || !post?.post_platforms
+    ? []
+    : post.post_platforms
+        .filter((p) => p.status === "published")
+        .map((p) => p.platform);
 
   // Prompt 003 – Build a live URL for a published post on a given platform
   function buildLiveUrl(platform: string, externalId: string | null): string | null {
@@ -333,7 +352,6 @@ export function EditPostDialog({
       case "linkedin":
         // external_id can be a full URN or just the post ID
         if (externalId.startsWith("urn:li:share:")) {
-          const shareId = externalId.replace("urn:li:share:", "");
           // We need the author to build the URL – use a generic LinkedIn share link
           return `https://www.linkedin.com/feed/update/${externalId}/`;
         }
@@ -344,7 +362,9 @@ export function EditPostDialog({
       case "x":
         return `https://x.com/i/status/${externalId}`;
       case "tiktok":
-        return `https://www.tiktok.com/@user/video/${externalId}`;
+        return /^\d+$/.test(externalId)
+          ? `https://www.tiktok.com/@user/video/${externalId}`
+          : null;
       default:
         return null;
     }
@@ -371,6 +391,12 @@ export function EditPostDialog({
     return (post?.post_platforms || []).some(p => p.platform === 'twitter' && p.status === 'published');
   }, [isEdit, post?.post_platforms]);
 
+  // Detect if the published post is on TikTok – edits are not supported
+  const isTikTokPublished = useMemo(() => {
+    if (!isEdit) return false;
+    return (post?.post_platforms || []).some(p => p.platform === 'tiktok' && p.status === 'published');
+  }, [isEdit, post?.post_platforms]);
+
   // Detect which published platforms support remote text editing
   const updatablePlatforms = useMemo(() => {
     if (!isEdit) return [];
@@ -381,6 +407,10 @@ export function EditPostDialog({
 
   // Per-platform loading state for update buttons
   const [updatingPlatforms, setUpdatingPlatforms] = useState<Record<string, boolean>>({});
+  const [tiktokCreatorInfo, setTikTokCreatorInfo] = useState<TikTokCreatorInfo | null>(null);
+  const [tiktokCreatorInfoLoading, setTikTokCreatorInfoLoading] = useState(false);
+  const [tiktokPrivacyLevel, setTikTokPrivacyLevel] =
+    useState<TikTokPrivacyLevel>(DEFAULT_TIKTOK_PRIVACY_LEVEL);
 
   // Detect if any platform is published
   const isAnyPublished = useMemo(() => {
@@ -396,7 +426,32 @@ export function EditPostDialog({
       originalMedia.length !== currentMedia.length ||
       originalMedia.some((url, i) => url !== currentMedia[i])
     );
-  }, [isEdit, post?.post_platforms, post?.media_urls, mediaItems]);
+  }, [getMediaUrls, isAnyPublished, isEdit, post?.media_urls]);
+
+  const hasTikTokIntent = useMemo(() => {
+    const all = new Set<string>([
+      ...platforms,
+      ...(post?.platforms ?? []),
+      ...(post?.post_platforms ?? []).map((row) => row.platform),
+    ]);
+    return all.has("tiktok");
+  }, [platforms, post?.platforms, post?.post_platforms]);
+
+  const allowedTikTokPrivacyLevels = useMemo(() => {
+    const options = tiktokCreatorInfo?.privacyLevelOptions?.filter((level) =>
+      TIKTOK_SUPPORTED_PRIVACY_LEVELS.includes(level),
+    );
+    return options && options.length > 0 ? options : TIKTOK_SUPPORTED_PRIVACY_LEVELS;
+  }, [tiktokCreatorInfo]);
+
+  const platformMetadata = useMemo<Record<string, Record<string, unknown>> | undefined>(() => {
+    if (!hasTikTokIntent) return undefined;
+    return {
+      tiktok: {
+        privacy_level: tiktokPrivacyLevel,
+      },
+    };
+  }, [hasTikTokIntent, tiktokPrivacyLevel]);
 
   // Determine which selected platforms are not yet published
   const unpublishedSelectedPlatforms = useMemo(() => {
@@ -460,6 +515,25 @@ export function EditPostDialog({
 
   const isInstagramVideoIncompatible = instagramIncompatibleVideos.length > 0;
 
+  const getInitialTikTokPrivacyLevel = useCallback(
+    (sourcePost: EditPostData | null): TikTokPrivacyLevel => {
+      const rawValue = sourcePost?.post_platforms
+        ?.find((platformRow) => platformRow.platform === "tiktok")
+        ?.metadata?.privacy_level;
+
+      if (
+        rawValue === "PUBLIC_TO_EVERYONE" ||
+        rawValue === "MUTUAL_FOLLOW_FRIENDS" ||
+        rawValue === "SELF_ONLY"
+      ) {
+        return rawValue;
+      }
+
+      return DEFAULT_TIKTOK_PRIVACY_LEVEL;
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!open) return;
     Promise.resolve().then(() => {
@@ -480,6 +554,7 @@ export function EditPostDialog({
         // Hydrate selected internal organization tags from post_tags (passed in via props)
         const initialTagIds = (post.post_tags ?? []).map((t) => t.id);
         setSelectedTagIds(initialTagIds);
+        setTikTokPrivacyLevel(getInitialTikTokPrivacyLevel(post));
 
         // Always open in 'edit' mode when clicking the pencil/edit icon.
         // Preview mode is still accessible via the preview tab in edit mode.
@@ -492,13 +567,60 @@ export function EditPostDialog({
         setTags([]);
         setScheduledAt("");
         setSelectedTagIds([]);
+        setTikTokPrivacyLevel(DEFAULT_TIKTOK_PRIVACY_LEVEL);
         setViewMode("edit");
         setSelectedPreviewPlatform("");
       }
       setTagDraft("");
       setError(null);
     });
-  }, [open, isEdit, post, loadExistingUrls]);
+  }, [getInitialTikTokPrivacyLevel, isEdit, loadExistingUrls, open, post]);
+
+  useEffect(() => {
+    if (!open || !hasTikTokIntent) return;
+
+    let cancelled = false;
+    const loadTikTokCreatorInfo = async () => {
+      setTikTokCreatorInfoLoading(true);
+
+      try {
+        const result = await getTikTokCreatorInfoAction();
+        if (cancelled) return;
+
+        if (!result.success) {
+          setTikTokCreatorInfo(null);
+          return;
+        }
+
+        setTikTokCreatorInfo(result.data);
+        setTikTokPrivacyLevel((current) => {
+          if (result.data.privacyLevelOptions.includes(current)) {
+            return current;
+          }
+
+          return (
+            TIKTOK_SUPPORTED_PRIVACY_LEVELS.find((level) =>
+              result.data.privacyLevelOptions.includes(level),
+            ) ?? DEFAULT_TIKTOK_PRIVACY_LEVEL
+          );
+        });
+      } catch {
+        if (!cancelled) {
+          setTikTokCreatorInfo(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setTikTokCreatorInfoLoading(false);
+        }
+      }
+    };
+
+    void loadTikTokCreatorInfo();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasTikTokIntent, open]);
 
   const togglePlatform = useCallback((id: string) => {
     setPlatforms((prev) =>
@@ -637,6 +759,7 @@ export function EditPostDialog({
             location: location.trim() || "",
             tags: finalTags,
             tagIds: selectedTagIds,
+            platformMetadata,
             mediaUrls,
           });
         } else {
@@ -648,6 +771,7 @@ export function EditPostDialog({
             location: location.trim() || undefined,
             tags: finalTags.length > 0 ? finalTags : undefined,
             tagIds: selectedTagIds,
+            platformMetadata,
             mediaUrls,
           });
         }
@@ -668,9 +792,25 @@ export function EditPostDialog({
       }
     },
     [
-      content, platforms, scheduledAt, status, location, tags, tagDraft,
-      isEdit, post, hasUploading, getMediaUrls, handleCommitRemainingTag,
-      normalizeScheduledAt, onOpenChange, t, isInstagramPublished,
+      content,
+      getMediaUrls,
+      handleCommitRemainingTag,
+      hasUploading,
+      isAnyPublished,
+      isEdit,
+      isInstagramPublished,
+      isInstagramVideoIncompatible,
+      isTwitterPublished,
+      location,
+      normalizeScheduledAt,
+      onOpenChange,
+      platformMetadata,
+      platforms,
+      post,
+      router,
+      scheduledAt,
+      selectedTagIds,
+      t,
     ]
   );
 
@@ -707,6 +847,7 @@ export function EditPostDialog({
         location: location.trim() || "",
         tags,
         tagIds: selectedTagIds,
+        platformMetadata,
       });
       if (result.success) {
         toast.success(t("metadataSaved") ?? "Interní metadata byla uložena.");
@@ -722,44 +863,7 @@ export function EditPostDialog({
     } finally {
       setLoading(false);
     }
-  }, [isEdit, post, platforms, location, tags, selectedTagIds, hasUploading, onOpenChange, router, t]);
-
-  const handleUpdateOnSocials = async () => {
-    if (!content.trim() || !isEdit || !post?.id) return;
-    if (hasUploading()) {
-      toast.info(t("uploading"));
-      return;
-    }
-    if (mediaChanged) {
-      toast.error(t("onlyTextUpdatePossible") ?? t("photoChangeNotAllowed") ?? "U publikovaného postu lze měnit pouze text.");
-      return;
-    }
-
-    setIsUpdating(true);
-    setError(null);
-
-    try {
-      const result = await updateRemotePostAction({
-        postId: post.id,
-        newContent: content.trim(),
-      });
-
-      if (result.success) {
-        toast.success(t("remoteEditSuccess") ?? "Text byl upraven v Postio i na sociální síti.");
-        await router.refresh();
-        onOpenChange(false);
-        return;
-      }
-
-      setError(result.error ?? t("errorSaving"));
-      toast.error(result.error ?? t("errorSaving"));
-    } catch {
-      setError(t("errorSaving"));
-      toast.error(t("errorSaving"));
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+  }, [hasUploading, isEdit, location, onOpenChange, platformMetadata, platforms, post, router, selectedTagIds, t, tags]);
 
   /**
    * Per-platform update handler – calls updateOnPlatformAction for a specific platform.
@@ -841,6 +945,7 @@ export function EditPostDialog({
       const result = await publishAdditionalPlatforms({
         postId: post.id,
         platform: targetPlatform,
+        platformMetadata: targetPlatform === "tiktok" ? platformMetadata?.tiktok ?? null : null,
       });
 
       if (result.success) {
@@ -901,6 +1006,7 @@ export function EditPostDialog({
             location: location.trim() || "",
             tags: finalTags,
             tagIds: selectedTagIds,
+            platformMetadata,
             mediaUrls,
           });
 
@@ -921,6 +1027,7 @@ export function EditPostDialog({
             location: location.trim() || undefined,
             tags: finalTags.length > 0 ? finalTags : undefined,
             tagIds: selectedTagIds,
+            platformMetadata,
             mediaUrls,
           });
 
@@ -1637,6 +1744,91 @@ export function EditPostDialog({
             </div>
           </div>
 
+          {hasTikTokIntent && (
+            <div className="space-y-3 rounded-[20px] border border-black/5 bg-white/60 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-muted-foreground/80">
+                  {t("tiktokPrivacyTitle")}
+                </Label>
+                <p className="text-xs text-muted-foreground/60">
+                  {t("tiktokPrivacyHint")}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    value: "PUBLIC_TO_EVERYONE" as const,
+                    label: t("tiktokPrivacyPublic"),
+                  },
+                  {
+                    value: "MUTUAL_FOLLOW_FRIENDS" as const,
+                    label: t("tiktokPrivacyFriends"),
+                  },
+                  {
+                    value: "SELF_ONLY" as const,
+                    label: t("tiktokPrivacyPrivate"),
+                  },
+                ].map((option) => {
+                  const isSelected = tiktokPrivacyLevel === option.value;
+                  const isAllowed = allowedTikTokPrivacyLevels.includes(option.value);
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={!isAllowed}
+                      onClick={() => setTikTokPrivacyLevel(option.value)}
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                        isSelected
+                          ? "border-indigo-500/30 dark:border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
+                          : "border-black/5 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground",
+                        !isAllowed && "cursor-not-allowed opacity-40",
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-[20px] border border-black/5 bg-black/[0.02] p-3 text-xs text-muted-foreground/70 dark:border-white/10 dark:bg-black/20">
+                <p>
+                  {tiktokCreatorInfoLoading
+                    ? t("tiktokCreatorInfoLoading")
+                    : t(
+                        "tiktokCreatorInfoSummary",
+                        {
+                          account:
+                            tiktokCreatorInfo?.creatorNickname ||
+                            tiktokCreatorInfo?.creatorUsername ||
+                            "TikTok",
+                        },
+                      )}
+                </p>
+                {tiktokCreatorInfo && (
+                  <p className="mt-1">
+                    {t(
+                      "tiktokCreatorInfoCapabilities",
+                      {
+                        comments: tiktokCreatorInfo.commentDisabled
+                          ? t("tiktokCapabilityDisabled")
+                          : t("tiktokCapabilityEnabled"),
+                        duet: tiktokCreatorInfo.duetDisabled
+                          ? t("tiktokCapabilityDisabled")
+                          : t("tiktokCapabilityEnabled"),
+                        stitch: tiktokCreatorInfo.stitchDisabled
+                          ? t("tiktokCapabilityDisabled")
+                          : t("tiktokCapabilityEnabled"),
+                      },
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Location */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
@@ -1739,6 +1931,7 @@ export function EditPostDialog({
               instagramProfile={instagramProfile}
               youtubeProfile={youtubeProfile}
               linkedinProfile={linkedinProfile}
+              tiktokProfile={tiktokProfile}
               availablePlatforms={availablePreviewPlatforms}
               location={location}
               labels={previewLabels}
@@ -1805,6 +1998,14 @@ export function EditPostDialog({
                 <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
                   <span>{t("twEditNotSupported") ?? "X (Twitter) nepodporuje editaci příspěvků přes API. Pokud chcete text změnit, musíte příspěvek smazat a publikovat znovu."}</span>
+                </div>
+              )}
+
+              {/* TikTok edit not supported banner */}
+              {isTikTokPublished && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200/80">
+                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <span>{t("ttEditNotSupported") ?? "TikTok nepodporuje editaci ani smazání po publikování."}</span>
                 </div>
               )}
 

@@ -7,6 +7,7 @@ import { sanitizeMediaUrl } from "@/lib/utils";
 import { publishToYouTubeAction } from "@/lib/actions/publish-youtube";
 import { publishToLinkedInAction } from "@/lib/actions/publish-linkedin";
 import { publishToTwitterAction } from "@/lib/actions/publish-twitter";
+import { publishToTikTokAction } from "@/lib/actions/publish-tiktok";
 
 const LOCALES = ["cs", "en", "uk"] as const;
 
@@ -22,6 +23,51 @@ type FacebookPublishResponse =
   | Record<string, unknown>;
 
 type FacebookPublishMediaType = "text" | "photo" | "video";
+
+type PostPlatformRow = {
+  id?: string;
+  platform: string;
+  status: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+  external_id: string | null;
+  publish_error: string | null;
+  metadata?: Record<string, unknown> | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  updated_at?: string;
+  created_at?: string;
+};
+
+type PublishablePostRow = {
+  id: string;
+  content: string | null;
+  post_platforms: PostPlatformRow[] | null;
+  media_urls?: string[] | null;
+  location?: string | null;
+  tags?: string[] | null;
+};
+
+type SocialAccountLookupRow = {
+  access_token: string | null;
+  platform_id: string | null;
+  metadata?: Record<string, unknown> | null;
+  account_name?: string | null;
+};
+
+type OAuthAccountRow = {
+  id: string;
+  user_id: string;
+  platform: string;
+  access_token: string | null;
+  token_expires_at: string | null;
+  metadata: Record<string, unknown> | null;
+  platform_id: string | null;
+};
+
+function getPostPlatforms(post: { post_platforms?: PostPlatformRow[] | null }): PostPlatformRow[] {
+  return Array.isArray(post.post_platforms) ? post.post_platforms : [];
+}
 
 function getFacebookMediaType(mediaUrls: unknown): FacebookPublishMediaType {
   if (!Array.isArray(mediaUrls) || mediaUrls.length === 0) return "text";
@@ -89,14 +135,12 @@ function getContainerStatusCode(payload: unknown): InstagramContainerStatus | nu
  *  - Bail out with a timeout error after `maxWaitMs` (default 120s).
  */
 async function waitForInstagramContainerReady(params: {
-  igUserId: string;
   creationId: string;
   accessToken: string;
   pollIntervalMs?: number;
   maxWaitMs?: number;
 }): Promise<{ success: true } | { success: false; error: string }> {
   const {
-    igUserId,
     creationId,
     accessToken,
     pollIntervalMs = 2500,
@@ -106,7 +150,6 @@ async function waitForInstagramContainerReady(params: {
   const start = Date.now();
   let attempt = 0;
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     attempt += 1;
     const elapsed = Date.now() - start;
@@ -265,7 +308,6 @@ async function publishToInstagram(params: {
   if (mediaType === "video") {
     console.log("⏳ Čekám na zpracování IG videa (polling status_code)...");
     const ready = await waitForInstagramContainerReady({
-      igUserId,
       creationId,
       accessToken,
     });
@@ -469,9 +511,15 @@ export async function publishPost(input: { postId: string }): Promise<{
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  const postPlatforms = post.post_platforms || [];
-  const unpublishedPlatforms = postPlatforms.filter((p: any) => p.status !== "published").map((p: any) => p.platform);
-  const platforms = unpublishedPlatforms.length > 0 ? unpublishedPlatforms : postPlatforms.map((p: any) => p.platform);
+  const typedPost = post as PublishablePostRow;
+  const postPlatforms = getPostPlatforms(typedPost);
+  const unpublishedPlatforms = postPlatforms
+    .filter((platformRow) => platformRow.status !== "published")
+    .map((platformRow) => platformRow.platform);
+  const platforms =
+    unpublishedPlatforms.length > 0
+      ? unpublishedPlatforms
+      : postPlatforms.map((platformRow) => platformRow.platform);
 
   const rawContent = String(post.content ?? "");
   const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
@@ -502,8 +550,12 @@ export async function publishPost(input: { postId: string }): Promise<{
   // In both cases we MUST refuse to upload again. Returning a clear error
   // surfaces the situation to the UI rather than silently creating a
   // duplicate on the external channel.
-  const alreadyPublishedRow = (post.post_platforms || []).find(
-    (p: any) => p.platform === targetPlatform && p.status === "published" && typeof p.external_id === "string" && p.external_id.trim(),
+  const alreadyPublishedRow = postPlatforms.find(
+    (platformRow) =>
+      platformRow.platform === targetPlatform &&
+      platformRow.status === "published" &&
+      typeof platformRow.external_id === "string" &&
+      platformRow.external_id.trim(),
   );
   if (alreadyPublishedRow) {
     console.warn(
@@ -527,7 +579,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       .order("created_at", { ascending: false })
       .limit(1);
 
-    const igAccount = igAccounts?.[0] as any;
+    const igAccount = igAccounts?.[0] as SocialAccountLookupRow | undefined;
     let platformId = igAccount?.platform_id;
     let accessToken = igAccount?.access_token;
 
@@ -542,7 +594,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         .order("created_at", { ascending: false })
         .limit(1);
 
-      const fbAccount = fbAccounts?.[0] as any;
+      const fbAccount = fbAccounts?.[0] as SocialAccountLookupRow | undefined;
       if (fbAccount) {
         if (!platformId) {
           platformId = fbAccount.metadata?.instagram_id || fbAccount.metadata?.instagram_business_account_id || fbAccount.platform_id;
@@ -729,6 +781,62 @@ export async function publishPost(input: { postId: string }): Promise<{
     return {
       success: true,
       data: { externalId: result.externalId, platform: "linkedin" },
+    };
+  }
+
+  // --- TikTok ---
+  if (targetPlatform === "tiktok") {
+    const { data: ttAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+      .eq("user_id", user.id)
+      .ilike("platform", "tiktok")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const ttAccount = ttAccounts?.[0] as OAuthAccountRow | undefined;
+
+    if (!ttAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený TikTok účet (access_token).",
+      };
+    }
+
+    const existingTtExternalId =
+      alreadyPublishedRow?.platform === "tiktok" ? alreadyPublishedRow.external_id : null;
+    const targetTikTokRow = postPlatforms.find((platformRow) => platformRow.platform === "tiktok");
+
+    const result = await publishToTikTokAction({
+      account: ttAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      existingExternalId: existingTtExternalId,
+      platformMetadata: targetTikTokRow?.metadata ?? null,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "TikTok publish failed",
+        "tiktok",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "tiktok",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "tiktok" },
     };
   }
 
@@ -1083,12 +1191,12 @@ export async function updateRemotePostAction(input: {
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  const postPlatforms = post.post_platforms || [];
-  const publishedPlatforms = postPlatforms.filter((p: any) => p.status === 'published');
+  const postPlatforms = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null });
+  const publishedPlatforms = postPlatforms.filter((platformRow) => platformRow.status === "published");
   if (publishedPlatforms.length === 0) {
     return { success: false, error: "Pouze publikované příspěvky lze editovat na sociální síti." };
   }
-  const publishedPlatformNames = publishedPlatforms.map((p: any) => p.platform);
+  const publishedPlatformNames = publishedPlatforms.map((platformRow) => platformRow.platform);
 
   // Platforms that support remote text editing
   const editablePlatforms = ["facebook", "youtube"];
@@ -1098,7 +1206,9 @@ export async function updateRemotePostAction(input: {
     ?? publishedPlatformNames[0]
     ?? "facebook";
 
-  const targetPlatformData = publishedPlatforms.find((p: any) => p.platform === targetPlatform);
+  const targetPlatformData = publishedPlatforms.find(
+    (platformRow) => platformRow.platform === targetPlatform,
+  );
   const externalId = targetPlatformData?.external_id ?? null;
 
   if (!externalId) {
@@ -1247,9 +1357,9 @@ export async function updateOnPlatformAction(input: {
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  const postPlatforms = post.post_platforms || [];
+  const postPlatforms = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null });
   const targetPlatformData = postPlatforms.find(
-    (p: any) => p.platform === input.platform && p.status === "published"
+    (platformRow) => platformRow.platform === input.platform && platformRow.status === "published",
   );
 
   if (!targetPlatformData) {
@@ -1507,8 +1617,8 @@ export async function deleteFromMeta(input: {
   // - knows the API was NOT called (so the "smazat ručně" toast
   //   is still shown).
   if (input.platform === "linkedin") {
-    const targetRow = (post.post_platforms || []).find(
-      (p: any) => p.platform === "linkedin" && p.status === "published",
+    const targetRow = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null }).find(
+      (platformRow) => platformRow.platform === "linkedin" && platformRow.status === "published",
     );
 
     if (!targetRow) {
@@ -1550,8 +1660,9 @@ export async function deleteFromMeta(input: {
     // introducing a new `archived` value, so no DB migration is
     // required. The user can still re-publish from the UI because
     // the archived LinkedIn row keeps its `published_at` for context.
-    const stillPublished = (post.post_platforms || []).some(
-      (p: any) => p.platform !== "linkedin" && p.status === "published",
+    const stillPublished = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null }).some(
+      (platformRow) =>
+        platformRow.platform !== "linkedin" && platformRow.status === "published",
     );
     if (!stillPublished) {
       const { error: parentStatusError } = await supabase
@@ -1584,20 +1695,22 @@ export async function deleteFromMeta(input: {
     };
   }
 
-  const postPlatforms = post.post_platforms || [];
-  const publishedPlatforms = postPlatforms.filter((p: any) => p.status === 'published');
+  const postPlatforms = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null });
+  const publishedPlatforms = postPlatforms.filter((platformRow) => platformRow.status === "published");
   if (publishedPlatforms.length === 0) {
     return { success: false, error: "Příspěvek není publikován." };
   }
 
-  const targetPlatformData = publishedPlatforms.find((p: any) => p.platform === input.platform);
+  const targetPlatformData = publishedPlatforms.find(
+    (platformRow) => platformRow.platform === input.platform,
+  );
   const externalId = targetPlatformData?.external_id ?? null;
 
   if (!externalId) {
     console.log(`deleteFromMeta: Na platformě ${input.platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
   }
 
-  const publishedPlatformNames = publishedPlatforms.map((p: any) => p.platform);
+  const publishedPlatformNames = publishedPlatforms.map((platformRow) => platformRow.platform);
 
   // Verify the target platform is in published_platforms
   if (!publishedPlatformNames.includes(input.platform)) {
@@ -1803,8 +1916,9 @@ export async function deleteFromMeta(input: {
           // so the user keeps a greyed-out icon as proof of past publication.
           // The post still exists on the platform; the user must delete it manually.
           if (input.platform === "instagram") {
-            const targetRow = (post.post_platforms || []).find(
-              (p: any) => p.platform === "instagram" && p.status === "published",
+            const targetRow = postPlatforms.find(
+              (platformRow) =>
+                platformRow.platform === "instagram" && platformRow.status === "published",
             );
 
             if (targetRow) {
@@ -1827,8 +1941,9 @@ export async function deleteFromMeta(input: {
               } else {
                 // Keep `posts.status` in sync: if no other platform is still
                 // published, flip the parent row to `draft`.
-                const stillPublished = (post.post_platforms || []).some(
-                  (p: any) => p.platform !== "instagram" && p.status === "published",
+                const stillPublished = postPlatforms.some(
+                  (platformRow) =>
+                    platformRow.platform !== "instagram" && platformRow.status === "published",
                 );
                 if (!stillPublished) {
                   await supabase
@@ -1902,6 +2017,7 @@ export async function deleteFromMeta(input: {
 export async function publishAdditionalPlatforms(input: {
   postId: string;
   platform: string;
+  platformMetadata?: Record<string, unknown> | null;
 }): Promise<{
   success: boolean;
   data?: { externalId?: string; platform?: string };
@@ -1932,9 +2048,11 @@ export async function publishAdditionalPlatforms(input: {
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
-  const postPlatforms = post.post_platforms || [];
-  const publishedPlatformNames = postPlatforms.filter((p: any) => p.status === 'published').map((p: any) => p.platform);
-  const allPlatformNames = postPlatforms.map((p: any) => p.platform);
+  const postPlatforms = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null });
+  const publishedPlatformNames = postPlatforms
+    .filter((platformRow) => platformRow.status === "published")
+    .map((platformRow) => platformRow.platform);
+  const allPlatformNames = postPlatforms.map((platformRow) => platformRow.platform);
 
   // CRITICAL – Guard against duplicate uploads.
   // If `post_platforms` for this post + `input.platform` is already in
@@ -1944,11 +2062,11 @@ export async function publishAdditionalPlatforms(input: {
   // channel). This is the same defense-in-depth guard we have in
   // `publishPost()`; see the comment there for the full rationale.
   const alreadyPublishedRow = postPlatforms.find(
-    (p: any) =>
-      p.platform === input.platform &&
-      p.status === "published" &&
-      typeof p.external_id === "string" &&
-      p.external_id.trim(),
+    (platformRow) =>
+      platformRow.platform === input.platform &&
+      platformRow.status === "published" &&
+      typeof platformRow.external_id === "string" &&
+      platformRow.external_id.trim(),
   );
   if (alreadyPublishedRow) {
     console.warn(
@@ -2165,6 +2283,71 @@ export async function publishAdditionalPlatforms(input: {
     return {
       success: true,
       data: { externalId: result.externalId, platform: "linkedin" },
+    };
+  }
+
+  // --- TikTok ---
+  if (targetPlatform === "tiktok") {
+    const { data: ttAccounts } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+      .eq("user_id", user.id)
+      .ilike("platform", "tiktok")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const ttAccount = ttAccounts?.[0] as
+      | {
+          id: string;
+          user_id: string;
+          platform: string;
+          access_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown> | null;
+          platform_id: string | null;
+        }
+      | undefined;
+
+    if (!ttAccount?.access_token) {
+      return {
+        success: false,
+        error: "Chybí propojený TikTok účet.",
+      };
+    }
+
+    const existingTtExternalId =
+      alreadyPublishedRow?.platform === "tiktok" ? alreadyPublishedRow.external_id : null;
+
+    const result = await publishToTikTokAction({
+      account: ttAccount,
+      content: rawContent,
+      mediaUrls: rawUrls,
+      existingExternalId: existingTtExternalId,
+      platformMetadata: input.platformMetadata ?? null,
+    });
+
+    if (!result.success) {
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        result.error ?? "TikTok publish failed",
+        "tiktok",
+      );
+      return { success: false, error: result.error };
+    }
+
+    await handlePublishSuccess(
+      supabase,
+      user.id,
+      post.id,
+      result.externalId ?? "",
+      "tiktok",
+    );
+    return {
+      success: true,
+      data: { externalId: result.externalId, platform: "tiktok" },
     };
   }
 

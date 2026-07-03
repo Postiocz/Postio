@@ -37,6 +37,8 @@ interface PostPreviewProps {
   youtubeProfile?: PostPreviewProfile | null;
   /** LinkedIn profile. When null, LinkedIn tab shows a placeholder name. */
   linkedinProfile?: PostPreviewProfile | null;
+  /** TikTok profile. When null, TikTok tab shows a placeholder name. */
+  tiktokProfile?: PostPreviewProfile | null;
   /**
    * Which preview tabs to render, in display order. The list is owned by the
    * parent (typically EditPostDialog) so we only ever show a tab when the
@@ -57,6 +59,8 @@ interface PostPreviewProps {
     youtubeTab?: string;
     /** Label for the optional LinkedIn tab (only required when "linkedin" is in availablePlatforms). */
     linkedinTab?: string;
+    /** Label for the optional TikTok tab (only required when "tiktok" is in availablePlatforms). */
+    tiktokTab?: string;
     previewTitle: string;
     noMedia: string;
     placeholderName: string;
@@ -64,7 +68,7 @@ interface PostPreviewProps {
   };
 }
 
-type Platform = "facebook" | "instagram" | "youtube" | "linkedin";
+type Platform = "facebook" | "instagram" | "youtube" | "linkedin" | "tiktok";
 
 const DEFAULT_AVAILABLE_PLATFORMS: Platform[] = ["facebook", "instagram"];
 
@@ -77,6 +81,7 @@ const PLATFORM_ACCENTS: Record<Platform, string> = {
   instagram: "#E1306C",
   youtube: "#FF0000",
   linkedin: "#0A66C2",
+  tiktok: "#00f2fe", // TikTok cyan
 };
 
 /**
@@ -106,6 +111,7 @@ export function PostPreview({
   instagramProfile,
   youtubeProfile,
   linkedinProfile,
+  tiktokProfile,
   availablePlatforms,
   location,
   labels,
@@ -136,6 +142,9 @@ export function PostPreview({
     if (effectivePlatform === "linkedin") {
       return linkedinProfile ?? { displayName: labels.placeholderName };
     }
+    if (effectivePlatform === "tiktok") {
+      return tiktokProfile ?? { displayName: labels.placeholderName };
+    }
     return instagramProfile ?? { displayName: labels.placeholderName };
   }, [
     effectivePlatform,
@@ -143,6 +152,7 @@ export function PostPreview({
     instagramProfile,
     youtubeProfile,
     linkedinProfile,
+    tiktokProfile,
     labels.placeholderName,
   ]);
 
@@ -160,7 +170,9 @@ export function PostPreview({
               ? labels.youtubeTab ?? "YouTube"
               : id === "linkedin"
                 ? labels.linkedinTab ?? "LinkedIn"
-                : labels.instagramTab,
+                : id === "tiktok"
+                  ? labels.tiktokTab ?? "TikTok"
+                  : labels.instagramTab,
       })),
     [
       tabs,
@@ -168,6 +180,7 @@ export function PostPreview({
       labels.instagramTab,
       labels.youtubeTab,
       labels.linkedinTab,
+      labels.tiktokTab,
     ],
   );
 
@@ -211,6 +224,13 @@ export function PostPreview({
             profile={activeProfile}
             labels={labels}
           />
+        ) : effectivePlatform === "tiktok" ? (
+          <TikTokPreview
+            content={content}
+            media={media}
+            profile={activeProfile}
+            labels={labels}
+          />
         ) : (
           <InstagramPreview
             content={content}
@@ -219,6 +239,132 @@ export function PostPreview({
             labels={labels}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------------
+// TikTok Preview
+// -------------------------------------------------------------------------
+
+function TikTokPreview({
+  content,
+  media,
+  profile,
+  labels,
+}: {
+  content: string;
+  media: PostPreviewMedia[];
+  profile: PostPreviewProfile;
+  labels?: { noMedia?: string; tiktokVideoRequired?: string };
+}) {
+  // TikTok only supports video
+  const videoMedia = media.find((m) => m.kind === "video") ?? media[0];
+
+  return (
+    <div className="flex h-full flex-col bg-black text-white relative">
+      {/* Background/Video Area */}
+      <div className="absolute inset-0">
+        {videoMedia ? (
+          <MediaArea media={[videoMedia]} forceSquare={false} />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-[#121212]">
+            <div className="text-center text-white/50">
+              <span className="mb-2 block text-4xl">🎵</span>
+              <p className="text-sm font-medium">
+                {labels?.tiktokVideoRequired ?? labels?.noMedia ?? "TikTok requires video"}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Overlay gradient for text readability */}
+      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+
+      {/* Content overlay */}
+      <div className="absolute inset-0 flex flex-col justify-end pointer-events-none">
+        <div className="flex flex-row items-end justify-between p-4 pb-6">
+          {/* Left column: Author & Description */}
+          <div className="flex-1 pr-12 min-w-0">
+            <div className="mb-2 font-semibold text-[15px] hover:underline cursor-pointer inline-block pointer-events-auto">
+              @{profile.displayName.replace(/\s+/g, "").toLowerCase() || "tiktok_creator"}
+            </div>
+            
+            {content ? (
+              <div className="text-sm text-white/90 font-normal leading-[1.3] line-clamp-3 mb-2 pointer-events-auto">
+                {content}
+              </div>
+            ) : null}
+
+            {/* Original Sound */}
+            <div className="flex items-center gap-2 text-sm text-white/80 pointer-events-auto">
+              <svg className="w-4 h-4 animate-[spin_3s_linear_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+              <span className="truncate">původní zvuk - {profile.displayName}</span>
+            </div>
+          </div>
+
+          {/* Right column: Action buttons */}
+          <div className="flex flex-col items-center justify-end gap-5 pointer-events-auto">
+            {/* Avatar */}
+            <div className="relative mb-2">
+              <Avatar
+                url={profile.avatarUrl}
+                name={profile.displayName}
+                className="h-[48px] w-[48px] rounded-full border border-white"
+              />
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-[#EA4359] w-5 h-5 flex items-center justify-center text-white cursor-pointer shadow-sm">
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+              </div>
+            </div>
+
+            {/* Like */}
+            <button className="flex flex-col items-center gap-1 group">
+              <div className="bg-black/20 p-2.5 rounded-full backdrop-blur-sm group-hover:bg-black/40 transition-colors">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+              </div>
+              <span className="text-xs font-semibold">12.4K</span>
+            </button>
+
+            {/* Comment */}
+            <button className="flex flex-col items-center gap-1 group">
+              <div className="bg-black/20 p-2.5 rounded-full backdrop-blur-sm group-hover:bg-black/40 transition-colors">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M21.99 20.01c.01.27-.1.52-.29.71-.2.2-.45.3-.71.29l-3.32-.23c-1.63.85-3.56 1.3-5.67 1.3-6.63 0-12-4.93-12-11C0 4.93 5.37 0 12 0s12 4.93 12 11c0 3.3-1.63 6.27-4.18 8.19l2.17 1.05v-.23z"></path></svg>
+              </div>
+              <span className="text-xs font-semibold">134</span>
+            </button>
+
+            {/* Bookmark */}
+            <button className="flex flex-col items-center gap-1 group">
+              <div className="bg-black/20 p-2.5 rounded-full backdrop-blur-sm group-hover:bg-black/40 transition-colors">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"></path></svg>
+              </div>
+              <span className="text-xs font-semibold">456</span>
+            </button>
+
+            {/* Share */}
+            <button className="flex flex-col items-center gap-1 group">
+              <div className="bg-black/20 p-2.5 rounded-full backdrop-blur-sm group-hover:bg-black/40 transition-colors">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor" transform="scale(-1,1)"><path d="M21 11.5L9 4v5C4 9 2 13.5 2 19c2.5-3.5 6-4.5 7-4.5v5l12-7.5z"></path></svg>
+              </div>
+              <span className="text-xs font-semibold">12</span>
+            </button>
+            
+            {/* Spinning Record */}
+            <div className="w-[40px] h-[40px] rounded-full bg-[#1e1e1e] flex items-center justify-center animate-[spin_4s_linear_infinite] mt-2 shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+              <Avatar
+                url={profile.avatarUrl}
+                name={profile.displayName}
+                className="h-[24px] w-[24px] rounded-full"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -118,6 +118,7 @@ export interface Database {
           published_at: string | null
           external_id: string | null
           publish_error: string | null
+          metadata: Record<string, unknown>
           created_at: string
           updated_at: string
         }
@@ -130,6 +131,7 @@ export interface Database {
           published_at?: string | null
           external_id?: string | null
           publish_error?: string | null
+          metadata?: Record<string, unknown>
           created_at?: string
           updated_at?: string
         }
@@ -142,6 +144,7 @@ export interface Database {
           published_at?: string | null
           external_id?: string | null
           publish_error?: string | null
+          metadata?: Record<string, unknown>
           created_at?: string
           updated_at?: string
         }
@@ -289,8 +292,8 @@ export interface Database {
         }
       }
     }
-    Views: {}
-    Functions: {}
-    Enums: {}
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
   }
 }

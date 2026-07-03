@@ -5,6 +5,17 @@
 
 ## 2026-07-03
 
+### 🔎 Audit — TikTok Sandbox klíče a endpointy
+
+- **Kontext**: Po přepnutí TikTok aplikace do Sandbox režimu bylo potřeba ověřit, že OAuth i publish flow stále míří na správné TikTok v2 endpointy a že backend čte aktuální `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` z environment proměnných místo hardcoded hodnot.
+- **Ověření**:
+  1. `src/app/api/accounts/tiktok/route.ts` dál používá oficiální OAuth adresy `https://www.tiktok.com/v2/auth/authorize/` a `https://open.tiktokapis.com/v2/oauth/token/` a client credentials bere výhradně z `process.env.TIKTOK_CLIENT_KEY` / `process.env.TIKTOK_CLIENT_SECRET`.
+  2. `src/lib/actions/publish-tiktok.ts` i `supabase/functions/process-scheduled-posts/index.ts` používají oficiální TikTok Content Posting API v2 endpointy na `open.tiktokapis.com` (`creator_info/query`, `video/init`, `status/fetch`) a refresh token flow čte stejné env názvy.
+  3. Podle aktuální TikTok dokumentace Sandbox režim nemění tyto hosty ani cesty; mění se klientské klíče a behavior publikace (neauditované klienty / sandbox omezuje viditelnost postů), takže v kódu nebylo nutné endpointy přepisovat.
+  4. Potvrzeno, že `.env.local` je ignorovaný přes `.gitignore`, takže commit/push samotný nepropíše nové TikTok klíče na Vercel. Produkční/sandbox klíče je nutné nastavit i v Project Settings -> Environment Variables na Vercelu a případně v Supabase secrets pro Edge Function.
+- **Upravené soubory**:
+  - `CHANGELOG.md`
+
 ### 🔐 Chore — Výměna TikTok doménového ověřovacího souboru
 
 - **Kontext**: TikTok pro novou instrukci aplikace vygeneroval nový verifikační TXT soubor, takže původní soubor i middleware bypass bylo potřeba přepnout na nový název.

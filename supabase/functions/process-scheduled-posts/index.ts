@@ -441,8 +441,500 @@ async function refreshYouTubeAccessToken(
  * accept the Deno-side type here directly so the function compiles
  * without the @supabase/supabase-js full Database generic.
  */
-// deno-lint-ignore no-explicit-any
-type DenoSupabaseClient = any;
+type DenoSupabaseClient = ReturnType<typeof createClient>;
+
+/**
+ * POSTIO – TikTok publisher helpers (API v2)
+ * Ported for Deno Edge Function
+ */
+const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
+const TIKTOK_CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/";
+const TIKTOK_PUBLISH_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/video/init/";
+const TIKTOK_PUBLISH_STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/";
+const TIKTOK_STATUS_POLL_INTERVAL_MS = 2_500;
+const TIKTOK_STATUS_MAX_WAIT_MS = 3 * 60 * 1000;
+
+type TikTokPrivacyLevel =
+  | "PUBLIC_TO_EVERYONE"
+  | "MUTUAL_FOLLOW_FRIENDS"
+  | "SELF_ONLY"
+  | "FOLLOWER_OF_CREATOR";
+
+type TikTokPublishStatus =
+  | "PROCESSING_UPLOAD"
+  | "PROCESSING_DOWNLOAD"
+  | "SEND_TO_USER_INBOX"
+  | "PUBLISH_COMPLETE"
+  | "FAILED";
+
+type TikTokCreatorInfo = {
+  creatorAvatarUrl: string | null;
+  creatorUsername: string | null;
+  creatorNickname: string | null;
+  privacyLevelOptions: TikTokPrivacyLevel[];
+  commentDisabled: boolean;
+  duetDisabled: boolean;
+  stitchDisabled: boolean;
+  maxVideoPostDurationSec: number | null;
+  fetchedAt: string;
+};
+
+type TikTokAccountRow = {
+  id: string;
+  access_token: string | null;
+  token_expires_at: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+type TikTokCreatorInfoResponse = {
+  data?: {
+    creator_avatar_url?: string;
+    creator_username?: string;
+    creator_nickname?: string;
+    privacy_level_options?: string[];
+    comment_disabled?: boolean;
+    duet_disabled?: boolean;
+    stitch_disabled?: boolean;
+    max_video_post_duration_sec?: number;
+  };
+  error?: {
+    code?: string;
+    message?: string;
+    log_id?: string;
+  };
+};
+
+type TikTokStatusFetchResponse = {
+  data?: {
+    status?: string;
+    fail_reason?: string;
+    publicaly_available_post_id?: Array<number | string>;
+  };
+  error?: {
+    code?: string;
+    message?: string;
+    log_id?: string;
+  };
+};
+
+function readTikTokRefreshToken(metadata: Record<string, unknown> | null | undefined): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const raw = metadata.refresh_token;
+  return typeof raw === "string" && raw.trim() ? raw : null;
+}
+
+function readTikTokPostSettings(
+  metadata: Record<string, unknown> | null | undefined,
+): { privacyLevel?: TikTokPrivacyLevel } {
+  if (!metadata || typeof metadata !== "object") {
+    return {};
+  }
+
+  const privacyLevel = metadata.privacy_level;
+  if (
+    privacyLevel === "PUBLIC_TO_EVERYONE" ||
+    privacyLevel === "MUTUAL_FOLLOW_FRIENDS" ||
+    privacyLevel === "SELF_ONLY" ||
+    privacyLevel === "FOLLOWER_OF_CREATOR"
+  ) {
+    return { privacyLevel };
+  }
+
+  return {};
+}
+
+function normalizeTikTokCreatorInfo(payload: TikTokCreatorInfoResponse): TikTokCreatorInfo {
+  const data = payload.data ?? {};
+  const privacyLevelOptions = Array.isArray(data.privacy_level_options)
+    ? data.privacy_level_options.filter(
+        (value): value is TikTokPrivacyLevel =>
+          value === "PUBLIC_TO_EVERYONE" ||
+          value === "MUTUAL_FOLLOW_FRIENDS" ||
+          value === "SELF_ONLY" ||
+          value === "FOLLOWER_OF_CREATOR",
+      )
+    : [];
+
+  return {
+    creatorAvatarUrl: data.creator_avatar_url ?? null,
+    creatorUsername: data.creator_username ?? null,
+    creatorNickname: data.creator_nickname ?? null,
+    privacyLevelOptions,
+    commentDisabled: Boolean(data.comment_disabled),
+    duetDisabled: Boolean(data.duet_disabled),
+    stitchDisabled: Boolean(data.stitch_disabled),
+    maxVideoPostDurationSec:
+      typeof data.max_video_post_duration_sec === "number"
+        ? data.max_video_post_duration_sec
+        : null,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+async function persistTikTokCreatorInfoCache(params: {
+  supabaseAdmin: DenoSupabaseClient;
+  accountId: string;
+  existingMetadata: Record<string, unknown> | null;
+  creatorInfo: TikTokCreatorInfo;
+}) {
+  const nextMetadata = {
+    ...(params.existingMetadata ?? {}),
+    creator_info_cache: {
+      creator_avatar_url: params.creatorInfo.creatorAvatarUrl,
+      creator_username: params.creatorInfo.creatorUsername,
+      creator_nickname: params.creatorInfo.creatorNickname,
+      privacy_level_options: params.creatorInfo.privacyLevelOptions,
+      comment_disabled: params.creatorInfo.commentDisabled,
+      duet_disabled: params.creatorInfo.duetDisabled,
+      stitch_disabled: params.creatorInfo.stitchDisabled,
+      max_video_post_duration_sec: params.creatorInfo.maxVideoPostDurationSec,
+      fetched_at: params.creatorInfo.fetchedAt,
+    },
+  };
+
+  await params.supabaseAdmin
+    .from("social_accounts")
+    .update({ metadata: nextMetadata })
+    .eq("id", params.accountId);
+}
+
+async function queryTikTokCreatorInfo(params: {
+  accessToken: string;
+}): Promise<{ success: true; data: TikTokCreatorInfo } | { success: false; error: string }> {
+  try {
+    const res = await fetch(TIKTOK_CREATOR_INFO_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({}),
+    });
+
+    const payload = (await res.json().catch(() => ({}))) as TikTokCreatorInfoResponse;
+    if (!res.ok || payload.error?.code !== "ok") {
+      return {
+        success: false,
+        error:
+          payload.error?.message ||
+          `TikTok creator_info/query selhalo (HTTP ${res.status}).`,
+      };
+    }
+
+    return {
+      success: true,
+      data: normalizeTikTokCreatorInfo(payload),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `TikTok creator_info/query selhalo: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+}
+
+function inferVideoMimeType(url: string): string {
+  const cleanUrl = url.split("#")[0]?.split("?")[0]?.toLowerCase() ?? "";
+  if (cleanUrl.endsWith(".mov")) return "video/quicktime";
+  if (cleanUrl.endsWith(".webm")) return "video/webm";
+  if (cleanUrl.endsWith(".mkv")) return "video/x-matroska";
+  return "video/mp4";
+}
+
+function resolveRequestedPrivacyLevel(params: {
+  requestedPrivacyLevel?: TikTokPrivacyLevel;
+  creatorInfo: TikTokCreatorInfo;
+}): TikTokPrivacyLevel {
+  const { requestedPrivacyLevel, creatorInfo } = params;
+
+  if (
+    requestedPrivacyLevel &&
+    creatorInfo.privacyLevelOptions.includes(requestedPrivacyLevel)
+  ) {
+    return requestedPrivacyLevel;
+  }
+
+  const preferredFallbackOrder: TikTokPrivacyLevel[] = [
+    "PUBLIC_TO_EVERYONE",
+    "MUTUAL_FOLLOW_FRIENDS",
+    "SELF_ONLY",
+    "FOLLOWER_OF_CREATOR",
+  ];
+
+  return (
+    preferredFallbackOrder.find((level) =>
+      creatorInfo.privacyLevelOptions.includes(level),
+    ) ??
+    creatorInfo.privacyLevelOptions[0] ??
+    "SELF_ONLY"
+  );
+}
+
+async function waitForTikTokPublishComplete(params: {
+  accessToken: string;
+  publishId: string;
+  pollIntervalMs?: number;
+  maxWaitMs?: number;
+}): Promise<
+  | { success: true; publicPostId: string | null }
+  | { success: false; error: string }
+> {
+  const {
+    accessToken,
+    publishId,
+    pollIntervalMs = TIKTOK_STATUS_POLL_INTERVAL_MS,
+    maxWaitMs = TIKTOK_STATUS_MAX_WAIT_MS,
+  } = params;
+  const start = Date.now();
+
+  while (Date.now() - start <= maxWaitMs) {
+    try {
+      const res = await fetch(TIKTOK_PUBLISH_STATUS_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: JSON.stringify({ publish_id: publishId }),
+      });
+
+      const payload = (await res.json().catch(() => ({}))) as TikTokStatusFetchResponse;
+      if (!res.ok || payload.error?.code !== "ok") {
+        return {
+          success: false,
+          error:
+            payload.error?.message ||
+            `TikTok status/fetch selhalo pro publish_id ${publishId} (HTTP ${res.status}).`,
+        };
+      }
+
+      const status = payload.data?.status as TikTokPublishStatus | undefined;
+      if (status === "PUBLISH_COMPLETE") {
+        const publicPostId = payload.data?.publicaly_available_post_id?.[0];
+        return {
+          success: true,
+          publicPostId:
+            publicPostId !== undefined && publicPostId !== null
+              ? String(publicPostId)
+              : null,
+        };
+      }
+
+      if (status === "FAILED") {
+        return {
+          success: false,
+          error:
+            payload.data?.fail_reason ||
+            "TikTok zpracování videa skončilo stavem FAILED.",
+        };
+      }
+    } catch (error) {
+      console.warn("[TikTok status/fetch Edge] transient poll error:", error);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+
+  return {
+    success: false,
+    error:
+      "TikTok status polling vypršel dříve, než video přešlo do stavu PUBLISH_COMPLETE.",
+  };
+}
+
+async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
+  | { success: true; accessToken: string; expiresInSeconds: number; refreshToken?: string }
+  | { success: false; error: string }
+> {
+  const clientKey = Deno.env.get("TIKTOK_CLIENT_KEY");
+  const clientSecret = Deno.env.get("TIKTOK_CLIENT_SECRET");
+
+  if (!clientKey || !clientSecret) {
+    return { success: false, error: "TikTok API není nakonfigurováno (chybí TIKTOK_CLIENT_KEY/SECRET)." };
+  }
+
+  const body = new URLSearchParams({
+    client_key: clientKey,
+    client_secret: clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+
+  try {
+    const res = await fetch(TIKTOK_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+
+    const payload = await res.json();
+
+    if (!res.ok || !payload.access_token) {
+      return { success: false, error: payload.error_description || payload.error || `HTTP ${res.status}` };
+    }
+
+    return {
+      success: true,
+      accessToken: payload.access_token,
+      expiresInSeconds: payload.expires_in || 86400,
+      refreshToken: payload.refresh_token,
+    };
+  } catch (e) {
+    return { success: false, error: `TikTok refresh failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+async function getValidTikTokAccessToken(params: {
+  supabaseAdmin: DenoSupabaseClient;
+  userId: string;
+}) {
+  const { supabaseAdmin, userId } = params;
+
+  const { data: accounts } = await supabaseAdmin
+    .from("social_accounts")
+    .select("id, access_token, token_expires_at, metadata")
+    .eq("user_id", userId)
+    .ilike("platform", "tiktok")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const account = accounts?.[0] as TikTokAccountRow | undefined;
+  if (!account) {
+    return { success: false, error: "Chybí propojený TikTok účet." };
+  }
+
+  const now = Date.now();
+  const expiresAtMs = account.token_expires_at ? new Date(account.token_expires_at).getTime() : 0;
+
+  if (account.access_token && expiresAtMs - now > TOKEN_REFRESH_BUFFER_MS) {
+    return { success: true, accessToken: account.access_token, account };
+  }
+
+  const refreshToken = readTikTokRefreshToken(account.metadata);
+  if (!refreshToken) return { success: false, error: "Chybí refresh_token pro TikTok." };
+
+  const refreshed = await exchangeTikTokRefreshToken(refreshToken);
+  if (!refreshed.success) return refreshed;
+
+  const newExpiresAt = new Date(now + refreshed.expiresInSeconds * 1000).toISOString();
+  const newMetadata = { ...(account.metadata || {}), refresh_token: refreshed.refreshToken || refreshToken };
+
+  await supabaseAdmin
+    .from("social_accounts")
+    .update({ access_token: refreshed.accessToken, token_expires_at: newExpiresAt, metadata: newMetadata })
+    .eq("id", account.id);
+
+  return {
+    success: true,
+    accessToken: refreshed.accessToken,
+    account: {
+      ...account,
+      access_token: refreshed.accessToken,
+      token_expires_at: newExpiresAt,
+      metadata: newMetadata,
+    },
+  };
+}
+
+async function publishToTikTok(params: {
+  accessToken: string;
+  videoUrl: string;
+  content: string;
+  privacyLevel: TikTokPrivacyLevel;
+  creatorInfo: TikTokCreatorInfo;
+}): Promise<{ success: true; externalId: string } | { success: false; error: string }> {
+  const { accessToken, videoUrl, content, privacyLevel, creatorInfo } = params;
+
+  let videoBuffer: ArrayBuffer;
+  try {
+    const sourceRes = await fetch(videoUrl);
+    if (!sourceRes.ok) {
+      return {
+        success: false,
+        error: `TikTok video se nepodařilo stáhnout (HTTP ${sourceRes.status}).`,
+      };
+    }
+    videoBuffer = await sourceRes.arrayBuffer();
+  } catch (e) {
+    return {
+      success: false,
+      error: `Síťová chyba při stahování TikTok videa: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+
+  if (videoBuffer.byteLength === 0) {
+    return { success: false, error: "TikTok video soubor je prázdný (0 bytů)." };
+  }
+
+  const initRes = await fetch(TIKTOK_PUBLISH_INIT_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({
+      post_info: {
+        title: content.slice(0, 2200),
+        privacy_level: privacyLevel,
+        disable_duet: creatorInfo.duetDisabled,
+        disable_comment: creatorInfo.commentDisabled,
+        disable_stitch: creatorInfo.stitchDisabled,
+      },
+      source_info: {
+        source: "FILE_UPLOAD",
+        video_size: videoBuffer.byteLength,
+        chunk_size: videoBuffer.byteLength,
+        total_chunk_count: 1,
+      },
+    }),
+  });
+
+  const initData = await initRes.json();
+  if (!initRes.ok || initData.error?.code !== "ok") {
+    console.error("[TikTok Publish Edge] Error:", initData);
+    return { success: false, error: initData.error?.message || "TikTok publish failed" };
+  }
+
+  const { publish_id, upload_url } = initData.data ?? {};
+
+  if (!publish_id || !upload_url) {
+    return { success: false, error: "TikTok publish init nevrátil publish_id nebo upload_url." };
+  }
+
+  const uploadRes = await fetch(upload_url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": inferVideoMimeType(videoUrl),
+      "Content-Length": String(videoBuffer.byteLength),
+      "Content-Range": `bytes 0-${videoBuffer.byteLength - 1}/${videoBuffer.byteLength}`,
+    },
+    body: videoBuffer,
+  });
+
+  if (!uploadRes.ok) {
+    const errorText = await uploadRes.text().catch(() => "");
+    return {
+      success: false,
+      error: `TikTok binary upload failed (HTTP ${uploadRes.status})${errorText ? `: ${errorText.slice(0, 200)}` : ""}`,
+    };
+  }
+
+  const statusResult = await waitForTikTokPublishComplete({
+    accessToken,
+    publishId: publish_id,
+  });
+  if (!statusResult.success) {
+    return statusResult;
+  }
+
+  return {
+    success: true,
+    externalId: statusResult.publicPostId ?? publish_id,
+  };
+}
 
 async function getValidYouTubeAccessToken(params: {
   supabaseAdmin: DenoSupabaseClient;
@@ -1255,7 +1747,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: platformsToPublish, error: platformsError } = await supabaseAdmin
     .from("post_platforms")
-    .select("id, post_id, platform, status, scheduled_at, posts(id, user_id, content, media_urls, location, tags)")
+    .select("id, post_id, platform, status, scheduled_at, metadata, posts(id, user_id, content, media_urls, location, tags)")
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", nowIso)
@@ -1309,7 +1801,7 @@ Deno.serve(async (request: Request) => {
   console.log(`>>> post_platforms locked successfully. Starting publish process...`);
 
   let published = 0;
-  let skipped = 0;
+  const skipped = 0;
   let failed = 0;
 
   for (const pp of platformsToPublish) {
@@ -1520,6 +2012,65 @@ Deno.serve(async (request: Request) => {
           } else {
             externalId = result.externalId ?? null;
             console.log(`>>> LinkedIn publish success for post_platforms ${pp.id}`, { externalId });
+          }
+        }
+      } else if (targetPlatform === "tiktok") {
+        // --- TikTok publish (scheduled / background) ---
+        const firstTikTokMedia = mediaUrls.find(
+          (url): url is string => typeof url === "string" && url.trim().length > 0,
+        );
+        if (!firstTikTokMedia) {
+          publishError = "TikTok vyžaduje video.";
+          console.log(`>>> TikTok skipped for post_platforms ${pp.id}: no media`);
+        } else {
+          const ttToken = await getValidTikTokAccessToken({
+            supabaseAdmin,
+            userId: post.user_id,
+          });
+
+          if (!ttToken.success) {
+            publishError = ttToken.error;
+            console.log(`>>> TikTok token error for post_platforms ${pp.id}`, { error: publishError });
+          } else {
+            const creatorInfoResult = await queryTikTokCreatorInfo({
+              accessToken: ttToken.accessToken,
+            });
+
+            if (!creatorInfoResult.success) {
+              publishError = creatorInfoResult.error;
+              console.log(`>>> TikTok creator info failed for post_platforms ${pp.id}`, { error: publishError });
+            } else {
+              await persistTikTokCreatorInfoCache({
+                supabaseAdmin,
+                accountId: ttToken.account.id,
+                existingMetadata: ttToken.account.metadata,
+                creatorInfo: creatorInfoResult.data,
+              });
+
+              const requestedPrivacyLevel = readTikTokPostSettings(
+                (pp as { metadata?: Record<string, unknown> | null }).metadata ?? null,
+              ).privacyLevel;
+              const resolvedPrivacyLevel = resolveRequestedPrivacyLevel({
+                requestedPrivacyLevel,
+                creatorInfo: creatorInfoResult.data,
+              });
+
+            const result = await publishToTikTok({
+              accessToken: ttToken.accessToken,
+                videoUrl: firstTikTokMedia,
+                content: rawContent,
+                privacyLevel: resolvedPrivacyLevel,
+                creatorInfo: creatorInfoResult.data,
+              });
+
+              if (!result.success) {
+                publishError = result.error ?? "TikTok publish failed";
+                console.log(`>>> TikTok publish failed for post_platforms ${pp.id}`, { error: publishError });
+              } else {
+                externalId = result.externalId ?? null;
+                console.log(`>>> TikTok publish success for post_platforms ${pp.id}`, { externalId });
+              }
+            }
           }
         }
       } else {

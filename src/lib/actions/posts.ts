@@ -18,6 +18,11 @@ function revalidateAllLocales(path: string) {
   }
 }
 
+type PostPlatformStatusRow = {
+  platform: string;
+  status: string;
+};
+
 export async function createPostAction(inputData: {
   content: string;
   platforms: string[];
@@ -27,6 +32,7 @@ export async function createPostAction(inputData: {
   location?: string;
   tags?: string[];
   tagIds?: string[];
+  platformMetadata?: Record<string, Record<string, unknown>>;
   published_platforms?: string[];
   published_at?: string | null;
   external_ids?: Record<string, string> | null;
@@ -82,7 +88,8 @@ export async function createPostAction(inputData: {
       post_id: post.id,
       platform: p,
       status: cleanData.status === 'scheduled' ? 'scheduled' : 'draft',
-      scheduled_at: cleanData.scheduledAt
+      scheduled_at: cleanData.scheduledAt,
+      metadata: cleanData.platformMetadata?.[p] ?? {},
     }));
 
     const { error: ppError } = await supabase.from('post_platforms').insert(platformRows);
@@ -124,6 +131,7 @@ export async function updatePost(id: string, inputData: {
   location?: string;
   tags?: string[];
   tagIds?: string[];
+  platformMetadata?: Record<string, Record<string, unknown>>;
   published_platforms?: string[];
   published_at?: string | null;
   external_ids?: Record<string, string> | null;
@@ -179,7 +187,7 @@ export async function updatePost(id: string, inputData: {
   if (post && cleanData.platforms !== undefined) {
     const { data: existingInstances } = await supabase
       .from("post_platforms")
-      .select("platform, status")
+      .select("platform, status, metadata")
       .eq("post_id", id);
 
     const existingPlatforms = (existingInstances || []).map((i) => i.platform);
@@ -193,6 +201,7 @@ export async function updatePost(id: string, inputData: {
           platform: p,
           status: safeStatus === "scheduled" ? "scheduled" : "draft",
           scheduled_at: safeStatus === "scheduled" ? (cleanData.scheduledAt ?? post.scheduled_at) : null,
+          metadata: cleanData.platformMetadata?.[p] ?? {},
         }))
       );
     }
@@ -214,6 +223,22 @@ export async function updatePost(id: string, inputData: {
           .delete()
           .eq("post_id", id)
           .in("platform", safeToRemove);
+      }
+    }
+
+    if (cleanData.platformMetadata) {
+      for (const [platform, metadataPatch] of Object.entries(cleanData.platformMetadata)) {
+        const existingMetadata = (existingInstances || []).find((row) => row.platform === platform)?.metadata;
+        await supabase
+          .from("post_platforms")
+          .update({
+            metadata: {
+              ...((existingMetadata && typeof existingMetadata === "object") ? existingMetadata : {}),
+              ...metadataPatch,
+            },
+          })
+          .eq("post_id", id)
+          .eq("platform", platform);
       }
     }
   }
@@ -686,10 +711,10 @@ export async function getPosts(status?: string) {
   }
 
   const processedData = data?.map(post => {
-    const postPlatforms = post.post_platforms || [];
-    postPlatforms.sort((a: any, b: any) => a.platform.localeCompare(b.platform));
+    const postPlatforms = (post.post_platforms ?? []) as PostPlatformStatusRow[];
+    postPlatforms.sort((a, b) => a.platform.localeCompare(b.platform));
 
-    const statuses = postPlatforms.map((p: any) => p.status);
+    const statuses = postPlatforms.map((p) => p.status);
     let computedStatus = "draft";
     if (statuses.includes("failed")) computedStatus = "failed";
     else if (statuses.includes("publishing")) computedStatus = "publishing";
@@ -715,7 +740,7 @@ export async function getPosts(status?: string) {
     return {
       ...post,
       status: computedStatus,
-      platforms: postPlatforms.map((p: any) => p.platform),
+      platforms: postPlatforms.map((p) => p.platform),
       post_platforms: postPlatforms,
       post_tags: normalizedPostTags,
     };
@@ -740,8 +765,9 @@ export async function getPost(id: string) {
   }
 
   if (data?.post_platforms && Array.isArray(data.post_platforms)) {
-    data.post_platforms.sort((a: { platform: string }, b: { platform: string }) => a.platform.localeCompare(b.platform));
-    const statuses = data.post_platforms.map((p: any) => p.status);
+    const postPlatforms = data.post_platforms as PostPlatformStatusRow[];
+    postPlatforms.sort((a, b) => a.platform.localeCompare(b.platform));
+    const statuses = postPlatforms.map((p) => p.status);
     let computedStatus = "draft";
     if (statuses.includes("failed")) computedStatus = "failed";
     else if (statuses.includes("publishing")) computedStatus = "publishing";
@@ -750,7 +776,7 @@ export async function getPost(id: string) {
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
 
     data.status = computedStatus;
-    data.platforms = data.post_platforms.map((p: any) => p.platform);
+    data.platforms = postPlatforms.map((p) => p.platform);
   }
 
   // Normalize post_tags (same as in getPosts)

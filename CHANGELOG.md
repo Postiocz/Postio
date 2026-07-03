@@ -5,6 +5,57 @@
 
 ## 2026-07-03
 
+### 🔐 Chore — Výměna TikTok doménového ověřovacího souboru
+
+- **Kontext**: TikTok pro novou instrukci aplikace vygeneroval nový verifikační TXT soubor, takže původní soubor i middleware bypass bylo potřeba přepnout na nový název.
+- **Oprava**:
+  1. Ze složky `public` odstraněn starý soubor `tiktokjFgEI64FNgaNsEz5xTRu6LM09on0NdmD.txt`.
+  2. Přidán nový soubor `public/tiktokmIF6HPGsSRtFyrpVPktypfhK4V9oDdj7.txt` s obsahem od TikTok Developer portálu.
+  3. V `middleware.ts` aktualizován `PUBLIC_STATIC_PATHS`, aby nová root URL vracela raw TXT bez auth redirectu a bez locale redirectu.
+- **Upravené soubory**:
+  - `public/tiktokmIF6HPGsSRtFyrpVPktypfhK4V9oDdj7.txt`
+  - `middleware.ts`
+
+### 🧹 Stabilizace — Prompt 017-B: editor cleanup + TikTok production polish
+
+- **Kontext**: Po dokončení první TikTok integrace zůstal v editoru a publish flow technický dluh: lint chyby v `EditPostDialog` / `publish.ts`, chybějící per-post TikTok privacy volba, okamžité hlášení úspěchu bez ověření finálního stavu videa a starý scheduled TikTok flow bez `creator_info/query`.
+- **Oprava**:
+  1. `src/components/edit-post-dialog.tsx` vyčištěn od lint problémů, doplněn lokalizovaný blok „Nastavení soukromí“ pro TikTok s volbami `PUBLIC_TO_EVERYONE`, `MUTUAL_FOLLOW_FRIENDS`, `SELF_ONLY` a capability summary načteným z `creator_info/query`.
+  2. `src/lib/actions/publish.ts` dočištěn typově, odstraněny poslední `any` a `publishAdditionalPlatforms()` nově přebírá `platformMetadata`, takže TikTok privacy funguje i při pozdějším dopublikování na další síť.
+  3. `src/lib/actions/publish-tiktok.ts` používá account-aware privacy resolution podle `privacy_level_options`, cache creator info do `social_accounts.metadata.creator_info_cache` a status polling přes `status/fetch` až do `PUBLISH_COMPLETE`.
+  4. `supabase/functions/process-scheduled-posts/index.ts` srovnáno s okamžitým publish flow: přidán `creator_info/query`, persist capability cache, respect `post_platforms.metadata.privacy_level` a polling dokončení publish procesu.
+  5. Do `src/messages/cs.json`, `en.json`, `uk.json` doplněny nové překlady pro TikTok privacy UI a capability texty.
+  6. Ověřeno přes `npm run lint -- src/components/edit-post-dialog.tsx src/lib/actions/publish.ts src/lib/actions/publish-tiktok.ts supabase/functions/process-scheduled-posts/index.ts` bez chyb.
+- **Upravené soubory**:
+  - `src/components/edit-post-dialog.tsx`
+  - `src/lib/actions/publish.ts`
+  - `src/lib/actions/publish-tiktok.ts`
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+
+### ✨ Feature — TikTok OAuth, publishing a high-fidelity preview
+
+- **Kontext**: Postio mělo pro TikTok připravené ikony, platform enumy a ověřenou doménu, ale chyběla skutečná integrace účtu, publish flow, lokalizované UX stavy a věrný preview.
+- **Oprava**:
+  1. Přidána OAuth route pro TikTok Login Kit v `src/app/api/accounts/tiktok/route.ts` se scopes `user.info.basic`, `video.upload`, `video.publish`, uložením do `social_accounts` a persistencí `refresh_token` v `metadata`.
+  2. Přidán publisher `src/lib/actions/publish-tiktok.ts` s refresh token flow, validací video-only médií a TikTok Content Posting API v2 přes init + binární upload na `upload_url`.
+  3. TikTok publish flow dopojen do `src/lib/actions/publish.ts` i do `supabase/functions/process-scheduled-posts/index.ts`, aby fungovalo okamžité i naplánované publikování.
+  4. V `src/components/edit-post-dialog.tsx` doplněn TikTok lock banner, načtení TikTok profilu a zapojení do preview props.
+  5. V `src/components/post-preview.tsx` přidán high-fidelity `TikTokPreview` s mobile-style overlay UI, pravým action sloupcem a popisem přes video.
+  6. Do `src/messages/cs.json`, `en.json`, `uk.json` doplněny texty pro TikTok lock stav a preview labely.
+- **Upravené soubory**:
+  - `src/app/api/accounts/tiktok/route.ts`
+  - `src/lib/actions/publish-tiktok.ts`
+  - `src/lib/actions/publish.ts`
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `src/components/edit-post-dialog.tsx`
+  - `src/components/post-preview.tsx`
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+
 ### 🐛 Fix — TikTok verifikační TXT už nepadá do auth redirectu
 
 - **Kontext**: Po přidání verifikačního souboru do `public` produkční URL nevracela raw TXT obsah, ale přesměrovala na `/<locale>/login`. Důvodem byl globální auth guard v `middleware.ts`, který ne-lokalizovanou cestu k TXT souboru vyhodnotil jako dashboard root (`restPath === "/"`).

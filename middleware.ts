@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 import { createClient } from "./src/lib/supabase/middleware";
 
 const PUBLIC_STATIC_PATHS = new Set([
-  "/tiktokjFgEI64FNgaNsEz5xTRu6LM09on0NdmD.txt",
+  "/tiktokmIF6HPGsSRtFyrpVPktypfhK4V9oDdj7.txt",
 ]);
 
 const intlMiddleware = createMiddleware({

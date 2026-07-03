@@ -68,9 +68,9 @@
 # 📋 Úkoly — Stránka "Kalendář" (Calendar)
 
 > Vytvořeno: 2026-07-02  
-> Poslední aktualizace: 2026-07-03 (relace 2 — #14,#16 hotovo)  
+> Poslední aktualizace: 2026-07-03 (relace 3 — #10,#14,#16,#18a hotovo)  
 > Soubory: `src/app/[locale]/(dashboard)/calendar/page.tsx`, `_calendar-client.tsx`, `_calendar-view.tsx`  
-> Komponenty: `src/components/calendar/stats-cards.tsx`, `view-switcher.tsx`, `mini-calendar.tsx`, `current-time-indicator.tsx`
+> Komponenty: `src/components/calendar/stats-cards.tsx`, `view-switcher.tsx`, `mini-calendar.tsx`, `current-time-indicator.tsx`, `post-calendar-chip.tsx`
 
 ---
 
@@ -85,6 +85,9 @@
 | #8 | StatsCards filtrovat podle aktuálního měsíce | hotovo | Generická komponenta, `isSameMonth()` filtr — label "Tento měsíc" odpovídá realitě |
 | #11 | Hover preview skryt při scrollu | hotovo | Scroll listener resetuje `hoveredPost`, passive event |
 | #12 | Dynamický character limit podle platforem | hotovo | Twitter 280, Instagram 2200, LinkedIn 3000… Math.min() z vybraných platforem |
+| #10 | Klik na prázdný den — blokování minulosti | `fadf202` | Toast upozornění při kliku na minulý den bez postů, existující posty se otevírají normálně |
+| #14 | PostCalendarChip extrakce opakujícího se JSX | `fadf202` | 5× duplicitní čipy → `PostCalendarChip` + `PlatformIconsGroup`, unified status styling |
+| #16 | Unifikovat status styling ve Week view | `fadf202` | Součást #14 — Week view používá stejný PostCalendarChip jako Month |
 | #17 | Odstranit nepoužité importy | hotovo | `ArrowLeft`, `Film`, `ImageIcon` pryč z lucide-react |
 
 ---
@@ -157,9 +160,9 @@
 
 ---
 
-#### #13 — ~~Rozdělení `_calendar-view.tsx` (1695 řádků)~~ ⬜
+#### #13 — Rozdělení `_calendar-view.tsx` (1561 řádků) ⬜
 
-**Soubor:** `_calendar-view.tsx` — 1695 řádků, everything in one file
+**Soubor:** `_calendar-view.tsx` — 1561 řádků, everything in one file
 
 **Co udělat:** Rozdělit na samostatné komponenty v `src/components/calendar/`:
 - `month-grid-view.tsx` — Month view (ř. 694–824)
@@ -233,29 +236,30 @@
 | ~~6~~ | ~~**#3+4**~~ | ~~Duplicitní typy a konstanty~~ | 15 min | 🔵 Refactor | ✅ Hotovo |
 | ~~7~~ | ~~**#11**~~ | ~~Hover preview skryt při scrollu~~ | 5 min | 🟢 UX | ✅ Hotovo |
 | ~~8~~ | ~~**#12**~~ | ~~Dynamický character limit~~ | 15 min | 🟢 UX | ✅ Hotovo |
-| ~~9~~ | ~~**#14**~~ | ~~PostCalendarChip extrakce~~ | 30 min | 🔵 Refactor | ✅ Hotovo |
-| ~~10~~ | ~~**#16**~~ | ~~Unifikovat status styling Week view~~ | 5 min | 🔵 (součást #14) | ✅ Hotovo |
-| 1 | **#10** | Klik na prázdný den — chování | 20 min | 🟢 UX | ⬜ Zbývá |
-| 2 | **#7** | Mobile view přepínač pohledů | 45 min | 🟢 UX | ⬜ Zbývá |
-| 3 | **#9** | Media upload do calendar modalu | 60 min | 🟢 UX | ⬜ Zbývá |
-| 4 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
-| 5 | **#13** | Rozdělení souboru (1695 → ~10 souborů) | 90 min | 🔵 Refactor | ⬜ Zbývá |
+| ~~9~~ | ~~**#14**~~ | ~~PostCalendarChip extrakce~~ | 30 min | 🔵 Refactor | ✅ Hotovo (`fadf202`) |
+| ~~10~~ | ~~**#16**~~ | ~~Unifikovat status styling Week view~~ | 5 min | 🔵 (součást #14) | ✅ Hotovo (`fadf202`) |
+| ~~11~~ | ~~**#10**~~ | ~~Klik na prázdný den — chování~~ | 20 min | 🟢 UX | ✅ Hotovo (`fadf202`) |
+| 1 | **#7** | Mobile view přepínač pohledů | 45 min | 🟢 UX | ⬜ Zbývá |
+| 2 | **#9** | Media upload do calendar modalu | 60 min | 🟢 UX | ⬜ Zbývá |
+| 3 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
+| 4 | **#13** | Rozdělení souboru (1561 → ~10 souborů) | 90 min | 🔵 Refactor | ⬜ Zbývá |
 
 ## 📋 Úkoly — Rozšíření (nové)
 
-### #18 — Kalendář: Omezení tvorbězení tvorby postů v minulosti + rozšíření platforem u existujících postů
+### #18 — Kalendář: Omezení tvorby postů v minulosti + rozšíření platforem u existujících postů
 
 |část|Popis|Odhad|Stav|
 |---|---|---|---|
-|18a|`_calendar-view.tsx`: `handleDayClick` – blokovat otevírání New Post modalu pro minulé datumy (tooltip/info)|30 min|⬜|
+|~~18a~~|~~`_calendar-view.tsx`: `handleDayClick` – blokovat otevírání New Post modalu pro minulé datumy~~|30 min|✅ Hotovo (`fadf202`) — toast CS/EN/UK, existující posty se otevírají normálně|
 |18b|`EditPostDialog`: Přidat platform selector pro editaci platforem u existujícího postu|45 min|⬜|
 |18c|Server action `updatePostPlatformsAction` (nebo rozšíření `createPostAction`) pro přidání/odebrání platforem|15 min|⬜|
 |18d|Integrace + testy|15 min|⬜|
 
-**Celkem #18: ~1.5 hodiny**
+**Celkem #18 zbývá: ~1 hodina (18b + 18c + 18d)**
 
 ---
 
 **Hotovo relace 1:** #1 + #8 + #6 + #17 + #5 + #3+4 + #11 + #12 = **8 úkolů, ~107 min**  
 **Hotovo relace 2:** #14 + #16 = **2 úkoly, ~35 min**  
-**Zbývá:** 5 úkolů + #18 (~1.5h) = **~5.8 hodiny**
+**Hotovo relace 3:** #10 + #18a (součást commitu `fadf202`) = **1 úkol, ~20 min**  
+**Zbývá:** 4 úkoly kalendáře + #18b-c-d (~1h) = **~4.5 hodiny**

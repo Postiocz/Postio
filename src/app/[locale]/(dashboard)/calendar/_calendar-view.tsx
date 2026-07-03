@@ -1,65 +1,55 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, Loader2, MapPin, X, Clock, AlertCircle, Play } from "lucide-react";
+import { format } from "date-fns";
+import { cs } from "date-fns/locale";
 import {
-  format,
   startOfMonth,
   endOfMonth,
-  startOfWeek,
-  endOfWeek,
   addDays,
-  isSameMonth,
-  isSameDay,
-  isToday,
   getHours,
   getMinutes,
   startOfYear,
-  endOfYear,
   addMonths,
-  subMonths,
-  addYears,
   subYears,
+  addYears,
 } from "date-fns";
-import { cs } from "date-fns/locale";
 import {
   eachDayOfInterval,
   startOfWeek as dfnStartOfWeek,
+  endOfWeek,
 } from "date-fns";
+import { ChevronLeft, Calendar as CalendarIcon, Loader2, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Instagram, Facebook, Twitter, Linkedin, Youtube, TikTok } from "@/components/ui/social-icons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
-import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { toast } from "sonner";
-import NextImage from "next/image";
 import { useRouter } from "next/navigation";
 import { EditPostDialog, EditPostData } from "@/components/edit-post-dialog";
 import { PreviewDialog } from "@/components/preview-dialog";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
+import { PLATFORMS } from "@/lib/constants/platforms";
+import { PlatformIconMap } from "@/components/calendar/post-calendar-chip";
 import { StatsCards } from "@/components/calendar/stats-cards";
 import { ViewSwitcher, type CalendarViewMode } from "@/components/calendar/view-switcher";
 import { MiniCalendar } from "@/components/calendar/mini-calendar";
-import { CurrentTimeIndicator } from "@/components/calendar/current-time-indicator";
-import type { PostPlatform, Post } from "@/types/calendar";
-import { PLATFORMS } from "@/lib/constants/platforms";
-import { PostCalendarChip, PlatformIconsGroup, getChipStatusStyles, PlatformIconMap } from "@/components/calendar/post-calendar-chip";
-
-const MAX_MEDIA_FILES = 10;
-
-type MediaItem = {
-  id: string;
-  file: File;
-  previewUrl: string;
-  kind: "image" | "video";
-};
+import type { Post } from "@/types/calendar";
+// Extracted view components (#13)
+import { MonthGridView } from "@/components/calendar/month-grid-view";
+import { WeekGridView } from "@/components/calendar/week-grid-view";
+import { DayTimelineView } from "@/components/calendar/day-timeline-view";
+import { AgendaListView } from "@/components/calendar/agenda-list-view";
+import { YearMiniGrid } from "@/components/calendar/year-mini-grid";
+import { MobileAgendaView } from "@/components/calendar/mobile-agenda-view";
+import { NewPostModal } from "@/components/calendar/new-post-modal";
+import { HoverPreview } from "@/components/calendar/hover-preview";
 
 interface CalendarViewProps {
   posts: Post[];
@@ -589,22 +579,10 @@ export function CalendarView({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const getPlatformColor = useCallback((platformId: string): string => {
-    const colors: Record<string, string> = {
-      instagram: "text-pink-500",
-      facebook: "text-blue-600",
-      twitter: "text-sky-500",
-      x: "text-sky-500",
-      linkedin: "text-blue-700",
-      youtube: "text-red-600",
-      tiktok: "text-rose-500",
-    };
-    return colors[platformId?.toLowerCase()] || "text-foreground/60";
-  }, []);
 
   return (
     <div className="space-y-4">
-      {/* Prompt 002 – Stats Cards (zobrazí se vždy, nad všemi view módy) */}
+      {/* Stats Cards */}
       <StatsCards
         posts={effectiveFilteredPosts}
         currentDate={currentDate}
@@ -618,10 +596,8 @@ export function CalendarView({
         }}
       />
 
-      {/* Desktop: dvousloupcový layout – MiniCalendar vlevo (sticky), kalendář vpravo.
-          Mobile: jednosloupcový, MiniCalendar se nezobrazuje (šetří místo). */}
+      {/* Desktop: two-column layout – MiniCalendar left (sticky), calendar right */}
       <div className="lg:grid lg:grid-cols-[260px_1fr] lg:gap-4 lg:items-start">
-        {/* Mini-Calendar – sticky sidebar pro rychlý výběr data (desktop only) */}
         <div className="hidden lg:block lg:sticky lg:top-4">
           <MiniCalendar
             selectedDate={currentDate}
@@ -633,593 +609,118 @@ export function CalendarView({
           />
         </div>
 
-        {/* Hlavní obsah kalendáře (desktop) – zabírá pravý sloupec */}
         <div className="space-y-4 min-w-0">
-      {/* View Toggle & Navigation – Desktop Only (Prompt 002: rozšířeno o Day/Agenda/Year) */}
-      <div className="hidden lg:flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={
-                view === "month" ? previousMonth :
-                view === "week" ? previousWeek :
-                view === "day" ? previousDay :
-                view === "year" ? previousYear :
-                previousMonth
-              }
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={
-                view === "month" ? nextMonth :
-                view === "week" ? nextWeek :
-                view === "day" ? nextDay :
-                view === "year" ? nextYear :
-                nextMonth
-              }
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:text-muted-foreground dark:hover:bg-white/[0.06] dark:hover:text-foreground"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <h2 className="ml-2 text-lg font-semibold tracking-tight truncate">
-              {view === "year"
-                ? year
-                : view === "agenda"
-                ? `${tCalendar.agenda ?? "Agenda"} – ${tCalendar.stats?.thisMonth ?? "This month"}`
-                : `${monthLabel} ${year}`}
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={view === "month" ? previousMonth : view === "week" ? previousWeek : view === "day" ? previousDay : view === "year" ? previousYear : previousMonth}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <ViewSwitcher
+                value={view}
+                onChange={setView}
+                t={{
+                  agenda: tCalendar.agenda ?? "Agenda",
+                  day: tCalendar.day ?? "Day",
+                  week: tCalendar.week ?? "Week",
+                  month: tCalendar.month ?? "Month",
+                  year: tCalendar.year ?? "Year",
+                }}
+              />
+            </div>
+            <h2 className="text-lg font-semibold tracking-tight truncate">
+              {view === "year" ? year : view === "agenda" ? `${tCalendar.agenda ?? "Agenda"} – ${tCalendar.stats?.thisMonth ?? "This month"}` : `${monthLabel} ${year}`}
             </h2>
           </div>
 
-          {/* Nový ViewSwitcher s 5 módy (Agenda / Day / Week / Month / Year) */}
-          <ViewSwitcher
-            value={view}
-            onChange={setView}
-            t={{
-              agenda: tCalendar.agenda ?? "Agenda",
-              day: tCalendar.day ?? "Day",
-              week: tCalendar.week ?? "Week",
-              month: tCalendar.month ?? "Month",
-              year: tCalendar.year ?? "Year",
-            }}
-          />
-        </div>
+          {/* #13 — Extracted View Components */}
+          {view === "month" && (
+            <MonthGridView
+              days={days}
+              currentDate={currentDate}
+              weekdays={weekdays}
+              locale={locale}
+              getPostsForDayEffective={getPostsForDayEffective}
+              getPostDisplayDate={getPostDisplayDate}
+              formatTime={formatTime}
+              postCardRefs={postCardRefs}
+              handleDayClick={handleDayClick}
+              handlePostClick={handlePostClick}
+              handlePostHover={handlePostHover}
+              handlePostLeave={handlePostLeave}
+            />
+          )}
 
-      {/* ======================== */}
-      {/* DESKTOP: Month View      */}
-      {/* ======================== */}
-      {view === "month" && (
-      <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
-        {/* Weekday Headers */}
-        <div className="grid grid-cols-7 border-b border-black/[0.08] dark:border-white/[0.06]">
-          {weekdays.map((day, i) => (
-            <div
-              key={i}
-              className="border-r border-black/[0.08] dark:border-white/[0.06] last:border-r-0 px-2 py-3 text-center text-xs font-medium text-muted-foreground/60"
-            >
-              {day}
-            </div>
-          ))}
-        </div>
+          {view === "week" && (
+            <WeekGridView
+              days={days}
+              weekdays={weekdays}
+              locale={locale}
+              getPostsForDayEffective={getPostsForDayEffective}
+              getPostDisplayDate={getPostDisplayDate}
+              formatTime={formatTime}
+              postCardRefs={postCardRefs}
+              handleDayClick={handleDayClick}
+              handlePostClick={handlePostClick}
+              handlePostHover={handlePostHover}
+              handlePostLeave={handlePostLeave}
+            />
+          )}
 
-        {/* Days Grid */}
-        <div className="grid grid-cols-7">
-          {days.map((day, dayIndex) => {
-            const dayPosts = getPostsForDayEffective(day);
-            const inCurrentMonth = isSameMonth(day, currentDate);
-            const today = isToday(day);
+          {view === "day" && (
+            <DayTimelineView
+              currentDate={currentDate}
+              locale={locale}
+              dayPosts={getPostsForDayEffective(currentDate)}
+              getPostDisplayDate={getPostDisplayDate}
+              formatTime={formatTime}
+              handlePostClick={handlePostClick}
+              currentTimeLabel={tCalendar.currentTime}
+            />
+          )}
 
-            return (
-              <div
-                key={dayIndex}
-                onClick={() => handleDayClick(day)}
-                className={cn(
-                  "relative min-h-[90px] border-r border-b border-black/[0.08] dark:border-white/[0.06] p-2 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]",
-                  !inCurrentMonth && "bg-gray-100/50 dark:bg-transparent",
-                  today && "bg-indigo-500/5 ring-1 ring-inset ring-indigo-500/20",
-                  dayIndex % 7 === 6 && "border-r-0"
-                )}
-              >
-                {/* Day Number */}
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors",
-                      today
-                        ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
-                        : inCurrentMonth
-                        ? "text-foreground"
-                        : "text-muted-foreground/30"
-                    )}
-                  >
-                    {format(day, "d")}
-                  </span>
-                </div>
+          {view === "agenda" && (
+            <AgendaListView
+              agendaDays={desktopAgendaDays}
+              locale={locale}
+              noPostsLabel={tCalendar.noPostsInRange}
+              getPostDisplayDate={getPostDisplayDate}
+              formatTime={formatTime}
+              handlePostClick={handlePostClick}
+            />
+          )}
 
-                {/* Posts in this day */}
-                <div className="space-y-1">
-                  {dayPosts.slice(0, 3).map((post) => {
-                    const displayDate = getPostDisplayDate(post);
-                    const time = displayDate ? formatTime(displayDate) : "";
-
-                    return (
-                      <PostCalendarChip
-                        key={post.id}
-                        post={post}
-                        ref={(el) => {
-                          if (el) postCardRefs.current.set(post.id, el);
-                        }}
-                        iconSize="xs"
-                        contentLength={20}
-                        time={time}
-                        showPlatformBadges
-                        onClick={(e) => handlePostClick(post, e)}
-                        onMouseEnter={(e) => {
-                          const target = e.currentTarget as HTMLDivElement;
-                          handlePostHover(post, target);
-                        }}
-                        onMouseLeave={handlePostLeave}
-                      />
-                    );
-                  })}
-                  {dayPosts.length > 3 && (
-                    <div className="text-[10px] text-muted-foreground/50 pl-1">
-                      +{dayPosts.length - 3} {locale === "cs" ? "další" : locale === "uk" ? "більше" : "more"}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {view === "year" && (
+            <YearMiniGrid
+              yearMonths={yearMonths}
+              weekdays={weekdays}
+              months={months}
+              effectiveFilteredPosts={effectiveFilteredPosts}
+              getPostDisplayDate={getPostDisplayDate}
+              postsByDay={postsByDay}
+              onDayClick={(day) => { setCurrentDate(day); setView("month"); }}
+            />
+          )}
         </div>
       </div>
-      )}
 
-      {/* ======================== */}
-      {/* DESKTOP: Week View       */}
-      {/* ======================== */}
-      {view === "week" && (
-      <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
-        {/* Weekday Headers – pro week view stejné jako month, ale 7 dní */}
-        <div className="grid grid-cols-7 border-b border-black/[0.08] dark:border-white/[0.06]">
-          {weekdays.map((day, i) => (
-            <div
-              key={i}
-              className="border-r border-black/[0.08] dark:border-white/[0.06] last:border-r-0 px-2 py-3 text-center text-xs font-medium text-muted-foreground/60"
-            >
-              {day}
-            </div>
-          ))}
-        </div>
-        {/* 7 dní aktuálního týdne (days je již správně naplněn dle view) */}
-        <div className="grid grid-cols-7">
-          {days.map((day, dayIndex) => {
-            const dayPosts = getPostsForDayEffective(day);
-            const today = isToday(day);
-            return (
-              <div
-                key={dayIndex}
-                onClick={() => handleDayClick(day)}
-                className={cn(
-                  "relative min-h-[180px] border-r border-b border-black/[0.08] dark:border-white/[0.06] p-2 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]",
-                  today && "bg-indigo-500/5 ring-1 ring-inset ring-indigo-500/20",
-                  dayIndex % 7 === 6 && "border-r-0"
-                )}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors",
-                      today
-                        ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
-                        : "text-foreground"
-                    )}
-                  >
-                    {format(day, "d")}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {dayPosts.slice(0, 6).map((post) => {
-                    const displayDate = getPostDisplayDate(post);
-                    const time = displayDate ? formatTime(displayDate) : "";
-                    return (
-                      <PostCalendarChip
-                        key={post.id}
-                        post={post}
-                        ref={(el) => {
-                          if (el) postCardRefs.current.set(post.id, el);
-                        }}
-                        iconSize="xs"
-                        contentLength={16}
-                        time={time}
-                        onClick={(e) => handlePostClick(post, e)}
-                        onMouseEnter={(e) => {
-                          const target = e.currentTarget as HTMLDivElement;
-                          handlePostHover(post, target);
-                        }}
-                        onMouseLeave={handlePostLeave}
-                      />
-                    );
-                  })}
-                  {dayPosts.length > 6 && (
-                    <div className="text-[10px] text-muted-foreground/50 pl-1">
-                      +{dayPosts.length - 6} {locale === "cs" ? "další" : locale === "uk" ? "більше" : "more"}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      )}
-
-      {/* ======================== */}
-      {/* DESKTOP: Day View        */}
-      {/* ======================== */}
-      {/* 24hodinová vertikální osa s posty umístěnými podle času.
-          CurrentTimeIndicator (červená linka) ukazuje aktuální čas. */}
-      {view === "day" && (() => {
-        const HOUR_HEIGHT = 60; // px na hodinu
-        const dayPosts = getPostsForDayEffective(currentDate);
-        // Seradit posty podle casu publikovani / naplanovani.
-        const sortedDayPosts = [...dayPosts].sort((a, b) => {
-          const da = getPostDisplayDate(a);
-          const db = getPostDisplayDate(b);
-          if (!da) return 1;
-          if (!db) return -1;
-          return new Date(da).getTime() - new Date(db).getTime();
-        });
-        return (
-          <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
-            {/* Hlavička dne */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.08] dark:border-white/[0.06]">
-              <div>
-                <div className="text-sm font-semibold tracking-tight">
-                  {format(currentDate, "EEEE", { locale: locale === "cs" ? cs : undefined })}
-                </div>
-                <div className="text-xs text-muted-foreground/60">
-                  {format(currentDate, "d. MMMM yyyy", { locale: locale === "cs" ? cs : undefined })}
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground/60">
-                {dayPosts.length}{" "}
-                {locale === "cs"
-                  ? (dayPosts.length === 1 ? "příspěvek" : dayPosts.length < 5 ? "příspěvky" : "příspěvků")
-                  : locale === "uk"
-                  ? (dayPosts.length === 1 ? "публікація" : dayPosts.length < 5 ? "публікації" : "публікацій")
-                  : (dayPosts.length === 1 ? "post" : "posts")}
-              </div>
-            </div>
-
-            {/* 24h časová osa + absolutně umístěné posty */}
-            <div className="relative overflow-y-auto" style={{ maxHeight: "calc(100vh - 360px)" }}>
-              <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
-                {/* Hodinové linky + popisky */}
-                {Array.from({ length: 24 }, (_, h) => (
-                  <div
-                    key={h}
-                    className="absolute left-0 right-0 border-t border-black/[0.04] dark:border-white/[0.04]"
-                    style={{ top: `${h * HOUR_HEIGHT}px` }}
-                  >
-                    <span className="absolute -top-2 left-2 bg-white/90 dark:bg-card/90 px-1 text-[10px] text-muted-foreground/50 rounded">
-                      {h.toString().padStart(2, "0")}:00
-                    </span>
-                  </div>
-                ))}
-
-                {/* Prompt 002 – červená linka "Current Time" (live update každých 30s) */}
-                <CurrentTimeIndicator hourHeight={HOUR_HEIGHT} label={tCalendar.currentTime ?? "Current time"} />
-
-                {/* Posty – absolutně podle času publikování */}
-                {sortedDayPosts.map((post) => {
-                  const displayDate = getPostDisplayDate(post);
-                  if (!displayDate) return null;
-                  const d = new Date(displayDate);
-                  const top = (d.getHours() + d.getMinutes() / 60) * HOUR_HEIGHT;
-                  const platformsToRender = post.post_platforms || [];
-                  return (
-                    <button
-                      key={post.id}
-                      onClick={() => handlePostClick(post, { stopPropagation: () => {} } as React.MouseEvent)}
-                      className={cn(
-                        "absolute left-16 right-4 rounded-lg border px-3 py-1.5 text-left transition-all hover:scale-[1.01]",
-                        getChipStatusStyles(post.status)
-                      )}
-                      style={{ top: `${top}px`, minHeight: "32px" }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <PlatformIconsGroup platforms={platformsToRender} size="sm" />
-                        <span className="text-[10px] font-semibold text-muted-foreground/70 shrink-0">
-                          {formatTime(displayDate)}
-                        </span>
-                        <span className="text-xs truncate text-foreground/90">
-                          {post.content?.substring(0, 60)}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ======================== */}
-      {/* DESKTOP: Agenda View     */}
-      {/* ======================== */}
-      {view === "agenda" && (
-        <div className="hidden lg:flex flex-col rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
-          <div className="flex flex-col divide-y divide-black/[0.06] dark:divide-white/[0.05] overflow-y-auto max-h-[calc(100vh-360px)]">
-            {desktopAgendaDays.length === 0 && (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground/60">
-                {tCalendar.noPostsInRange ?? "No posts in this range"}
-              </div>
-            )}
-            {desktopAgendaDays.map(({ day, posts }) => (
-              <div key={format(day, "yyyy-MM-dd")} className="flex flex-col">
-                <div className="flex items-center gap-3 px-4 py-3 sticky top-0 bg-white/90 dark:bg-card/95 backdrop-blur-md z-10">
-                  <div
-                    className={cn(
-                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                      isToday(day)
-                        ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
-                        : "bg-white/[0.03] text-foreground"
-                    )}
-                  >
-                    {format(day, "d")}
-                  </div>
-                  <div className="flex-1 flex flex-col">
-                    <span className="text-sm font-medium text-foreground">
-                      {formatAgendaDate(day)}
-                    </span>
-                    <span className="text-xs text-muted-foreground/60">
-                      {posts.length}{" "}
-                      {locale === "cs"
-                        ? (posts.length === 1 ? "příspěvek" : posts.length < 5 ? "příspěvky" : "příspěvků")
-                        : locale === "uk"
-                        ? (posts.length === 1 ? "публікація" : posts.length < 5 ? "публікації" : "публікацій")
-                        : (posts.length === 1 ? "post" : "posts")}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2 px-4 pb-3 pl-[52px]">
-                  {posts.map((post) => {
-                    const platformsToRender = post.post_platforms || [];
-                    const displayDate = getPostDisplayDate(post);
-                    const time = displayDate ? formatTime(displayDate) : "";
-                    return (
-                      <button
-                        key={post.id}
-                        onClick={(e) => handlePostClick(post, e)}
-                        className={cn(
-                          "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all hover:scale-[1.005]",
-                          getChipStatusStyles(post.status)
-                        )}
-                      >
-                        <PlatformIconsGroup platforms={platformsToRender} size="md" />
-                        {time && (
-                          <span className="text-xs text-muted-foreground/70 shrink-0 font-mono">
-                            {time}
-                          </span>
-                        )}
-                        <p className="text-xs text-foreground/80 truncate flex-1">
-                          {post.content?.substring(0, 100)}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ======================== */}
-      {/* DESKTOP: Year View       */}
-      {/* ======================== */}
-      {/* 12 mini-měsíců v gridu 3x4. Každý mini-měsíc = 7x6 grid,
-          klik na den = přepne currentDate a vrátí se do month view. */}
-      {view === "year" && (
-        <div className="hidden lg:block rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden p-4">
-          <div className="grid grid-cols-3 gap-3">
-            {yearMonths.map((m, mIdx) => {
-              const mStart = startOfMonth(m);
-              const mEnd = endOfMonth(m);
-              const mGridStart = dfnStartOfWeek(mStart, { weekStartsOn: 1 });
-              const mGridEnd = endOfWeek(mEnd, { weekStartsOn: 1 });
-              const mDays: Date[] = [];
-              let d = mGridStart;
-              while (d <= mGridEnd) {
-                mDays.push(d);
-                d = addDays(d, 1);
-              }
-              // Počty příspěvků v tomto měsíci (podle display date)
-              const postsInMonth = effectiveFilteredPosts.filter((p) => {
-                const dd = getPostDisplayDate(p);
-                if (!dd) return false;
-                const dt = new Date(dd);
-                return dt.getFullYear() === m.getFullYear() && dt.getMonth() === m.getMonth();
-              });
-              return (
-                <div
-                  key={mIdx}
-                  className="rounded-[14px] border border-black/[0.06] dark:border-white/[0.05] bg-white/40 dark:bg-white/[0.02] p-3 transition-all hover:bg-white/60 dark:hover:bg-white/[0.04]"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold tracking-tight">
-                      {months[m.getMonth()]}
-                    </span>
-                    {postsInMonth.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground/60 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full">
-                        {postsInMonth.length}
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-7 gap-0.5">
-                    {weekdays.map((wd, i) => (
-                      <div key={i} className="flex h-4 items-center justify-center text-[8px] font-medium text-muted-foreground/40">
-                        {wd.slice(0, 1)}
-                      </div>
-                    ))}
-                    {mDays.map((day, dayIdx) => {
-                      const inMonth = isSameMonth(day, m);
-                      const today = isToday(day);
-                      const dayKey = format(day, "yyyy-MM-dd");
-                      const dayPosts = postsByDay.get(dayKey) ?? [];
-                      const hasPosts = dayPosts.length > 0;
-                      return (
-                        <button
-                          key={dayIdx}
-                          type="button"
-                          onClick={() => {
-                            setCurrentDate(day);
-                            setView("month");
-                          }}
-                          className={cn(
-                            "relative flex h-5 w-full items-center justify-center rounded text-[9px] transition-all",
-                            !inMonth && "text-transparent",
-                            inMonth && !today && !hasPosts && "text-foreground/70 hover:bg-white/70 dark:hover:bg-white/[0.06]",
-                            today && "bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-semibold",
-                            hasPosts && !today && "font-semibold text-foreground"
-                          )}
-                        >
-                          {format(day, "d")}
-                          {hasPosts && (
-                            <span className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 flex h-[3px] w-[3px]">
-                              <span className="h-[3px] w-[3px] rounded-full bg-indigo-500 dark:bg-indigo-400" />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-        </div>
-        {/* Konec: hlavní obsah kalendáře (pravý sloupec) + MiniCalendar grid */}
-      </div>
-
-      {/* ======================== */}
-      {/* MOBILE: Agenda View      */}
-      {/* ======================== */}
-      <div className="lg:hidden flex flex-col rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-2xl overflow-hidden">
-        {/* Mobile Navigation – Sticky Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between w-full px-4 py-3 border-b border-black/[0.08] dark:border-white/[0.06] bg-white/90 dark:bg-card/95 backdrop-blur-xl">
-          <button
-            onClick={previousMonth}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <h2 className="text-base font-semibold tracking-tight">
-            {monthLabel} {year}
-          </h2>
-          <button
-            onClick={nextMonth}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground transition-all hover:bg-gray-100 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
-          >
-            <ChevronRightIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Mobile Agenda – All days of current month */}
-        <div className="flex flex-col divide-y divide-gray-200 dark:divide-white/5 overflow-y-auto max-h-[calc(100vh-280px)]">
-          {mobileAgendaDays.map(({ day, posts }) => {
-            const todayFlag = isToday(day);
-            const weekdayName = weekdays[day.getDay() === 0 ? 6 : day.getDay() - 1];
-
-            return (
-              <div
-                key={format(day, "yyyy-MM-dd")}
-                className="flex flex-col"
-              >
-                {/* Day Header */}
-                <div
-                  onClick={() => handleDayClick(day)}
-                  className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]"
-                >
-                  <div
-                    className={cn(
-                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                      todayFlag
-                        ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
-                        : "bg-white/[0.03] text-foreground"
-                    )}
-                  >
-                    {format(day, "d")}
-                  </div>
-                  <div className="flex-1 flex flex-col">
-                    <span className="text-sm font-medium text-foreground">
-                      {weekdayName}, {format(day, "d.")} {months[day.getMonth()]}
-                    </span>
-                    {posts.length > 0 ? (
-                      <span className="text-xs text-muted-foreground/60">
-                        {posts.length}{" "}
-                        {locale === "cs"
-                          ? (posts.length === 1 ? "příspěvek" : posts.length < 5 ? "příspěvky" : "příspěvků")
-                          : locale === "uk"
-                          ? (posts.length === 1 ? "публікація" : posts.length < 5 ? "публікації" : "публікацій")
-                          : (posts.length === 1 ? "post" : "posts")}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/40">
-                        {locale === "cs" ? "Žádné příspěvky" : locale === "uk" ? "Немає публікацій" : "No posts"}
-                      </span>
-                    )}
-                  </div>
-                  {posts.length > 0 ? (
-                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground/40" />
-                  ) : (
-                    <span className="ml-auto text-xs text-muted-foreground/40 flex items-center">+</span>
-                  )}
-                </div>
-
-                {/* Posts for this day */}
-                {posts.length > 0 && (
-                  <div className="space-y-2 px-4 pb-3 pl-[52px]">
-                    {posts.map((post) => {
-                      const platformsToRender = post.post_platforms || [];
-                      const displayDate = getPostDisplayDate(post);
-                      const time = displayDate ? formatTime(displayDate) : "";
-
-                      return (
-                        <button
-                          key={post.id}
-                          onClick={(e) => handlePostClick(post, e)}
-                          className={cn(
-                            "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all hover:scale-[1.01] active:scale-[0.99]",
-                            getChipStatusStyles(post.status)
-                          )}
-                        >
-                          <PlatformIconsGroup platforms={platformsToRender} size="md" showBadges />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-foreground/80 truncate">
-                              {post.content?.substring(0, 60)}
-                            </p>
-                            {time && (
-                              <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                                {time}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* Mobile Agenda View */}
+      <MobileAgendaView
+        currentDate={currentDate}
+        months={months}
+        weekdays={weekdays}
+        mobileAgendaDays={mobileAgendaDays}
+        locale={locale}
+        getPostDisplayDate={getPostDisplayDate}
+        formatTime={formatTime}
+        handleDayClick={handleDayClick}
+        handlePostClick={handlePostClick}
+        previousMonth={previousMonth}
+        nextMonth={nextMonth}
+      />
 
       {/* New Post Modal */}
       <Dialog open={modalDay !== null} onOpenChange={(open) => { if (!open) handleCloseModal(); }}>
@@ -1267,7 +768,6 @@ export function CalendarView({
                 onChange={(e) => setFormContent(e.target.value)}
                 className="min-h-[120px] resize-y bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
               />
-              {/* #12 — Dynamický character limit podle vybraných platforem */}
               {(() => {
                 const limits: Record<string, number> = {
                   twitter: 280, x: 280, instagram: 2200, linkedin: 3000,
@@ -1371,7 +871,7 @@ export function CalendarView({
               />
             </div>
 
-            {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
+            {/* Internal organization tags */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground/80">
                 {tCalendar.internalTags || "Interní štítky"}
@@ -1448,7 +948,7 @@ export function CalendarView({
         locale={locale}
       />
 
-      {/* Prompt 007 – Standalone Preview Dialog (Eye mode) */}
+      {/* Preview Dialog */}
       <PreviewDialog
         open={previewPostOpen}
         onOpenChange={(isOpen) => {
@@ -1468,94 +968,13 @@ export function CalendarView({
         } : null}
       />
 
-      {/* Hover Preview – Desktop Only */}
-      <AnimatePresence>
-        {hoveredPost && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="hidden lg:block fixed z-[9999] pointer-events-none"
-            style={{
-              left: hoverPosition.x,
-              top: hoverPosition.y,
-            }}
-          >
-            <div className="bg-white/80 dark:bg-black/80 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-[16px] p-4 w-72 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-              {hoveredPost.media_urls && hoveredPost.media_urls.length > 0 && (() => {
-                const firstMedia = hoveredPost.media_urls[0];
-                // Detect video from URL extension – mirrors the helper used in
-                // src/app/[locale]/(dashboard)/posts/_post-card.tsx so the
-                // calendar stays consistent with the posts list.
-                const isVideo = firstMedia
-                  ? /\.(mp4|mov|webm)(\?.*)?$/i.test(firstMedia)
-                  : false;
-                return (
-                  <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-3 bg-black/5 dark:bg-white/5">
-                    {isVideo ? (
-                      <>
-                        <video
-                          src={firstMedia}
-                          className="w-full h-full object-cover"
-                          preload="metadata"
-                          muted
-                          playsInline
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm border border-white/20">
-                            <Play className="h-4 w-4 text-white ml-0.5" />
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <NextImage
-                        src={firstMedia ?? ""}
-                        alt="Media preview"
-                        width={384}
-                        height={216}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                );
-              })()}
-              <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 mb-3">
-                {hoveredPost.content?.substring(0, 80)}
-                {hoveredPost.content?.length > 80 ? "..." : ""}
-              </p>
-              <div className="flex items-center justify-between border-t border-black/5 dark:border-white/10 pt-3">
-                <div className="flex items-center gap-1.5">
-                  {(hoveredPost.platforms || []).slice(0, 4).map((platformId) => {
-                    const Icon = PlatformIconMap[platformId];
-                    return Icon ? (
-                      <Icon
-                        key={platformId}
-                        className={`h-3.5 w-3.5 ${getPlatformColor(platformId)}`}
-                      />
-                    ) : null;
-                  })}
-                </div>
-                {(() => {
-                  const hoverDisplayDate = getPostDisplayDate(hoveredPost);
-                  if (!hoverDisplayDate) return null;
-                  return (
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                      <Clock className="h-3 w-3" />
-                      <span>
-                        {new Date(hoverDisplayDate).toLocaleTimeString(
-                          locale === "cs" ? "cs-CZ" : locale === "uk" ? "uk-UA" : "en-US",
-                          { hour: "2-digit", minute: "2-digit" }
-                        )}
-                      </span>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Hover Preview */}
+      <HoverPreview
+        hoveredPost={hoveredPost}
+        hoverPosition={hoverPosition}
+        getPostDisplayDate={getPostDisplayDate}
+        locale={locale}
+      />
     </div>
   );
 }

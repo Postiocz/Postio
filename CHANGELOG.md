@@ -3,6 +3,30 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-07-03
+
+### ✨ Feature — PostCalendarChip extrakce + unified status styling (#14, #16)
+
+- **Nový soubor**: `src/components/calendar/post-calendar-chip.tsx` (170 řádků)
+- **Problém**: Každý pohled kalendáře (Month, Week, Day, Agenda desktop, Mobile) měl vlastní inline JSX pro renderování post čipu — 5× duplicitní kód s mírně odlišným stylingem. Week view chybely statusy `removed_externally` a `publishing`.
+- **Řešení**:
+  - `PostCalendarChip` — kompletní čip s platform ikonami, časem, content preview (použit v Month, Week, Mobile)
+  - `PlatformIconsGroup` — sdílený renderer platform ikon s badgey (Day, Agenda, Mobile)
+  - `getChipStatusStyles(status)` — single source of truth pro všech 6+1 statusů
+  - `getPlatformIconColor(status)` — single source of truth pro ikony platforem
+  - `STATUS_STYLES` + `FALLBACK_STATUS` — exportované konstanty
+- **Dopad**: −186 řádků duplicitního JSX v `_calendar-view.tsx`, konzistentní status barvy napříč všemi pohledy
+
+### ✨ Feature — Blokování tvorby postů v minulosti (#10, #18a)
+
+- **Soubor**: `_calendar-view.tsx`
+- **Problém**: Uživatel mohl kliknout na libovolný den v kalendáři a otevřít formulář pro nový příspěvek — včetně dnů, které už minuly. To dávalo smysl u existujících postů (editace/preview), ale ne pro tvorbu nového obsahu.
+- **Řešení**: `handleDayClick` nyní porovnává kliknutý den s dneškem. Pokud je den v minulosti a nemá žádné příspěvky, zobrazí se lokalizovaný toast ("Nelze vytvořit příspěvek pro minulý den." / CS, EN, UK) a modal se neotevře. Dny s existujícími příspěvky fungují normálně (klik na post → Preview/Edit).
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` — rozšířený `handleDayClick` s date comparison + toast
+
+---
+
 ## 2026-07-02
 
 ### 🐛 Fix — Calendar: `window.location.reload()` → `router.refresh()` (#1)

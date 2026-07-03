@@ -5,6 +5,15 @@
 
 ## 2026-07-03
 
+### 🔐 Chore — TikTok doménový ověřovací soubor přidán do `public`
+
+- **Kontext**: Pro ověření domény v TikTok Developer portálu bylo potřeba vystavit statický verifikační TXT soubor přímo z produkční root cesty aplikace.
+- **Oprava**:
+  1. Přidán soubor `public/tiktokjFgEI64FNgaNsEz5xTRu6LM09on0NdmD.txt` beze změny názvu i obsahu.
+  2. Soubor je po deployi dostupný na produkční URL `https://<doména>/tiktokjFgEI64FNgaNsEz5xTRu6LM09on0NdmD.txt`.
+- **Upravené soubory**:
+  - `public/tiktokjFgEI64FNgaNsEz5xTRu6LM09on0NdmD.txt`
+
 ### ♿ A11y — ARIA grid + Keyboard navigation v Month & Week view (#15)
 
 - **Soubory**: `src/components/calendar/month-grid-view.tsx`, `week-grid-view.tsx`

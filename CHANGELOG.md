@@ -25,6 +25,21 @@
 - **Upravené soubory**:
   - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` — rozšířený `handleDayClick` s date comparison + toast
 
+### 🔧 Refactor — Rozdělení `_calendar-view.tsx` do 8 komponent (#13)
+
+- **Soubor**: `_calendar-view.tsx` z 1561 → 980 řádků (−37%, −581 řádků)
+- **Problém**: Jeden monolitický soubor obsahoval všech 6 pohledů kalendáře + modaly + hover preview. Těžko udržovatelné, těžko testovatelné.
+- **Řešení** — 8 extrahovaných komponent v `src/components/calendar/`:
+  - `month-grid-view.tsx` (123 řádků) — Month view grid s weekdny headers
+  - `week-grid-view.tsx` (110 řádků) — Week view grid (7 dní, min-h-180px)
+  - `day-timeline-view.tsx` (112 řádků) — Day timeline (24h, absolutní pozice postů)
+  - `agenda-list-view.tsx` (110 řádků) — Desktop agenda list s sticky day headers
+  - `year-mini-grid.tsx` (104 řádků) — Year overview (12 mini měsíců v grid-cols-3)
+  - `mobile-agenda-view.tsx` (162 řádků) — Mobile agenda s navigací měsíci
+  - `hover-preview.tsx` (116 řádků) — Hover preview overlay s media preview
+  - `new-post-modal.tsx` (296 řádků) — New post dialog form (typované props + callbacks)
+- **Dopad**: Každý pohled je nyní samostatná testovatelná komponenta s explicitním interface. Hlavní soubor obsahuje pouze logiku (state, handlers, memoizace). Zero functional changes.
+
 ---
 
 ## 2026-07-02

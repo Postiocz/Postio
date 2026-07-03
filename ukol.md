@@ -68,9 +68,9 @@
 # 📋 Úkoly — Stránka "Kalendář" (Calendar)
 
 > Vytvořeno: 2026-07-02  
-> Poslední aktualizace: 2026-07-03 (relace 3 — #10,#14,#16,#18a hotovo)  
+> Poslední aktualizace: 2026-07-03 (relace 4 — #13 hotovo)  
 > Soubory: `src/app/[locale]/(dashboard)/calendar/page.tsx`, `_calendar-client.tsx`, `_calendar-view.tsx`  
-> Komponenty: `src/components/calendar/stats-cards.tsx`, `view-switcher.tsx`, `mini-calendar.tsx`, `current-time-indicator.tsx`, `post-calendar-chip.tsx`
+> Komponenty: `src/components/calendar/stats-cards.tsx`, `view-switcher.tsx`, `mini-calendar.tsx`, `current-time-indicator.tsx`, `post-calendar-chip.tsx`, `month-grid-view.tsx`, `week-grid-view.tsx`, `day-timeline-view.tsx`, `agenda-list-view.tsx`, `year-mini-grid.tsx`, `mobile-agenda-view.tsx`, `hover-preview.tsx`, `new-post-modal.tsx`
 
 ---
 
@@ -89,6 +89,7 @@
 | #14 | PostCalendarChip extrakce opakujícího se JSX | `fadf202` | 5× duplicitní čipy → `PostCalendarChip` + `PlatformIconsGroup`, unified status styling |
 | #16 | Unifikovat status styling ve Week view | `fadf202` | Součást #14 — Week view používá stejný PostCalendarChip jako Month |
 | #17 | Odstranit nepoužité importy | hotovo | `ArrowLeft`, `Film`, `ImageIcon` pryč z lucide-react |
+| #13 | Rozdělení `_calendar-view.tsx` (980 řádků) | `60e2d39` | 8 extrahovaných komponent, −581 řádků (−37%), TypeScript čistý |
 
 ---
 
@@ -239,10 +240,10 @@
 | ~~9~~ | ~~**#14**~~ | ~~PostCalendarChip extrakce~~ | 30 min | 🔵 Refactor | ✅ Hotovo (`fadf202`) |
 | ~~10~~ | ~~**#16**~~ | ~~Unifikovat status styling Week view~~ | 5 min | 🔵 (součást #14) | ✅ Hotovo (`fadf202`) |
 | ~~11~~ | ~~**#10**~~ | ~~Klik na prázdný den — chování~~ | 20 min | 🟢 UX | ✅ Hotovo (`fadf202`) |
+| ~~12~~ | ~~**#13**~~ | ~~Rozdělení souboru (980 řádků → 8 komponent)~~ | 90 min | 🔵 Refactor | ✅ Hotovo (`60e2d39`) |
 | 1 | **#7** | Mobile view přepínač pohledů | 45 min | 🟢 UX | ⬜ Zbývá |
 | 2 | **#9** | Media upload do calendar modalu | 60 min | 🟢 UX | ⬜ Zbývá |
 | 3 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
-| 4 | **#13** | Rozdělení souboru (1561 → ~10 souborů) | 90 min | 🔵 Refactor | ⬜ Zbývá |
 
 ## 📋 Úkoly — Rozšíření (nové)
 
@@ -262,4 +263,5 @@
 **Hotovo relace 1:** #1 + #8 + #6 + #17 + #5 + #3+4 + #11 + #12 = **8 úkolů, ~107 min**  
 **Hotovo relace 2:** #14 + #16 = **2 úkoly, ~35 min**  
 **Hotovo relace 3:** #10 + #18a (součást commitu `fadf202`) = **1 úkol, ~20 min**  
-**Zbývá:** 4 úkoly kalendáře + #18b-c-d (~1h) = **~4.5 hodiny**
+**Hotovo relace 4:** #13 = **1 úkol, ~90 min** (8 nových komponent, −581 řádků)  
+**Zbývá:** 3 úkoly kalendáře + #18b-c-d (~1h) = **~3.5 hodiny**

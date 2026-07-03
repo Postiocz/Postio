@@ -113,16 +113,17 @@
 
 ### 🟢 Nízká priorita — UX vylepšení
 
-#### #7 — ~~Mobile view: přidat přepínač pohledů~~ ⬜
+#### #7 — Mobile view: přidat přepínač pohledů ✅ Hotovo
 
-**Soubor:** `_calendar-view.tsx` řádky 1224–1368  
-**Problém:** Mobilní uživatelé vidí vždy jen "Agenda" (seznam dní). Nemají přístup k Month/Week/Day pohledům.
+**Soubor:** `mobile-agenda-view.tsx`  
+**Problém byl:** Mobilní uživatelé viděli vždy jen "Agenda" (seznam dní). Neměli přístup k Month/Week/Day pohledům.
 
-**Co udělat:**
-1. Přidat zjednodušený ViewSwitcher do mobile headeru (Month + Agenda)
-2. Mobile month grid — zjednodušená verze desktop gridu (menší buňky, max 2 posty na den)
+**Řešení:**
+1. Přidán zjednodušený ViewSwitcher do mobile headeru (Month + Agenda) — mini pill s ikonami Grid3x3/List, konzistentní s desktop ViewSwitcher (gradient indigo/purple)
+2. Mobile month grid — kompaktní verze desktop gridu (min-h-[64px] buňky, max 2 posty na den, menší fonty text-[9px]/text-[11px])
+3. i18n pro Month/Agenda label z `tCalendar.month` / `tCalendar.agenda`
 
-**Odhad:** ~45 min
+**Odhad:** ~45 min ✅
 
 ---
 
@@ -241,7 +242,7 @@
 | ~~10~~ | ~~**#16**~~ | ~~Unifikovat status styling Week view~~ | 5 min | 🔵 (součást #14) | ✅ Hotovo (`fadf202`) |
 | ~~11~~ | ~~**#10**~~ | ~~Klik na prázdný den — chování~~ | 20 min | 🟢 UX | ✅ Hotovo (`fadf202`) |
 | ~~12~~ | ~~**#13**~~ | ~~Rozdělení souboru (980 řádků → 8 komponent)~~ | 90 min | 🔵 Refactor | ✅ Hotovo (`60e2d39`) |
-| 1 | **#7** | Mobile view přepínač pohledů | 45 min | 🟢 UX | ⬜ Zbývá |
+| ~~1~~ | ~~**#7**~~ | ~~Mobile view přepínač pohledů~~ | 45 min | 🟢 UX | ✅ Hotovo |
 | 2 | **#9** | Media upload do calendar modalu | 60 min | 🟢 UX | ⬜ Zbývá |
 | 3 | **#15** | ARIA / Keyboard navigace | 40 min | 🟢 A11y | ⬜ Zbývá |
 

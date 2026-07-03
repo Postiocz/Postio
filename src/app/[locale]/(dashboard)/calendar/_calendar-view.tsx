@@ -707,7 +707,7 @@ export function CalendarView({
         </div>
       </div>
 
-      {/* Mobile Agenda View */}
+      {/* Mobile Agenda View (#7 — with view switcher: Month + Agenda) */}
       <MobileAgendaView
         currentDate={currentDate}
         months={months}
@@ -720,6 +720,12 @@ export function CalendarView({
         handlePostClick={handlePostClick}
         previousMonth={previousMonth}
         nextMonth={nextMonth}
+        calendarDays={days}
+        getPostsForDayEffective={getPostsForDayEffective}
+        tMobileView={{
+          month: tCalendar.month ?? "Month",
+          agenda: tCalendar.agenda ?? "Agenda",
+        }}
       />
 
       {/* New Post Modal */}

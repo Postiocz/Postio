@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "./src/lib/supabase/middleware";
 
+const PUBLIC_STATIC_PATHS = new Set([
+  "/tiktokjFgEI64FNgaNsEz5xTRu6LM09on0NdmD.txt",
+]);
+
 const intlMiddleware = createMiddleware({
   locales: ["cs", "en", "uk"],
   defaultLocale: "cs",
@@ -11,6 +15,10 @@ const intlMiddleware = createMiddleware({
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
+
+  if (PUBLIC_STATIC_PATHS.has(url.pathname)) {
+    return NextResponse.next();
+  }
 
   // Redirect root "/" to default locale
   if (url.pathname === "/") {

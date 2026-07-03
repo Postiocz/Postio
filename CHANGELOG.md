@@ -5,6 +5,15 @@
 
 ## 2026-07-03
 
+### 🐛 Fix — TikTok verifikační TXT už nepadá do auth redirectu
+
+- **Kontext**: Po přidání verifikačního souboru do `public` produkční URL nevracela raw TXT obsah, ale přesměrovala na `/<locale>/login`. Důvodem byl globální auth guard v `middleware.ts`, který ne-lokalizovanou cestu k TXT souboru vyhodnotil jako dashboard root (`restPath === "/"`).
+- **Oprava**:
+  1. Přidán explicitní bypass `PUBLIC_STATIC_PATHS` pro `/tiktokjFgEI64FNgaNsEz5xTRu6LM09on0NdmD.txt`.
+  2. Middleware pro tuto cestu okamžitě vrací `NextResponse.next()`, takže se soubor servíruje přímo z `public` bez auth a bez i18n redirectu.
+- **Upravené soubory**:
+  - `middleware.ts`
+
 ### 🔐 Chore — TikTok doménový ověřovací soubor přidán do `public`
 
 - **Kontext**: Pro ověření domény v TikTok Developer portálu bylo potřeba vystavit statický verifikační TXT soubor přímo z produkční root cesty aplikace.

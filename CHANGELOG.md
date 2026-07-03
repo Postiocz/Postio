@@ -5,6 +5,24 @@
 
 ## 2026-07-03
 
+### ✨ Feature — Mobile view switcher: Month + Agenda (#7)
+
+- **Soubor**: `src/components/calendar/mobile-agenda-view.tsx`
+- **Problém**: Mobilní uživatelé viděli vždy jen „Agenda" (seznam dní). Neměli přístup k žádnému jinému pohledu – Month, Week ani Day byly dostupné pouze na desktopu (`hidden lg:block`).
+- **Řešení**:
+  - Do mobile headeru přidán zjednodušený **ViewSwitcher** (Month + Agenda) – mini pill s ikonami `Grid3x3`/`List`, vizuálně konzistentní s desktop ViewSwitcher (gradient indigo→purple, glassmorphism border)
+  - Nová komponenta **`MobileMonthGrid`** (~120 řádků) – kompaktní měsíční grid pro mobily:
+    - Buňky `min-h-[64px]` (desktop Month má `min-h-[90px]`)
+    - Max **2 posty na den** s `+N další` indikací (desktop ukazuje 3)
+    - Kompaktní fonty (`text-[9px]` pro obsah, `text-[11px]` pro dny)
+    - Žádný hover preview (na touch zařízeních nepotřebný)
+    - Používá sdílené `PlatformIconsGroup` + `getChipStatusStyles` z `post-calendar-chip.tsx`
+  - i18n labely (`month`/`agenda`) z existujících překladů v `tCalendar`
+- **Upravené soubory**:
+  - `src/components/calendar/mobile-agenda-view.tsx` – view state, switcher v headeru, `MobileMonthGrid` komponenta
+  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – předány nové props (`calendarDays`, `getPostsForDayEffective`, `tMobileView`)
+- **Dopad**: Mobilní uživatelé mají přístup k měsíčnímu přehledu i agendě, konzistentní UX s desktopem
+
 ### ✨ Feature — PostCalendarChip extrakce + unified status styling (#14, #16)
 
 - **Nový soubor**: `src/components/calendar/post-calendar-chip.tsx` (170 řádků)

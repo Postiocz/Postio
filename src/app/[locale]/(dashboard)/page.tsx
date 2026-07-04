@@ -593,7 +593,7 @@ function UpgradeBanner({
       ? t("planPro")
       : currentPlan === "creator"
         ? t("planCreator")
-        : t("common.free");
+        : t("free");
 
   return (
     <Card className="relative overflow-hidden bg-card/60 backdrop-blur-sm border">

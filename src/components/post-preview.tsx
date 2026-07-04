@@ -267,7 +267,7 @@ function TikTokPreview({
       {/* Background/Video Area */}
       <div className="absolute inset-0">
         {videoMedia ? (
-          <MediaArea media={[videoMedia]} forceSquare={false} />
+          <MediaArea media={[videoMedia]} aspect="square" labels={{}} />
         ) : (
           <div className="flex h-full items-center justify-center bg-[#121212]">
             <div className="text-center text-white/50">

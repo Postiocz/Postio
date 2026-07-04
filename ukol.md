@@ -656,199 +656,22 @@ await supabase.from('analytics').upsert(
 
 ---
 
-## 🔄 Zbývá — Analýza dashboardu
-
-### 🔴 Vysoká priorita
-
-#### #2 — Hardcoded CZ text v ConsistencyScore
-
-**Soubor:** `page.tsx` (ř. 349–351)  
-**Problém:** Texty "Výborná konzistence!", "Dobrá, můžeš lepší!", "Zkus postovat pravidelněji." jsou hardcoded v češtině. EN/UK uživatelé uvidí český text.
-
-```tsx
-// AKTUÁLNĚ (ř. 349–351):
-<p className="text-xs text-muted-foreground/60">
-  {score >= 80 ? "Výborná konzistence!" : score >= 50 ? "Dobrá, můžeš lepší!" : "Zkus postovat pravidelněji."}
-</p>
-
-// MĚLO BY BÝT:
-<p className="text-xs text-muted-foreground/60">
-  {score >= 80 ? t("consistencyExcellent") : score >= 50 ? t("consistencyGood") : t("consistencyImprove")}
-</p>
-```
-
-**Kroky:**
-1. Přidat klíče `consistencyExcellent`, `consistencyGood`, `consistencyImprove` do cs.json, en.json, uk.json
-2. Upravit `ConsistencyScore` komponentu — přijmout `translations` prop nebo předat `t` funkci
-3. Otestovat ve všech 3 jazycích
-
-**Odhad:** ~15 min
-
----
-
-### 🟡 Střední priorita
-
-#### #3 — ConsistencyScore je hardcoded na 89%
-
-**Soubor:** `page.tsx` (ř. 35, 151)  
-**Problém:** `consistencyScore` je vždy `89` — nikde se nevypočítává z reálných dat. V `try/catch` i v catch bloku je default 89.
-
-**Navrhované řešení:**
-Vypočítat konzistenci z publikovaných datumů — měřit pravidelnost (počet dní s publikací / celkový rozsah dnů). Nebo použít existující `calculateStreak()` a převést na procentuální skóre.
-
-Možné přístupy:
-- **A) Jednoduché:** `min(100, round(streak * 10))` — 5 dní = 50%, 10+ dní = 100%
-- **B) Přesné:** Z `publishedPlatformsRows.data` spočítat days-with-publish / total-days-in-range
-- **C) DB stored:** Uložit do `users.consistency_score`, aktualizovat cron jobem
-
-**Doporučení:** Začít s přístupem A (rychlý win), později přejít na B.
-
-**Odhad:** ~20 min (A), ~45 min (B)
-
----
-
-#### #4 — Streak card: "0d" vypadá divně při hodnotě 0
-
-**Soubor:** `page.tsx` (ř. 174–179)  
-**Problém:** Když je `streak === 0`, zobrazuje se "0d" bez jakéhokoliv kontextu. Uživatel neví, co to znamená nebo jak sérii začít.
-
-**Navrhované řešení:**
-- Při `streak === 0`: zobrazit "—" nebo "0" s podtextem "Začněte publikovat!" (i18n)
-- Přidat trend prop do Streak card (jako u TotalPosts) — např. "Nejdelší série: X dní"
-
-**Odhad:** ~15 min
-
----
-
-#### #5 — Missing empty state pro nového uživatele
-
-**Soubor:** `page.tsx`  
-**Problém:** Když je uživatel zcela nový (0 postů, 0 účtů, 0 šablon), dashboard zobrazuje jen prázdná čísla "0" a prázdné grafy. Chybí onboarding guidance.
-
-**Navrhované řešení:**
-- Pokud `totalPosts === 0 && connectedAccounts === 0`: zobrazit welcome banner s CTA:
-  1. "Propojte první účet" → `/accounts`
-  2. "Vytvořte první příspěvek" → `/posts/new`
-- Použít existující `SetupGuide` komponentu (`src/components/dashboard/setup-guide.tsx`) pokud je dostupná
-
-**Odhad:** ~30 min
-
----
-
-### 🟢 Nízká priorita — UX vylepšení
-
-#### #6 — QuickActionCard: description má stejnou barvu jako title u primary varianty
-
-**Soubor:** `page.tsx` (ř. 387)  
-**Problém:** U primary (gradient) karty je description `text-sm text-white` — bílý na bílém/gradientu má nízký kontrast. Title je `font-semibold` ale description není vizuálně odlišený.
-
-**Řešení:** Změnit na `text-sm text-white/80` pro lepší hierarchii a čitelnost.
-
-**Odhad:** ~2 min
-
----
-
-#### #7 — UpgradeBanner: "pro"/"creator" label není i18n
-
-**Soubor:** `page.tsx` (ř. 412–417)  
-**Problém:** `planLabel` vrací hardcoded `"pro"` / `"creator"` / `translations.free`. Mělo by to být i18n.
-
-```tsx
-// AKTUÁLNĚ:
-const planLabel =
-  currentPlan === "pro" ? "pro"
-  : currentPlan === "creator" ? "creator"
-  : translations.free;
-
-// MĚLO BY BÝT (přidat do translations props):
-const planLabel =
-  currentPlan === "pro" ? commonT("pro") // nebo billing.pro
-  : currentPlan === "creator" ? commonT("creator")
-  : translations.free;
-```
-
-**Odhad:** ~10 min
-
----
-
-#### #8 — Dashboard: Chybí sekce "Poslední příspěvky"
-
-**Soubor:** `page.tsx`  
-**Problém:** i18n klíč `dashboard.recentPosts` existuje, ale v dashboardu není žádná sekce s posledními příspěvky. Uživatel po publikaci nemá rychlý přehled co dělal naposledy.
-
-**Navrhované řešení:**
-- Přidat sekci pod "Rychlé akce" s 3–5 nejnovějšími příspěvky
-- Zobrazit: náhled textu (truncate 80 znaků), platform ikony, status badge, datum
-- Link na `/posts` pro "Zobrazit vše"
-- Může použít stávající DB dotaz z `postsData` s `.order('created_at', { ascending: false }).limit(5)`
-
-**Odhad:** ~40 min
-
----
-
-#### #9 — StatCards: Chybí klikací chování / navigace
-
-**Soubor:** `page.tsx` (ř. 162–180)  
-**Problém:** Statistikové karty jsou pouze informativní — nelze na ně kliknout pro detail. Uživatel očekává, že kliknutím na "Naplánované: 5" ho to dovede k filtrovanému seznamu naplánovaných příspěvků.
-
-**Navrhované řešení:**
-- Obalit každou StatCard do `<Link>` nebo přidat `onClick` navigaci
-- Celkem příspěvků → `/posts`
-- Naplánované → `/calendar?filter=scheduled` (nebo `/posts?status=scheduled`)
-- Propojené účty → `/accounts`
-- Streak → žádná navigace (nebo tooltip s vysvětlením)
-
-**Odhad:** ~20 min
-
----
-
-#### #10 — Scheduled count zahrnuje i publishing status
-
-**Soubor:** `page.tsx` (ř. 72–76)  
-**Problém:** Dotaz pro "Naplánované" počítá jen `status = 'scheduled'`. Příspěvky ve stavu `publishing` se nepočítají. Uživatel může videt pokles čísla během procesu publikování.
-
-**Řešení:** Přidat `.or('status.eq.scheduled,status.eq.publishing')` nebo zkontrolovat zda je to zamýšlené.
-
-**Odhad:** ~5 min
-
----
-
-#### #11 — Trend indikátor: "tento týden" ukazuje count, ne trend % 
-
-**Soubor:** `page.tsx` (ř. 167–170) + `dashboard-stats.ts` (ř. 104–118)  
-**Problém:** `calculateTrend()` vrací absolutní počet postů za posledních 7 dní (např. "+3 tento týden"). Vizualizace s TrendingUp/TrendingDown ikonou naznačuje změnu %, ale ve skutečnosti jde o count. Uživatel si může myslet, že "+3" znamená "+3%".
-
-**Navrhované řešení:**
-- Buď přejmenovat label na "3 nových tento týden" (i18n)
-- Nebo implementovat skutečný trend: porovnat minulý 7d vs aktuální 7d a vypočítat % změnu
-- Doporučení: přidat i18n klíč `thisWeekCount` = "{count} nových tento týden"
-
-**Odhad:** ~15 min (label fix), ~30 min (skutečný %)
-
----
-
-#### #12 — Gradient ID kolize v ConsistencyScore SVG
-
-**Soubor:** `page.tsx` (ř. 337)  
-**Problém:** `<linearGradient id="consistencyGradient">` — pokud by se kdy zobrazily 2+ ConsistencyScore komponenty na jedné stránce, gradient ID by kolovalo. Nyní je jen jedna instance, ale pro budoucí robustnost:
-
-**Řešení:** Přidat unikátní suffix, např. `id="consistencyGradient-${Date.now()}"` nebo statický prefix `postio-consistency-gradient`.
-
-**Odhad:** ~3 min
-
----
-
-#### #13 — Indentace v JSX je nekonzistentní
-
-**Soubor:** `page.tsx` (ř. 155–248)  
-**Problém:** Hlavní `<div>` na ř. 155 má children s různou indentací:
-- Ř. 156: `    <div className="space-y-1">` (4 mezery — správně)
-- Ř. 162: `      <div className="grid gap-4...` (6 mezer — o 2 víc)
-- Některé sekce jsou začištěné na 4, jiné na 6
-
-**Řešení:** Unifikovat na 4 mezere indentaci pro všechny direct children hlavního divu.
-
-**Odhad:** ~5 min
+## ✅ Hotovo
+
+| # | Popis | Commit | Status |
+|---|-------|--------|--------|
+| 2 | Hardcoded CZ text → i18n (`consistencyExcellent`, `consistencyGood`, `consistencyImprove`) | `11a6057` | ✅ Hotovo |
+| 3 | ConsistencyScore hardcoded na 89% → reálný výpočet z publikovaných příspěvků | `11a6057` | ✅ Hotovo |
+| 4 | Streak "0d" bez kontextu → zobrazení "Začněte publikovat" s i18n | `11a6057` | ✅ Hotovo |
+| 5 | Missing empty state → welcome banner s CTA (připojit účet / vytvořit příspěvek) | `54bb7a9` | ✅ Hotovo |
+| 6 | QuickActionCard description kontrast `text-white` → `text-white/80` | `11a6057` | ✅ Hotovo |
+| 7 | UpgradeBanner planLabel ne-i18n → lokalizované plány | `11a6057` | ✅ Hotovo |
+| 8 | Chybí sekce "Poslední příspěvky" → 3–5 nejnovějších s navigací | `bef65a1` | ✅ Hotovo |
+| 9 | StatCards bez navigace → klikací karty s odkazy na `/posts`, `/accounts`, `/calendar` | `6d0e01a` | ✅ Hotovo |
+| 10 | Scheduled count → zahrnuje i `publishing` status | `11a6057` | ✅ Hotovo |
+| 11 | Trend ukazuje count místo % → přejmenováno na "{count} nových tento týden" | `11a6057` | ✅ Hotovo |
+| 12 | SVG gradient ID kolize → odstraněno (jen jedna instance) | `11a6057` | ✅ Hotovo (nebyl problém) |
+| 13 | Nekonzistentní indentace JSX → unifikováno na 4 mezery | `11a6057` | ✅ Hotovo |
 
 ---
 
@@ -856,21 +679,21 @@ const planLabel =
 
 | # | Popis | Priorita | Odhad | Status |
 |---|-------|----------|-------|--------|
-| ~~1~~ | ~~Zdvojené nadpisy v Rychlé akce~~ | 🔴 Vysoká | ~~10 min~~ | ✅ Hotovo |
-| ~~2~~ | ~~Hardcoded CZ text v ConsistencyScore~~ | ~~🔴 Vysoká~~ | ~~15 min~~ | ✅ Hotovo |
-| 3 | ConsistencyScore hardcoded na 89% | 🟡 Střední | 20–45 min | ⏳ |
-| 4 | Streak "0d" bez kontextu | 🟡 Střední | 15 min | ⏳ |
-| 5 | Missing empty state pro nového uživatele | 🟡 Střední | 30 min | ⏳ |
-| 6 | QuickActionCard kontrast description | 🟢 Nízká | 2 min | ⏳ |
-| 7 | UpgradeBanner planLabel ne-i18n | 🟢 Nízká | 10 min | ⏳ |
-| 8 | Chybí sekce "Poslední příspěvky" | 🟢 Nízká | 40 min | ⏳ |
-| 9 | StatCards bez navigace | 🟢 Nízká | 20 min | ⏳ |
-| 10 | Scheduled count chybí publishing status | 🟢 Nízká | 5 min | ⏳ |
-| 11 | Trend ukazuje count místo % | 🟢 Nízká | 15–30 min | ⏳ |
-| 12 | SVG gradient ID kolize | 🟢 Nízká | 3 min | ⏳ |
-| 13 | Nekonzistentní indentace JSX | 🟢 Nízká | 5 min | ⏳ |
+| 1 | Zdvojené nadpisy v Rychlé akce | 🔴 Vysoká | 10 min | ✅ Hotovo |
+| 2 | Hardcoded CZ text v ConsistencyScore | 🔴 Vysoká | 15 min | ✅ Hotovo |
+| 3 | ConsistencyScore hardcoded na 89% | 🟡 Střední | 20–45 min | ✅ Hotovo |
+| 4 | Streak "0d" bez kontextu | 🟡 Střední | 15 min | ✅ Hotovo |
+| 5 | Missing empty state pro nového uživatele | 🟡 Střední | 30 min | ✅ Hotovo |
+| 6 | QuickActionCard kontrast description | 🟢 Nízká | 2 min | ✅ Hotovo |
+| 7 | UpgradeBanner planLabel ne-i18n | 🟢 Nízká | 10 min | ✅ Hotovo |
+| 8 | Chybí sekce "Poslední příspěvky" | 🟢 Nízká | 40 min | ✅ Hotovo |
+| 9 | StatCards bez navigace | 🟢 Nízká | 20 min | ✅ Hotovo |
+| 10 | Scheduled count chybí publishing status | 🟢 Nízká | 5 min | ✅ Hotovo |
+| 11 | Trend ukazuje count místo % | 🟢 Nízká | 15–30 min | ✅ Hotovo |
+| 12 | SVG gradient ID kolize | 🟢 Nízká | 3 min | ✅ Hotovo (nebyl problém) |
+| 13 | Nekonzistentní indentace JSX | 🟢 Nízká | 5 min | ✅ Hotovo |
 
-**Celkový odhad zbývá: ~190–230 min (~3–4 hodiny)**
+**Celkem hotovo: 13/13 úkolů**
 
 ---
 

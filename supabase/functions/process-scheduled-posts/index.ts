@@ -441,17 +441,44 @@ type DenoSupabaseClient = {
   from: (table: string) => unknown;
 };
 
+type UntypedSelectResult<T = unknown> = Promise<{
+  data: T | null;
+  error?: { message?: string } | null;
+}>;
+
+type UntypedSelectFilterBuilder = {
+  eq: (column: string, value: unknown) => UntypedSelectFilterBuilder;
+  ilike: (column: string, value: string) => UntypedSelectFilterBuilder;
+  order: (
+    column: string,
+    options?: { ascending?: boolean } & Record<string, unknown>,
+  ) => UntypedSelectFilterBuilder;
+  limit: (count: number) => UntypedSelectResult<unknown[]>;
+};
+
 type UntypedUpdateBuilder = {
   update: (values: Record<string, unknown>) => {
     eq: (column: string, value: string) => Promise<unknown>;
   };
 };
 
+type UntypedTableBuilder = {
+  select: (columns: string) => UntypedSelectFilterBuilder;
+  update: UntypedUpdateBuilder["update"];
+};
+
+function getUntypedTableBuilder(
+  supabaseAdmin: DenoSupabaseClient,
+  table: string,
+): UntypedTableBuilder {
+  return supabaseAdmin.from(table) as unknown as UntypedTableBuilder;
+}
+
 function getUntypedUpdateBuilder(
   supabaseAdmin: DenoSupabaseClient,
   table: string,
 ): UntypedUpdateBuilder {
-  return supabaseAdmin.from(table) as unknown as UntypedUpdateBuilder;
+  return getUntypedTableBuilder(supabaseAdmin, table);
 }
 
 /**
@@ -848,8 +875,10 @@ async function getValidTikTokAccessToken(params: {
 > {
   const { supabaseAdmin, userId } = params;
 
-  const { data: accounts } = await supabaseAdmin
-    .from("social_accounts")
+  const { data: accounts } = await getUntypedTableBuilder(
+    supabaseAdmin,
+    "social_accounts",
+  )
     .select("id, access_token, token_expires_at, metadata")
     .eq("user_id", userId)
     .ilike("platform", "tiktok")
@@ -1013,8 +1042,10 @@ async function getValidYouTubeAccessToken(params: {
 > {
   const { supabaseAdmin, userId } = params;
 
-  const { data: accountsRaw, error: lookupError } = await supabaseAdmin
-    .from("social_accounts")
+  const { data: accountsRaw, error: lookupError } = await getUntypedTableBuilder(
+    supabaseAdmin,
+    "social_accounts",
+  )
     .select("id, access_token, token_expires_at, metadata")
     .eq("user_id", userId)
     .ilike("platform", "youtube")
@@ -1323,8 +1354,10 @@ async function getValidLinkedInAccessToken(params: {
 > {
   const { supabaseAdmin, userId } = params;
 
-  const { data: accountsRaw, error: lookupError } = await supabaseAdmin
-    .from("social_accounts")
+  const { data: accountsRaw, error: lookupError } = await getUntypedTableBuilder(
+    supabaseAdmin,
+    "social_accounts",
+  )
     .select("id, access_token, token_expires_at, metadata, platform_id")
     .eq("user_id", userId)
     .ilike("platform", "linkedin")

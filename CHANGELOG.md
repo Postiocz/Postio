@@ -5,6 +5,19 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — Vercel build: untyped select builder pro scheduled Edge Function
+
+- **Kontext**: Produkční deploy na Vercelu znovu padal při `next build` v `supabase/functions/process-scheduled-posts/index.ts` na chybě `Object is of type 'unknown'`. Příčinou bylo, že lokální alias `DenoSupabaseClient` vracel z `.from(...)` čisté `unknown`, ale helpery pro TikTok / YouTube / LinkedIn nad tím dál řetězily `.select().eq().order().limit()`.
+- **Oprava**:
+  1. V `supabase/functions/process-scheduled-posts/index.ts` doplněn úzký strukturální `UntypedTableBuilder` + `UntypedSelectFilterBuilder`, který pokrývá právě používaný query chain pro `social_accounts`.
+  2. Helper `getUntypedUpdateBuilder()` nově staví na společném `getUntypedTableBuilder()` a lookupy `getValidTikTokAccessToken()`, `getValidYouTubeAccessToken()` a `getValidLinkedInAccessToken()` už nevolají `.from(...)` přímo nad `unknown`.
+  3. Nešlo o změnu publikační logiky; zásah je čistě typový, aby Edge Function prošla strict TypeScript kontrolou v produkčním buildu.
+- **Ověření**:
+  - `npm run build` ✅
+- **Upravené soubory**:
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — Prompt 017-C: TikTok private-only fallback + oprava i18n textů v editoru
 
 - **Kontext**: TikTok publish padal na chybě `unaudited_client_can_only_post_to_private_accounts`, protože neauditovaná / testovací aplikace smí publikovat jen jako `SELF_ONLY`. Zároveň bylo potřeba srovnat texty TikTok privacy sekce v `posts` namespace, aby editor používal správné překlady.

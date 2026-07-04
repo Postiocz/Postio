@@ -8,10 +8,46 @@ const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
 const TIKTOK_USERINFO_URL = "https://open.tiktokapis.com/v2/user/info/";
 const TIKTOK_REDIRECT_URI = "https://postio-alpha.vercel.app/api/accounts/tiktok";
 const TIKTOK_OAUTH_SCOPES = ["user.info.basic", "video.upload", "video.publish"] as const;
+const SUPPORTED_LOCALES = ["cs", "en", "uk"] as const;
 
 function appendSuccessParam(target: string, key: string, value: string): string {
   const separator = target.includes("?") ? "&" : "?";
   return `${target}${separator}${key}=${value}`;
+}
+
+function getLocaleFromPath(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const match = path.match(/^\/(cs|en|uk)(?:\/|$)/);
+  const locale = match?.[1];
+  return locale && SUPPORTED_LOCALES.includes(locale as (typeof SUPPORTED_LOCALES)[number])
+    ? locale
+    : null;
+}
+
+function normalizeRedirectPath(path: string | null | undefined, locale: string): string {
+  const fallback = `/${locale}/accounts`;
+  if (!path) return fallback;
+
+  let decodedPath = path;
+  try {
+    decodedPath = decodeURIComponent(path);
+  } catch {
+    decodedPath = path;
+  }
+
+  if (!decodedPath.startsWith("/")) {
+    return fallback;
+  }
+
+  if (decodedPath.startsWith("//")) {
+    return fallback;
+  }
+
+  if (decodedPath.startsWith("/api/")) {
+    return fallback;
+  }
+
+  return decodedPath;
 }
 
 function generateCodeVerifier(): string {
@@ -25,11 +61,16 @@ function generateCodeChallenge(verifier: string): string {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
+  const requestedRedirect = url.searchParams.get("state");
   const returnedState = url.searchParams.get("state");
-  const locale = url.searchParams.get("locale") ?? "cs";
-  
-  const baseRedirect = decodeURIComponent(state ?? `/${locale}/accounts`);
+  const cookieRedirect = request.cookies.get("tiktok_oauth_redirect")?.value;
+  const locale =
+    getLocaleFromPath(code ? cookieRedirect : requestedRedirect) ??
+    (url.searchParams.get("locale") ?? "cs");
+  const baseRedirect = normalizeRedirectPath(
+    code ? cookieRedirect : requestedRedirect,
+    locale,
+  );
   const redirectOnSuccess = appendSuccessParam(baseRedirect, "tiktok", "connected");
   const errorRedirect = (msg: string) => `/${locale}/accounts?error=${encodeURIComponent(msg)}`;
   const redirectOnError = errorRedirect("TikTok connection failed");
@@ -72,6 +113,14 @@ export async function GET(request: NextRequest) {
     });
     
     response.cookies.set("tiktok_code_verifier", codeVerifier, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 600, // 10 minutes
+    });
+
+    response.cookies.set("tiktok_oauth_redirect", baseRedirect, {
       httpOnly: true,
       secure: true,
       sameSite: "none",
@@ -193,9 +242,10 @@ export async function GET(request: NextRequest) {
        return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
-    // TikTok access token expires in 24 hours usually, refresh token in 1 year.
-    // We'll set token_expires_at based on expires_in if available.
-    const expiresIn = tokenData.expires_in ?? 86400;
+    // TikTok commonly returns a short-lived access token (often 24h / 86400 s,
+    // including Sandbox). That "expires in 1 day" warning is therefore expected
+    // as long as we treat `expires_in` as a duration in seconds from "now".
+    const expiresIn = typeof tokenData.expires_in === "number" ? tokenData.expires_in : 86400;
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
     const supabaseAdmin = createAdminClient();
@@ -236,6 +286,7 @@ export async function GET(request: NextRequest) {
     // Clear OAuth cookies after successful authentication
     response.cookies.delete("tiktok_oauth_state");
     response.cookies.delete("tiktok_code_verifier");
+    response.cookies.delete("tiktok_oauth_redirect");
     
     return response;
   } catch (error) {

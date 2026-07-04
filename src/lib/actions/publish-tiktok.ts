@@ -206,7 +206,10 @@ async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
     return {
       success: true,
       accessToken: payload.access_token,
-      expiresInSeconds: payload.expires_in || 86400,
+      // TikTok typically returns a 24h access token here as well. Treat
+      // `expires_in` strictly as a relative duration in seconds.
+      expiresInSeconds:
+        typeof payload.expires_in === "number" ? payload.expires_in : 86400,
       refreshToken: payload.refresh_token,
     };
   } catch (e) {

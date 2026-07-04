@@ -431,17 +431,15 @@ async function refreshYouTubeAccessToken(
 }
 
 /**
- * Look up the user's YouTube account row, ensure the access token is
- * fresh (refreshing via refresh_token if needed), persist the new
- * value, and return it ready-to-use.
- *
- * Note on types: `supabaseAdmin` is typed as the Deno port of the
- * Supabase client (`SupabaseClient<any, "public", ...>`), while
- * `ReturnType<typeof createClient>` uses a narrower generic. We
- * accept the Deno-side type here directly so the function compiles
- * without the @supabase/supabase-js full Database generic.
+ * Edge Functions use the Deno build of `@supabase/supabase-js`, whose
+ * generic signature differs from the app-side generated client type.
+ * We only rely on `.from(...)` in these helpers, so a structural type
+ * keeps the helpers compatible with the real runtime client instance
+ * without forcing incompatible generic parameters.
  */
-type DenoSupabaseClient = ReturnType<typeof createClient<any>>;
+type DenoSupabaseClient = {
+  from: (table: string) => any;
+};
 
 type UntypedUpdateBuilder = {
   update: (values: Record<string, unknown>) => {
@@ -791,7 +789,10 @@ async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
     return {
       success: true,
       accessToken: payload.access_token,
-      expiresInSeconds: payload.expires_in || 86400,
+      // TikTok typically returns a 24h access token here as well. Treat
+      // `expires_in` strictly as a relative duration in seconds.
+      expiresInSeconds:
+        typeof payload.expires_in === "number" ? payload.expires_in : 86400,
       refreshToken: payload.refresh_token,
     };
   } catch (e) {

@@ -5,6 +5,31 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — Edge Function Supabase client typ už neblokuje TypeScript build
+
+- **Kontext**: `next build` znovu padal v `supabase/functions/process-scheduled-posts/index.ts` na chybě `Type 'SupabaseClient...' is not assignable ...`, konkrétně při předání `supabaseAdmin` do `getValidYouTubeAccessToken()`. Příčinou byl příliš úzký alias `ReturnType<typeof createClient>`, který v Deno Edge runtime neodpovídal skutečnému generickému tvaru klienta.
+- **Oprava**:
+  1. Helper alias `DenoSupabaseClient` změněn na úmyslně strukturální typ s metodou `.from(...)`, protože lokální helper vrstva používá právě jen tento minimální kontrakt.
+  2. Tím se odstranila falešná generická nekompatibilita mezi Deno klientem v Edge Function a app-side typovou inferencí, aniž by se měnila publish logika pro YouTube, TikTok nebo ostatní platformy.
+  3. Lokálně ověřeno přes `npm run build`; build nyní projde kompletně až do finálního route summary bez TypeScript chyb.
+- **Upravené soubory**:
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `CHANGELOG.md`
+
+### 🐛 Fix — TikTok OAuth callback vrací uživatele zpět na lokalizované `/accounts`
+
+- **Kontext**: Po úspěšném propojení TikTok účtu se callback route snažila přesměrovat na neexistující adresu místo zpět na stránku účtů. Zároveň bylo potřeba ověřit, že `token_expires_at` pro TikTok počítáme korektně z `expires_in`.
+- **Oprava**:
+  1. V `src/app/api/accounts/tiktok/route.ts` oddělen CSRF `state` od post-auth redirect path. Původní návratová cesta (např. `/{locale}/accounts`) se nově ukládá do samostatné httpOnly cookie `tiktok_oauth_redirect`, takže callback po návratu z TikToku vždy ví, kam uživatele vrátit.
+  2. Redirect path se před použitím normalizuje a fallbackuje na `/{locale}/accounts`, takže už nevzniká chybný redirect na neexistující `/api/accounts/[id]?tiktok=connected`.
+  3. Potvrzen a okomentován výpočet expirace jako `Date.now() + expires_in * 1000`; u TikToku je krátký access token (často 24h / `86400`, včetně Sandboxu) očekávatelný, takže varování „Token vyprší za 1 den“ není samo o sobě chyba.
+  4. Stejný explicitní výklad `expires_in` doplněn i do TikTok refresh helperů v app publish flow a v scheduled Edge Function; navíc uklizen starší `no-explicit-any` typový alias v Edge Function, aby dotčené soubory znovu prošly lintem.
+- **Upravené soubory**:
+  - `src/app/api/accounts/tiktok/route.ts`
+  - `src/lib/actions/publish-tiktok.ts`
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — TikTok OAuth authorize URL přesně podle v2 specifikace
 
 - **Kontext**: TikTok Login stále vracel chybu `client_key`, takže bylo potřeba srovnat generovanou authorize URL přesně podle v2 specifikace a ověřit, že `redirect_uri` zůstává 1:1 shodná s hodnotou v TikTok Developer portálu.

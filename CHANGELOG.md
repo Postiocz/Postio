@@ -5,6 +5,25 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — Prompt 017-C: TikTok private-only fallback + oprava i18n textů v editoru
+
+- **Kontext**: TikTok publish padal na chybě `unaudited_client_can_only_post_to_private_accounts`, protože neauditovaná / testovací aplikace smí publikovat jen jako `SELF_ONLY`. Zároveň bylo potřeba srovnat texty TikTok privacy sekce v `posts` namespace, aby editor používal správné překlady.
+- **Oprava**:
+  1. V `src/lib/actions/publish-tiktok.ts` doplněna pojistka pro TikTok private-only režim: při detekci dev/test prostředí se privacy přednostně nastaví na `SELF_ONLY`, a pokud `video/init` vrátí chybu `unaudited_client_can_only_post_to_private_accounts`, publish flow automaticky udělá retry se `SELF_ONLY` místo okamžitého failu.
+  2. Stejná private-only pojistka doplněna i do `supabase/functions/process-scheduled-posts/index.ts`, aby se okamžité a scheduled TikTok publikování nechovalo rozdílně.
+  3. `publish.ts` nyní předává do UI warning code pro úspěšný TikTok publish v private-only režimu a `EditPostDialog` zobrazí lokalizované info v editoru i po úspěšném publishi.
+  4. V `src/messages/cs.json`, `en.json`, `uk.json` sjednoceny TikTok privacy texty na požadované znění a doplněn nový lokalizovaný text pro private-only upozornění.
+- **Upravené soubory**:
+  - `src/lib/actions/publish-tiktok.ts`
+  - `src/lib/actions/publish.ts`
+  - `src/components/edit-post-dialog.tsx`
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `AGENTS.md`
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — `posts` namespace znovu obsahuje TikTok texty pro editor příspěvků
 
 - **Kontext**: `EditPostDialog` používá `useTranslations("posts")`, ale část nových TikTok textů pro privacy a creator info byla uložená mimo `posts` namespace. Runtime pak v `/posts` padal na `MISSING_MESSAGE` pro klíče jako `posts.tiktokPrivacyTitle` a `posts.tiktokCreatorInfoSummary`.

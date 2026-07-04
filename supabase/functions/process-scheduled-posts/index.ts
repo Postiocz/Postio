@@ -438,7 +438,7 @@ async function refreshYouTubeAccessToken(
  * without forcing incompatible generic parameters.
  */
 type DenoSupabaseClient = {
-  from: (table: string) => any;
+  from: (table: string) => unknown;
 };
 
 type UntypedUpdateBuilder = {
@@ -535,6 +535,30 @@ function readTikTokRefreshToken(metadata: Record<string, unknown> | null | undef
   return typeof raw === "string" && raw.trim() ? raw : null;
 }
 
+function isTruthyEnvFlag(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function isTikTokDevelopmentMode(): boolean {
+  if (isTruthyEnvFlag(Deno.env.get("TIKTOK_FORCE_PRIVATE_POSTS"))) {
+    return true;
+  }
+
+  const appUrl = Deno.env.get("NEXT_PUBLIC_APP_URL")?.toLowerCase() ?? "";
+  if (appUrl.includes("localhost") || appUrl.includes("127.0.0.1")) {
+    return true;
+  }
+
+  const vercelEnv = Deno.env.get("VERCEL_ENV")?.toLowerCase();
+  if (vercelEnv && vercelEnv !== "production") {
+    return true;
+  }
+
+  return false;
+}
+
 function readTikTokPostSettings(
   metadata: Record<string, unknown> | null | undefined,
 ): { privacyLevel?: TikTokPrivacyLevel } {
@@ -581,6 +605,17 @@ function normalizeTikTokCreatorInfo(payload: TikTokCreatorInfoResponse): TikTokC
         : null,
     fetchedAt: new Date().toISOString(),
   };
+}
+
+function isTikTokPrivateOnlyCreatorInfo(creatorInfo: TikTokCreatorInfo): boolean {
+  return (
+    creatorInfo.privacyLevelOptions.length === 1 &&
+    creatorInfo.privacyLevelOptions[0] === "SELF_ONLY"
+  );
+}
+
+function isTikTokPrivateOnlyError(error: string): boolean {
+  return error.toLowerCase().includes("unaudited_client_can_only_post_to_private_accounts");
 }
 
 async function persistTikTokCreatorInfoCache(params: {
@@ -659,6 +694,10 @@ function resolveRequestedPrivacyLevel(params: {
   creatorInfo: TikTokCreatorInfo;
 }): TikTokPrivacyLevel {
   const { requestedPrivacyLevel, creatorInfo } = params;
+
+  if (isTikTokDevelopmentMode() || isTikTokPrivateOnlyCreatorInfo(creatorInfo)) {
+    return "SELF_ONLY";
+  }
 
   if (
     requestedPrivacyLevel &&
@@ -2079,13 +2118,28 @@ Deno.serve(async (request: Request) => {
                 creatorInfo: creatorInfoResult.data,
               });
 
-            const result = await publishToTikTok({
-              accessToken: ttToken.accessToken,
+              let result = await publishToTikTok({
+                accessToken: ttToken.accessToken,
                 videoUrl: firstTikTokMedia,
                 content: rawContent,
                 privacyLevel: resolvedPrivacyLevel,
                 creatorInfo: creatorInfoResult.data,
               });
+
+              if (
+                !result.success &&
+                resolvedPrivacyLevel !== "SELF_ONLY" &&
+                isTikTokPrivateOnlyError(result.error ?? "")
+              ) {
+                console.log(`>>> TikTok private-only fallback for post_platforms ${pp.id}`);
+                result = await publishToTikTok({
+                  accessToken: ttToken.accessToken,
+                  videoUrl: firstTikTokMedia,
+                  content: rawContent,
+                  privacyLevel: "SELF_ONLY",
+                  creatorInfo: creatorInfoResult.data,
+                });
+              }
 
               if (!result.success) {
                 publishError = result.error ?? "TikTok publish failed";

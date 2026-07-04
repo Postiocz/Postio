@@ -492,7 +492,7 @@ async function resolveInstagramMediaId(params: {
  */
 export async function publishPost(input: { postId: string }): Promise<{
   success: boolean;
-  data?: { externalId?: string; platform?: string };
+  data?: { externalId?: string; platform?: string; warningCode?: string };
   error?: string;
 }> {
   const supabase = await createClient();
@@ -852,7 +852,11 @@ export async function publishPost(input: { postId: string }): Promise<{
     );
     return {
       success: true,
-      data: { externalId: tiktokExternalId || undefined, platform: "tiktok" },
+      data: {
+        externalId: tiktokExternalId || undefined,
+        platform: "tiktok",
+        warningCode: "warningCode" in result ? result.warningCode : undefined,
+      },
     };
   }
 
@@ -2035,7 +2039,7 @@ export async function publishAdditionalPlatforms(input: {
   platformMetadata?: Record<string, unknown> | null;
 }): Promise<{
   success: boolean;
-  data?: { externalId?: string; platform?: string };
+  data?: { externalId?: string; platform?: string; warningCode?: string };
   error?: string;
 }> {
   const supabase = await createClient();
@@ -2367,7 +2371,11 @@ export async function publishAdditionalPlatforms(input: {
     );
     return {
       success: true,
-      data: { externalId: tiktokExternalId || undefined, platform: "tiktok" },
+      data: {
+        externalId: tiktokExternalId || undefined,
+        platform: "tiktok",
+        warningCode: "warningCode" in result ? result.warningCode : undefined,
+      },
     };
   }
 

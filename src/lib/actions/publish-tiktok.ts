@@ -9,6 +9,7 @@ const TIKTOK_PUBLISH_STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/s
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const TIKTOK_STATUS_POLL_INTERVAL_MS = 2_500;
 const TIKTOK_STATUS_MAX_WAIT_MS = 3 * 60 * 1000;
+const TIKTOK_PRIVATE_ONLY_WARNING_CODE = "tiktok_private_only";
 
 export type TikTokPrivacyLevel =
   | "PUBLIC_TO_EVERYONE"
@@ -81,10 +82,43 @@ type TikTokPostSettings = {
   privacyLevel?: TikTokPrivacyLevel;
 };
 
+type TikTokPublishActionResult =
+  | {
+      success: true;
+      externalId: string;
+      effectivePrivacyLevel: TikTokPrivacyLevel;
+      warningCode?: typeof TIKTOK_PRIVATE_ONLY_WARNING_CODE;
+    }
+  | { success: false; error: string };
+
 function readTikTokRefreshToken(metadata: SocialAccountRow["metadata"]): string | null {
   if (!metadata || typeof metadata !== "object") return null;
   const raw = metadata.refresh_token;
   return typeof raw === "string" && raw.trim() ? raw : null;
+}
+
+function isTruthyEnvFlag(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function isTikTokDevelopmentMode(): boolean {
+  if (isTruthyEnvFlag(process.env.TIKTOK_FORCE_PRIVATE_POSTS)) {
+    return true;
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.toLowerCase() ?? "";
+  if (appUrl.includes("localhost") || appUrl.includes("127.0.0.1")) {
+    return true;
+  }
+
+  const vercelEnv = process.env.VERCEL_ENV?.toLowerCase();
+  if (vercelEnv && vercelEnv !== "production") {
+    return true;
+  }
+
+  return process.env.NODE_ENV !== "production";
 }
 
 function readTikTokPostSettings(
@@ -133,6 +167,17 @@ function normalizeTikTokCreatorInfo(payload: TikTokCreatorInfoResponse): TikTokC
         : null,
     fetchedAt: new Date().toISOString(),
   };
+}
+
+function isTikTokPrivateOnlyCreatorInfo(creatorInfo: TikTokCreatorInfo): boolean {
+  return (
+    creatorInfo.privacyLevelOptions.length === 1 &&
+    creatorInfo.privacyLevelOptions[0] === "SELF_ONLY"
+  );
+}
+
+function isTikTokPrivateOnlyError(error: string): boolean {
+  return error.toLowerCase().includes("unaudited_client_can_only_post_to_private_accounts");
 }
 
 async function persistTikTokCreatorInfoCache(params: {
@@ -312,6 +357,10 @@ function resolveRequestedPrivacyLevel(params: {
   creatorInfo: TikTokCreatorInfo;
 }): TikTokPrivacyLevel {
   const { requestedPrivacyLevel, creatorInfo } = params;
+
+  if (isTikTokDevelopmentMode() || isTikTokPrivateOnlyCreatorInfo(creatorInfo)) {
+    return "SELF_ONLY";
+  }
 
   if (
     requestedPrivacyLevel &&
@@ -577,7 +626,7 @@ export async function publishToTikTokAction(params: {
   mediaUrls: string[];
   existingExternalId?: string | null;
   platformMetadata?: Record<string, unknown> | null;
-}) {
+}): Promise<TikTokPublishActionResult> {
   const { account, content, mediaUrls, existingExternalId, platformMetadata } = params;
 
   if (typeof existingExternalId === "string" && existingExternalId.trim()) {
@@ -627,12 +676,50 @@ export async function publishToTikTokAction(params: {
     requestedPrivacyLevel,
     creatorInfo: creatorInfoResult.data,
   });
+  const shouldWarnPrivateOnly =
+    resolvedPrivacyLevel === "SELF_ONLY" &&
+    (isTikTokDevelopmentMode() || isTikTokPrivateOnlyCreatorInfo(creatorInfoResult.data));
 
-  return publishToTikTok({
+  const initialResult = await publishToTikTok({
     accessToken: tokenResult.accessToken,
     videoUrl,
     content,
     privacyLevel: resolvedPrivacyLevel,
     creatorInfo: creatorInfoResult.data,
   });
+
+  if (initialResult.success) {
+    return {
+      success: true,
+      externalId: initialResult.externalId,
+      effectivePrivacyLevel: resolvedPrivacyLevel,
+      ...(shouldWarnPrivateOnly ? { warningCode: TIKTOK_PRIVATE_ONLY_WARNING_CODE } : {}),
+    };
+  }
+
+  if (
+    resolvedPrivacyLevel !== "SELF_ONLY" &&
+    isTikTokPrivateOnlyError(initialResult.error)
+  ) {
+    const retryResult = await publishToTikTok({
+      accessToken: tokenResult.accessToken,
+      videoUrl,
+      content,
+      privacyLevel: "SELF_ONLY",
+      creatorInfo: creatorInfoResult.data,
+    });
+
+    if (retryResult.success) {
+      return {
+        success: true,
+        externalId: retryResult.externalId,
+        effectivePrivacyLevel: "SELF_ONLY",
+        warningCode: TIKTOK_PRIVATE_ONLY_WARNING_CODE,
+      };
+    }
+
+    return retryResult;
+  }
+
+  return initialResult;
 }

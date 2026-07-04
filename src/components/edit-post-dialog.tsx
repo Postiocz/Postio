@@ -447,6 +447,13 @@ export function EditPostDialog({
     return options && options.length > 0 ? options : TIKTOK_SUPPORTED_PRIVACY_LEVELS;
   }, [tiktokCreatorInfo]);
 
+  const isTikTokPrivateOnly = useMemo(
+    () =>
+      allowedTikTokPrivacyLevels.length === 1 &&
+      allowedTikTokPrivacyLevels[0] === "SELF_ONLY",
+    [allowedTikTokPrivacyLevels],
+  );
+
   const platformMetadata = useMemo<Record<string, Record<string, unknown>> | undefined>(() => {
     if (!hasTikTokIntent) return undefined;
     return {
@@ -954,6 +961,9 @@ export function EditPostDialog({
       if (result.success) {
         console.log("handlePublishAdditional: úspěšně publikováno na", targetPlatform);
         toast.success(t("additionalPublishSuccess") ?? `Příspěvek byl publikován na ${targetPlatform}!`);
+        if (result.data?.warningCode === "tiktok_private_only") {
+          toast.info(t("tiktokPrivateOnlyNotice"));
+        }
         await router.refresh();
         onOpenChange(false);
         return;
@@ -1050,6 +1060,9 @@ export function EditPostDialog({
       if (publishResult.success) {
         console.log("handlePublishNow: úspěšně publikováno, publishResult:", publishResult);
         toast.success("Příspěvek byl úspěšně publikován!");
+        if (publishResult.data?.warningCode === "tiktok_private_only") {
+          toast.info(t("tiktokPrivateOnlyNotice"));
+        }
         await router.refresh();
         onOpenChange(false);
         return;
@@ -1795,6 +1808,13 @@ export function EditPostDialog({
                   );
                 })}
               </div>
+
+              {isTikTokPrivateOnly && (
+                <div className="flex items-start gap-3 rounded-[20px] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <span>{t("tiktokPrivateOnlyNotice")}</span>
+                </div>
+              )}
 
               <div className="rounded-[20px] border border-black/5 bg-black/[0.02] p-3 text-xs text-muted-foreground/70 dark:border-white/10 dark:bg-black/20">
                 <p>

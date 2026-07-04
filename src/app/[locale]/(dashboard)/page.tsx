@@ -16,6 +16,7 @@ import {
   BarChart3,
   TrendingUp,
   TrendingDown,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -209,13 +210,37 @@ draftPosts = draftData.count ?? 0;
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground/60">{t("subtitle")}</p>
-      </div>
+      {totalPosts === 0 && scheduledPosts === 0 && connectedAccounts === 0 ? (
+        <div className="rounded-[24px] border border-dashed border-white/10 bg-card/20 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <Rocket className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="mb-2 text-xl font-semibold">{t("emptyStateTitle")}</h2>
+          <p className="mb-6 text-muted-foreground">{t("emptyStateDescription")}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button asChild size="lg">
+              <Link href={`/${locale}/posts/new`}>
+                <Plus className="mr-2 h-4 w-4" />
+                {t("createFirstPost")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href={`/${locale}/accounts`}>
+                <LinkIcon className="mr-2 h-4 w-4" />
+                {t("connectAccount")}
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+            <p className="text-muted-foreground/60">{t("subtitle")}</p>
+          </div>
 
-      {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Stats grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t("totalPosts")}
           value={totalPosts}
@@ -313,6 +338,8 @@ draftPosts = draftData.count ?? 0;
         t={t}
         settingsT={settingsT}
       />
+        </>
+      )}
     </div>
   );
 }

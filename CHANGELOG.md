@@ -5,6 +5,18 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — TikTok OAuth authorize URL přesně podle v2 specifikace
+
+- **Kontext**: TikTok Login stále vracel chybu `client_key`, takže bylo potřeba srovnat generovanou authorize URL přesně podle v2 specifikace a ověřit, že `redirect_uri` zůstává 1:1 shodná s hodnotou v TikTok Developer portálu.
+- **Oprava**:
+  1. V `src/app/api/accounts/tiktok/route.ts` upraven authorize endpoint z `https://www.tiktok.com/v2/auth/authorize/` na `https://www.tiktok.com/v2/auth/authorize` bez trailing slash.
+  2. OAuth scopes sjednoceny do konstanty a query parametr `scope` se skládá přes `.join(",")`, takže v URL odchází čárkou oddělené hodnoty (`%2C`).
+  3. Potvrzeno, že `redirect_uri` zůstává natvrdo nastavená jako `https://postio-alpha.vercel.app/api/accounts/tiktok` bez koncového lomítka a používá se jak v authorize redirectu, tak při token exchange.
+  4. Zachován debug log finální authorize URL pro rychlé ověření ve Vercel logu.
+- **Upravené soubory**:
+  - `src/app/api/accounts/tiktok/route.ts`
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — Vercel build: TypeScript cleanup pro preview a scheduled publish flow
 
 - **Kontext**: Produkční build na Vercelu spadl nejdřív na `src/components/post-preview.tsx`, ale po odblokování první chyby se objevilo ještě několik starších strict-type problémů v `src/lib/actions/publish.ts` a `supabase/functions/process-scheduled-posts/index.ts`. Bez jejich dočištění by `next build` dál končil chybou i po opravě původního řádku 270.

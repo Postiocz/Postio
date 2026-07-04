@@ -3,10 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 
-const TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
+const TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize";
 const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
 const TIKTOK_USERINFO_URL = "https://open.tiktokapis.com/v2/user/info/";
 const TIKTOK_REDIRECT_URI = "https://postio-alpha.vercel.app/api/accounts/tiktok";
+const TIKTOK_OAUTH_SCOPES = ["user.info.basic", "video.upload", "video.publish"] as const;
 
 function appendSuccessParam(target: string, key: string, value: string): string {
   const separator = target.includes("?") ? "&" : "?";
@@ -51,11 +52,13 @@ export async function GET(request: NextRequest) {
     const redirectUrl = new URL(TIKTOK_AUTH_URL);
     redirectUrl.searchParams.set("client_key", clientKey);
     redirectUrl.searchParams.set("response_type", "code");
-    redirectUrl.searchParams.set("scope", "user.info.basic,video.upload,video.publish");
+    redirectUrl.searchParams.set("scope", TIKTOK_OAUTH_SCOPES.join(","));
     redirectUrl.searchParams.set("redirect_uri", TIKTOK_REDIRECT_URI);
     redirectUrl.searchParams.set("state", generatedState);
     redirectUrl.searchParams.set("code_challenge", codeChallenge);
     redirectUrl.searchParams.set("code_challenge_method", "S256");
+
+    console.log("[TikTok OAuth] Redirect URL:", redirectUrl.toString());
     
     const response = NextResponse.redirect(redirectUrl.toString());
     

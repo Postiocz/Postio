@@ -5,6 +5,24 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — Dashboard #2: Hardcoded CZ text v ConsistencyScore → i18n (CS/EN/UK)
+
+- **Kontext**: Komponenta `ConsistencyScore` na dashboardu (`page.tsx`) zobrazovala hardcoded české texty `"Výborná konzistence!"`, `"Dobrá, můžeš lepší!"`, `"Zkus postovat pravidelněji."` — EN/UK uživatelé viděli češtinu.
+- **Oprava**:
+  1. Do `src/messages/cs.json`, `en.json`, `uk.json` přidány klíče `consistencyExcellent`, `consistencyGood`, `consistencyImprove`.
+  2. Komponenta `ConsistencyScore` nově přijímá prop `t: (key: string) => string` a volá `t("consistencyExcellent")` / `t("consistencyGood")` / `t("consistencyImprove")` místo hardcoded řetězců.
+  3. Volání na ř. 184 rozšířeno o `t={t}`.
+- **Ověření**:
+  - `node -e "JSON.parse(...)"` pro cs.json, en.json, uk.json ✅
+  - `npx tsc --noEmit` ✅
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/page.tsx`
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+  - `CHANGELOG.md`
+  - `ukol.md`
+
 ### 🐛 Fix — TikTok private-only policy: detekce podle `error.code` + přesnější UX text
 
 - **Kontext**: TikTok `video/init` dál padal i při `privacy_level: "SELF_ONLY"`. Runtime log ukázal, že API vrací policy identifikátor v `error.code = unaudited_client_can_only_post_to_private_accounts`, zatímco naše app private-only chybu hledala v `error.message`, kde je jen obecný odkaz na guidelines. Tím pádem se nespouštěl lokalizovaný handler a uživatel viděl syrový anglický toast.

@@ -23,11 +23,13 @@ import {
   Bookmark,
   TrendingUp,
   CalendarDays,
+  RefreshCw,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TagBreakdown, type TagBreakdownData } from "@/components/analytics/tag-breakdown";
-import { getTagBreakdown } from "./actions";
+import { getTagBreakdown, syncAnalyticsInsights } from "./actions";
 
 type AnalyticsRecord = {
   id: string;
@@ -45,8 +47,6 @@ type AnalyticsRecord = {
 type PostRecord = {
   id: string;
   content: string;
-  platforms: string[];
-  status: string;
   created_at: string;
 };
 
@@ -72,6 +72,24 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
   const [tagData, setTagData] = useState<TagBreakdownData[]>([]);
   const [tagTotal, setTagTotal] = useState(0);
   const [tagLoading, setTagLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    const result = await syncAnalyticsInsights();
+    setSyncing(false);
+    if (result.success && result.data) {
+      toast.success(
+        t.rich("syncSuccess", {
+          synced: result.data.synced,
+          skipped: result.data.skipped,
+          errors: result.data.errors,
+        })
+      );
+    } else if (result.error) {
+      toast.error(result.error);
+    }
+  };
 
   // Fetch tag breakdown data — re-fetches when period changes
   useEffect(() => {
@@ -248,9 +266,19 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
       <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-purple-500/10 blur-[100px]" />
 
       {/* Header */}
-      <div className="relative">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
-        <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 rounded-[20px] bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? t("syncingAnalytics") : t("syncAnalytics")}
+        </button>
       </div>
 
       {/* Period Filter */}
@@ -369,7 +397,13 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyChartMessage label={t("noData")} />
+              <EmptyChartMessage
+                label={posts.length === 0 ? t("noPublishedPosts") : t("noAnalyticsYet")}
+                showSyncButton={posts.length > 0 && !syncing}
+                onSync={handleSync}
+                syncing={syncing}
+                syncLabel={syncing ? t("syncingAnalytics") : t("syncAnalytics")}
+              />
             )}
           </CardContent>
         </Card>
@@ -435,7 +469,13 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyChartMessage label={t("noData")} />
+              <EmptyChartMessage
+                label={posts.length === 0 ? t("noPublishedPosts") : t("noAnalyticsYet")}
+                showSyncButton={posts.length > 0 && !syncing}
+                onSync={handleSync}
+                syncing={syncing}
+                syncLabel={syncing ? t("syncingAnalytics") : t("syncAnalytics")}
+              />
             )}
           </CardContent>
         </Card>
@@ -455,8 +495,20 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
                   <div className="absolute inset-0 rounded-full bg-purple-500/20 blur-3xl" />
                   <BarChart3 className="relative h-16 w-16 text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-purple-500" />
                 </div>
-                <p className="text-xl font-medium text-muted-foreground/60">{t("noData")}</p>
+                <p className="text-xl font-medium text-muted-foreground/60">
+                  {posts.length === 0 ? t("noPublishedPosts") : t("noAnalyticsYet")}
+                </p>
                 <p className="mt-2 text-sm text-muted-foreground/40">{t("noDataSubtitle")}</p>
+                {posts.length > 0 && (
+                  <button
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="mt-4 inline-flex items-center gap-2 rounded-[20px] bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                    {syncing ? t("syncingAnalytics") : t("syncAnalytics")}
+                  </button>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -506,10 +558,32 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
   );
 }
 
-function EmptyChartMessage({ label }: { label: string }) {
+function EmptyChartMessage({
+  label,
+  showSyncButton,
+  onSync,
+  syncing,
+  syncLabel,
+}: {
+  label: string;
+  showSyncButton?: boolean;
+  onSync?: () => void;
+  syncing?: boolean;
+  syncLabel?: string;
+}) {
   return (
-    <div className="flex h-[300px] items-center justify-center text-muted-foreground/40">
+    <div className="flex h-[300px] flex-col items-center justify-center gap-3 text-muted-foreground/40">
       {label}
+      {showSyncButton && onSync && syncLabel && (
+        <button
+          onClick={onSync}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 rounded-[20px] bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+          {syncLabel}
+        </button>
+      )}
     </div>
   );
 }

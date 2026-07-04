@@ -11,7 +11,8 @@
       "Bash(echo \"exit:$?\")",
       "Bash(npx tsc *)",
       "Bash(npm install *)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('editPost', d.get\\('editor', {}\\)\\), indent=2, ensure_ascii=False\\)\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('editPost', d.get\\('editor', {}\\)\\), indent=2, ensure_ascii=False\\)\\)\")",
+      "Bash(grep -A 40 '^  \"analytics\": {$' /mnt/c/VS_Code/Postio/src/messages/cs.json)"
     ]
   }
 }

@@ -181,7 +181,7 @@ export default async function DashboardPage({
 
       {/* Analytics row – grafy: konzistence + donut + top labels */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <ConsistencyScore score={consistencyScore} label={t("consistencyScore")} />
+        <ConsistencyScore score={consistencyScore} label={t("consistencyScore")} t={t} />
         <div className="lg:col-span-2 grid gap-4 sm:grid-cols-2">
           <PlatformDonutChart
             data={platformData}
@@ -213,20 +213,20 @@ export default async function DashboardPage({
         <div className="grid gap-4 sm:grid-cols-3">
           <QuickActionCard
             title={t("newPost")}
-            description={t("newPost")}
+            description={t("newPostDescription")}
             href={`/${locale}/posts/new`}
             icon={Plus}
             emphasis="primary"
           />
           <QuickActionCard
             title={navT("templates")}
-            description={navT("templates")}
+            description={t("browseTemplates")}
             href={`/${locale}/templates`}
             icon={Copy}
           />
           <QuickActionCard
             title={navT("analytics")}
-            description={navT("analytics")}
+            description={t("viewAnalytics")}
             href={`/${locale}/analytics`}
             icon={BarChart3}
           />
@@ -303,7 +303,7 @@ function StatCard({
   );
 }
 
-function ConsistencyScore({ score, label }: { score: number; label: string }) {
+function ConsistencyScore({ score, label, t }: { score: number; label: string; t: (key: string) => string }) {
   const circumference = 2 * Math.PI * 36;
   const offset = circumference - (score / 100) * circumference;
 
@@ -347,7 +347,7 @@ function ConsistencyScore({ score, label }: { score: number; label: string }) {
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
           <p className="text-xs text-muted-foreground/60">
-            {score >= 80 ? "Výborná konzistence!" : score >= 50 ? "Dobrá, můžeš lepší!" : "Zkus postovat pravidelněji."}
+            {score >= 80 ? t("consistencyExcellent") : score >= 50 ? t("consistencyGood") : t("consistencyImprove")}
           </p>
         </div>
       </CardContent>

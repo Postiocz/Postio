@@ -398,3 +398,491 @@ Do `src/messages/uk.json`:
 | ~~5~~ | ~~Komentář~~ | ✅ Hotovo |
 
 **Celkem zbývá: 0/5 — vše hotovo ✅**
+
+---
+
+# 📊 Prompt 018 — Implementace reálné analytiky
+
+> Vytvořeno: 2026-07-04  
+> Soubory: `src/app/[locale]/(dashboard)/analytics/actions.ts`, `page.tsx`, `analytics-dashboard.tsx`  
+> Komponenty: `src/components/analytics/tag-breakdown.tsx`  
+> DB tabulky: `analytics` (impressions, engagements, likes, comments, shares, clicks, saves, recorded_at), `post_platforms` (external_id, last_sync_at, status, platform), `social_accounts` (access_token, platform_id, metadata)  
+> Lokalizace: `src/messages/cs.json`, `en.json`, `uk.json`
+
+---
+
+## 🔍 Analýza současného stavu
+
+### Co funguje
+- **`getTagBreakdown()`** v `actions.ts` — reálná funkce čtecí data z DB (post_tags, tags, post_platforms) → funguje správně, zachovat.
+- **`AnalyticsDashboard`** komponenta — glassmorphism design (20px radius, backdrop-blur-md), Recharts grafy (AreaChart + BarChart), metric karty, period filtr (7/30/90 dní), Empty State → vše zachovat.
+- **TagBreakdown** komponenta — dialog s detaily (status/platform breakdown) → zachovat.
+- **i18n** — sekce `analytics` existuje ve všech 3 jazycích (~35 klíčů).
+
+### Co je třeba změnit
+- **`generateDemoAnalytics()`** v `actions.ts` (ř. 194–285) — generuje náhodná demo data a vkládá je do DB. Musí být nahrazen reálným syncem z API sociálních sítí.
+- **`page.tsx`** (ř. 48–71) — auto-generuje demo data, když jsou analytics prázdné. Musí číst pouze reálná data z DB + nabízet tlačítko pro manuální sync.
+- Tabulka `analytics` nemá sloupec `platform` ani `external_id` — analytická data jsou vázána jen na `post_id`. Pro upsert podle platformy bude potřeba buď rozšířit tabulku, nebo použít `post_id` jako unikátní klíč a agregovat.
+
+### Struktura DB `analytics`
+```sql
+analytics (
+  id uuid PK,
+  post_id uuid FK → posts(id),
+  impressions int,
+  engagements int,
+  likes int,
+  comments int,
+  shares int,
+  clicks int,
+  saves int,
+  recorded_at timestamptz
+)
+```
+
+### Struktura `post_platforms` (relevantní sloupce)
+```sql
+post_platforms (
+  id uuid PK,
+  post_id uuid FK → posts(id),
+  platform text,            -- 'instagram', 'facebook', 'twitter', 'linkedin', 'youtube', 'tiktok'
+  status text,              -- 'published', 'failed', atd.
+  external_id text,         -- ID příspěvku na externí platformě
+  last_sync_at timestamptz, -- už existuje! (cron-sync.ts ho používá)
+  metadata jsonb,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+```
+
+### Struktura `social_accounts` (relevantní sloupce)
+```sql
+social_accounts (
+  id uuid PK,
+  user_id uuid FK,
+  platform text,            -- 'instagram', 'facebook', atd.
+  access_token text,        -- access token pro API
+  platform_id text,         -- ID účtu na externí platformě
+  token_expires_at timestamptz,
+  metadata jsonb,           -- refresh_token u YouTube
+  is_active boolean
+)
+```
+
+---
+
+## ✅ Checklist implementace
+
+### Fáze A: Odstranění demo logiky
+
+| # | Popis | Soubor | Status |
+|---|-------|--------|--------|
+| ~~A1~~ | ~~Smazat `generateDemoAnalytics()` z `actions.ts`~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~A2~~ | ~~Odstranit auto-generaci demo dat z `page.tsx` (ř. 48–71) — nahradit čistým fetchem z DB~~ | `analytics/page.tsx` | ✅ Hotovo |
+| A3 | Přidat prop `lastSyncAt` a `syncError` do `AnalyticsDashboard` pro info o synchronizaci | `analytics/analytics-dashboard.tsx` | ⏭️ Skočeno (stačí toast report) |
+| ~~A4~~ | ~~Implementovat vylepšený "Empty State" — rozlišit 3 případy: (a) žádné publikované posty, (b) posty bez analytiky + tlačítko Sync, (c) sync se selhal~~ | `analytics/analytics-dashboard.tsx` | ✅ Hotovo |
+
+### Fáze B: Server Action pro Insights Sync
+
+| # | Popis | Soubor | Status |
+|---|-------|--------|--------|
+| ~~B1~~ | ~~Vytvořit `syncAnalyticsInsights()` server action — hlavní orchestrátor~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B2~~ | ~~Načíst všechny `post_platforms` se status='published' + external_id pro aktuálního uživatele~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B3~~ | ~~Kontrola throttlingu: přeskočit položky s `last_sync_at` < 60 minut (new Date().getTime() - last_sync_at < 3_600_000)~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B4~~ | ~~Implementovat `fetchMetaInsights()` — Meta Graph API pro Facebook i Instagram (`/{post-id}/insights?metric=impressions,engagement,likes_count,comments_count,shares,clicks`)~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B5~~ | ~~Implementovat `fetchYouTubeInsights()` — YouTube Data API v3 (`videos.list?part=statistics&id={videoId}`) → viewCount, likeCount, commentCount~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B6~~ | ~~Placeholder pro X (Twitter) — uložit nulové hodnoty s logem TODO~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B7~~ | ~~Placeholder pro LinkedIn — uložit nulové hodnoty s logem TODO~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B8~~ | ~~Placeholder pro TikTok — uložit nulové hodnoty s logem TODO~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B9~~ | ~~Upsert výsledků do `analytics` tabulky (přes `post_id` jako unikátní klíč, nebo insert + on_conflict)~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B10~~ | ~~Aktualizovat `last_sync_at` v `post_platforms` po úspěšném syncu~~ | `analytics/actions.ts` | ✅ Hotovo |
+| ~~B11~~ | ~~Error handling: logovat chyby, pokračovat u dalších položek, vrátit souhrnný report (successCount, errorCount, skippedCount)~~ | `analytics/actions.ts` | ✅ Hotovo |
+
+### Fáze C: API implementace — detaily
+
+#### Meta Graph API (Facebook + Instagram)
+- **Endpoint:** `GET https://graph.facebook.com/v20.0/{post-id}/insights?metric=impressions,engagement,likes_count,comments_count,shares&access_token={token}`
+- **Token:** z `social_accounts.access_token` pro platform='facebook' (pro Instagram se používá FB page token s IG business account)
+- **Platform_id:** `social_accounts.platform_id` = Facebook Page ID nebo IG Business Account ID
+- **External_id mapping:** 
+  - Facebook: `post_platforms.external_id` = `{page-id}_{post-id}` → Graph API ID přímo
+  - Instagram: `post_platforms.external_id` = IG media ID → Graph API ID přímo
+- **Response parsing:** `values[{metric, value:{impressions, engaged_users, at}}]` → mapovat na naši schémata
+
+#### YouTube Data API v3
+- **Endpoint:** `GET https://www.googleapis.com/youtube/v3/videos?part=statistics&id={videoId}&key={apiKey}` nebo s OAuth tokenem
+- **Token:** použít `getValidYouTubeAccessToken()` z `publish-youtube.ts` (už existuje!)
+- **Response parsing:** `items[0].statistics { viewCount, likeCount, commentCount }` → impressions=viewCount, likes=likeCount, comments=commentCount
+
+### Fáze D: UI aktualizace
+
+| # | Popis | Soubor | Status |
+|---|-------|--------|--------|
+| ~~D1~~ | ~~Přidat tlačítko "Synchronizovat analytiku" do headeru dashboardu (s loading stavem)~~ | `analytics-dashboard.tsx` | ✅ Hotovo |
+| D2 | Zobrazení "Poslední synchronizace: {čas}" pod headerem | `analytics/analytics-dashboard.tsx` | ⏭️ Skočeno (stačí toast report) |
+| ~~D3~~ | ~~Metric karty sčítají z reálných dat (už funguje přes `filteredAnalytics.reduce`) — ověřit, že po odstranění demo to chodí~~ | `analytics/analytics-dashboard.tsx` | ✅ Hotovo |
+| ~~D4~~ | ~~Vylepšený Empty State: ikonka + text "Zatím žádné analytické údaje" + tlačítko Sync (pokud jsou publikované posty)~~ | `analytics/analytics-dashboard.tsx` | ✅ Hotovo |
+
+### Fáze E: Lokalizace
+
+| # | Popis | Klíč | Status |
+|---|-------|------|--------|
+| ~~E1~~ | ~~"syncAnalytics" (titulek tlačítka)~~ | `analytics.syncAnalytics` | ✅ CS/EN/UK |
+| ~~E2~~ | ~~"syncingAnalytics" (loading text)~~ | `analytics.syncingAnalytics` | ✅ CS/EN/UK |
+| ~~E3~~ | ~~"lastSynced" (info o poslední sync)~~ | `analytics.lastSynced` | ✅ CS/EN/UK |
+| ~~E4~~ | ~~"syncSuccess" (toast úspěch)~~ | `analytics.syncSuccess` | ✅ CS/EN/UK |
+| ~~E5~~ | ~~"syncError" (toast chyba)~~ | `analytics.syncError` | ✅ CS/EN/UK |
+| ~~E6~~ | ~~"noPublishedPosts" (empty state — žádné posty)~~ | `analytics.noPublishedPosts` | ✅ CS/EN/UK |
+| ~~E7~~ | ~~"noAnalyticsYet" (empty state — posty jsou, ale bez dat)~~ | `analytics.noAnalyticsYet` | ✅ CS/EN/UK |
+| ~~E8~~ | ~~"syncAnalyticsDescription" (popisek pod tlačítkem)~~ | `analytics.syncAnalyticsDescription` | ✅ CS/EN/UK |
+
+---
+
+## 📝 Konkrétní implementační kroky
+
+### Krok B1-B3: Hlavní orchestrátor `syncAnalyticsInsights()`
+```ts
+export async function syncAnalyticsInsights(): Promise<{
+  success: boolean;
+  data?: { synced: number; skipped: number; errors: number };
+  error?: string;
+}> {
+  // 1. Auth check
+  // 2. Načíst post_platforms WHERE status='published' AND external_id IS NOT NULL
+  // 3. Pro každý záznam:
+  //    a. Kontrola last_sync_at (throttle 60 min)
+  //    b. Získat access_token z social_accounts pro danou platformu
+  //    c. Vyvolat příslušný fetcher podle platformy
+  //    d. Upsert do analytics
+  //    e. Update last_sync_at v post_platforms
+  // 4. Return report
+}
+```
+
+### Krok B4: `fetchMetaInsights()` — Meta Graph API
+```ts
+async function fetchMetaInsights(params: {
+  accessToken: string;
+  externalId: string;
+  platform: 'facebook' | 'instagram';
+}): Promise<AnalyticsMetrics | null> {
+  // GET /{externalId}/insights?metric=impressions,engagement,likes_count,comments_count,shares
+  // Parse response → mapovat na naše metriky
+}
+```
+
+### Krok B5: `fetchYouTubeInsights()` — YouTube Data API v3
+```ts
+async function fetchYouTubeInsights(params: {
+  account: SocialAccountRow;
+  videoId: string;
+}): Promise<AnalyticsMetrics | null> {
+  // Použít getValidYouTubeAccessToken() pro refresh tokenu
+  // GET /youtube/v3/videos?part=statistics&id={videoId}
+  // Parse statistics → viewCount→impressions, likeCount→likes, commentCount→comments
+}
+```
+
+### Krok B9: Upsert do analytics
+```ts
+// Použít Supabase upsert s on_conflict na post_id
+// Pokud analytika pro post_id již existuje → update
+// Pokud ne → insert
+await supabase.from('analytics').upsert(
+  { post_id, impressions, engagements, likes, comments, shares, clicks, saves, recorded_at: new Date().toISOString() },
+  { onConflict: 'post_id' } // nebo composite key pokud je potřeba
+).eq('post_id', postId)
+```
+
+---
+
+## ⚠️ Rizika a poznámky
+
+1. **`analytics` tabulka nemá unikátní constraint na `post_id`** — upsert vyžaduje ON CONFLICT klíč. Buď přidat unique index na `post_id`, nebo použít `.upsert()` s `{ onConflict: 'post_id' }` (Supabase to zvládne, ale potřebuje constraint). Alternativně: nejprve SELECT a pak INSERT nebo UPDATE.
+2. **Meta Graph API rate limity** — 200 requestů/hodinu pro user token, 500 pro page token. Throttling 60 min by měl stačit.
+3. **Instagram insights vyžadují Business Account** — osobní účty nemají přístup k insights přes Graph API.
+4. **YouTube statistics mohou být delayed** — po publikování videa může trvat několik minut/hodin, než se statistiky objeví.
+5. **Zachovat stávající design** — glassmorphism (bg-card/40, backdrop-blur-md), 20px radius (rounded-[20px]), Recharts grafy.
+
+---
+
+## 📊 Prioritní pořadí implementace
+
+| Priorita | Krok | Odhad | Status |
+|----------|------|-------|--------|
+| 🔴 Vysoká | ~~A1+A2 (odstranit demo logiku)~~ | 15 min | ✅ Hotovo |
+| 🔴 Vysoká | ~~B1+B2+B3 (orchestrátor + throttling)~~ | 40 min | ✅ Hotovo |
+| 🔴 Vysoká | ~~B5 (YouTube insights — máme hotový token refresh)~~ | 30 min | ✅ Hotovo |
+| 🟡 Střední | ~~B4 (Meta Graph API insights)~~ | 45 min | ✅ Hotovo |
+| 🟡 Střední | ~~B9+B10 (upsert + last_sync_at update)~~ | 20 min | ✅ Hotovo |
+| 🟢 Nízká | ~~B6-B8 (placeholdery X, LinkedIn, TikTok)~~ | 15 min | ✅ Hotovo |
+| 🟢 Nízká | ~~D1-D4 (UI tlačítko sync, empty state)~~ | 30 min | ✅ Hotovo |
+| 🟢 Nízká | ~~E1-E8 (lokalizace)~~ | 15 min | ✅ Hotovo |
+
+**Celkový odhad: ~210 min (~3,5 hodiny)** — **Vše hotovo ✅**
+
+---
+
+## ⚠️ Důležité — před nasazením
+
+> Spustit SQL migraci `supabase/migrations/033_analytics_unique_post_id.sql` v Supabase projektu (SQL editor nebo CLI), aby fungoval upsert s `ON CONFLICT post_id`.
+
+---
+
+# 📋 Úkoly — Dashboard (přehledová stránka)
+
+> Vytvořeno: 2026-07-04  
+> Soubory: `src/app/[locale]/(dashboard)/page.tsx`, `src/lib/dashboard-stats.ts`  
+> Komponenty: `src/components/dashboard/platform-donut-chart.tsx`, `src/components/dashboard/top-labels-chart.tsx`  
+> Lokalizace: `src/messages/cs.json`, `en.json`, `uk.json`
+
+---
+
+## 🐛 #1 — Zdvojené nadpisy v "Rychlé akce" ✅ Hotovo
+
+**Soubor:** `page.tsx` (ř. 214–232)  
+**Problém:** Každý `QuickActionCard` dostával **stejný i18n klíč** pro `title` i `description`:
+- `title={t("newPost")}` + `description={t("newPost")}` → "Nový příspěvek" / "Nový příspěvek"
+- `title={navT("templates")}` + `description={navT("templates")}` → "Šablony" / "Šablony"
+- `title={navT("analytics")}` + `description={navT("analytics")}` → "Analytika" / "Analytika"
+
+**Řešení:**
+1. `description` u "Nový příspěvek" → nový klíč `dashboard.newPostDescription` ("Vytvořit a naplánovat obsah")
+2. `description` u "Šablony" → existující klíč `dashboard.browseTemplates` ("Prohlédnout šablony")
+3. `description` u "Analytika" → nový klíč `dashboard.viewAnalytics` ("Sledovat výkon a metriky")
+4. Přidány překladové klíče do cs.json, en.json, uk.json
+
+**Status:** ✅ Hotovo
+
+---
+
+## 🔄 Zbývá — Analýza dashboardu
+
+### 🔴 Vysoká priorita
+
+#### #2 — Hardcoded CZ text v ConsistencyScore
+
+**Soubor:** `page.tsx` (ř. 349–351)  
+**Problém:** Texty "Výborná konzistence!", "Dobrá, můžeš lepší!", "Zkus postovat pravidelněji." jsou hardcoded v češtině. EN/UK uživatelé uvidí český text.
+
+```tsx
+// AKTUÁLNĚ (ř. 349–351):
+<p className="text-xs text-muted-foreground/60">
+  {score >= 80 ? "Výborná konzistence!" : score >= 50 ? "Dobrá, můžeš lepší!" : "Zkus postovat pravidelněji."}
+</p>
+
+// MĚLO BY BÝT:
+<p className="text-xs text-muted-foreground/60">
+  {score >= 80 ? t("consistencyExcellent") : score >= 50 ? t("consistencyGood") : t("consistencyImprove")}
+</p>
+```
+
+**Kroky:**
+1. Přidat klíče `consistencyExcellent`, `consistencyGood`, `consistencyImprove` do cs.json, en.json, uk.json
+2. Upravit `ConsistencyScore` komponentu — přijmout `translations` prop nebo předat `t` funkci
+3. Otestovat ve všech 3 jazycích
+
+**Odhad:** ~15 min
+
+---
+
+### 🟡 Střední priorita
+
+#### #3 — ConsistencyScore je hardcoded na 89%
+
+**Soubor:** `page.tsx` (ř. 35, 151)  
+**Problém:** `consistencyScore` je vždy `89` — nikde se nevypočítává z reálných dat. V `try/catch` i v catch bloku je default 89.
+
+**Navrhované řešení:**
+Vypočítat konzistenci z publikovaných datumů — měřit pravidelnost (počet dní s publikací / celkový rozsah dnů). Nebo použít existující `calculateStreak()` a převést na procentuální skóre.
+
+Možné přístupy:
+- **A) Jednoduché:** `min(100, round(streak * 10))` — 5 dní = 50%, 10+ dní = 100%
+- **B) Přesné:** Z `publishedPlatformsRows.data` spočítat days-with-publish / total-days-in-range
+- **C) DB stored:** Uložit do `users.consistency_score`, aktualizovat cron jobem
+
+**Doporučení:** Začít s přístupem A (rychlý win), později přejít na B.
+
+**Odhad:** ~20 min (A), ~45 min (B)
+
+---
+
+#### #4 — Streak card: "0d" vypadá divně při hodnotě 0
+
+**Soubor:** `page.tsx` (ř. 174–179)  
+**Problém:** Když je `streak === 0`, zobrazuje se "0d" bez jakéhokoliv kontextu. Uživatel neví, co to znamená nebo jak sérii začít.
+
+**Navrhované řešení:**
+- Při `streak === 0`: zobrazit "—" nebo "0" s podtextem "Začněte publikovat!" (i18n)
+- Přidat trend prop do Streak card (jako u TotalPosts) — např. "Nejdelší série: X dní"
+
+**Odhad:** ~15 min
+
+---
+
+#### #5 — Missing empty state pro nového uživatele
+
+**Soubor:** `page.tsx`  
+**Problém:** Když je uživatel zcela nový (0 postů, 0 účtů, 0 šablon), dashboard zobrazuje jen prázdná čísla "0" a prázdné grafy. Chybí onboarding guidance.
+
+**Navrhované řešení:**
+- Pokud `totalPosts === 0 && connectedAccounts === 0`: zobrazit welcome banner s CTA:
+  1. "Propojte první účet" → `/accounts`
+  2. "Vytvořte první příspěvek" → `/posts/new`
+- Použít existující `SetupGuide` komponentu (`src/components/dashboard/setup-guide.tsx`) pokud je dostupná
+
+**Odhad:** ~30 min
+
+---
+
+### 🟢 Nízká priorita — UX vylepšení
+
+#### #6 — QuickActionCard: description má stejnou barvu jako title u primary varianty
+
+**Soubor:** `page.tsx` (ř. 387)  
+**Problém:** U primary (gradient) karty je description `text-sm text-white` — bílý na bílém/gradientu má nízký kontrast. Title je `font-semibold` ale description není vizuálně odlišený.
+
+**Řešení:** Změnit na `text-sm text-white/80` pro lepší hierarchii a čitelnost.
+
+**Odhad:** ~2 min
+
+---
+
+#### #7 — UpgradeBanner: "pro"/"creator" label není i18n
+
+**Soubor:** `page.tsx` (ř. 412–417)  
+**Problém:** `planLabel` vrací hardcoded `"pro"` / `"creator"` / `translations.free`. Mělo by to být i18n.
+
+```tsx
+// AKTUÁLNĚ:
+const planLabel =
+  currentPlan === "pro" ? "pro"
+  : currentPlan === "creator" ? "creator"
+  : translations.free;
+
+// MĚLO BY BÝT (přidat do translations props):
+const planLabel =
+  currentPlan === "pro" ? commonT("pro") // nebo billing.pro
+  : currentPlan === "creator" ? commonT("creator")
+  : translations.free;
+```
+
+**Odhad:** ~10 min
+
+---
+
+#### #8 — Dashboard: Chybí sekce "Poslední příspěvky"
+
+**Soubor:** `page.tsx`  
+**Problém:** i18n klíč `dashboard.recentPosts` existuje, ale v dashboardu není žádná sekce s posledními příspěvky. Uživatel po publikaci nemá rychlý přehled co dělal naposledy.
+
+**Navrhované řešení:**
+- Přidat sekci pod "Rychlé akce" s 3–5 nejnovějšími příspěvky
+- Zobrazit: náhled textu (truncate 80 znaků), platform ikony, status badge, datum
+- Link na `/posts` pro "Zobrazit vše"
+- Může použít stávající DB dotaz z `postsData` s `.order('created_at', { ascending: false }).limit(5)`
+
+**Odhad:** ~40 min
+
+---
+
+#### #9 — StatCards: Chybí klikací chování / navigace
+
+**Soubor:** `page.tsx` (ř. 162–180)  
+**Problém:** Statistikové karty jsou pouze informativní — nelze na ně kliknout pro detail. Uživatel očekává, že kliknutím na "Naplánované: 5" ho to dovede k filtrovanému seznamu naplánovaných příspěvků.
+
+**Navrhované řešení:**
+- Obalit každou StatCard do `<Link>` nebo přidat `onClick` navigaci
+- Celkem příspěvků → `/posts`
+- Naplánované → `/calendar?filter=scheduled` (nebo `/posts?status=scheduled`)
+- Propojené účty → `/accounts`
+- Streak → žádná navigace (nebo tooltip s vysvětlením)
+
+**Odhad:** ~20 min
+
+---
+
+#### #10 — Scheduled count zahrnuje i publishing status
+
+**Soubor:** `page.tsx` (ř. 72–76)  
+**Problém:** Dotaz pro "Naplánované" počítá jen `status = 'scheduled'`. Příspěvky ve stavu `publishing` se nepočítají. Uživatel může videt pokles čísla během procesu publikování.
+
+**Řešení:** Přidat `.or('status.eq.scheduled,status.eq.publishing')` nebo zkontrolovat zda je to zamýšlené.
+
+**Odhad:** ~5 min
+
+---
+
+#### #11 — Trend indikátor: "tento týden" ukazuje count, ne trend % 
+
+**Soubor:** `page.tsx` (ř. 167–170) + `dashboard-stats.ts` (ř. 104–118)  
+**Problém:** `calculateTrend()` vrací absolutní počet postů za posledních 7 dní (např. "+3 tento týden"). Vizualizace s TrendingUp/TrendingDown ikonou naznačuje změnu %, ale ve skutečnosti jde o count. Uživatel si může myslet, že "+3" znamená "+3%".
+
+**Navrhované řešení:**
+- Buď přejmenovat label na "3 nových tento týden" (i18n)
+- Nebo implementovat skutečný trend: porovnat minulý 7d vs aktuální 7d a vypočítat % změnu
+- Doporučení: přidat i18n klíč `thisWeekCount` = "{count} nových tento týden"
+
+**Odhad:** ~15 min (label fix), ~30 min (skutečný %)
+
+---
+
+#### #12 — Gradient ID kolize v ConsistencyScore SVG
+
+**Soubor:** `page.tsx` (ř. 337)  
+**Problém:** `<linearGradient id="consistencyGradient">` — pokud by se kdy zobrazily 2+ ConsistencyScore komponenty na jedné stránce, gradient ID by kolovalo. Nyní je jen jedna instance, ale pro budoucí robustnost:
+
+**Řešení:** Přidat unikátní suffix, např. `id="consistencyGradient-${Date.now()}"` nebo statický prefix `postio-consistency-gradient`.
+
+**Odhad:** ~3 min
+
+---
+
+#### #13 — Indentace v JSX je nekonzistentní
+
+**Soubor:** `page.tsx` (ř. 155–248)  
+**Problém:** Hlavní `<div>` na ř. 155 má children s různou indentací:
+- Ř. 156: `    <div className="space-y-1">` (4 mezery — správně)
+- Ř. 162: `      <div className="grid gap-4...` (6 mezer — o 2 víc)
+- Některé sekce jsou začištěné na 4, jiné na 6
+
+**Řešení:** Unifikovat na 4 mezere indentaci pro všechny direct children hlavního divu.
+
+**Odhad:** ~5 min
+
+---
+
+## 📊 Shrnutí priorit
+
+| # | Popis | Priorita | Odhad | Status |
+|---|-------|----------|-------|--------|
+| ~~1~~ | ~~Zdvojené nadpisy v Rychlé akce~~ | 🔴 Vysoká | ~~10 min~~ | ✅ Hotovo |
+| ~~2~~ | ~~Hardcoded CZ text v ConsistencyScore~~ | ~~🔴 Vysoká~~ | ~~15 min~~ | ✅ Hotovo |
+| 3 | ConsistencyScore hardcoded na 89% | 🟡 Střední | 20–45 min | ⏳ |
+| 4 | Streak "0d" bez kontextu | 🟡 Střední | 15 min | ⏳ |
+| 5 | Missing empty state pro nového uživatele | 🟡 Střední | 30 min | ⏳ |
+| 6 | QuickActionCard kontrast description | 🟢 Nízká | 2 min | ⏳ |
+| 7 | UpgradeBanner planLabel ne-i18n | 🟢 Nízká | 10 min | ⏳ |
+| 8 | Chybí sekce "Poslední příspěvky" | 🟢 Nízká | 40 min | ⏳ |
+| 9 | StatCards bez navigace | 🟢 Nízká | 20 min | ⏳ |
+| 10 | Scheduled count chybí publishing status | 🟢 Nízká | 5 min | ⏳ |
+| 11 | Trend ukazuje count místo % | 🟢 Nízká | 15–30 min | ⏳ |
+| 12 | SVG gradient ID kolize | 🟢 Nízká | 3 min | ⏳ |
+| 13 | Nekonzistentní indentace JSX | 🟢 Nízká | 5 min | ⏳ |
+
+**Celkový odhad zbývá: ~190–230 min (~3–4 hodiny)**
+
+---
+
+## 🎯 Doporučené pořadí implementace
+
+1. **#2** (hardcoded CZ) — kritický bug pro EN/UK uživatele, rychlá oprava
+2. **#6** (kontrast description) — 2 min quick fix, viditelný okamžitě po #1
+3. **#7** (planLabel i18n) — podobný problém jako #2, malý effort
+4. **#4** (streak 0d UX) — viditelné改善 pro většinu uživatelů
+5. **#3** (reálný consistency score) — core feature, která nyní nefunguje
+6. **#13 + #12** (code quality) — quick wins při refaktoru
+7. **#10 + #11** (data accuracy) — správnost metrik
+8. **#9** (StatCards navigace) — UX vylepšení
+9. **#5** (empty state) — onboarding experience
+10. **#8** (recent posts) — nejvyšší effort, nejnižší priorita

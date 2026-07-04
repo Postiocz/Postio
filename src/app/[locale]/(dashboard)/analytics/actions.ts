@@ -1,6 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { getValidYouTubeAccessToken } from "@/lib/actions/publish-youtube";
 
 /**
  * Fetch a breakdown of posts by internal tags for the analytics page.
@@ -109,11 +110,11 @@ export async function getTagBreakdown(days?: number): Promise<{
   const statusBreakdowns = new Map<string, Record<string, number>>();
   const platformBreakdowns = new Map<string, Record<string, number>>();
 
-  // Fetch post_platforms for all posts in window (single query)
+  // Fetch post_platforms for all posts in window (single query).
+  // post_platforms has no user_id column — filter by post_ids (already scoped to user above).
   const { data: ppRows, error: ppErr } = await supabase
     .from("post_platforms")
     .select("post_id, status, platform")
-    .eq("user_id", user.id)
     .in("post_id", postIds);
 
   if (!ppErr && ppRows) {
@@ -191,7 +192,57 @@ export async function getTagBreakdown(days?: number): Promise<{
   return { success: true, data: { tags: resultTags, total: totalTagAssignments } };
 }
 
-export async function generateDemoAnalytics() {
+// ============================================================
+// Types
+// ============================================================
+
+type AnalyticsMetrics = {
+  impressions: number;
+  engagements: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  clicks: number;
+  saves: number;
+};
+
+const ZERO_METRICS: AnalyticsMetrics = {
+  impressions: 0, engagements: 0, likes: 0, comments: 0, shares: 0, clicks: 0, saves: 0,
+};
+
+type SocialAccountRow = {
+  id: string;
+  user_id: string;
+  platform: string;
+  access_token: string | null;
+  token_expires_at: string | null;
+  metadata: Record<string, unknown> | null;
+  platform_id: string | null;
+};
+
+type PostPlatformRow = {
+  id: string;
+  post_id: string;
+  platform: string;
+  status: string;
+  external_id: string | null;
+  last_sync_at: string | null;
+};
+
+// ============================================================
+// Orchestrator — syncAnalyticsInsights
+// ============================================================
+
+/**
+ * Main orchestrator that fetches real analytics from social APIs and
+ * upserts them into the `analytics` table. Multi-platform posts have
+ * their metrics summed (aggregated) per post_id before upsert.
+ */
+export async function syncAnalyticsInsights(): Promise<{
+  success: boolean;
+  data?: { synced: number; skipped: number; errors: number };
+  error?: string;
+}> {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -199,87 +250,323 @@ export async function generateDemoAnalytics() {
     return { success: false, error: "Unauthorized" };
   }
 
-  const now = new Date();
-  const demoPosts = [];
+  // Use admin client for DB writes (bypasses RLS in server actions)
+  const admin = createAdminClient();
 
-  for (let i = 0; i < 30; i++) {
-    const postDate = new Date(now);
-    postDate.setDate(postDate.getDate() - Math.floor(Math.random() * 90));
-
-    const platforms = [["instagram"], ["facebook"], ["twitter"], ["linkedin"]][Math.floor(Math.random() * 4)];
-
-    demoPosts.push({
-      user_id: user.id,
-      content: `Demo post ${i + 1}`,
-      media_urls: [],
-      platforms,
-      scheduled_at: postDate.toISOString(),
-      status: "published" as const,
-      published_at: postDate.toISOString(),
-      created_at: postDate.toISOString(),
-      updated_at: postDate.toISOString(),
-    });
-  }
-
-  const { data: insertedPosts, error: postsError } = await supabase
+  // Get this user's post_ids first (post_platforms has no user_id column)
+  const { data: userPosts, error: userPostsErr } = await admin
     .from("posts")
-    .insert(demoPosts)
-    .select("id");
+    .select("id")
+    .eq("user_id", user.id);
 
-  if (postsError) {
-    console.error("Error inserting demo posts:", JSON.stringify(postsError, null, 2));
-    return { success: false, error: postsError.message || "Unknown posts error" };
+  if (userPostsErr || !userPosts) {
+    return { success: false, error: userPostsErr?.message ?? "Failed to fetch user posts" };
   }
 
-  const insertedPostIds = (insertedPosts as any[] | undefined)?.map((p: { id: string }) => p.id) ?? [];
-
-  if (insertedPostIds.length === 0) {
-    return { success: false, error: "No posts were inserted" };
+  const userPostIds = userPosts.map((p) => p.id);
+  if (userPostIds.length === 0) {
+    return { success: true, data: { synced: 0, skipped: 0, errors: 0 } };
   }
 
-  const demoAnalytics = insertedPostIds.map((postId: string) => {
-    const postDate = new Date(now);
-    postDate.setDate(postDate.getDate() - Math.floor(Math.random() * 90));
+  // B2: Load published post_platforms with external_id for this user's posts
+  const { data: ppRows, error: ppErr } = await admin
+    .from("post_platforms")
+    .select("id, post_id, platform, status, external_id, last_sync_at")
+    .in("post_id", userPostIds)
+    .eq("status", "published")
+    .not("external_id", "is", null);
 
-    const impressions = Math.floor(Math.random() * 5000) + 500;
-    const engagements = Math.floor(impressions * (Math.random() * 0.08 + 0.02));
-    const likes = Math.floor(engagements * (Math.random() * 0.5 + 0.3));
-    const comments = Math.floor(engagements * (Math.random() * 0.2 + 0.05));
-    const shares = Math.floor(engagements * (Math.random() * 0.15 + 0.02));
-    const clicks = Math.floor(impressions * (Math.random() * 0.03 + 0.005));
-    const saves = Math.floor(engagements * (Math.random() * 0.1 + 0.01));
+  if (ppErr || !ppRows) {
+    return { success: false, error: ppErr?.message ?? "Failed to fetch post_platforms" };
+  }
 
-    return {
-      post_id: postId,
-      impressions,
-      engagements,
-      likes,
-      comments,
-      shares,
-      clicks,
-      saves,
-      recorded_at: postDate.toISOString(),
-    };
-  });
+  if (ppRows.length === 0) {
+    return { success: true, data: { synced: 0, skipped: 0, errors: 0 } };
+  }
 
-  // Try insert with detailed metrics first
-  let { error: analyticsError } = await supabase.from("analytics").insert(demoAnalytics);
+  // Load all social accounts for this user once
+  const { data: accounts, error: accErr } = await admin
+    .from("social_accounts")
+    .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
+    .eq("user_id", user.id)
+    .eq("is_active", true);
 
-  // Fallback: if detailed columns don't exist, insert with basic metrics only
-  if (analyticsError) {
-    console.warn("Detailed analytics insert failed, trying basic insert:", JSON.stringify(analyticsError, null, 2));
-    const basicAnalytics = demoAnalytics.map((a) => ({
-      post_id: a.post_id,
-      impressions: a.impressions,
-      engagements: a.engagements,
-      recorded_at: a.recorded_at,
-    }));
-    const { error: basicError } = await supabase.from("analytics").insert(basicAnalytics);
-    if (basicError) {
-      console.error("Error inserting demo analytics (basic):", JSON.stringify(basicError, null, 2));
-      return { success: false, error: basicError.message || "Unknown analytics error" };
+  if (accErr || !accounts) {
+    return { success: false, error: accErr?.message ?? "Failed to fetch social accounts" };
+  }
+
+  // Build platform → account lookup (use first active account per platform)
+  const accountByPlatform = new Map<string, SocialAccountRow>();
+  for (const acc of accounts) {
+    if (!accountByPlatform.has(acc.platform)) {
+      accountByPlatform.set(acc.platform, acc as SocialAccountRow);
     }
   }
 
-  return { success: true };
+  // B3: Throttle — skip items synced < 60 min ago
+  const sixtyMinAgo = Date.now() - 60 * 60 * 1000;
+  const THROTTLE_MS = 60 * 60 * 1000;
+
+  // Group by post_id so we can aggregate multi-platform metrics
+  const groupedByPost = new Map<string, PostPlatformRow[]>();
+  for (const row of ppRows) {
+    const group = groupedByPost.get(row.post_id) ?? [];
+    group.push(row as PostPlatformRow);
+    groupedByPost.set(row.post_id, group);
+  }
+
+  let synced = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  // Per-post aggregated metrics (sum across platforms)
+  const postAggregated = new Map<string, AnalyticsMetrics>();
+  // Track which post_platform rows need last_sync_at update
+  const updatedRows = new Set<string>();
+
+  for (const [postId, platformRows] of groupedByPost) {
+    let postMetrics: AnalyticsMetrics | null = null;
+    let anySynced = false;
+
+    for (const pp of platformRows) {
+      // B3: Throttle check
+      const lastSyncMs = pp.last_sync_at ? new Date(pp.last_sync_at).getTime() : 0;
+      if (Date.now() - lastSyncMs < THROTTLE_MS) {
+        skipped++;
+        continue;
+      }
+
+      // Get access token for this platform
+      const account = accountByPlatform.get(pp.platform);
+      if (!account || !account.access_token) {
+        console.log(`[Analytics] Skipping ${pp.platform} for post ${postId}: no active account or token`);
+        skipped++;
+        continue;
+      }
+
+      // Fetch metrics based on platform
+      let metrics: AnalyticsMetrics | null = null;
+
+      try {
+        if (pp.platform === "facebook" || pp.platform === "instagram") {
+          metrics = await fetchMetaInsights({
+            accessToken: account.access_token!,
+            externalId: pp.external_id!,
+            platform: pp.platform as "facebook" | "instagram",
+          });
+        } else if (pp.platform === "youtube") {
+          metrics = await fetchYouTubeInsights({
+            account,
+            videoId: pp.external_id!,
+          });
+        } else if (pp.platform === "twitter") {
+          // B6: X placeholder
+          console.log(`[Analytics] TODO: X/Twitter insights not implemented — skipping post ${postId}`);
+          skipped++;
+          continue;
+        } else if (pp.platform === "linkedin") {
+          // B7: LinkedIn placeholder
+          console.log(`[Analytics] TODO: LinkedIn insights not implemented — skipping post ${postId}`);
+          skipped++;
+          continue;
+        } else if (pp.platform === "tiktok") {
+          // B8: TikTok placeholder
+          console.log(`[Analytics] TODO: TikTok insights not implemented — skipping post ${postId}`);
+          skipped++;
+          continue;
+        }
+      } catch (err) {
+        console.error(`[Analytics] Error fetching ${pp.platform} for post ${postId}:`, err);
+        errors++;
+        continue;
+      }
+
+      if (!metrics) {
+        skipped++;
+        continue;
+      }
+
+      anySynced = true;
+
+      // Accumulate metrics across platforms (B-requirement: sum for multi-platform posts)
+      const existing = postAggregated.get(postId) ?? { ...ZERO_METRICS };
+      postAggregated.set(postId, {
+        impressions: existing.impressions + metrics.impressions,
+        engagements: existing.engagements + metrics.engagements,
+        likes: existing.likes + metrics.likes,
+        comments: existing.comments + metrics.comments,
+        shares: existing.shares + metrics.shares,
+        clicks: existing.clicks + metrics.clicks,
+        saves: existing.saves + metrics.saves,
+      });
+
+      // Track which post_platform rows to update
+      updatedRows.add(pp.id);
+    }
+
+    if (anySynced) {
+      synced++;
+    }
+  }
+
+  // B9: Upsert aggregated results into analytics table
+  const now = new Date().toISOString();
+  for (const [postId, metrics] of postAggregated) {
+    const { error: upsertErr } = await admin
+      .from("analytics")
+      .upsert(
+        {
+          post_id: postId,
+          impressions: metrics.impressions,
+          engagements: metrics.engagements,
+          likes: metrics.likes,
+          comments: metrics.comments,
+          shares: metrics.shares,
+          clicks: metrics.clicks,
+          saves: metrics.saves,
+          recorded_at: now,
+        },
+        { onConflict: "post_id" }
+      );
+
+    if (upsertErr) {
+      console.error(`[Analytics] Upsert failed for post ${postId}:`, upsertErr.message);
+      errors++;
+    }
+  }
+
+  // B10: Update last_sync_at in post_platforms for synced rows
+  if (updatedRows.size > 0) {
+    const { error: syncUpdateErr } = await admin
+      .from("post_platforms")
+      .update({ last_sync_at: now })
+      .in("id", [...updatedRows]);
+
+    if (syncUpdateErr) {
+      console.error("[Analytics] Failed to update last_sync_at:", syncUpdateErr.message);
+    }
+  }
+
+  return { success: true, data: { synced, skipped, errors } };
+}
+
+// ============================================================
+// B4 — Meta Graph API fetcher (Facebook + Instagram)
+// ============================================================
+
+async function fetchMetaInsights(params: {
+  accessToken: string;
+  externalId: string;
+  platform: "facebook" | "instagram";
+}): Promise<AnalyticsMetrics | null> {
+  const { accessToken, externalId, platform } = params;
+
+  // Meta Graph API metrics available for both FB pages and IG business accounts
+  const metrics = [
+    "impressions",
+    "engagement",
+    "likes_count",
+    "comments_count",
+    "shares",
+    "outbound_clicks",
+    "saved_posts",
+  ].join(",");
+
+  const url = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/insights?metric=${metrics}&access_token=${accessToken}`;
+
+  try {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+
+    if (!response.ok) {
+      console.warn(`[Analytics] Meta API ${response.status} for ${platform}/${externalId}`);
+      return null;
+    }
+
+    const body = await response.json();
+    const values = body.data ?? [];
+
+    const metricMap = new Map<string, number>();
+    for (const item of values) {
+      const val = item.value;
+      if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object") {
+        // Some metrics return [{ metric_name, value }]
+        for (const v of val) {
+          if (typeof v === "object" && v !== null && "value" in v) {
+            const key = (v as Record<string, unknown>).name ?? (v as Record<string, unknown>).metric;
+            if (key && typeof (v as Record<string, unknown>).value === "number") {
+              metricMap.set(String(key), Number((v as Record<string, unknown>).value));
+            }
+          }
+        }
+      } else if (typeof val === "number") {
+        // Single numeric value — map by metric name
+        const name = item.name;
+        if (name) metricMap.set(name, val);
+      }
+    }
+
+    return {
+      impressions: metricMap.get("impressions") ?? 0,
+      engagements: metricMap.get("engagement") ?? 0,
+      likes: metricMap.get("likes_count") ?? 0,
+      comments: metricMap.get("comments_count") ?? 0,
+      shares: metricMap.get("shares") ?? 0,
+      clicks: metricMap.get("outbound_clicks") ?? 0,
+      saves: metricMap.get("saved_posts") ?? 0,
+    };
+  } catch (err) {
+    console.error(`[Analytics] Meta API error for ${platform}/${externalId}:`, err);
+    return null;
+  }
+}
+
+// ============================================================
+// B5 — YouTube Data API v3 fetcher
+// ============================================================
+
+async function fetchYouTubeInsights(params: {
+  account: SocialAccountRow;
+  videoId: string;
+}): Promise<AnalyticsMetrics | null> {
+  const { account, videoId } = params;
+
+  // Get valid (possibly refreshed) access token
+  const tokenResult = await getValidYouTubeAccessToken({ account });
+  if (!tokenResult.success || !tokenResult.accessToken) {
+    console.warn(`[Analytics] YouTube token error: ${(tokenResult as { error: string }).error}`);
+    return null;
+  }
+
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${encodeURIComponent(videoId)}&maxResults=1`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${tokenResult.accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`[Analytics] YouTube API ${response.status} for video ${videoId}`);
+      return null;
+    }
+
+    const body = await response.json();
+    const item = body.items?.[0];
+    const stats = item?.statistics ?? {};
+
+    return {
+      impressions: Number(stats.viewCount ?? 0),
+      engagements: 0, // YouTube doesn't have a direct "engagement" metric in this endpoint
+      likes: Number(stats.likeCount ?? 0),
+      comments: Number(stats.commentCount ?? 0),
+      shares: 0, // Not available via YouTube Data API v3
+      clicks: 0,
+      saves: 0,
+    };
+  } catch (err) {
+    console.error(`[Analytics] YouTube API error for video ${videoId}:`, err);
+    return null;
+  }
 }

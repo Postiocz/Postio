@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
 
   if (!clientKey || !clientSecret) {
     console.error("[TikTok OAuth] Missing TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET");
-    return NextResponse.redirect(new URL(redirectOnError, request.url));
+    const errorMsg = "TikTok API není nakonfigurováno. Chybí TIKTOK_CLIENT_KEY nebo TIKTOK_CLIENT_SECRET.";
+    return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
   }
 
   // ── Step 1: No code → redirect to TikTok authorize ──────────────
@@ -59,7 +60,8 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok) {
       const text = await tokenRes.text().catch(() => "");
       console.error(`[TikTok OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
-      return NextResponse.redirect(new URL(redirectOnError, request.url));
+      const errorMsg = `Výměna autorizačního kódu selhala: ${tokenRes.status} ${text || "Neznámá chyba"}`;
+      return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
     }
 
     const tokenData = (await tokenRes.json()) as {
@@ -91,7 +93,8 @@ export async function GET(request: NextRequest) {
     if (!userInfoRes.ok) {
       const text = await userInfoRes.text().catch(() => "");
       console.error(`[TikTok OAuth] /user/info failed: ${userInfoRes.status} ${text}`);
-      return NextResponse.redirect(new URL(redirectOnError, request.url));
+      const errorMsg = `Načítání uživatelských dat selhalo: ${userInfoRes.status} ${text || "Neznámá chyba"}`;
+      return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
     }
 
     const userInfoPayload = await userInfoRes.json() as {
@@ -167,7 +170,8 @@ export async function GET(request: NextRequest) {
 
     if (dbError) {
       console.error("[TikTok OAuth] DB upsert error:", dbError);
-      return NextResponse.redirect(new URL(redirectOnError, request.url));
+      const errorMsg = `Uložení účtu do databáze selhalo: ${dbError.message || "Neznámá chyba"}`;
+      return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
     }
 
     console.log(`[TikTok OAuth] Successfully connected ${accountName} (${platformId}) for user ${userId}`);

@@ -1362,6 +1362,7 @@ export async function updateOnPlatformAction(input: {
 }): Promise<{
   success: boolean;
   error?: string;
+  errorCode?: string;
 }> {
   const supabase = await createClient();
 

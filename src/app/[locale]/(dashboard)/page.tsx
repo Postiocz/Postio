@@ -48,6 +48,7 @@ export default async function DashboardPage({
 
   let totalPosts = 0;
   let scheduledPosts = 0;
+  let draftPosts = 0;
   let connectedAccounts = 0;
   let dbStreak = 0;
   let currentPlan = "free";
@@ -78,6 +79,7 @@ export default async function DashboardPage({
       const [
         postsData,
         scheduledData,
+        draftData,
         accountsData,
         userData,
         postTagsRows,
@@ -98,6 +100,15 @@ export default async function DashboardPage({
           })
           .eq("posts.user_id", user.id)
           .eq("status", "scheduled"),
+        // 2b. Rozepsané příspěvky (draft).
+        supabase
+          .from("post_platforms")
+          .select("post_id, posts!inner(user_id)", {
+            count: "exact",
+            head: true,
+          })
+          .eq("posts.user_id", user.id)
+          .eq("status", "draft"),
         // 3. Aktivní sociální účty.
         supabase
           .from("social_accounts")
@@ -127,6 +138,7 @@ export default async function DashboardPage({
 
       totalPosts = postsData.count ?? 0;
       scheduledPosts = scheduledData.count ?? 0;
+draftPosts = draftData.count ?? 0;
       connectedAccounts = accountsData.count ?? 0;
       dbStreak = userData.data?.streak ?? 0;
       currentPlan = userData.data?.plan ?? "free";
@@ -188,6 +200,7 @@ export default async function DashboardPage({
     // Supabase unavailable – use mock data for testing.
     totalPosts = 0;
     scheduledPosts = 0;
+    draftPosts = 0;
     connectedAccounts = 0;
     streak = 0;
     currentPlan = "free";
@@ -216,6 +229,7 @@ export default async function DashboardPage({
           title={t("scheduled")}
           value={scheduledPosts}
           icon={CalendarIcon}
+          subtitle={draftPosts > 0 ? `${draftPosts} draftů` : undefined}
         />
         <StatCard
           title={t("connectedAccounts")}

@@ -106,15 +106,26 @@ export function calculateTrend(
   days: number = 7,
   now: Date = new Date()
 ): number {
-  const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  let count = 0;
+  const nowMs = now.getTime();
+  const cutoffCurrent = nowMs - days * 24 * 60 * 60 * 1000;
+  const cutoffPrevious = cutoffCurrent - days * 24 * 60 * 60 * 1000;
+
+  let countCurrent = 0;
+  let countPrevious = 0;
+
   for (const d of createdAtDates) {
     if (!d) continue;
     const date = typeof d === "string" ? new Date(d) : d;
     if (isNaN(date.getTime())) continue;
-    if (date >= cutoff) count += 1;
+    const time = date.getTime();
+    if (time >= cutoffCurrent) countCurrent += 1;
+    else if (time >= cutoffPrevious) countPrevious += 1;
   }
-  return count;
+
+  if (countPrevious === 0) {
+    return countCurrent > 0 ? 100 : 0;
+  }
+  return Math.round(((countCurrent - countPrevious) / countPrevious) * 100);
 }
 
 /**

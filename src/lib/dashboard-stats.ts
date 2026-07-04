@@ -201,7 +201,9 @@ export function aggregatePlatforms(
     const name =
       platform === "twitter"
         ? "X (Twitter)"
-        : platform.charAt(0).toUpperCase() + platform.slice(1);
+        : platform && typeof platform === "string"
+          ? platform.charAt(0).toUpperCase() + platform.slice(1)
+          : "Unknown";
     data.push({
       name,
       value,

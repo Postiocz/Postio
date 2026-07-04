@@ -351,7 +351,7 @@ export default async function DashboardPage({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recentPosts.map((post) => (
               <Card
-                key={post.id}
+                key={post.id || `post-${Math.random()}`}
                 className="bg-card/40 backdrop-blur-md border-white/5 hover:bg-accent transition-all cursor-pointer"
               >
                 <CardContent className="p-4">
@@ -593,7 +593,7 @@ function UpgradeBanner({
       ? t("planPro")
       : currentPlan === "creator"
         ? t("planCreator")
-        : t("free");
+        : t("common.free");
 
   return (
     <Card className="relative overflow-hidden bg-card/60 backdrop-blur-sm border">

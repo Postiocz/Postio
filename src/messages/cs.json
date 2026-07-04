@@ -301,7 +301,8 @@
     "labelsEmptyTitle": "Zatím žádné štítky",
     "labelsEmptyDescription": "Přidejte štítky k příspěvkům a sledujte, co publikujete nejčastěji.",
     "labelsEmptyAction": "Vytvořit štítky",
-    "postsCount": "příspěvků"
+    "postsCount": "příspěvků",
+    "free": "Free"
   },
   "posts": {
     "title": "Příspěvky",

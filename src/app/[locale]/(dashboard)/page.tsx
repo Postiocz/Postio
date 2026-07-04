@@ -3,11 +3,30 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Link as LinkIcon, Copy, Plus, ArrowRight, Crown, Sparkles, Flame, Calendar as CalendarIcon, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  FileText,
+  Link as LinkIcon,
+  Copy,
+  Plus,
+  ArrowRight,
+  Crown,
+  Sparkles,
+  Flame,
+  Calendar as CalendarIcon,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { TopLabelsChart, type TopLabelItem } from "@/components/dashboard/top-labels-chart";
-import { PlatformDonutChart, type PlatformDatum } from "@/components/dashboard/platform-donut-chart";
+import {
+  TopLabelsChart,
+  type TopLabelItem,
+} from "@/components/dashboard/top-labels-chart";
+import {
+  PlatformDonutChart,
+  type PlatformDatum,
+} from "@/components/dashboard/platform-donut-chart";
 import {
   aggregateTopLabels,
   aggregatePlatforms,
@@ -41,7 +60,9 @@ export default async function DashboardPage({
 
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (user) {
       // Paralelní načtení všech dat potřebných pro dashboard.
@@ -71,7 +92,10 @@ export default async function DashboardPage({
         // 2. Naplánované příspěvky (přes post_platforms – inner JOIN kvůli RLS).
         supabase
           .from("post_platforms")
-          .select("post_id, posts!inner(user_id)", { count: "exact", head: true })
+          .select("post_id, posts!inner(user_id)", {
+            count: "exact",
+            head: true,
+          })
           .eq("posts.user_id", user.id)
           .eq("status", "scheduled"),
         // 3. Aktivní sociální účty.
@@ -81,7 +105,11 @@ export default async function DashboardPage({
           .eq("user_id", user.id)
           .eq("is_active", true),
         // 4. User profil (streak + plán).
-        supabase.from("users").select("streak, plan").eq("id", user.id).single(),
+        supabase
+          .from("users")
+          .select("streak, plan")
+          .eq("id", user.id)
+          .single(),
         // 5. Top štítky: post_tags JOIN tags. Filtrujeme přes user_id (RLS).
         supabase
           .from("post_tags")
@@ -94,10 +122,7 @@ export default async function DashboardPage({
           .eq("posts.user_id", user.id)
           .eq("status", "published"),
         // 7. Datumy vytvoření všech postů – pro trend indikátor.
-        supabase
-          .from("posts")
-          .select("created_at")
-          .eq("user_id", user.id),
+        supabase.from("posts").select("created_at").eq("user_id", user.id),
       ]);
 
       totalPosts = postsData.count ?? 0;
@@ -112,15 +137,15 @@ export default async function DashboardPage({
           // Supabase vrací tags jako objekt nebo pole – ošetříme oba případy.
           postTagsRows.data.map((r) => ({
             tag_id: r.tag_id as string,
-            tags: Array.isArray(r.tags) ? r.tags[0] ?? null : r.tags,
-          }))
+            tags: Array.isArray(r.tags) ? (r.tags[0] ?? null) : r.tags,
+          })),
         );
       }
 
       // Platformy donut chart.
       if (publishedPlatformsRows.data) {
         platformData = prioritizeForDonut(
-          aggregatePlatforms(publishedPlatformsRows.data)
+          aggregatePlatforms(publishedPlatformsRows.data),
         );
         publishedTotal = publishedPlatformsRows.data.length;
 
@@ -146,14 +171,16 @@ export default async function DashboardPage({
               daysWithPublish.add(d.toISOString().slice(0, 10));
             }
           }
-          consistencyScore = Math.round((daysWithPublish.size / totalDays) * 100);
+          consistencyScore = Math.round(
+            (daysWithPublish.size / totalDays) * 100,
+          );
         }
       }
 
       // Trend za posledních 7 dní.
       if (postCreatedAtRows.data) {
         weeklyTrend = calculateTrend(
-          postCreatedAtRows.data.map((r) => r.created_at)
+          postCreatedAtRows.data.map((r) => r.created_at),
         );
       }
     }
@@ -169,12 +196,12 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-8">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="text-muted-foreground/60">{t("subtitle")}</p>
-        </div>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground/60">{t("subtitle")}</p>
+      </div>
 
-        {/* Stats grid */}
+      {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t("totalPosts")}
@@ -185,8 +212,16 @@ export default async function DashboardPage({
             label: t("thisWeek"),
           }}
         />
-        <StatCard title={t("scheduled")} value={scheduledPosts} icon={CalendarIcon} />
-        <StatCard title={t("connectedAccounts")} value={connectedAccounts} icon={LinkIcon} />
+        <StatCard
+          title={t("scheduled")}
+          value={scheduledPosts}
+          icon={CalendarIcon}
+        />
+        <StatCard
+          title={t("connectedAccounts")}
+          value={connectedAccounts}
+          icon={LinkIcon}
+        />
         <StatCard
           title={t("streak")}
           value={`${streak}d`}
@@ -198,7 +233,11 @@ export default async function DashboardPage({
 
       {/* Analytics row – grafy: konzistence + donut + top labels */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <ConsistencyScore score={consistencyScore} label={t("consistencyScore")} t={t} />
+        <ConsistencyScore
+          score={consistencyScore}
+          label={t("consistencyScore")}
+          t={t}
+        />
         <div className="lg:col-span-2 grid gap-4 sm:grid-cols-2">
           <PlatformDonutChart
             data={platformData}
@@ -281,14 +320,21 @@ function StatCard({
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <Icon className={cn(
-          "h-3 w-3 text-muted-foreground/40",
-          isGlowing && "text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]"
-        )} />
+        <Icon
+          className={cn(
+            "h-3 w-3 text-muted-foreground/40",
+            isGlowing &&
+              "text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]",
+          )}
+        />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold tracking-tight">{value}</div>
-        {subtitle && <div className="mt-1 text-xs text-muted-foreground/60">{subtitle}</div>}
+        {subtitle && (
+          <div className="mt-1 text-xs text-muted-foreground/60">
+            {subtitle}
+          </div>
+        )}
         {trend && (
           <div className="mt-1 flex items-center gap-1 text-xs">
             {trend.value > 0 ? (
@@ -317,7 +363,15 @@ function StatCard({
   );
 }
 
-function ConsistencyScore({ score, label, t }: { score: number; label: string; t: (key: string) => string }) {
+function ConsistencyScore({
+  score,
+  label,
+  t,
+}: {
+  score: number;
+  label: string;
+  t: (key: string) => string;
+}) {
   const circumference = 2 * Math.PI * 36;
   const offset = circumference - (score / 100) * circumference;
 
@@ -348,7 +402,13 @@ function ConsistencyScore({ score, label, t }: { score: number; label: string; t
               className="transition-all duration-1000 ease-out"
             />
             <defs>
-              <linearGradient id="consistencyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <linearGradient
+                id="consistencyGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
                 <stop offset="0%" stopColor="#6366f1" />
                 <stop offset="100%" stopColor="#a855f7" />
               </linearGradient>
@@ -361,7 +421,11 @@ function ConsistencyScore({ score, label, t }: { score: number; label: string; t
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
           <p className="text-xs text-muted-foreground/60">
-            {score >= 80 ? t("consistencyExcellent") : score >= 50 ? t("consistencyGood") : t("consistencyImprove")}
+            {score >= 80
+              ? t("consistencyExcellent")
+              : score >= 50
+                ? t("consistencyGood")
+                : t("consistencyImprove")}
           </p>
         </div>
       </CardContent>
@@ -395,10 +459,16 @@ function QuickActionCard({
             : "bg-card/40 backdrop-blur-md border-white/5 hover:bg-accent hover:shadow-md hover:-translate-y-0.5")
         }
       >
-        <Icon className={isPrimary ? "h-6 w-6 text-white" : "h-6 w-6 text-primary"} />
+        <Icon
+          className={isPrimary ? "h-6 w-6 text-white" : "h-6 w-6 text-primary"}
+        />
         <div className="text-left">
           <div className="text-base font-semibold">{title}</div>
-          <div className={isPrimary ? "text-sm text-white/80" : "text-sm text-foreground/70"}>
+          <div
+            className={
+              isPrimary ? "text-sm text-white/80" : "text-sm text-foreground/70"
+            }
+          >
             {description}
           </div>
         </div>
@@ -422,8 +492,8 @@ function UpgradeBanner({
     currentPlan === "pro"
       ? t("planPro")
       : currentPlan === "creator"
-      ? t("planCreator")
-      : t("free");
+        ? t("planCreator")
+        : t("free");
 
   return (
     <Card className="relative overflow-hidden bg-card/60 backdrop-blur-sm border">
@@ -435,14 +505,26 @@ function UpgradeBanner({
             <div className="flex items-center gap-2">
               <Crown className="h-5 w-5 text-primary" />
               <Sparkles className="h-5 w-5 text-primary/70" />
-              <h3 className="text-lg font-semibold sm:text-xl">{t("proCtaTitle")}</h3>
+              <h3 className="text-lg font-semibold sm:text-xl">
+                {t("proCtaTitle")}
+              </h3>
             </div>
             <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
               {t("proCtaSubtitle")}
             </p>
             <div className="flex items-center gap-2 pt-1">
-              <span className="text-xs text-muted-foreground">{t("currentPlan")}</span>
-              <Badge variant={currentPlan === "pro" ? "default" : currentPlan === "creator" ? "secondary" : "outline"}>
+              <span className="text-xs text-muted-foreground">
+                {t("currentPlan")}
+              </span>
+              <Badge
+                variant={
+                  currentPlan === "pro"
+                    ? "default"
+                    : currentPlan === "creator"
+                      ? "secondary"
+                      : "outline"
+                }
+              >
                 {planLabel}
               </Badge>
             </div>

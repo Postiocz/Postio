@@ -19,6 +19,8 @@
     "all": "Усе",
     "none": "Немає",
     "free": "Безкоштовно",
+    "planPro": "Pro",
+    "planCreator": "Creator",
     "logout": "Вийти",
     "switch": "Перемкнути",
     "verificationCode": "Код перевірки"

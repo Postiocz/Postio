@@ -19,6 +19,8 @@
     "all": "All",
     "none": "None",
     "free": "Free",
+    "planPro": "Pro",
+    "planCreator": "Creator",
     "logout": "Logout",
     "switch": "Switch",
     "verificationCode": "Verification Code"

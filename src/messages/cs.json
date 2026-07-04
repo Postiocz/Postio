@@ -19,6 +19,8 @@
     "all": "Vše",
     "none": "Žádné",
     "free": "Zdarma",
+    "planPro": "Pro",
+    "planCreator": "Creator",
     "logout": "Odhlásit se",
     "switch": "Přepnout",
     "verificationCode": "Ověřovací kód"

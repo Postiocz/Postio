@@ -253,14 +253,8 @@ export default async function DashboardPage({
       <UpgradeBanner
         locale={locale}
         currentPlan={currentPlan}
-        translations={{
-          title: t("proCtaTitle"),
-          subtitle: t("proCtaSubtitle"),
-          button: t("proCtaButton"),
-          currentPlan: t("currentPlan"),
-          upgrade: settingsT("upgrade"),
-          free: commonT("free"),
-        }}
+        t={t}
+        settingsT={settingsT}
       />
     </div>
   );
@@ -416,25 +410,20 @@ function QuickActionCard({
 function UpgradeBanner({
   locale,
   currentPlan,
-  translations,
+  t,
+  settingsT,
 }: {
   locale: string;
   currentPlan: string;
-  translations: {
-    title: string;
-    subtitle: string;
-    button: string;
-    currentPlan: string;
-    upgrade: string;
-    free: string;
-  };
+  t: (key: string) => string;
+  settingsT: (key: string) => string;
 }) {
   const planLabel =
     currentPlan === "pro"
-      ? "pro"
+      ? t("planPro")
       : currentPlan === "creator"
-      ? "creator"
-      : translations.free;
+      ? t("planCreator")
+      : t("free");
 
   return (
     <Card className="relative overflow-hidden bg-card/60 backdrop-blur-sm border">
@@ -446,13 +435,13 @@ function UpgradeBanner({
             <div className="flex items-center gap-2">
               <Crown className="h-5 w-5 text-primary" />
               <Sparkles className="h-5 w-5 text-primary/70" />
-              <h3 className="text-lg font-semibold sm:text-xl">{translations.title}</h3>
+              <h3 className="text-lg font-semibold sm:text-xl">{t("proCtaTitle")}</h3>
             </div>
             <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-              {translations.subtitle}
+              {t("proCtaSubtitle")}
             </p>
             <div className="flex items-center gap-2 pt-1">
-              <span className="text-xs text-muted-foreground">{translations.currentPlan}</span>
+              <span className="text-xs text-muted-foreground">{t("currentPlan")}</span>
               <Badge variant={currentPlan === "pro" ? "default" : currentPlan === "creator" ? "secondary" : "outline"}>
                 {planLabel}
               </Badge>
@@ -461,7 +450,7 @@ function UpgradeBanner({
 
           <Button asChild className="gap-2 sm:self-center">
             <Link href={`/${locale}/settings`}>
-              {currentPlan === "pro" ? translations.upgrade : translations.button}
+              {currentPlan === "pro" ? settingsT("upgrade") : t("proCtaButton")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

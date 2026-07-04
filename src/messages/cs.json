@@ -257,6 +257,7 @@
     "published": "Publikované",
     "connectedAccounts": "Propojené účty",
     "streak": "Denní série",
+    "streakEmpty": "Začněte publikovat pro zahájení série",
     "consistencyScore": "Skóre konzistence",
     "consistencyExcellent": "Výborná konzistence!",
     "consistencyGood": "Dobrá, můžeš lepší!",

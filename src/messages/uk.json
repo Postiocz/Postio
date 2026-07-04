@@ -257,6 +257,7 @@
     "published": "Опубліковано",
     "connectedAccounts": "Підключені акаунти",
     "streak": "Щоденна серія",
+    "streakEmpty": "Почніть публікувати, щоб розпочати серію",
     "consistencyScore": "Бал консистентності",
     "consistencyExcellent": "Чудова консистентність!",
     "consistencyGood": "Добре, можна краще!",

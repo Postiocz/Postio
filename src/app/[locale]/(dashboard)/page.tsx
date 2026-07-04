@@ -192,6 +192,7 @@ export default async function DashboardPage({
           value={`${streak}d`}
           icon={Flame}
           isGlowing={streak > 0}
+          subtitle={streak === 0 ? t("streakEmpty") : undefined}
         />
       </div>
 
@@ -271,12 +272,14 @@ function StatCard({
   icon: Icon,
   isGlowing = false,
   trend,
+  subtitle,
 }: {
   title: string;
   value: string | number;
   icon: React.ElementType;
   isGlowing?: boolean;
   trend?: { value: number; label: string };
+  subtitle?: string;
 }) {
   return (
     <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">
@@ -291,6 +294,7 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold tracking-tight">{value}</div>
+        {subtitle && <div className="mt-1 text-xs text-muted-foreground/60">{subtitle}</div>}
         {trend && (
           <div className="mt-1 flex items-center gap-1 text-xs">
             {trend.value > 0 ? (
@@ -400,7 +404,7 @@ function QuickActionCard({
         <Icon className={isPrimary ? "h-6 w-6 text-white" : "h-6 w-6 text-primary"} />
         <div className="text-left">
           <div className="text-base font-semibold">{title}</div>
-          <div className={isPrimary ? "text-sm text-white" : "text-sm text-muted-foreground"}>
+          <div className={isPrimary ? "text-sm text-white/80" : "text-sm text-foreground/70"}>
             {description}
           </div>
         </div>

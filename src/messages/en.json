@@ -257,6 +257,7 @@
     "published": "Published",
     "connectedAccounts": "Connected Accounts",
     "streak": "Daily Streak",
+    "streakEmpty": "Start publishing to begin your streak",
     "consistencyScore": "Consistency Score",
     "consistencyExcellent": "Excellent consistency!",
     "consistencyGood": "Good, you can do better!",

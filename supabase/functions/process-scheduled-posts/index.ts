@@ -441,7 +441,20 @@ async function refreshYouTubeAccessToken(
  * accept the Deno-side type here directly so the function compiles
  * without the @supabase/supabase-js full Database generic.
  */
-type DenoSupabaseClient = ReturnType<typeof createClient>;
+type DenoSupabaseClient = ReturnType<typeof createClient<any>>;
+
+type UntypedUpdateBuilder = {
+  update: (values: Record<string, unknown>) => {
+    eq: (column: string, value: string) => Promise<unknown>;
+  };
+};
+
+function getUntypedUpdateBuilder(
+  supabaseAdmin: DenoSupabaseClient,
+  table: string,
+): UntypedUpdateBuilder {
+  return supabaseAdmin.from(table) as unknown as UntypedUpdateBuilder;
+}
 
 /**
  * POSTIO – TikTok publisher helpers (API v2)
@@ -451,6 +464,7 @@ const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
 const TIKTOK_CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/";
 const TIKTOK_PUBLISH_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/video/init/";
 const TIKTOK_PUBLISH_STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/";
+const TIKTOK_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const TIKTOK_STATUS_POLL_INTERVAL_MS = 2_500;
 const TIKTOK_STATUS_MAX_WAIT_MS = 3 * 60 * 1000;
 
@@ -592,8 +606,7 @@ async function persistTikTokCreatorInfoCache(params: {
     },
   };
 
-  await params.supabaseAdmin
-    .from("social_accounts")
+  await getUntypedUpdateBuilder(params.supabaseAdmin, "social_accounts")
     .update({ metadata: nextMetadata })
     .eq("id", params.accountId);
 }
@@ -789,7 +802,10 @@ async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
 async function getValidTikTokAccessToken(params: {
   supabaseAdmin: DenoSupabaseClient;
   userId: string;
-}) {
+}): Promise<
+  | { success: true; accessToken: string; account: TikTokAccountRow }
+  | { success: false; error: string }
+> {
   const { supabaseAdmin, userId } = params;
 
   const { data: accounts } = await supabaseAdmin
@@ -809,7 +825,7 @@ async function getValidTikTokAccessToken(params: {
   const now = Date.now();
   const expiresAtMs = account.token_expires_at ? new Date(account.token_expires_at).getTime() : 0;
 
-  if (account.access_token && expiresAtMs - now > TOKEN_REFRESH_BUFFER_MS) {
+  if (account.access_token && expiresAtMs - now > TIKTOK_REFRESH_BUFFER_MS) {
     return { success: true, accessToken: account.access_token, account };
   }
 
@@ -822,9 +838,12 @@ async function getValidTikTokAccessToken(params: {
   const newExpiresAt = new Date(now + refreshed.expiresInSeconds * 1000).toISOString();
   const newMetadata = { ...(account.metadata || {}), refresh_token: refreshed.refreshToken || refreshToken };
 
-  await supabaseAdmin
-    .from("social_accounts")
-    .update({ access_token: refreshed.accessToken, token_expires_at: newExpiresAt, metadata: newMetadata })
+  await getUntypedUpdateBuilder(supabaseAdmin, "social_accounts")
+    .update({
+      access_token: refreshed.accessToken,
+      token_expires_at: newExpiresAt,
+      metadata: newMetadata,
+    })
     .eq("id", account.id);
 
   return {
@@ -1007,13 +1026,15 @@ async function getValidYouTubeAccessToken(params: {
   const newExpiresAt = new Date(now + refreshed.expiresInSeconds * 1000).toISOString();
 
   // Persist refreshed token. Do NOT overwrite metadata.refresh_token.
-  const { error: updateError } = await supabaseAdmin
-    .from("social_accounts")
+  const { error: updateError } = (await getUntypedUpdateBuilder(
+    supabaseAdmin,
+    "social_accounts",
+  )
     .update({
       access_token: refreshed.accessToken,
       token_expires_at: newExpiresAt,
     })
-    .eq("id", account.id);
+    .eq("id", account.id)) as { error?: { message?: string } | null };
 
   if (updateError) {
     console.warn(">>> [YouTube] failed to persist refreshed token (non-fatal):", updateError.message);
@@ -1333,14 +1354,16 @@ async function getValidLinkedInAccessToken(params: {
     newMetadata.refresh_token = refreshed.newRefreshToken;
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from("social_accounts")
+  const { error: updateError } = (await getUntypedUpdateBuilder(
+    supabaseAdmin,
+    "social_accounts",
+  )
     .update({
       access_token: refreshed.accessToken,
       token_expires_at: newExpiresAt,
       metadata: newMetadata,
     })
-    .eq("id", account.id);
+    .eq("id", account.id)) as { error?: { message?: string } | null };
 
   if (updateError) {
     console.warn(
@@ -1940,7 +1963,7 @@ Deno.serve(async (request: Request) => {
           });
 
           if (!ytToken.success) {
-            publishError = ytToken.error;
+            publishError = ytToken.error ?? "YouTube token refresh failed";
             console.log(`>>> YouTube token error for post_platforms ${pp.id}`, { error: publishError });
           } else {
             // Build description: content + location + hashtags + #Shorts hint
@@ -1990,7 +2013,7 @@ Deno.serve(async (request: Request) => {
         });
 
         if (!liToken.success) {
-          publishError = liToken.error;
+          publishError = liToken.error ?? "LinkedIn token refresh failed";
           console.log(`>>> LinkedIn token error for post_platforms ${pp.id}`, { error: publishError });
         } else {
           const liContent = buildLinkedInContent({
@@ -2029,7 +2052,7 @@ Deno.serve(async (request: Request) => {
           });
 
           if (!ttToken.success) {
-            publishError = ttToken.error;
+            publishError = ttToken.error ?? "TikTok token refresh failed";
             console.log(`>>> TikTok token error for post_platforms ${pp.id}`, { error: publishError });
           } else {
             const creatorInfoResult = await queryTikTokCreatorInfo({
@@ -2037,7 +2060,7 @@ Deno.serve(async (request: Request) => {
             });
 
             if (!creatorInfoResult.success) {
-              publishError = creatorInfoResult.error;
+              publishError = creatorInfoResult.error ?? "TikTok creator info failed";
               console.log(`>>> TikTok creator info failed for post_platforms ${pp.id}`, { error: publishError });
             } else {
               await persistTikTokCreatorInfoCache({

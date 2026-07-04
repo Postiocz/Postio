@@ -102,6 +102,14 @@ function getGraphResponseId(payload: unknown): string | null {
   return typeof id === "string" && id.trim() ? id : null;
 }
 
+function getMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 /**
  * Instagram container status codes (returned by the Graph API field
  * `status_code` on `/{ig-container-id}`). See:
@@ -564,7 +572,10 @@ export async function publishPost(input: { postId: string }): Promise<{
     return {
       success: false,
       error: `Příspěvek je již publikován na ${targetPlatform}. Duplicitní nahrávání je blokováno.`,
-      data: { externalId: alreadyPublishedRow.external_id, platform: targetPlatform },
+      data: {
+        externalId: alreadyPublishedRow.external_id ?? undefined,
+        platform: targetPlatform,
+      },
     };
   }
 
@@ -597,7 +608,10 @@ export async function publishPost(input: { postId: string }): Promise<{
       const fbAccount = fbAccounts?.[0] as SocialAccountLookupRow | undefined;
       if (fbAccount) {
         if (!platformId) {
-          platformId = fbAccount.metadata?.instagram_id || fbAccount.metadata?.instagram_business_account_id || fbAccount.platform_id;
+          platformId =
+            getMetadataString(fbAccount.metadata, "instagram_id") ??
+            getMetadataString(fbAccount.metadata, "instagram_business_account_id") ??
+            fbAccount.platform_id;
         }
         if (!accessToken) {
           accessToken = fbAccount.access_token;
@@ -665,8 +679,7 @@ export async function publishPost(input: { postId: string }): Promise<{
     // Pass any previously stored YouTube video ID so the publisher can
     // refuse a duplicate upload (belt-and-suspenders on top of the
     // alreadyPublishedRow guard above).
-    const existingYtExternalId =
-      alreadyPublishedRow?.platform === "youtube" ? alreadyPublishedRow.external_id : null;
+    const existingYtExternalId = null;
 
     const result = await publishToYouTubeAction({
       account: ytAccount,
@@ -748,8 +761,7 @@ export async function publishPost(input: { postId: string }): Promise<{
     // Pass any previously stored LinkedIn post URN so the publisher can
     // refuse a duplicate publish (belt-and-suspenders on top of the
     // alreadyPublishedRow guard above).
-    const existingLiExternalId =
-      alreadyPublishedRow?.platform === "linkedin" ? alreadyPublishedRow.external_id : null;
+    const existingLiExternalId = null;
 
     const result = await publishToLinkedInAction({
       account: liAccount,
@@ -804,8 +816,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       };
     }
 
-    const existingTtExternalId =
-      alreadyPublishedRow?.platform === "tiktok" ? alreadyPublishedRow.external_id : null;
+    const existingTtExternalId = null;
     const targetTikTokRow = postPlatforms.find((platformRow) => platformRow.platform === "tiktok");
 
     const result = await publishToTikTokAction({
@@ -827,16 +838,21 @@ export async function publishPost(input: { postId: string }): Promise<{
       return { success: false, error: result.error };
     }
 
+    const tiktokExternalId =
+      "externalId" in result && typeof result.externalId === "string"
+        ? result.externalId
+        : "";
+
     await handlePublishSuccess(
       supabase,
       user.id,
       post.id,
-      result.externalId ?? "",
+      tiktokExternalId,
       "tiktok",
     );
     return {
       success: true,
-      data: { externalId: result.externalId, platform: "tiktok" },
+      data: { externalId: tiktokExternalId || undefined, platform: "tiktok" },
     };
   }
 
@@ -875,8 +891,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       };
     }
 
-    const existingTwExternalId =
-      alreadyPublishedRow?.platform === "twitter" ? alreadyPublishedRow.external_id : null;
+    const existingTwExternalId = null;
 
     const result = await publishToTwitterAction({
       account: twAccount,
@@ -2075,7 +2090,10 @@ export async function publishAdditionalPlatforms(input: {
     return {
       success: false,
       error: `Příspěvek je již publikován na ${input.platform}. Duplicitní nahrávání je blokováno.`,
-      data: { externalId: alreadyPublishedRow.external_id, platform: input.platform },
+      data: {
+        externalId: alreadyPublishedRow.external_id ?? undefined,
+        platform: input.platform,
+      },
     };
   }
 
@@ -2178,8 +2196,7 @@ export async function publishAdditionalPlatforms(input: {
     // Pass any previously stored YouTube video ID so the publisher can
     // refuse a duplicate upload (belt-and-suspenders on top of the
     // alreadyPublishedRow guard above).
-    const existingYtExternalId =
-      alreadyPublishedRow?.platform === "youtube" ? alreadyPublishedRow.external_id : null;
+    const existingYtExternalId = null;
 
     const result = await publishToYouTubeAction({
       account: ytAccount,
@@ -2250,8 +2267,7 @@ export async function publishAdditionalPlatforms(input: {
       };
     }
 
-    const existingLiExternalId =
-      alreadyPublishedRow?.platform === "linkedin" ? alreadyPublishedRow.external_id : null;
+    const existingLiExternalId = null;
 
     const result = await publishToLinkedInAction({
       account: liAccount,
@@ -2316,8 +2332,7 @@ export async function publishAdditionalPlatforms(input: {
       };
     }
 
-    const existingTtExternalId =
-      alreadyPublishedRow?.platform === "tiktok" ? alreadyPublishedRow.external_id : null;
+    const existingTtExternalId = null;
 
     const result = await publishToTikTokAction({
       account: ttAccount,
@@ -2338,16 +2353,21 @@ export async function publishAdditionalPlatforms(input: {
       return { success: false, error: result.error };
     }
 
+    const tiktokExternalId =
+      "externalId" in result && typeof result.externalId === "string"
+        ? result.externalId
+        : "";
+
     await handlePublishSuccess(
       supabase,
       user.id,
       post.id,
-      result.externalId ?? "",
+      tiktokExternalId,
       "tiktok",
     );
     return {
       success: true,
-      data: { externalId: result.externalId, platform: "tiktok" },
+      data: { externalId: tiktokExternalId || undefined, platform: "tiktok" },
     };
   }
 
@@ -2381,8 +2401,7 @@ export async function publishAdditionalPlatforms(input: {
       };
     }
 
-    const existingTwExternalId =
-      alreadyPublishedRow?.platform === "twitter" ? alreadyPublishedRow.external_id : null;
+    const existingTwExternalId = null;
 
     const result = await publishToTwitterAction({
       account: twAccount,

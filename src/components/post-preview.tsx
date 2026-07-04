@@ -63,6 +63,8 @@ interface PostPreviewProps {
     tiktokTab?: string;
     previewTitle: string;
     noMedia: string;
+    /** Optional TikTok-specific empty-state copy. */
+    tiktokVideoRequired?: string;
     placeholderName: string;
     captionHint: string;
   };
@@ -257,7 +259,7 @@ function TikTokPreview({
   content: string;
   media: PostPreviewMedia[];
   profile: PostPreviewProfile;
-  labels?: { noMedia?: string; tiktokVideoRequired?: string };
+  labels: PostPreviewProps["labels"];
 }) {
   // TikTok only supports video
   const videoMedia = media.find((m) => m.kind === "video") ?? media[0];
@@ -267,13 +269,13 @@ function TikTokPreview({
       {/* Background/Video Area */}
       <div className="absolute inset-0">
         {videoMedia ? (
-          <MediaArea media={[videoMedia]} aspect="square" labels={{}} />
+          <MediaArea media={[videoMedia]} aspect="square" labels={labels} />
         ) : (
           <div className="flex h-full items-center justify-center bg-[#121212]">
             <div className="text-center text-white/50">
               <span className="mb-2 block text-4xl">🎵</span>
               <p className="text-sm font-medium">
-                {labels?.tiktokVideoRequired ?? labels?.noMedia ?? "TikTok requires video"}
+                {labels.tiktokVideoRequired ?? labels.noMedia ?? "TikTok requires video"}
               </p>
             </div>
           </div>
@@ -316,7 +318,8 @@ function TikTokPreview({
               <Avatar
                 url={profile.avatarUrl}
                 name={profile.displayName}
-                className="h-[48px] w-[48px] rounded-full border border-white"
+                size={48}
+                ring="rgba(255, 255, 255, 0.9)"
               />
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-[#EA4359] w-5 h-5 flex items-center justify-center text-white cursor-pointer shadow-sm">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
@@ -360,7 +363,7 @@ function TikTokPreview({
               <Avatar
                 url={profile.avatarUrl}
                 name={profile.displayName}
-                className="h-[24px] w-[24px] rounded-full"
+                size={24}
               />
             </div>
           </div>

@@ -3,6 +3,22 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+## 2026-07-04
+
+### 🐛 Fix — Vercel build: TypeScript cleanup pro preview a scheduled publish flow
+
+- **Kontext**: Produkční build na Vercelu spadl nejdřív na `src/components/post-preview.tsx`, ale po odblokování první chyby se objevilo ještě několik starších strict-type problémů v `src/lib/actions/publish.ts` a `supabase/functions/process-scheduled-posts/index.ts`. Bez jejich dočištění by `next build` dál končil chybou i po opravě původního řádku 270.
+- **Oprava**:
+  1. V `src/components/post-preview.tsx` sjednocen typ `labels` pro TikTok preview s ostatními preview renderery, doplněn volitelný klíč `tiktokVideoRequired` a `MediaArea` už nedostává `labels={{}}`. Zároveň opraveny dva neplatné průchody `className` do interní komponenty `Avatar` na podporované props `size` / `ring`.
+  2. V `src/lib/actions/publish.ts` srovnány návratové typy pro duplicate guards (`null` -> `undefined` tam, kde to kontrakt očekává), přidán bezpečný reader pro string hodnoty z `social_accounts.metadata` a odstraněny mrtvé odkazy na `alreadyPublishedRow` po guard returnu. TikTok publish větev nově explicitně extrahuje `externalId` bez spoléhání na nedostatečně diskriminovaný union návratového typu.
+  3. V `supabase/functions/process-scheduled-posts/index.ts` sjednocen typ Supabase klienta pro Edge Function helpery, doplněn chybějící TikTok refresh buffer, zavedena úzká untyped helper vrstva pro `social_accounts` update operace, které jinak v Deno typed klientu padaly na `never`, a doplněny explicitní / bezpečné typy pro TikTok token flow a fallback error stringy.
+  4. Lokálně ověřeno přes `npm run build` bez TypeScript chyb; build doběhl až do finálního route summary.
+- **Upravené soubory**:
+  - `src/components/post-preview.tsx`
+  - `src/lib/actions/publish.ts`
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `CHANGELOG.md`
+
 ## 2026-07-03
 
 ### 🔎 Audit — TikTok Sandbox klíče a endpointy

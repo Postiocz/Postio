@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import crypto from "crypto";
 
 const TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
 const TIKTOK_USERINFO_URL = "https://open.tiktokapis.com/v2/user/info/";
+const TIKTOK_REDIRECT_URI = "https://postio-alpha.vercel.app/api/accounts/tiktok";
 
 function appendSuccessParam(target: string, key: string, value: string): string {
   const separator = target.includes("?") ? "&" : "?";
   return `${target}${separator}${key}=${value}`;
 }
 
+function generateCodeVerifier(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function generateCodeChallenge(verifier: string): string {
+  return crypto.createHash("sha256").update(verifier).digest("base64url");
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
+  const returnedState = url.searchParams.get("state");
   const locale = url.searchParams.get("locale") ?? "cs";
   
   const baseRedirect = decodeURIComponent(state ?? `/${locale}/accounts`);
@@ -33,18 +44,57 @@ export async function GET(request: NextRequest) {
 
   // ── Step 1: No code → redirect to TikTok authorize ──────────────
   if (!code) {
+    const generatedState = crypto.randomBytes(16).toString("hex");
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = generateCodeChallenge(codeVerifier);
+    
     const redirectUrl = new URL(TIKTOK_AUTH_URL);
     redirectUrl.searchParams.set("client_key", clientKey);
     redirectUrl.searchParams.set("response_type", "code");
     redirectUrl.searchParams.set("scope", "user.info.basic,video.upload,video.publish");
-    redirectUrl.searchParams.set("redirect_uri", `${url.origin}/api/accounts/tiktok`);
-    redirectUrl.searchParams.set("state", state ?? "");
-
-    return NextResponse.redirect(redirectUrl.toString());
+    redirectUrl.searchParams.set("redirect_uri", TIKTOK_REDIRECT_URI);
+    redirectUrl.searchParams.set("state", generatedState);
+    redirectUrl.searchParams.set("code_challenge", codeChallenge);
+    redirectUrl.searchParams.set("code_challenge_method", "S256");
+    
+    const response = NextResponse.redirect(redirectUrl.toString());
+    
+    // Set cookies for state and codeVerifier with secure and sameSite: 'none'
+    response.cookies.set("tiktok_oauth_state", generatedState, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 600, // 10 minutes
+    });
+    
+    response.cookies.set("tiktok_code_verifier", codeVerifier, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 600, // 10 minutes
+    });
+    
+    return response;
   }
 
   // ── Step 2: Exchange code for access token ────────────────────────
   try {
+    // Verify state for CSRF protection
+    const storedState = request.cookies.get("tiktok_oauth_state")?.value;
+    const storedCodeVerifier = request.cookies.get("tiktok_code_verifier")?.value;
+    
+    if (!storedState || !returnedState || storedState !== returnedState) {
+      console.error("[TikTok OAuth] State mismatch or missing");
+      return NextResponse.redirect(new URL(errorRedirect("Neplatný stav OAuth požadavku"), request.url));
+    }
+    
+    if (!storedCodeVerifier) {
+      console.error("[TikTok OAuth] Missing code verifier");
+      return NextResponse.redirect(new URL(errorRedirect("Chybí ověřovací kód"), request.url));
+    }
+    
     const tokenRes = await fetch(TIKTOK_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -53,7 +103,8 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${url.origin}/api/accounts/tiktok`,
+        redirect_uri: TIKTOK_REDIRECT_URI,
+        code_verifier: storedCodeVerifier,
       }),
     });
 
@@ -177,7 +228,13 @@ export async function GET(request: NextRequest) {
     console.log(`[TikTok OAuth] Successfully connected ${accountName} (${platformId}) for user ${userId}`);
 
     // ── Step 6: Redirect back to dashboard ───────────────────────────
-    return NextResponse.redirect(new URL(redirectOnSuccess, request.url));
+    const response = NextResponse.redirect(new URL(redirectOnSuccess, request.url));
+    
+    // Clear OAuth cookies after successful authentication
+    response.cookies.delete("tiktok_oauth_state");
+    response.cookies.delete("tiktok_code_verifier");
+    
+    return response;
   } catch (error) {
     console.error("[TikTok OAuth] Unexpected error:", error);
     return NextResponse.redirect(new URL(redirectOnError, request.url));

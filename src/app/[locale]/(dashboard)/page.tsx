@@ -208,15 +208,9 @@ export default async function DashboardPage({
         );
       }
     }
-  } catch {
-    // Supabase unavailable – use mock data for testing.
-    totalPosts = 0;
-    scheduledPosts = 0;
-    draftPosts = 0;
-    connectedAccounts = 0;
-    streak = 0;
-    currentPlan = "free";
-    consistencyScore = 0;
+  } catch (error) {
+    console.error("Dashboard data fetch error:", error);
+    // Partial data may be available – don't reset to zero
   }
 
   return (

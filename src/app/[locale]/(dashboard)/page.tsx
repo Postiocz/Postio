@@ -32,7 +32,7 @@ export default async function DashboardPage({
   let connectedAccounts = 0;
   let dbStreak = 0;
   let currentPlan = "free";
-  let consistencyScore = 89;
+  let consistencyScore = 0;
   let topLabels: TopLabelItem[] = [];
   let platformData: PlatformDatum[] = [];
   let publishedTotal = 0;
@@ -132,6 +132,22 @@ export default async function DashboardPage({
           .filter((d): d is string => Boolean(d));
         const calculatedStreak = calculateStreak(publishedDates);
         streak = calculatedStreak > 0 ? calculatedStreak : dbStreak;
+
+        // Consistency score – procentuální podíl dní s publikací v posledních 30 dnech.
+        // Pouze pokud má uživatel alespoň 3 publikace – jinak je skóre 0.
+        if (publishedPlatformsRows.data.length >= 3) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const totalDays = 30;
+          const daysWithPublish = new Set<string>();
+          for (const pubDate of publishedDates) {
+            const d = new Date(pubDate);
+            if (d >= thirtyDaysAgo && d <= new Date()) {
+              daysWithPublish.add(d.toISOString().slice(0, 10));
+            }
+          }
+          consistencyScore = Math.round((daysWithPublish.size / totalDays) * 100);
+        }
       }
 
       // Trend za posledních 7 dní.
@@ -148,7 +164,7 @@ export default async function DashboardPage({
     connectedAccounts = 0;
     streak = 0;
     currentPlan = "free";
-    consistencyScore = 89;
+    consistencyScore = 0;
   }
 
   return (

@@ -530,11 +530,13 @@ async function publishToTikTok(params: {
 
   if (!initRes.ok || initData.error?.code !== "ok") {
     console.error("[TikTok Publish] init error:", initData);
+    const initErrorCode = initData.error?.code;
     const errorMessage = initData.error?.message || "TikTok publish init selhalo.";
     return {
       success: false,
       error: errorMessage,
-      ...(isTikTokSandboxPrivateOnlyError(errorMessage)
+      ...(isTikTokSandboxPrivateOnlyError(initErrorCode) ||
+      isTikTokSandboxPrivateOnlyError(errorMessage)
         ? { errorCode: TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE }
         : {}),
     };

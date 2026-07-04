@@ -5,6 +5,29 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — TikTok private-only policy: detekce podle `error.code` + přesnější UX text
+
+- **Kontext**: TikTok `video/init` dál padal i při `privacy_level: "SELF_ONLY"`. Runtime log ukázal, že API vrací policy identifikátor v `error.code = unaudited_client_can_only_post_to_private_accounts`, zatímco naše app private-only chybu hledala v `error.message`, kde je jen obecný odkaz na guidelines. Tím pádem se nespouštěl lokalizovaný handler a uživatel viděl syrový anglický toast.
+- **Oprava**:
+  1. V [publish-tiktok.ts](file:///c:/VS_Code/Postio/src/lib/actions/publish-tiktok.ts) se TikTok private-only chyba nově mapuje primárně z `initData.error.code`, ne jen z `error.message`, takže UI dostane správný `errorCode`.
+  2. V [tiktok-publish-errors.ts](file:///c:/VS_Code/Postio/src/lib/tiktok-publish-errors.ts) a překladech `cs/en/uk` zpřesněn text chyby: u neauditované TikTok app nestačí pouze `SELF_ONLY` na příspěvku, ale samotný TikTok účet musí být při publish nastaven jako soukromý.
+  3. V [process-scheduled-posts/index.ts](file:///c:/VS_Code/Postio/supabase/functions/process-scheduled-posts/index.ts) se stejná TikTok policy chyba ukládá i s `error.code`, aby scheduled flow nereportoval jen neurčitý guideline odkaz a private-only retry logika měla konzistentní vstup.
+  4. Pro aktivní debug session `tiktok-private-publish` zůstává do potvrzení uživatele dočasně zapnutá instrumentace do Debug Serveru v app publish flow a v UI error mapperu.
+- **Ověření**:
+  - `npx eslint src/lib/actions/publish-tiktok.ts src/components/edit-post-dialog.tsx supabase/functions/process-scheduled-posts/index.ts src/lib/tiktok-publish-errors.ts` ✅
+  - `npx tsc --noEmit` ✅
+  - `npm run build` ✅
+- **Upravené soubory**:
+  - `src/lib/actions/publish-tiktok.ts`
+  - `src/lib/tiktok-publish-errors.ts`
+  - `src/components/edit-post-dialog.tsx`
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+  - `supabase/functions/process-scheduled-posts/index.ts`
+  - `debug-tiktok-private-publish.md`
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — Prompt 017-D: TikTok privacy mapping debug log a lokalizace sandbox chyby
 
 - **Kontext**: U TikTok publish flow bylo potřeba ověřit, že editorová volba `Pouze já` opravdu končí v API payloadu jako `privacy_level: "SELF_ONLY"`, a zároveň zastavit únik syrové anglické chyby `unaudited_client_can_only_post_to_private_accounts` do UI.

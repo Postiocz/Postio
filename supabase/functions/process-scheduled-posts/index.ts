@@ -983,7 +983,12 @@ async function publishToTikTok(params: {
   const initData = await initRes.json();
   if (!initRes.ok || initData.error?.code !== "ok") {
     console.error("[TikTok Publish Edge] Error:", initData);
-    return { success: false, error: initData.error?.message || "TikTok publish failed" };
+    const initErrorCode = initData.error?.code;
+    const initErrorMessage = initData.error?.message || "TikTok publish failed";
+    return {
+      success: false,
+      error: initErrorCode ? `${initErrorCode}: ${initErrorMessage}` : initErrorMessage,
+    };
   }
 
   const { publish_id, upload_url } = initData.data ?? {};

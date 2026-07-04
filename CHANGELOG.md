@@ -5,6 +5,19 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — `posts` namespace znovu obsahuje TikTok texty pro editor příspěvků
+
+- **Kontext**: `EditPostDialog` používá `useTranslations("posts")`, ale část nových TikTok textů pro privacy a creator info byla uložená mimo `posts` namespace. Runtime pak v `/posts` padal na `MISSING_MESSAGE` pro klíče jako `posts.tiktokPrivacyTitle` a `posts.tiktokCreatorInfoSummary`.
+- **Oprava**:
+  1. Do `src/messages/cs.json`, `en.json`, `uk.json` doplněny chybějící TikTok klíče přímo do sekce `posts` (`tiktokPrivacy*`, `tiktokCreatorInfo*`, `tiktokCapability*`).
+  2. V `posts` sekci doplněn i `ttEditNotSupported`, aby TikTok lock banner nepadal při editaci už publikovaného příspěvku.
+  3. Oprava je čistě i18n; žádná publish logika ani TikTok API flow se nemění.
+- **Upravené soubory**:
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — Edge Function Supabase client typ už neblokuje TypeScript build
 
 - **Kontext**: `next build` znovu padal v `supabase/functions/process-scheduled-posts/index.ts` na chybě `Type 'SupabaseClient...' is not assignable ...`, konkrétně při předání `supabaseAdmin` do `getValidYouTubeAccessToken()`. Příčinou byl příliš úzký alias `ReturnType<typeof createClient>`, který v Deno Edge runtime neodpovídal skutečnému generickému tvaru klienta.

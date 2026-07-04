@@ -300,6 +300,9 @@
     "labelsEmptyTitle": "Поки що немає міток",
     "labelsEmptyDescription": "Додайте мітки до дописів і відстежуйте, що публікуєте найчастіше.",
     "labelsEmptyAction": "Створити мітки",
+    "oneDraft": "{{count}} чернетка",
+    "fewDrafts": "{{count}} чернетки",
+    "manyDrafts": "{{count}} чернеток",
     "postsCount": "дописів"
   },
   "posts": {

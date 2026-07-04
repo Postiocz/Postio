@@ -697,6 +697,85 @@ await supabase.from('analytics').upsert(
 
 ---
 
+# 📋 Úkoly — Dashboard opravy (CSS + synchronizace dat)
+
+> Vytvořeno: 2026-07-04  
+> Soubory: `src/app/[locale]/(dashboard)/page.tsx`, `src/lib/dashboard-stats.ts`  
+> Problémy:  
+> 1. **CSS bug**: Karta "Propojené účty" (3. z 4) je menší/nestejně vysoká jako ostatní StatCards  
+> 2. **Data synchronizace**: Dashboard je statická Server Componenta → data se neaktualizují po změnách (nové příspěvky, účty, štítky)
+
+---
+
+## 🔴 Problémy k opravě
+
+### #1 — CSS: StatCards stejné výšky a šířky
+
+**Soubor:** `src/app/[locale]/(dashboard)/page.tsx` (StatCard komponenta)  
+**Problém:** Grid layout s `grid gap-4 sm:grid-cols-2 lg:grid-cols-4` by měl natahovat buňky na stejnou výšku, ale komponenta `StatCard` neobsahuje `h-full` a `flex flex-col`, takže se obsah neroztáhne na celou výšku buňky. Výsledek: 3. karta (Propojené účty) je vizuálně kratší.
+
+**Řešení:**
+1. Přidat `h-full` na `<Card>` i `<Link>` (pokud je href)
+2. Přidat `flex flex-col` na `<Card>` pro vertikální roztažení
+3. Přidat `flex-1 justify-between` na `<CardContent>` pro vytlačení trend/tooltip dolů
+
+**Odhad:** 5 min  
+**Status:** ⏳ Čeká na opravu
+
+---
+
+### #2 — Data synchronizace: Dashboard → Client Component nebo revalidation
+
+**Soubor:** `src/app/[locale]/(dashboard)/page.tsx`  
+**Problém:** Dashboard je **staticky renderovaná Server Componenta** (nemá `"use client"`). Data se fetchují jen jednou při server renderu. Po změně příspěvků, účtů, štítků se stránka neaktualizuje automaticky.
+
+**Důsledky:**
+- Konzistence skóre: stále 0% i po publikaci nových příspěvků
+- Platformy donut: zobrazuje "Unknown 100%" nebo stará data
+- Top štítky: prázdný stav i když jsou tagy v DB
+- Poslední příspěvky: "Bez názvu" a stará data po editaci
+
+**Řešení (dvě možnosti):**
+
+**Možnost A: Převod na Client Componentu** (doporučeno)
+1. Přidat `"use client"` na začátek souboru
+2. Přesunout data-fetching do `useEffect` + `useState`
+3. Přidat `refetchOnWindowFocus: true` pro automatický refresh
+4. Přidat `revalidatePath('/dashboard')` do všech server actions (create/update/delete post)
+
+**Možnost B: Zachovat Server Componentu s revalidation**
+1. Přidat `revalidatePath('/dashboard')` do všech relevantních server actions
+2. Přidat manuální refresh tlačítko do UI
+3. Použít `next/font` a `next/image` pro optimalizaci
+
+**Odhad:** 30–45 min (Možnost A) / 15–20 min (Možnost B)  
+**Status:** ⏳ Čeká na opravu
+
+---
+
+## ✅ Checklist opravy
+
+| # | Krok | Soubor | Status |
+|---|------|--------|--------|
+| 1 | Opravit CSS StatCards (h-full, flex-col) | `page.tsx` | ✅ Hotovo |
+| 2 | Převést dashboard na Client Componentu | `page.tsx` | ✅ Hotovo |
+| 3 | Přidat revalidation do server actions | `posts/actions.ts` + ostatní | ✅ Hotovo (již implementováno) |
+| 4 | Otestovat synchronizaci dat | — | ⏳ |
+
+**Celkem:** ~45–65 min  
+**Pořadí:** Krok 1 → kontrola → krok 2 → kontrola → ...
+
+---
+
+## 📝 Poznámky k implementaci
+
+- Dashboard používá `Promise.all` pro paralelní fetch 9 nezávislých dotazů — tato optimalizace zůstává
+- `dashboard-stats.ts` obsahuje čisté funkce (calculateStreak, aggregatePlatforms, atd.) — ty se nemění
+- Supabase RLS filtry jsou správně nastavené (posts!inner user_id pro post_platforms)
+- Tailwind CSS Grid výchoze natahuje buňky (stretch) — problém je v komponentě, ne v gridu
+
+---
+
 ## 🎯 Doporučené pořadí implementace
 
 1. **#2** (hardcoded CZ) — kritický bug pro EN/UK uživatele, rychlá oprava

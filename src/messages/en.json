@@ -300,6 +300,9 @@
     "labelsEmptyTitle": "No labels yet",
     "labelsEmptyDescription": "Add labels to your posts to track what you publish most often.",
     "labelsEmptyAction": "Create Labels",
+    "oneDraft": "{{count}} draft",
+    "fewDrafts": "{{count}} drafts",
+    "manyDrafts": "{{count}} drafts",
     "postsCount": "posts"
   },
   "posts": {

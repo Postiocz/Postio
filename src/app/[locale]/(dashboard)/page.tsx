@@ -1,5 +1,10 @@
-import { getTranslations } from "next-intl/server";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useState, useEffect } from "react";
+import { use } from "react";
+import { useTranslations } from "next-intl";
+import { createClient } from "@/lib/supabase/client";
+import type { PostStatus } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,187 +40,352 @@ import {
   calculateStreak,
   calculateTrend,
 } from "@/lib/dashboard-stats";
+import { normalizePost } from "./posts/normalize-post";
 
-export default async function DashboardPage({
+type RecentPostItem = {
+  id: string;
+  content: string;
+  created_at: string;
+  status: PostStatus;
+};
+
+type RecentPostRow = {
+  id: string;
+  content: string | null;
+  created_at: string;
+  post_platforms:
+    | Array<{ platform: string; status: PostStatus }>
+    | null;
+};
+
+type PostTagJoinRow = {
+  tag_id: string;
+  tags:
+    | { id: string; name: string; color: string }
+    | Array<{ id: string; name: string; color: string }>
+    | null;
+};
+
+type PublishedPlatformRow = {
+  platform: string;
+  published_at: string | null;
+};
+
+type CreatedAtRow = {
+  created_at: string | null;
+};
+
+function buildRecentPostPreview(content: string) {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.length > 96 ? `${normalized.slice(0, 93)}...` : normalized;
+}
+
+export default function DashboardPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "dashboard" });
-  const navT = await getTranslations({ locale, namespace: "nav" });
-  const commonT = await getTranslations({ locale, namespace: "common" });
-  const settingsT = await getTranslations({ locale, namespace: "settings" });
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<DashboardData>({
+    totalPosts: 0,
+    scheduledPosts: 0,
+    draftPosts: 0,
+    recentPosts: [],
+    connectedAccounts: 0,
+    streak: 0,
+    currentPlan: "free",
+    consistencyScore: 0,
+    topLabels: [],
+    platformData: [],
+    publishedTotal: 0,
+    weeklyTrend: 0,
+  });
 
-  let totalPosts = 0;
-  let scheduledPosts = 0;
-  let draftPosts = 0;
-  let recentPosts: Array<{ id: string; title: string | null; created_at: string; status: string }> = [];
-  let connectedAccounts = 0;
-  let dbStreak = 0;
-  let currentPlan = "free";
-  let consistencyScore = 0;
-  let topLabels: TopLabelItem[] = [];
-  let platformData: PlatformDatum[] = [];
-  let publishedTotal = 0;
-  let weeklyTrend = 0;
-  let streak = 0;
+  useEffect(() => {
+    let cancelled = false;
 
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    async function fetchDashboardData() {
+      try {
+        await params;
+        if (cancelled) return;
 
-    if (user) {
-      // Paralelní načtení všech dat potřebných pro dashboard.
-      // Každý dotaz je nezávislý – využíváme Promise.all pro minimální latenci.
-      //
-      // DŮLEŽITÉ pro RLS:
-      // - `posts`, `social_accounts`, `users`, `post_tags` mají přímý `user_id`,
-      //   filtrují se jednoduše přes `.eq("user_id", user.id)`.
-      // - `post_platforms` (migrace 023) NEMÁ `user_id` – RLS filtruje přes
-      //   JOIN na `posts.user_id`. Proto používáme `posts!inner(user_id)`
-      //   v selectu + `.eq("posts.user_id", user.id)`. Tím Supabase vnutil
-      //   INNER JOIN a data jsou správně izolovaná.
-      const [
-        postsData,
-        scheduledData,
-        draftData,
-        accountsData,
-        userData,
-        postTagsRows,
-        publishedPlatformsRows,
-        postCreatedAtRows,
-        recentPostsRows,
-      ] = await Promise.all([
-        // 1. Celkový počet příspěvků.
-        supabase
-          .from("posts")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id),
-        // 2. Naplánované příspěvky (přes post_platforms – inner JOIN kvůli RLS).
-        supabase
-          .from("post_platforms")
-          .select("post_id, posts!inner(user_id)", {
-            count: "exact",
-            head: true,
-          })
-          .eq("posts.user_id", user.id)
-          .eq("status", "scheduled"),
-        // 2b. Rozepsané příspěvky (draft).
-        supabase
-          .from("post_platforms")
-          .select("post_id, posts!inner(user_id)", {
-            count: "exact",
-            head: true,
-          })
-          .eq("posts.user_id", user.id)
-          .eq("status", "draft"),
-        // 3. Aktivní sociální účty.
-        supabase
-          .from("social_accounts")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("is_active", true),
-        // 4. User profil (streak + plán).
-        supabase
-          .from("users")
-          .select("streak, plan")
-          .eq("id", user.id)
-          .single(),
-        // 4b. Poslední příspěvky (max 5, seřazeno podle created_at).
-        supabase
-          .from("posts")
-          .select("id, title, created_at, status")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(5),
-        // 5. Top štítky: post_tags JOIN tags. Filtrujeme přes user_id (RLS).
-        supabase
-          .from("post_tags")
-          .select("tag_id, tags(id, name, color)")
-          .eq("user_id", user.id),
-        // 6. Publikované záznamy pro donut chart (inner JOIN kvůli RLS).
-        supabase
-          .from("post_platforms")
-          .select("platform, published_at, post_id, posts!inner(user_id)")
-          .eq("posts.user_id", user.id)
-          .eq("status", "published"),
-        // 7. Datumy vytvoření všech postů – pro trend indikátor.
-        supabase.from("posts").select("created_at").eq("user_id", user.id),
-      ]);
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      totalPosts = postsData.count ?? 0;
-      scheduledPosts = scheduledData.count ?? 0;
-      draftPosts = draftData.count ?? 0;
-      recentPosts = (recentPostsRows.data ?? []) as Array<{ id: string; title: string | null; created_at: string; status: string }>;
-      connectedAccounts = accountsData.count ?? 0;
-      dbStreak = userData.data?.streak ?? 0;
-      currentPlan = userData.data?.plan ?? "free";
+        if (!user) {
+          if (!cancelled) setData({
+            totalPosts: 0,
+            scheduledPosts: 0,
+            draftPosts: 0,
+            recentPosts: [],
+            connectedAccounts: 0,
+            streak: 0,
+            currentPlan: "free",
+            consistencyScore: 0,
+            topLabels: [],
+            platformData: [],
+            publishedTotal: 0,
+            weeklyTrend: 0,
+          });
+          return;
+        }
 
-      // Top štítky (agregace z post_tags + tags).
-      if (postTagsRows.data) {
-        topLabels = aggregateTopLabels(
-          // Supabase vrací tags jako objekt nebo pole – ošetříme oba případy.
-          (postTagsRows.data as unknown as Array<{ tag_id: string; tags: any }>).map((r) => ({
-            tag_id: r.tag_id,
-            tags: Array.isArray(r.tags) ? (r.tags[0] ?? null) : r.tags,
-          })),
+        // Paralelní načtení všech dat potřebných pro dashboard.
+        // Každý dotaz je nezávislý – využíváme Promise.all pro minimální latenci.
+        //
+        // DŮLEŽITÉ pro RLS:
+        // - `posts`, `social_accounts`, `users`, `post_tags` mají přímý `user_id`,
+        //   filtrují se jednoduše přes `.eq("user_id", user.id)`.
+        // - `post_platforms` (migrace 023) NEMÁ `user_id` – RLS filtruje přes
+        //   JOIN na `posts.user_id`. Proto používáme `posts!inner(user_id)`
+        //   v selectu + `.eq("posts.user_id", user.id)`. Tím Supabase vnutil
+        //   INNER JOIN a data jsou správně izolovaná.
+        const [
+          postsData,
+          scheduledData,
+          draftData,
+          accountsData,
+          userData,
+          recentPostsRows,
+          postTagsRows,
+          publishedPlatformsRows,
+          postCreatedAtRows,
+        ] = await Promise.all([
+          // 1. Celkový počet příspěvků.
+          supabase
+            .from("posts")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id),
+          // 2. Naplánované příspěvky (přes post_platforms – inner JOIN kvůli RLS).
+          supabase
+            .from("post_platforms")
+            .select("post_id, posts!inner(user_id)", {
+              count: "exact",
+              head: true,
+            })
+            .eq("posts.user_id", user.id)
+            .eq("status", "scheduled"),
+          // 2b. Rozepsané příspěvky (draft).
+          supabase
+            .from("post_platforms")
+            .select("post_id, posts!inner(user_id)", {
+              count: "exact",
+              head: true,
+            })
+            .eq("posts.user_id", user.id)
+            .eq("status", "draft"),
+          // 3. Aktivní sociální účty.
+          supabase
+            .from("social_accounts")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("is_active", true),
+          // 4. User profil (streak + plán).
+          supabase
+            .from("users")
+            .select("streak, plan")
+            .eq("id", user.id)
+            .single(),
+          // 4b. Poslední příspěvky (max 5, seřazeno podle created_at).
+          supabase
+            .from("posts")
+            .select("id, content, created_at, post_platforms(platform, status)")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(5),
+          // 5. Top štítky: post_tags JOIN tags. Filtrujeme přes user_id (RLS).
+          supabase
+            .from("post_tags")
+            .select("tag_id, tags(id, name, color)")
+            .eq("user_id", user.id),
+          // 6. Publikované záznamy pro donut chart (inner JOIN kvůli RLS).
+          supabase
+            .from("post_platforms")
+            .select("platform, published_at, post_id, posts!inner(user_id)")
+            .eq("posts.user_id", user.id)
+            .eq("status", "published"),
+          // 7. Datumy vytvoření všech postů – pro trend indikátor.
+          supabase.from("posts").select("created_at").eq("user_id", user.id),
+        ]);
+
+        if (cancelled) return;
+
+        const totalPosts = postsData.count ?? 0;
+        const scheduledPosts = scheduledData.count ?? 0;
+        const draftPosts = draftData.count ?? 0;
+        const recentPosts = ((recentPostsRows.data ?? []) as RecentPostRow[]).map(
+          (post) => {
+            const normalized = normalizePost({
+              id: post.id,
+              content: post.content ?? "",
+              created_at: post.created_at,
+              post_platforms: post.post_platforms ?? [],
+            } as Record<string, unknown>);
+
+            return {
+              id: normalized.id,
+              content: normalized.content,
+              created_at: normalized.created_at,
+              status: normalized.status,
+            };
+          },
         );
-      }
+        const connectedAccounts = accountsData.count ?? 0;
+        const dbStreak = userData.data?.streak ?? 0;
+        const currentPlan = userData.data?.plan ?? "free";
 
-      // Platformy donut chart.
-      if (publishedPlatformsRows.data) {
-        const platformsData = publishedPlatformsRows.data as any;
-        platformData = prioritizeForDonut(
-          aggregatePlatforms(platformsData),
-        );
-        publishedTotal = platformsData.length;
-
-        // Streak – preferujeme dynamický výpočet (úkol: "musí být funkční").
-        // Vypočítáme z publikovaných datumů; pokud výpočet > 0, použijeme ho,
-        // jinak fallback na DB hodnotu (kterou aktualizuje cron job).
-        const publishedDates = platformsData
-          .map((r: any) => r.published_at)
-          .filter((d: any): d is string => Boolean(d));
-        const calculatedStreak = calculateStreak(publishedDates);
-        streak = calculatedStreak > 0 ? calculatedStreak : dbStreak;
-
-        // Consistency score – procentuální podíl dní s publikací v posledních 30 dnech.
-        // Pouze pokud má uživatel alespoň 3 publikace – jinak je skóre 0.
-        if (publishedPlatformsRows.data.length >= 3) {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          const totalDays = 30;
-          const daysWithPublish = new Set<string>();
-          for (const pubDate of publishedDates) {
-            const d = new Date(pubDate);
-            if (d >= thirtyDaysAgo && d <= new Date()) {
-              daysWithPublish.add(d.toISOString().slice(0, 10));
-            }
-          }
-          consistencyScore = Math.round(
-            (daysWithPublish.size / totalDays) * 100,
+        // Top štítky (agregace z post_tags + tags).
+        let topLabels: TopLabelItem[] = [];
+        if (postTagsRows.data) {
+          topLabels = aggregateTopLabels(
+            (postTagsRows.data as PostTagJoinRow[]).map((r) => ({
+              tag_id: r.tag_id,
+              tags: Array.isArray(r.tags) ? (r.tags[0] ?? null) : r.tags,
+            })),
           );
         }
-      }
 
-      // Trend za posledních 7 dní.
-      if (postCreatedAtRows.data) {
-        weeklyTrend = calculateTrend(
-          (postCreatedAtRows.data as any).map((r: any) => r.created_at),
-        );
+        // Platformy donut chart.
+        let platformData: PlatformDatum[] = [];
+        let publishedTotal = 0;
+        let streak = 0;
+        let consistencyScore = 0;
+
+        if (publishedPlatformsRows.data) {
+          const platformsData = publishedPlatformsRows.data as PublishedPlatformRow[];
+          platformData = prioritizeForDonut(
+            aggregatePlatforms(platformsData),
+          );
+          publishedTotal = platformsData.length;
+
+          // Streak – preferujeme dynamický výpočet (úkol: "musí být funkční").
+          // Vypočítáme z publikovaných datumů; pokud výpočet > 0, použijeme ho,
+          // jinak fallback na DB hodnotu (kterou aktualizuje cron job).
+          const publishedDates = platformsData
+            .map((r) => r.published_at)
+            .filter((d): d is string => Boolean(d));
+          const calculatedStreak = calculateStreak(publishedDates);
+          streak = calculatedStreak > 0 ? calculatedStreak : dbStreak;
+
+          // Consistency score – procentuální podíl dní s publikací v posledních 30 dnech.
+          // Pouze pokud má uživatel alespoň 3 publikace – jinak je skóre 0.
+          if (publishedPlatformsRows.data.length >= 3) {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const totalDays = 30;
+            const daysWithPublish = new Set<string>();
+            for (const pubDate of publishedDates) {
+              const d = new Date(pubDate);
+              if (d >= thirtyDaysAgo && d <= new Date()) {
+                daysWithPublish.add(d.toISOString().slice(0, 10));
+              }
+            }
+            consistencyScore = Math.round(
+              (daysWithPublish.size / totalDays) * 100,
+            );
+          }
+        }
+
+        // Trend za posledních 7 dní.
+        let weeklyTrend = 0;
+        if (postCreatedAtRows.data) {
+          weeklyTrend = calculateTrend(
+            (postCreatedAtRows.data as CreatedAtRow[]).map((r) => r.created_at),
+          );
+        }
+
+        setData({
+          totalPosts,
+          scheduledPosts,
+          draftPosts,
+          recentPosts,
+          connectedAccounts,
+          streak,
+          currentPlan,
+          consistencyScore,
+          topLabels,
+          platformData,
+          publishedTotal,
+          weeklyTrend,
+        });
+      } catch (error) {
+        console.error("Dashboard data fetch error:", error);
+        // Partial data may be available – don't reset to zero
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
-  } catch (error) {
-    console.error("Dashboard data fetch error:", error);
-    // Partial data may be available – don't reset to zero
+
+    fetchDashboardData();
+
+    // Automatický refresh po focusu okna (např. po návratu z create/edit postu)
+    const handleFocus = () => {
+      if (!cancelled) {
+        fetchDashboardData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [params]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-pulse text-muted-foreground">Načítám dashboard...</div>
+      </div>
+    );
   }
+
+  return <DashboardContent params={params} data={data} />;
+}
+
+interface DashboardData {
+  totalPosts: number;
+  scheduledPosts: number;
+  draftPosts: number;
+  recentPosts: RecentPostItem[];
+  connectedAccounts: number;
+  streak: number;
+  currentPlan: string;
+  consistencyScore: number;
+  topLabels: TopLabelItem[];
+  platformData: PlatformDatum[];
+  publishedTotal: number;
+  weeklyTrend: number;
+}
+
+function DashboardContent({
+  params,
+  data,
+}: {
+  params: Promise<{ locale: string }>;
+  data: DashboardData;
+}) {
+  const { locale } = use(params);
+  const t = useTranslations("dashboard");
+  const postsT = useTranslations("posts");
+  const navT = useTranslations("nav");
+  const settingsT = useTranslations("settings");
+  const recentPostStatusLabels: Partial<Record<PostStatus, string>> = {
+    draft: postsT("statusDraft"),
+    scheduled: postsT("statusScheduled"),
+    published: postsT("statusPublished"),
+    failed: postsT("statusFailed"),
+    removed_externally: postsT("statusRemovedExternally"),
+    archived: postsT("statusArchived"),
+  };
 
   return (
     <div className="space-y-8">
-      {totalPosts === 0 && scheduledPosts === 0 && connectedAccounts === 0 && streak === 0 ? (
+      {data.totalPosts === 0 && data.scheduledPosts === 0 && data.connectedAccounts === 0 && data.streak === 0 ? (
         <div className="rounded-[24px] border border-dashed border-white/10 bg-card/20 p-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Rocket className="h-8 w-8 text-primary" />
@@ -248,48 +418,54 @@ export default async function DashboardPage({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t("totalPosts")}
-          value={totalPosts}
+          value={data.totalPosts}
           icon={FileText}
           href={`/${locale}/posts`}
           trend={{
-            value: weeklyTrend,
+            value: data.weeklyTrend,
             label: t("thisWeek"),
           }}
         />
         <StatCard
           title={t("scheduled")}
-          value={scheduledPosts}
+          value={data.scheduledPosts}
           icon={CalendarIcon}
           href={`/${locale}/calendar`}
-          subtitle={draftPosts > 0 ? `${draftPosts} draftů` : undefined}
+          subtitle={data.draftPosts > 0 ? (
+          data.draftPosts === 1
+            ? t("oneDraft")
+            : data.draftPosts >= 2 && data.draftPosts <= 4
+              ? t("fewDrafts", { count: data.draftPosts })
+              : t("manyDrafts", { count: data.draftPosts })
+        ) : undefined}
         />
         <StatCard
           title={t("connectedAccounts")}
-          value={connectedAccounts}
+          value={data.connectedAccounts}
           icon={LinkIcon}
           href={`/${locale}/accounts`}
         />
         <StatCard
           title={t("streak")}
-          value={`${streak}d`}
+          value={`${data.streak}d`}
           icon={Flame}
           href={`/${locale}/analytics`}
-          isGlowing={streak > 0}
-          subtitle={streak === 0 ? t("streakEmpty") : undefined}
+          isGlowing={data.streak > 0}
+          subtitle={data.streak === 0 ? t("streakEmpty") : undefined}
         />
       </div>
 
       {/* Analytics row – grafy: konzistence + donut + top labels */}
       <div className="grid gap-4 lg:grid-cols-3">
         <ConsistencyScore
-          score={consistencyScore}
+          score={data.consistencyScore}
           label={t("consistencyScore")}
           t={t}
         />
         <div className="lg:col-span-2 grid gap-4 sm:grid-cols-2">
           <PlatformDonutChart
-            data={platformData}
-            total={publishedTotal}
+            data={data.platformData}
+            total={data.publishedTotal}
             translations={{
               title: t("platformBreakdown"),
               emptyTitle: t("platformEmptyTitle"),
@@ -298,7 +474,7 @@ export default async function DashboardPage({
             }}
           />
           <TopLabelsChart
-            labels={topLabels}
+            labels={data.topLabels}
             locale={locale}
             translations={{
               title: t("topLabels"),
@@ -337,7 +513,7 @@ export default async function DashboardPage({
         </div>
       </div>
 
-   {recentPosts.length > 0 && (
+   {data.recentPosts.length > 0 && (
         <div>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">{t("recentPosts")}</h2>
@@ -349,20 +525,33 @@ export default async function DashboardPage({
             </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {recentPosts.map((post) => (
+            {data.recentPosts.map((post) => (
               <Card
-                key={post.id || `post-${Math.random()}`}
+                key={post.id}
                 className="bg-card/40 backdrop-blur-md border-white/5 hover:bg-accent transition-all cursor-pointer"
               >
                 <CardContent className="p-4">
                   <Link href={`/${locale}/posts/${post.id}`}>
                     <h3 className="font-medium line-clamp-2 mb-2">
-                      {post.title || "Bez názvu"}
+                      {buildRecentPostPreview(post.content) || postsT("newPost")}
                     </h3>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{new Date(post.created_at).toLocaleDateString(locale)}</span>
-                      <Badge variant="outline" className={post.status === "published" ? "bg-emerald-500/10 text-emerald-400" : post.status === "scheduled" ? "bg-blue-500/10 text-blue-400" : "bg-gray-500/10 text-gray-400"}>
-                        {post.status}
+                      <Badge
+                        variant="outline"
+                        className={
+                          post.status === "published"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : post.status === "scheduled"
+                              ? "bg-blue-500/10 text-blue-400"
+                              : post.status === "failed"
+                                ? "bg-red-500/10 text-red-400"
+                                : post.status === "removed_externally"
+                                  ? "bg-orange-500/10 text-orange-400"
+                                  : "bg-gray-500/10 text-gray-400"
+                        }
+                      >
+                        {recentPostStatusLabels[post.status] ?? post.status}
                       </Badge>
                     </div>
                   </Link>
@@ -375,7 +564,7 @@ export default async function DashboardPage({
 
       <UpgradeBanner
         locale={locale}
-        currentPlan={currentPlan}
+        currentPlan={data.currentPlan}
         t={t}
         settingsT={settingsT}
       />
@@ -416,7 +605,7 @@ function StatCard({
           )}
         />
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col flex-1 justify-between">
         <div className="text-2xl font-bold tracking-tight">{value}</div>
         {subtitle && (
           <div className="mt-1 text-xs text-muted-foreground/60">
@@ -452,15 +641,15 @@ function StatCard({
 
   if (href) {
     return (
-      <Link href={href} className="group">
-        <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] transition-all hover:bg-accent hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
+      <Link href={href} className="group h-full">
+        <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] transition-all hover:bg-accent hover:shadow-md hover:-translate-y-0.5 cursor-pointer h-full flex flex-col">
           {content}
         </Card>
       </Link>
     );
   }
 
-  return <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">{content}</Card>;
+  return <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] h-full flex flex-col">{content}</Card>;
 }
 
 function ConsistencyScore({

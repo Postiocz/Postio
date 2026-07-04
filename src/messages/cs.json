@@ -301,6 +301,9 @@
     "labelsEmptyTitle": "Zatím žádné štítky",
     "labelsEmptyDescription": "Přidejte štítky k příspěvkům a sledujte, co publikujete nejčastěji.",
     "labelsEmptyAction": "Vytvořit štítky",
+    "oneDraft": "1 koncept",
+    "fewDrafts": "{{count}} koncepty",
+    "manyDrafts": "{{count}} konceptů",
     "postsCount": "příspěvků",
     "free": "Free"
   },

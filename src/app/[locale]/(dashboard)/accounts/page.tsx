@@ -295,13 +295,14 @@ export default function AccountsPage() {
   const ytSignal = searchParams.get("yt");
   const liSignal = searchParams.get("li");
   const xSignal = searchParams.get("x");
+  const tiktokSignal = searchParams.get("tiktok");
   const errorSignal = searchParams.get("error");
   useEffect(() => {
-    if (!ytSignal && !liSignal && !xSignal && !errorSignal) return;
+    if (!ytSignal && !liSignal && !xSignal && !tiktokSignal && !errorSignal) return;
 
     // Strip the query params from the URL immediately so we never loop on
     // a manual refresh (the same pattern used for `?fb=connected` above).
-    if (ytSignal || liSignal || xSignal || errorSignal) {
+    if (ytSignal || liSignal || xSignal || tiktokSignal || errorSignal) {
       router.replace(window.location.pathname);
     }
 
@@ -333,10 +334,18 @@ export default function AccountsPage() {
       return;
     }
 
+    if (tiktokSignal === "connected") {
+      // TikTok OAuth – the route at `/api/accounts/tiktok` redirects back
+      // here with `?tiktok=connected` after a successful upsert.
+      fetchAccounts();
+      toast.success(t("tiktokConnectedShort"));
+      return;
+    }
+
     if (errorSignal) {
       toast.error(t("connectionError", { error: errorSignal }));
     }
-  }, [ytSignal, liSignal, xSignal, errorSignal, router, t]);
+  }, [ytSignal, liSignal, xSignal, tiktokSignal, errorSignal, router, t]);
 
   async function handleConnect(e: React.FormEvent) {
     e.preventDefault();
@@ -445,14 +454,15 @@ export default function AccountsPage() {
                     // Platforms that go through the universal OAuth connect
                     // modal (ConnectAccountModal → Google / Meta / LinkedIn).
                     // The "else" branch shows the legacy manual token +
-                    // account-name form, which is kept for platforms that
-                    // do not yet have an OAuth flow (TikTok, X).
+                    // account-name form — no platform currently uses this
+                    // (all platforms have OAuth flows). Kept as fallback.
                     const isOAuthPlatform =
                       platform.id === "instagram" ||
                       platform.id === "facebook" ||
                       platform.id === "linkedin" ||
                       platform.id === "youtube" ||
-                      platform.id === "twitter";
+                      platform.id === "twitter" ||
+                      platform.id === "tiktok";
                     if (isOAuthPlatform) {
                       setConnectModalPlatform({
                         id: platform.id,
@@ -873,6 +883,12 @@ export default function AccountsPage() {
               const locale = localeMatch?.[1] ?? "cs";
               const googleAuthUrl = `/api/auth/google?state=${encodeURIComponent(next)}&locale=${locale}`;
               window.location.assign(googleAuthUrl);
+            } else if (connectModalPlatform.id === "tiktok") {
+              // TikTok OAuth – custom flow via /api/accounts/tiktok
+              const localeMatch = window.location.pathname.match(/\/(cs|en|uk)(?:\/|$)/);
+              const locale = localeMatch?.[1] ?? "cs";
+              const tiktokAuthUrl = `/api/accounts/tiktok?state=${encodeURIComponent(next)}&locale=${locale}`;
+              window.location.assign(tiktokAuthUrl);
             } else if (connectModalPlatform.id === "instagram") {
               // Instagram Direct Login – no Facebook Page required
               const { data, error } = await supabase.auth.signInWithOAuth({
@@ -932,7 +948,9 @@ export default function AccountsPage() {
                     ? t("connectModal.warningDescYouTube")
                     : connectModalPlatform.id === "twitter"
                       ? t("connectModal.warningDescX")
-                      : t("connectModal.warningDesc"),
+                      : connectModalPlatform.id === "tiktok"
+                        ? t("connectModal.warningDescTikTok")
+                        : t("connectModal.warningDesc"),
             connectButton: t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
             errorTitle: t("connectModal.errorTitle"),
@@ -945,7 +963,9 @@ export default function AccountsPage() {
                     ? "https://support.google.com/youtube/answer/2573669"
                     : connectModalPlatform.id === "twitter"
                       ? "https://developer.twitter.com/en/docs/twitter-api"
-                      : "https://www.facebook.com/business/help/193027849380904",
+                      : connectModalPlatform.id === "tiktok"
+                        ? "https://developers.tiktok.com/doc/"
+                        : "https://www.facebook.com/business/help/193027849380904",
           }}
         />
       )}

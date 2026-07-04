@@ -273,3 +273,128 @@
 **Hotovo relace 4:** #13 = **1 úkol, ~90 min** (8 nových komponent, −581 řádků)  
 **Hotovo relace 5:** #15 = **1 úkol, ~40 min** (ARIA grid + keyboard navigace v Month & Week view)  
 **Zbývá:** 0 — vše hotovo ✅
+
+---
+
+# 🔧 Úkoly — TikTok OAuth připojení účtu (Accounts page)
+
+> Vytvořeno: 2026-07-04  
+> Soubory: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`  
+> API route již existuje: `src/app/api/accounts/tiktok/route.ts` (OAuth flow kompletní — authorize → token exchange → user/info → DB upsert → redirect s `?tiktok=connected`)
+
+---
+
+## 🐛 Analýza problému
+
+Uživatel klikne na TikTok ikonu na stránce Accounts → očekává OAuth připojení přes `ConnectAccountModal` + redirect na TikTok authorize URL. Namísto toho:
+
+1. **TikTok není v `isOAuthPlatform`** (ř. 450–455) → klikne-li uživatel na ikonu, spadne do `else` větve a zobrazí se legacy manuální formulář (account name + access token inputy), ne OAuth modal.
+2. **Žádná větev pro `"tiktok"` v `onConnect` handleru** (ř. 845–918) → kdyby modal otevřen byl (např. přes Reconnect tlačítko u existujícího účtu), spadl by do default Facebook OAuth větve — uživatel by byl redirectnut na Facebook consent místo TikTok.
+3. **Chybí callback signal handler pro `?tiktok=connected`** (ř. 295–339) → API route po úspěšném OAuth redirectne zpět s `?tiktok=connected`, ale page tento parametru nečte — žádný toast, žádný re-fetch účtů, uživatel neuvidí změnu.
+4. **Chybí i18n klíč `tiktokConnectedShort`** → toast pro úspěšné připojení nemá překlad (ostatní platformy mají: `ytConnectedShort`, `liConnectedShort`, `xConnectedShort`).
+
+---
+
+## ✅ Plán opravy
+
+| # | Část | Co udělat | Soubor | Řádky | Odhad |
+|---|------|-----------|--------|-------|-------|
+| ~~1~~ | ~~`isOAuthPlatform`~~ | ~~Přidat `platform.id === "tiktok"` do condition na ř. 450–455~~ | `page.tsx` | ~450–455 | ~~5 min~~ |
+| ~~2~~ | ~~`onConnect` větev~~ | ~~Přidat `else if (connectModalPlatform.id === "tiktok")` s redirectem na `/api/accounts/tiktok?state=...&locale=...` (vzor: LinkedIn/X/YouTube)~~ | `page.tsx` | ~845–918 | ~~10 min~~ |
+| ~~3~~ | ~~Callback signal~~ | ~~Přidat `const tiktokSignal = searchParams.get("tiktok")` + handler v useEffect (toast + fetchAccounts + cleanup URL)~~ | `page.tsx` | ~295–339 | ~~10 min~~ |
+| ~~4~~ | ~~i18n klíče~~ | ~~Přidat `tiktokConnectedShort` do cs.json, en.json, uk.json~~ | `src/messages/*.json` | — | ~~5 min~~ |
+| ~~5~~ | ~~Komentář~~ | ~~Aktualizovat komentář ř. 445–449 — TikTok už má OAuth flow, není to "legacy platform"~~ | `page.tsx` | ~445–449 | ~~2 min~~ |
+
+**Celkem: ~32 min — ✅ Vše hotovo**
+
+---
+
+## 📝 Konkrétní změny
+
+### Změna 1 — `isOAuthPlatform` (ř. 450–455)
+```
+// PŘED:
+const isOAuthPlatform =
+  platform.id === "instagram" ||
+  platform.id === "facebook" ||
+  platform.id === "linkedin" ||
+  platform.id === "youtube" ||
+  platform.id === "twitter";
+
+// PO:
+const isOAuthPlatform =
+  platform.id === "instagram" ||
+  platform.id === "facebook" ||
+  platform.id === "linkedin" ||
+  platform.id === "youtube" ||
+  platform.id === "twitter" ||
+  platform.id === "tiktok";
+```
+
+### Změna 2 — `onConnect` větev pro TikTok (mezi YouTube a Instagram, ~ř. 876)
+```ts
+} else if (connectModalPlatform.id === "tiktok") {
+  // TikTok OAuth – custom flow via /api/accounts/tiktok
+  const localeMatch = window.location.pathname.match(/\/(cs|en|uk)(?:\/|$)/);
+  const locale = localeMatch?.[1] ?? "cs";
+  const tiktokAuthUrl = `/api/accounts/tiktok?state=${encodeURIComponent(next)}&locale=${locale}`;
+  window.location.assign(tiktokAuthUrl);
+```
+
+### Změna 3 — Callback signal handler (~ř. 295–300)
+```ts
+// Přidat vedle ytSignal / liSignal / xSignal:
+const tiktokSignal = searchParams.get("tiktok");
+
+// Do useEffect condition a tělo:
+if (!ytSignal && !liSignal && !xSignal && !tiktokSignal && !errorSignal) return;
+// ...
+if (tiktokSignal === "connected") {
+  fetchAccounts();
+  toast.success(t("tiktokConnectedShort"));
+  return;
+}
+
+// Do dependency array: [ytSignal, liSignal, xSignal, tiktokSignal, errorSignal, router, t]
+```
+
+### Změna 4 — i18n klíče
+Do `src/messages/cs.json` (sekce accounts):
+```json
+"tiktokConnectedShort": "TikTok účet byl úspěšně propojen s Postiem.",
+```
+Do `src/messages/en.json`:
+```json
+"tiktokConnectedShort": "TikTok account has been successfully connected to Postio.",
+```
+Do `src/messages/uk.json`:
+```json
+"tiktokConnectedShort": "Обліковий запис TikTok успішно підключено до Postio.",
+```
+
+### Změna 5 — Komentář (ř. 445–449)
+```
+// PŘED:
+// The "else" branch shows the legacy manual token +
+// account-name form, which is kept for platforms that
+// do not yet have an OAuth flow (TikTok, X).
+
+// PO:
+// The "else" branch shows the legacy manual token +
+// account-name form — no platform currently uses this
+// (all platforms have OAuth flows). Kept as fallback.
+```
+
+---
+
+## 🔄 Status
+
+| Část | Status |
+|------|--------|
+| ~~1~~ | ~~`isOAuthPlatform`~~ | ✅ Hotovo |
+| ~~2~~ | ~~`onConnect` větev~~ | ✅ Hotovo |
+| ~~3~~ | ~~Callback signal~~ | ✅ Hotovo |
+| ~~4~~ | ~~i18n klíče~~ | ✅ Hotovo |
+| ~~5~~ | ~~Komentář~~ | ✅ Hotovo |
+
+**Celkem zbývá: 0/5 — vše hotovo ✅**

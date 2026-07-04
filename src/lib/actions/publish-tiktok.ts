@@ -1,6 +1,10 @@
 "use server";
 
 import { createAdminClient, createClient } from "@/lib/supabase/server";
+import {
+  isTikTokSandboxPrivateOnlyError,
+  TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
+} from "@/lib/tiktok-publish-errors";
 
 const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
 const TIKTOK_CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/";
@@ -89,7 +93,7 @@ type TikTokPublishActionResult =
       effectivePrivacyLevel: TikTokPrivacyLevel;
       warningCode?: typeof TIKTOK_PRIVATE_ONLY_WARNING_CODE;
     }
-  | { success: false; error: string };
+  | { success: false; error: string; errorCode?: string };
 
 function readTikTokRefreshToken(metadata: SocialAccountRow["metadata"]): string | null {
   if (!metadata || typeof metadata !== "object") return null;
@@ -174,10 +178,6 @@ function isTikTokPrivateOnlyCreatorInfo(creatorInfo: TikTokCreatorInfo): boolean
     creatorInfo.privacyLevelOptions.length === 1 &&
     creatorInfo.privacyLevelOptions[0] === "SELF_ONLY"
   );
-}
-
-function isTikTokPrivateOnlyError(error: string): boolean {
-  return error.toLowerCase().includes("unaudited_client_can_only_post_to_private_accounts");
 }
 
 async function persistTikTokCreatorInfoCache(params: {
@@ -463,7 +463,10 @@ async function publishToTikTok(params: {
   content: string;
   privacyLevel: TikTokPrivacyLevel;
   creatorInfo: TikTokCreatorInfo;
-}): Promise<{ success: true; externalId: string } | { success: false; error: string }> {
+}): Promise<
+  | { success: true; externalId: string }
+  | { success: false; error: string; errorCode?: string }
+> {
   const { accessToken, videoUrl, content, privacyLevel, creatorInfo } = params;
 
   let videoBuffer: ArrayBuffer;
@@ -492,27 +495,31 @@ async function publishToTikTok(params: {
     };
   }
 
+  const body = {
+    post_info: {
+      title: content.slice(0, 2200),
+      privacy_level: privacyLevel,
+      disable_duet: creatorInfo.duetDisabled,
+      disable_comment: creatorInfo.commentDisabled,
+      disable_stitch: creatorInfo.stitchDisabled,
+    },
+    source_info: {
+      source: "FILE_UPLOAD",
+      video_size: videoBuffer.byteLength,
+      chunk_size: videoBuffer.byteLength,
+      total_chunk_count: 1,
+    },
+  };
+
+  console.log("TIKTOK PAYLOAD:", body);
+
   const initRes = await fetch(TIKTOK_PUBLISH_INIT_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json; charset=UTF-8",
     },
-    body: JSON.stringify({
-      post_info: {
-        title: content.slice(0, 2200),
-        privacy_level: privacyLevel,
-        disable_duet: creatorInfo.duetDisabled,
-        disable_comment: creatorInfo.commentDisabled,
-        disable_stitch: creatorInfo.stitchDisabled,
-      },
-      source_info: {
-        source: "FILE_UPLOAD",
-        video_size: videoBuffer.byteLength,
-        chunk_size: videoBuffer.byteLength,
-        total_chunk_count: 1,
-      },
-    }),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
 
@@ -523,9 +530,13 @@ async function publishToTikTok(params: {
 
   if (!initRes.ok || initData.error?.code !== "ok") {
     console.error("[TikTok Publish] init error:", initData);
+    const errorMessage = initData.error?.message || "TikTok publish init selhalo.";
     return {
       success: false,
-      error: initData.error?.message || "TikTok publish init selhalo.",
+      error: errorMessage,
+      ...(isTikTokSandboxPrivateOnlyError(errorMessage)
+        ? { errorCode: TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE }
+        : {}),
     };
   }
 
@@ -699,7 +710,7 @@ export async function publishToTikTokAction(params: {
 
   if (
     resolvedPrivacyLevel !== "SELF_ONLY" &&
-    isTikTokPrivateOnlyError(initialResult.error)
+    isTikTokSandboxPrivateOnlyError(initialResult.error)
   ) {
     const retryResult = await publishToTikTok({
       accessToken: tokenResult.accessToken,

@@ -5,6 +5,26 @@
 
 ## 2026-07-04
 
+### 🐛 Fix — Prompt 017-D: TikTok privacy mapping debug log a lokalizace sandbox chyby
+
+- **Kontext**: U TikTok publish flow bylo potřeba ověřit, že editorová volba `Pouze já` opravdu končí v API payloadu jako `privacy_level: "SELF_ONLY"`, a zároveň zastavit únik syrové anglické chyby `unaudited_client_can_only_post_to_private_accounts` do UI.
+- **Oprava**:
+  1. V `src/lib/actions/publish-tiktok.ts` je tělo `video/init` nově složené do samostatné proměnné `body`, těsně před requestem se loguje přes `console.log("TIKTOK PAYLOAD:", body)` a chyba private-only ze sandboxu vrací vedle textu i stabilní `errorCode`.
+  2. V `src/lib/actions/publish.ts` TikTok větev předává `errorCode` dál do UI i jako fallback při detekci raw TikTok message, takže lokalizace není závislá jen na jedné vrstvě.
+  3. V `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx` a `src/app/[locale]/(dashboard)/posts/[id]/page.tsx` přidán překladový mapping pro TikTok sandbox private-only chybu, aby uživatel dostal lokalizované vysvětlení místo anglického API textu.
+  4. Do `src/messages/cs.json`, `en.json` a `uk.json` doplněn nový řetězec `tiktokSandboxPrivateOnlyError`.
+- **Upravené soubory**:
+  - `src/lib/tiktok-publish-errors.ts`
+  - `src/lib/actions/publish-tiktok.ts`
+  - `src/lib/actions/publish.ts`
+  - `src/components/edit-post-dialog.tsx`
+  - `src/app/[locale]/(dashboard)/posts/new/page.tsx`
+  - `src/app/[locale]/(dashboard)/posts/[id]/page.tsx`
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — Vercel build: untyped select builder pro scheduled Edge Function
 
 - **Kontext**: Produkční deploy na Vercelu znovu padal při `next build` v `supabase/functions/process-scheduled-posts/index.ts` na chybě `Object is of type 'unknown'`. Příčinou bylo, že lokální alias `DenoSupabaseClient` vracel z `.from(...)` čisté `unknown`, ale helpery pro TikTok / YouTube / LinkedIn nad tím dál řetězily `.select().eq().order().limit()`.

@@ -21,6 +21,11 @@ import { useMediaUpload } from "@/hooks/use-media-upload";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS,
+  isTikTokSandboxPrivateOnlyError,
+  TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
+} from "@/lib/tiktok-publish-errors";
 import NextImage from "next/image";
 import {
   Instagram,
@@ -74,6 +79,26 @@ const TIKTOK_SUPPORTED_PRIVACY_LEVELS: TikTokPrivacyLevel[] = [
  * - tiktok: Full lock after publishing
  */
 const SUPPORTED_UPDATE_PLATFORMS = ["facebook", "linkedin", "youtube"] as const;
+
+function resolveLocalizedPublishError(params: {
+  error?: string;
+  errorCode?: string;
+  t: (key: string) => string;
+}): string {
+  const { error, errorCode, t } = params;
+
+  if (
+    errorCode === TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE ||
+    isTikTokSandboxPrivateOnlyError(error)
+  ) {
+    return (
+      t("tiktokSandboxPrivateOnlyError") ??
+      DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS
+    );
+  }
+
+  return error ?? t("errorSaving");
+}
 
 export type PostPlatform = {
   id: string;
@@ -908,8 +933,13 @@ export function EditPostDialog({
         return;
       }
 
-      setError(result.error ?? t("errorSaving"));
-      toast.error(result.error ?? t("errorSaving"));
+      const localizedError = resolveLocalizedPublishError({
+        error: result.error,
+        errorCode: result.errorCode,
+        t,
+      });
+      setError(localizedError);
+      toast.error(localizedError);
     } catch {
       setError(t("errorSaving"));
       toast.error(t("errorSaving"));
@@ -1068,7 +1098,11 @@ export function EditPostDialog({
         return;
       }
 
-      const msg = publishResult.error ?? "Publikování selhalo.";
+      const msg = resolveLocalizedPublishError({
+        error: publishResult.error,
+        errorCode: publishResult.errorCode,
+        t,
+      });
       setError(msg);
       toast.error(msg);
     } catch {

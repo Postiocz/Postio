@@ -14,6 +14,11 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS,
+  isTikTokSandboxPrivateOnlyError,
+  TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
+} from "@/lib/tiktok-publish-errors";
 import NextImage from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useMediaUpload } from "@/hooks/use-media-upload";
@@ -30,6 +35,26 @@ const PLATFORMS = [
 ];
 
 const MAX_MEDIA_FILES = 10;
+
+function resolvePublishErrorMessage(params: {
+  error?: string;
+  errorCode?: string;
+  t: (key: string) => string;
+}): string {
+  const { error, errorCode, t } = params;
+
+  if (
+    errorCode === TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE ||
+    isTikTokSandboxPrivateOnlyError(error)
+  ) {
+    return (
+      t("tiktokSandboxPrivateOnlyError") ??
+      DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS
+    );
+  }
+
+  return error ?? "Publikování selhalo.";
+}
 
 export default function NewPostPage() {
   const t = useTranslations("posts");
@@ -310,7 +335,11 @@ export default function NewPostPage() {
         return;
       }
 
-      const msg = publishResult.error ?? "Publikování selhalo.";
+      const msg = resolvePublishErrorMessage({
+        error: publishResult.error,
+        errorCode: publishResult.errorCode,
+        t,
+      });
       setError(msg);
       toast.error(msg);
     } catch {

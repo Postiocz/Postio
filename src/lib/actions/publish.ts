@@ -8,6 +8,10 @@ import { publishToYouTubeAction } from "@/lib/actions/publish-youtube";
 import { publishToLinkedInAction } from "@/lib/actions/publish-linkedin";
 import { publishToTwitterAction } from "@/lib/actions/publish-twitter";
 import { publishToTikTokAction } from "@/lib/actions/publish-tiktok";
+import {
+  isTikTokSandboxPrivateOnlyError,
+  TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
+} from "@/lib/tiktok-publish-errors";
 
 const LOCALES = ["cs", "en", "uk"] as const;
 
@@ -493,6 +497,7 @@ async function resolveInstagramMediaId(params: {
 export async function publishPost(input: { postId: string }): Promise<{
   success: boolean;
   data?: { externalId?: string; platform?: string; warningCode?: string };
+  errorCode?: string;
   error?: string;
 }> {
   const supabase = await createClient();
@@ -828,6 +833,14 @@ export async function publishPost(input: { postId: string }): Promise<{
     });
 
     if (!result.success) {
+      const errorCode =
+        ("errorCode" in result && typeof result.errorCode === "string"
+          ? result.errorCode
+          : undefined) ??
+        (isTikTokSandboxPrivateOnlyError(result.error)
+          ? TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE
+          : undefined);
+
       await handlePublishError(
         supabase,
         user.id,
@@ -835,7 +848,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         result.error ?? "TikTok publish failed",
         "tiktok",
       );
-      return { success: false, error: result.error };
+      return { success: false, error: result.error, errorCode };
     }
 
     const tiktokExternalId =
@@ -2040,6 +2053,7 @@ export async function publishAdditionalPlatforms(input: {
 }): Promise<{
   success: boolean;
   data?: { externalId?: string; platform?: string; warningCode?: string };
+  errorCode?: string;
   error?: string;
 }> {
   const supabase = await createClient();
@@ -2347,6 +2361,14 @@ export async function publishAdditionalPlatforms(input: {
     });
 
     if (!result.success) {
+      const errorCode =
+        ("errorCode" in result && typeof result.errorCode === "string"
+          ? result.errorCode
+          : undefined) ??
+        (isTikTokSandboxPrivateOnlyError(result.error)
+          ? TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE
+          : undefined);
+
       await handlePublishError(
         supabase,
         user.id,
@@ -2354,7 +2376,7 @@ export async function publishAdditionalPlatforms(input: {
         result.error ?? "TikTok publish failed",
         "tiktok",
       );
-      return { success: false, error: result.error };
+      return { success: false, error: result.error, errorCode };
     }
 
     const tiktokExternalId =

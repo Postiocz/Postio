@@ -412,6 +412,9 @@ export function EditPostDialog({
   const [tiktokPrivacyLevel, setTikTokPrivacyLevel] =
     useState<TikTokPrivacyLevel>(DEFAULT_TIKTOK_PRIVACY_LEVEL);
 
+  // Detect if any platform update is in progress
+  const isUpdating = Object.values(updatingPlatforms).some(v => v);
+
   // Detect if any platform is published
   const isAnyPublished = useMemo(() => {
     return (post?.post_platforms || []).some(p => p.status === 'published');

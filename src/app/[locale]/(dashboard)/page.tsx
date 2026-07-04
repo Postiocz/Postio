@@ -50,6 +50,7 @@ export default async function DashboardPage({
   let totalPosts = 0;
   let scheduledPosts = 0;
   let draftPosts = 0;
+  let recentPosts: Array<{ id: string; title: string | null; created_at: string; status: string }> = [];
   let connectedAccounts = 0;
   let dbStreak = 0;
   let currentPlan = "free";
@@ -86,6 +87,7 @@ export default async function DashboardPage({
         postTagsRows,
         publishedPlatformsRows,
         postCreatedAtRows,
+        recentPostsRows,
       ] = await Promise.all([
         // 1. Celkový počet příspěvků.
         supabase
@@ -122,6 +124,13 @@ export default async function DashboardPage({
           .select("streak, plan")
           .eq("id", user.id)
           .single(),
+        // 4b. Poslední příspěvky (max 5, seřazeno podle created_at).
+        supabase
+          .from("posts")
+          .select("id, title, created_at, status")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(5),
         // 5. Top štítky: post_tags JOIN tags. Filtrujeme přes user_id (RLS).
         supabase
           .from("post_tags")
@@ -139,7 +148,8 @@ export default async function DashboardPage({
 
       totalPosts = postsData.count ?? 0;
       scheduledPosts = scheduledData.count ?? 0;
-draftPosts = draftData.count ?? 0;
+      draftPosts = draftData.count ?? 0;
+      recentPosts = (recentPostsRows.data ?? []) as Array<{ id: string; title: string | null; created_at: string; status: string }>;
       connectedAccounts = accountsData.count ?? 0;
       dbStreak = userData.data?.streak ?? 0;
       currentPlan = userData.data?.plan ?? "free";
@@ -148,8 +158,8 @@ draftPosts = draftData.count ?? 0;
       if (postTagsRows.data) {
         topLabels = aggregateTopLabels(
           // Supabase vrací tags jako objekt nebo pole – ošetříme oba případy.
-          postTagsRows.data.map((r) => ({
-            tag_id: r.tag_id as string,
+          (postTagsRows.data as unknown as Array<{ tag_id: string; tags: any }>).map((r) => ({
+            tag_id: r.tag_id,
             tags: Array.isArray(r.tags) ? (r.tags[0] ?? null) : r.tags,
           })),
         );
@@ -157,17 +167,18 @@ draftPosts = draftData.count ?? 0;
 
       // Platformy donut chart.
       if (publishedPlatformsRows.data) {
+        const platformsData = publishedPlatformsRows.data as any;
         platformData = prioritizeForDonut(
-          aggregatePlatforms(publishedPlatformsRows.data),
+          aggregatePlatforms(platformsData),
         );
-        publishedTotal = publishedPlatformsRows.data.length;
+        publishedTotal = platformsData.length;
 
         // Streak – preferujeme dynamický výpočet (úkol: "musí být funkční").
         // Vypočítáme z publikovaných datumů; pokud výpočet > 0, použijeme ho,
         // jinak fallback na DB hodnotu (kterou aktualizuje cron job).
-        const publishedDates = publishedPlatformsRows.data
-          .map((r) => r.published_at)
-          .filter((d): d is string => Boolean(d));
+        const publishedDates = platformsData
+          .map((r: any) => r.published_at)
+          .filter((d: any): d is string => Boolean(d));
         const calculatedStreak = calculateStreak(publishedDates);
         streak = calculatedStreak > 0 ? calculatedStreak : dbStreak;
 
@@ -193,7 +204,7 @@ draftPosts = draftData.count ?? 0;
       // Trend za posledních 7 dní.
       if (postCreatedAtRows.data) {
         weeklyTrend = calculateTrend(
-          postCreatedAtRows.data.map((r) => r.created_at),
+          (postCreatedAtRows.data as any).map((r: any) => r.created_at),
         );
       }
     }
@@ -331,6 +342,42 @@ draftPosts = draftData.count ?? 0;
           />
         </div>
       </div>
+
+   {recentPosts.length > 0 && (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{t("recentPosts")}</h2>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/${locale}/posts`}>
+                {t("viewAll")}
+                <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {recentPosts.map((post) => (
+              <Card
+                key={post.id}
+                className="bg-card/40 backdrop-blur-md border-white/5 hover:bg-accent transition-all cursor-pointer"
+              >
+                <CardContent className="p-4">
+                  <Link href={`/${locale}/posts/${post.id}`}>
+                    <h3 className="font-medium line-clamp-2 mb-2">
+                      {post.title || "Bez názvu"}
+                    </h3>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{new Date(post.created_at).toLocaleDateString(locale)}</span>
+                      <Badge variant="outline" className={post.status === "published" ? "bg-emerald-500/10 text-emerald-400" : post.status === "scheduled" ? "bg-blue-500/10 text-blue-400" : "bg-gray-500/10 text-gray-400"}>
+                        {post.status}
+                      </Badge>
+                    </div>
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <UpgradeBanner
         locale={locale}

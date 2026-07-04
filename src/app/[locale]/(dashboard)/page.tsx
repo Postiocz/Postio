@@ -221,7 +221,7 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-8">
-      {totalPosts === 0 && scheduledPosts === 0 && connectedAccounts === 0 ? (
+      {totalPosts === 0 && scheduledPosts === 0 && connectedAccounts === 0 && streak === 0 ? (
         <div className="rounded-[24px] border border-dashed border-white/10 bg-card/20 p-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Rocket className="h-8 w-8 text-primary" />

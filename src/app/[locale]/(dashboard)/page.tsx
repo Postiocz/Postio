@@ -220,6 +220,7 @@ draftPosts = draftData.count ?? 0;
           title={t("totalPosts")}
           value={totalPosts}
           icon={FileText}
+          href={`/${locale}/posts`}
           trend={{
             value: weeklyTrend,
             label: t("thisWeek"),
@@ -229,17 +230,20 @@ draftPosts = draftData.count ?? 0;
           title={t("scheduled")}
           value={scheduledPosts}
           icon={CalendarIcon}
+          href={`/${locale}/calendar`}
           subtitle={draftPosts > 0 ? `${draftPosts} draftů` : undefined}
         />
         <StatCard
           title={t("connectedAccounts")}
           value={connectedAccounts}
           icon={LinkIcon}
+          href={`/${locale}/accounts`}
         />
         <StatCard
           title={t("streak")}
           value={`${streak}d`}
           icon={Flame}
+          href={`/${locale}/analytics`}
           isGlowing={streak > 0}
           subtitle={streak === 0 ? t("streakEmpty") : undefined}
         />
@@ -320,6 +324,7 @@ function StatCard({
   isGlowing = false,
   trend,
   subtitle,
+  href,
 }: {
   title: string;
   value: string | number;
@@ -327,9 +332,10 @@ function StatCard({
   isGlowing?: boolean;
   trend?: { value: number; label: string };
   subtitle?: string;
+  href?: string;
 }) {
-  return (
-    <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">
+  const content = (
+    <>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
@@ -373,8 +379,20 @@ function StatCard({
           </div>
         )}
       </CardContent>
-    </Card>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="group">
+        <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] transition-all hover:bg-accent hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
+          {content}
+        </Card>
+      </Link>
+    );
+  }
+
+  return <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px]">{content}</Card>;
 }
 
 function ConsistencyScore({

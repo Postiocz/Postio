@@ -166,6 +166,9 @@ Tato pravidla mají nejvyšší prioritu a musí být dodržována vždy:
    - **Nikdy nedělám `git commit` ani `git push`** – uživatel si commit i push po kontrole změn vždy udělá sám.
    - Výjimka: Pouze pokud mě uživatel explicitně požádá o commit/push.
 
+8. **CHANGELOG max 10 záznamů (Zero-Token Auto-Drop):**
+   - `CHANGELOG.md` smí mít maximálně 10 nejnovějších časových milníků. Při přidání nového záznamu se ten nejstarší ze dna smaže. Žádný archivní soubor nevytvářej – historie žije v Git commit history.
+
 ## 🗂️ Budoucí úkoly čekající na trigger
 
 Tato sekce obsahuje úkoly, které **čekají na splnění určité podmínky (triggeru)**. Pravidlo: při každé session **aktivně zkontroluj**, zda některý trigger nebyl splněn. Pokud ano, implementuj příslušný úkol **automaticky bez dotazování** (v rámci pravidel kontinuální práce).

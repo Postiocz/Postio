@@ -16,6 +16,10 @@
 3. **Pracovní postup:**
    - Než vytvoříš velké množství kódu, nejprve mi napiš krátký plán, co přesně půjdeš udělat.
    - Po úspěšném vyřešení složitého problému si zapiš ponaučení sem dolů do sekce "Ponaučení z chyb".
+4. **CHANGELOG Zero-Token Auto-Drop:**
+   - Soubor `CHANGELOG.md` smí obsahovat STRIKTNĚ MAXIMÁLNĚ 10 nejnovějších časových záznamů/milníků.
+   - Při přidání nového záznamu na začátek changelogu zkontroluj celkový počet záznamů. Pokud přesáhne 10, ten úplně nejstarší záznam ze dna souboru JEDNODUŠE SMAŽ.
+   - Žádný archivní soubor neotevírej, nečti ani nevytvářej – stará historie zůstává v Git commit history a tím šetříme 100 % kontextových tokenů pro programování.
 
 ## 🚀 Časté příkazy
 - Start vývojového serveru: `npm run dev` (dostupné na http://localhost:3000)

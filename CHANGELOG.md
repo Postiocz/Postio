@@ -5,6 +5,17 @@
 
 ## 2026-07-05
 
+### 🐛 Fix — Posts page: zbytečné „Load more" při přesném násobku PAGE_SIZE (keyset paginace)
+
+- **Kontext**: V `posts/page.tsx` se `lastCursor` (kurzor pro další stránku) počítal z podmínky `pagedPosts.length >= PAGE_SIZE` — tedy „pošli kurzor, kdykoli je první stránka plná". To nebralo v úvahu, zda další stránka reálně existuje. Při přesném násobku PAGE_SIZE (např. 20 nebo 40 příspěvků) byl `hasMore` sice `false` (PAGE_SIZE + 1 probe nic extra nepřinesl), ale `lastCursor` se **stejně odeslal** do `_posts-container`. Ten pak zobrazil tlačítko „Load more", po jehož kliknutí přišla prázdná stránka.
+- **Oprava**: `lastCursor` se nově počítá výhradně z `hasMore` (`const lastCursor = hasMore ? pagedPosts[...].created_at : undefined`). `hasMore` z PAGE_SIZE + 1 probe je nyní single source of truth — kurzor se pošle jen tehdy, když reálně existuje další stránka.
+- **Komentář**: Doplněn invariant, aby se bug nevrátil (vysvětluje proč `hasMore` a ne `length >= PAGE_SIZE`).
+- **Ověření**: `npx tsc --noEmit` ✅ + manuální test (přesně 20/40 postů → žádné „Load more"; 21 postů → „Load more" přinese 1 zbytek) ✅ (uživatel potvrdil)
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/page.tsx`
+  - `ukol.md` (Krok 2 označen ✅)
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — Posts page: „Load more" rozbíjeno při `sort=oldest` (keyset paginace ASC)
 
 - **Kontext**: Stránka Příspěvky (`/posts`) používá keyset (cursor) paginaci s PAGE_SIZE = 20. V `actions.ts` se při `sort="oldest"` (ASC) řadilo `created_at ASC`, ale kurzor se vždy aplikoval přes `.gt()` (greater-than). Při ASC by se ale mělo pokračovat `.lt()`, jinak „Load more" pod `sort=oldest` vrátil prázdnou/špatnou stránku. Stejně tak `nextCursor` se pro ASC bral z posledního řádku místo prvního, takže by další stránka začínala až za koncem seznamu.

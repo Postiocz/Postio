@@ -73,10 +73,15 @@ export default async function PostsPage({
   const posts: NormalizedPost[] = pagedPosts.map(normalizePost);
 
   // Cursor = created_at of the last rendered row (for next page).
-  const lastCursor: string | undefined =
-    pagedPosts.length >= PAGE_SIZE
-      ? pagedPosts[pagedPosts.length - 1]?.created_at
-      : undefined;
+  // IMPORTANT: send the cursor ONLY when there is another page (`hasMore`),
+  // not merely when the first page is full. Without this guard, an exact
+  // multiple of PAGE_SIZE (e.g. 20 or 40 posts) would still hand a cursor
+  // to the client, the client would render a stale "Load more" button, and
+  // the subsequent fetch would return an empty page. `hasMore` is the single
+  // source of truth derived from the PAGE_SIZE + 1 probe above.
+  const lastCursor: string | undefined = hasMore
+    ? pagedPosts[pagedPosts.length - 1]?.created_at
+    : undefined;
 
   return (
     <div className="relative space-y-8 max-w-3xl mx-auto">

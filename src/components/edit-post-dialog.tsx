@@ -1313,6 +1313,7 @@ export function EditPostDialog({
       instagram: instagramProfile,
       youtube: youtubeProfile,
       linkedin: linkedinProfile,
+      tiktok: tiktokProfile,
     };
     const profile = profileMap[platformId as keyof typeof profileMap]
       ?? { displayName: t("previewPlaceholderName") ?? "Postio" };
@@ -1505,6 +1506,125 @@ export function EditPostDialog({
                 <span aria-hidden className="text-sm leading-none">↗</span>
                 <span>Share</span>
               </span>
+            </div>
+          </article>
+        </div>
+      );
+    }
+
+    // TikTok – vertical full-screen player, action icons on right, text overlay at bottom
+    if (platformId === "tiktok") {
+      const videoMedia = previewMedia.find((m) => m.kind === "video") ?? previewMedia[0];
+      return (
+        <div className="flex h-full flex-col bg-black text-white">
+          <article className="flex-1 overflow-hidden relative">
+            {/* Background / Video Area */}
+            <div className="absolute inset-0">
+              {videoMedia ? (
+                videoMedia.kind === "video" ? (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video
+                    src={videoMedia.previewUrl}
+                    className="h-full w-full object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={videoMedia.previewUrl}
+                    alt="Preview"
+                    className="h-full w-full object-cover"
+                  />
+                )
+              ) : (
+                <div className="flex h-full items-center justify-center bg-[#121212]">
+                  <div className="text-center text-white/50">
+                    <span className="mb-2 block text-3xl">🎵</span>
+                    <p className="text-xs font-medium">{t("previewNoMediaHint") ?? "Žádná média"}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Gradient overlay for text readability */}
+            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+
+            {/* Content overlay */}
+            <div className="relative z-10 flex flex-col justify-end min-h-0">
+              <div className="flex flex-row items-end justify-between p-3 pb-4">
+                {/* Left column: Author & Description */}
+                <div className="flex-1 pr-8 min-w-0">
+                  <div className="mb-1.5 font-semibold text-[13px]">
+                    @{(profile?.displayName ?? "user").replace(/\s+/g, "").toLowerCase()}
+                  </div>
+
+                  {content.trim() ? (
+                    <div className="text-[12px] text-white/90 font-normal leading-[1.3] line-clamp-3 mb-1.5">
+                      {content}
+                    </div>
+                  ) : null}
+
+                  {/* Original Sound */}
+                  <div className="flex items-center gap-1.5 text-[10px] text-white/80">
+                    <svg className="w-3 h-3 animate-[spin_3s_linear_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 18V5l12-2v13"></path>
+                      <circle cx="6" cy="18" r="3"></circle>
+                      <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                    <span className="truncate">původní zvuk - {profile?.displayName ?? "user"}</span>
+                  </div>
+                </div>
+
+                {/* Right column: Action buttons */}
+                <div className="flex flex-col items-center justify-end gap-3.5">
+                  {/* Avatar + Follow */}
+                  <div className="relative mb-1">
+                    <AvatarInline
+                      url={profile?.avatarUrl ?? null}
+                      name={profile?.displayName ?? ""}
+                      size={36}
+                    />
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-[#EA4359] w-4 h-4 flex items-center justify-center text-white shadow-sm">
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                    </div>
+                  </div>
+
+                  {/* Like */}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+                    <span className="text-[9px] font-semibold">12.4K</span>
+                  </div>
+
+                  {/* Comment */}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M21.99 20.01c.01.27-.1.52-.29.71-.2.2-.45.3-.71.29l-3.32-.23c-1.63.85-3.56 1.3-5.67 1.3-6.63 0-12-4.93-12-11C0 4.93 5.37 0 12 0s12 4.93 12 11c0 3.3-1.63 6.27-4.18 8.19l2.17 1.05v-.23z"></path></svg>
+                    <span className="text-[9px] font-semibold">134</span>
+                  </div>
+
+                  {/* Bookmark */}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"></path></svg>
+                    <span className="text-[9px] font-semibold">456</span>
+                  </div>
+
+                  {/* Share */}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" style={{ transform: "scale(-1,1)" }}><path d="M21 11.5L9 4v5C4 9 2 13.5 2 19c2.5-3.5 6-4.5 7-4.5v5l12-7.5z"></path></svg>
+                    <span className="text-[9px] font-semibold">12</span>
+                  </div>
+
+                  {/* Spinning Record */}
+                  <div className="w-8 h-8 rounded-full bg-[#1e1e1e] flex items-center justify-center animate-[spin_4s_linear_infinite] mt-1 shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+                    <AvatarInline
+                      url={profile?.avatarUrl ?? null}
+                      name={profile?.displayName ?? ""}
+                      size={18}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </article>
         </div>

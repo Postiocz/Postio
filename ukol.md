@@ -338,7 +338,7 @@ Soubor `src/components/preview-dialog.tsx` má **pěť míst**, kde je TikTok ex
 | ✅ **Krok 1** | `src/components/preview-dialog.tsx` | Rozšířit typ `PreviewPlatform` + konstanty (`PREVIEWABLE_PLATFORMS`, `PLATFORM_ACCENTS`, `PLATFORM_LABELS`) o `'tiktok'` |
 | ✅ **Krok 2** | `src/components/preview-dialog.tsx` | Přidat `tiktok: null` do profiles state + `getTabLabel` map |
 | ✅ **Krok 3** | `src/components/preview-dialog.tsx` | Přidat case `"tiktok"` do `renderPreviewForPlatform` (High-Fidelity vertikální náhled) |
-| ⬜ **Krok 4** | Žádný (ověření) | Ověřit "Zobrazit na síti" odkaz + uzamčení po publikování |
+| ✅ **Krok 4** | `post-preview.tsx`, `edit-post-dialog.tsx` | Ověřeno: "Zobrazit na síti" odkaz funguje pro TikTok, uzamčení po publikování OK. Opraven chybějící TikTok náhled v edit dialogu (pravý panel) – přidán case do `renderPlatformPreview` + `post-preview.tsx` TikTokPreview přepsán z `MediaArea aspect="square"` na `h-full w-full object-cover` (vertikální 9:16, stejně jako PreviewDialog). |
 
 ### Rizika a poznámky
 

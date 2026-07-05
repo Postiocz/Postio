@@ -169,4 +169,4 @@
   - `supabase/functions/process-scheduled-posts/index.ts`
   - `CHANGELOG.md`
 
-*Starší historii projektu najdete v archivovaném souboru [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).*
+*Starší historii projektu a předchozí milníky najdete v historii Git commitů na GitHubu.*

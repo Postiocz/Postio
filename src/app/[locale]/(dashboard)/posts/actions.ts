@@ -139,10 +139,15 @@ async function fetchPostPage(
     .order(orderBy, { ascending: orderAsc });
 
   // Apply cursor (for "Load more").
-  // When sorting by publishDate, cursor compares against scheduled_at.
+  // DESC sorts (newest, publishDate) use `.gt()` — next rows come *after* the
+  // cursor value going forward in time. ASC sort (oldest) must use `.lt()`
+  // because rows below the cursor are *older* — otherwise "Load more" returns
+  // an empty/wrong page under `sort=oldest`.
   if (cursor) {
     if (sort === "publishDate") {
       query = query.gt("scheduled_at", cursor);
+    } else if (sort === "oldest") {
+      query = query.lt("created_at", cursor);
     } else {
       query = query.gt("created_at", cursor);
     }
@@ -221,12 +226,17 @@ export async function fetchMorePosts(
 
   const normalized = pagedPosts.map(normalizePost);
 
-  // Cursor column depends on active sort (#9)
+  // Cursor column depends on active sort (#9). For DESC sorts the cursor is
+  // the sort value of the LAST rendered row (we fetch strictly greater). For
+  // ASC `oldest` the cursor is the sort value of the FIRST rendered row (we
+  // fetch strictly lower), otherwise the next page would start past the end.
   const sort = filters?.sort ?? "newest";
   const cursorField = sort === "publishDate" ? "scheduled_at" : "created_at";
+  const cursorRow =
+    sort === "oldest" ? pagedPosts[0] : pagedPosts[pagedPosts.length - 1];
   const nextCursor =
     pagedPosts.length >= PAGE_SIZE
-      ? (pagedPosts[pagedPosts.length - 1]?.[cursorField] as string | undefined) ?? null
+      ? (cursorRow?.[cursorField] as string | undefined) ?? null
       : null;
 
   return { posts: normalized, hasMore, nextCursor };
@@ -271,12 +281,15 @@ export async function fetchFilteredPosts(
 
   const normalized = pagedPosts.map(normalizePost);
 
-  // Cursor column depends on active sort (#9)
+  // Cursor column depends on active sort (#9). ASC `oldest` uses the FIRST
+  // rendered row's sort value as cursor (see fetchMorePosts for full note).
   const sort = filters?.sort ?? "newest";
   const cursorField = sort === "publishDate" ? "scheduled_at" : "created_at";
+  const cursorRow =
+    sort === "oldest" ? pagedPosts[0] : pagedPosts[pagedPosts.length - 1];
   const nextCursor =
     pagedPosts.length >= PAGE_SIZE
-      ? (pagedPosts[pagedPosts.length - 1]?.[cursorField] as string | undefined) ?? null
+      ? (cursorRow?.[cursorField] as string | undefined) ?? null
       : null;
 
   return { posts: normalized, hasMore, nextCursor, totalCount };

@@ -8,23 +8,24 @@
 2. **JEDEN KROK AT A TIME (Krokování):**
    Vždy proveď POUZE ten jeden vybraný nebo schválený krok. Jakmile daný krok naprogramuješ, OKAMŽITĚ ZASTAV PRÁCI, nepokračuj na další bod a zeptej se mě, jak chceme pokračovat. Nikdy nedělej více kroků najednou!
 
-3. **ZÁKAZ GIT COMMITŮ:**
-   NIKDY sám nespouštěj příkazy jako `git commit`, `git push`, `git add` ani se nepokoušej automaticky vytvářet verze kódu. Správu Gitu a commity provádím výhradně já sám manuálně ve svém terminálu.
-
-4. **TESTOVÁNÍ PŘED ZÁPISEM:**
+3. **TESTOVÁNÍ PŘED ZÁPISEM:**
    Po dokončení kroku vždy vyčkej na mé manuální otestování v prohlížeči/aplikaci. Teprve až ti výslovně napíšu, že je krok otestovaný a funkční, provedeš tyto dvě administrativní věci:
    - Označíš daný krok v `ukol.md` jako hotový (např. odškrtnutím [x] nebo ✅).
    - Zepíšeš stručný záznam o této změně do souboru `CHANGELOG.md`.
    (Dříve než po mém schválení do těchto souborů stav nedopisuj!)
 
+4. **GIT COMMIT (Automaticky po schválení Kroku 3):**
+   Jakmile dokončíš Krok 3 (vše je otestované, ✅ v `ukol.md`, záznam v `CHANGELOG.md`), **automaticky sám provedeš `git add` + `git commit`** aktuálního stavu. Tím se trvale zachová i případný záznam, který v budoucnu propadne prořezáním `CHANGELOG.md` (Pravidlo 6) – historie zůstává v Gitu a nic se neztratí. Po commitu se zastav a zeptej se mě, jak chceme pokračovat (dle Pravidla 2). **Neprováděj `git push`** – ten dělá výhradně uživatel sám.
+
 5. **ÚSPORA KONTEXTU A LIMIT 81 920 TOKENŮ:**
    Pracujeme s lokálním modelem (Ornith) a máme tvrdý limit kontextového okna přesně **81 920 tokenů**. Pro ochranu před přehlcením paměti:
    - Buď ve svých odpovědích maximálně věcný a stručný (žádné dlouhé úvahy okolo, rovnou ukaž kód nebo položenou otázku).
    - Nečti zbytečně celé obří soubory, pokud v nich potřebuješ najít jen jednu funkci – používej cílené vyhledávání nebo čti jen relevantní řádky.
-   - Udržuj kontext čistý: po dokončení kroku se soustřeď výhradně na aktuální bod z `ukol.md` a netahej do paměti starý kód z již hotových částí, pokud to není nezbytně nutné.
+   - Udržuj kontext čistý: po dokončení kroku se soustřeď výhradně na aktuální bod z `ukol.md` a netahej do paměti starý kód z již hotových částí, pokud to není nezbytně nutně nutné.
+   - Poznámka: staré záznamy, které propadnou prořezáním `CHANGELOG.md` (Pravidlo 6), nejsou ztraceny – zůstávají zachovány v Git history díky automatickému commitu v Kroku 4.
 
 6. **AUTOMATICKÉ PROŘEZÁVÁNÍ CHANGELOGU (Zero-Token Auto-Drop):**
-   Soubor `CHANGELOG.md` smí obsahovat STRIKTNĚ MAXIMÁLNĚ 10 nejnovějších časových záznamů/milníků. Pokaždé, když po manuálním schválení uživatelem (Pravidlo 4) zapíšeš nový záznam na začátek `CHANGELOG.md`, zkontroluješ celkový počet záznamů v tomto souboru. Pokud přidáním nového záznamu celkový počet překročí 10, ten úplně nejstarší záznam ze dna `CHANGELOG.md` JEDNODUŠE SMAŽ (odstraň ze souboru). Žádný archivní soubor neotevírej, nečti ani nevytvářej – stará historie zůstává v Gitu a my tímto šetříme 100 % kontextových tokenů pro programování.
+   Soubor `CHANGELOG.md` smí obsahovat STRIKTNĚ MAXIMÁLNĚ 10 nejnovějších časových záznamů/milníků. Pokaždé, když po manuálním schválení uživatelem (Pravidlo 3) zapíšeš nový záznam na začátek `CHANGELOG.md`, zkontroluješ celkový počet záznamů v tomto souboru. Pokud přidáním nového záznamu celkový počet překročí 10, ten úplně nejstarší záznam ze dna `CHANGELOG.md` JEDNODUŠE SMAŽ (odstraň ze souboru). Žádný archivní soubor neotevírej, nečti ani nevytvářej – stará historie zůstává trvale v Gitu (zachráněna committem v Kroku 4) a my tímto šetříme 100 % kontextových tokenů pro programování.
 
 ---
 
@@ -187,3 +188,81 @@
 - **Kolize slotů:** Tolerance ±15 minut mezi příspěvky zabraňuje přetížení jednoho časového okna.
 - **Backward compatibility:** `posting_schedule` je NULL po defaultu – uživatelé bez nastaveného rozvrhu dostanou fallback na `default_posting_time` + zítra. Žádný breaking change.
 - **NEZMĚNÍME:** Okamžité publikování, manuální plánování, náhledy, analytiky, publish flow, post_platforms logiku.
+
+---
+
+## Prompt 021 – Opravy stránky Příspěvky (Posts page)
+
+> Tato sekce vznikla na základě statické kontroly stránky `/posts` (`page.tsx`, `_posts-container.tsx`, `_post-card.tsx`, `actions.ts`, `normalize-post.ts`).
+> Všechny 4 body níže jsou **čekající na implementaci** – zavádějí se krok za krokem podle Striktních pravidel spolupráce (jeden krok, pak zastavit a čekat na otestování uživatelem).
+
+### Kontext analýzy
+
+Stránka Příspěvky používá **keyset (cursor) paginaci** s PAGE_SIZE = 20. První stránka se renderuje serverově v `page.tsx`, další stránky načítá client-side server action `fetchMorePosts`, po změně filtrů pak `fetchFilteredPosts`. Řazení (`PostFiltersRow`) je client-side stav s hodnotami `"newest" | "oldest" | "publishDate"`. Aktuální implementace má nekonzistenci mezi směrem řazení a operátorem kurzoru, což rozbíjí „Load more" v některých režimech řazení.
+
+### Plán implementace – Checklist
+
+#### 1. 🔴 Oprava kurzoru pro `sort=oldest` (ASC řazení)
+
+- **Soubor:** `src/app/[locale]/(dashboard)/posts/actions.ts` (řádky ~122–149, funkce `fetchPostPage`)
+- **Problém:** Při `sort="oldest"` se řadí `created_at ASC` (`orderAsc = true`), ale kurzor se vždy aplikuje přes `.gt("created_at", cursor)`. Při ASC by se mělo pokračovat `.lt()` (less-than), jinak „Load more" nic nevrátí nebo vrátí špatnou stránku. Stejně tak samotný `nextCursor` by měl brát první (nikoli poslední) vykreslený řádek pro ASC směr.
+- **Oprava:**
+  1. Zavést proměnnou `sortAsc` odpovídající aktivnímu `orderAsc`.
+  2. Kurzor aplikovat podmíněně:
+     - `publishDate` → `.gt("scheduled_at", cursor)` (zůstává DESC).
+     - `newest` → `.gt("created_at", cursor)` (zůstává DESC).
+     - `oldest` → `.lt("created_at", cursor)` (nově ASC).
+  3. V `fetchMorePosts` a `fetchFilteredPosts` spočítat `nextCursor` podle směru:
+     - DESC (`newest`, `publishDate`): Kurzor = `created_at`/`scheduled_at` **posledního** vykresleného řádku (stávající chování).
+     - ASC (`oldest`): Kurzor = `created_at` **prvního** vykresleného řádku.
+- **Ověření:** `npx tsc --noEmit` ✅ + manuální test – přepnout na „Nejstarší first", kliknout „Load more" a ověřit, že se načte další stránka bez duplicit/přeskakování.
+
+---
+
+#### 2. 🟡 Oprava zobrazení „Load more" při přesně násobku PAGE_SIZE
+
+- **Soubor:** `src/app/[locale]/(dashboard)/posts/page.tsx` (řádky ~68–79)
+- **Problém:** `page.tsx` počítá `lastCursor` vždy, když `pagedPosts.length >= PAGE_SIZE`, bez ohledu na to, zda existuje další stránka. `_posts-container` pak ukáže tlačítko „Load more" i když další stránka neexistuje (přesný násobek 20, např. 40 příspěvků = 2 plné stránky). Po kliknutí se vrátí prázdná stránka.
+- **Oprava:**
+  1. V `page.tsx` spočítat `hasMore = (rawPosts?.length ?? 0) > PAGE_SIZE` (už se děje, ale `nextCursor` se posílá nezávisle).
+  2. `nextCursor` posílat **pouze když `hasMore`**: `const lastCursor = hasMore ? pagedPosts[pagedPosts.length - 1]?.created_at : undefined;`
+- **Ověření:** Vytvořit uživatele s přesně 20 (nebo 40) příspěvky a ověřit, že se na první stránce „Load more" nezobrazí. S 21 příspěvky se zobrazí a po kliknutí přinese 1 zbytek.
+
+---
+
+#### 3. 🟢 Konzistentní kurzorový sloupec mezi `page.tsx` a `actions.ts`
+
+- **Soubor:** `src/app/[locale]/(dashboard)/posts/page.tsx` (řádek ~78)
+- **Problém:** `page.tsx` vždy počítá `lastCursor` z `created_at`, ale `fetchMorePosts`/`fetchFilteredPosts` mohou při `sort="publishDate"` porovnávat kurzor vůči `scheduled_at`. Vzniká tichá nekonzistence (porovnávání `created_at` vs `scheduled_at`).
+- **Poznámka:** Reálně je nibá marginální, protože `PostFiltersRow` inicializuje `sort` na `"newest"` a jakákoliv změna sortu spouští `applyFilters` → `fetchFilteredPosts`, který `currentCursor` přepíše korektně. Bug se projeví jen v neobvyklém scénáři (změna sortu bez vyvolání `applyFilters`). I tak je architektonicky křehké, že `page.tsx` nezná aktivní sort.
+- **Oprava (minimální, nízkoiziková):** Centrovat kurzorovou logiku na `created_at` jen pro defaultní `newest` režim, a udržovat poznámku, že při initial render je sort vždy `newest`. Případně rozšířit o prop `initialSort` z `page.tsx` do `_posts-container`, aby initial kurzor odpovídal sortu. **Usnesení:** provést minimální variantu – ponechat `created_at` (protože initial sort = `newest` vzdy) a doplnit komentář vysvětlující invariantu.
+- **Ověření:** `npx tsc --noEmit` ✅ + manuální test – přepínání sortů + „Load more" / změna filtrů nevyhazují kurzor.
+
+---
+
+#### 4. 🟢 Framer Motion `layout` + AnimatePresence exit (potenciální runtime warning)
+
+- **Soubor:** `src/app/[locale]/(dashboard)/posts/_post-card.tsx` (řádek ~297, `motion.article` s `layout`)
+- **Problém:** `motion.article` má `layout` + `AnimatePresence` exit animaci v `PostsList`. Při mazání s exit animací může Framer Motion vyhazovat layout warní hlášky, zejména v kombinaci s `min-h-[400px]` prázdným stavem. Nepotvrzené – pouze vizuální/mezní konsistence.
+- **Oprava (zvážit, nízkoiziková):**
+  1. Ověřit v konzoli prohlížeče, zda se runtime warn zobrazuje při mazání postu.
+  2. Pokud ano, zvážit odstranění `layout` (nebo `layout="position"`) z `motion.article`, případně isolation přes `LayoutGroup`.
+  3. Pokud se warn nezobrazuje, ponechat beze změny a tento bod označit jako „no-op ověřeno".
+- **Ověření:** Manuální test v prohlížeči – smazat post v seznamu a sledovat konzoli.
+
+---
+
+### Pořadí implementace
+
+| Krok | Soubor | Popis |
+|------|--------|-------|
+| ✅ **Krok 1** | `src/app/[locale]/(dashboard)/posts/actions.ts` | Oprava `.gt()` → `.lt()` pro `sort=oldest` + ASC kurzor = první řádek |
+| ⬜ **Krok 2** | `src/app/[locale]/(dashboard)/posts/page.tsx` | `nextCursor` posílat jen když `hasMore` |
+| ⬜ **Krok 3** | `src/app/[locale]/(dashboard)/posts/page.tsx` | Komentář invarianty: initial sort = `newest`, kurzor z `created_at` |
+| ⬜ **Krok 4** | `src/app/[locale]/(dashboard)/posts/_post-card.tsx` | Ověřit/no-op Framer `layout` runtime warn |
+
+### Rizika a poznámky
+
+- **Zásah do paginace:** Kroky 1–2 se dotýkají klíčové logiky kurzoru, ale mění jen okrajové případy (ASC řazení, přesný násobek PAGE_SIZE). Defaultní `newest` režim zůstává beze změny – nejnižší riziko regrese.
+- **NEZMĚNÍME:** Filtry, bulk delete, publish flow, editace, tiktok logiku, prázdný stav, design – pouze paginace/cursor matematika a případný Framer layout warn.
+- **Testování:** Po každém kroku manuální test v prohlížeči (různé sorty + Load more + přesný násobek PAGE_SIZE) dle Striktního pravidla 3. Teprve po schválení uživatelem → odškrtnout ✅, zapsat do CHANGELOG.md a provést automatický commit (Pravidlo 4).

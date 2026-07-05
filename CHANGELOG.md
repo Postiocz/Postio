@@ -5,6 +5,21 @@
 
 ## 2026-07-05
 
+### 🐛 Fix — Posts page: „Load more" rozbíjeno při `sort=oldest` (keyset paginace ASC)
+
+- **Kontext**: Stránka Příspěvky (`/posts`) používá keyset (cursor) paginaci s PAGE_SIZE = 20. V `actions.ts` se při `sort="oldest"` (ASC) řadilo `created_at ASC`, ale kurzor se vždy aplikoval přes `.gt()` (greater-than). Při ASC by se ale mělo pokračovat `.lt()`, jinak „Load more" pod `sort=oldest` vrátil prázdnou/špatnou stránku. Stejně tak `nextCursor` se pro ASC bral z posledního řádku místo prvního, takže by další stránka začínala až za koncem seznamu.
+- **Oprava**:
+  1. V `fetchPostPage()` se kurzor pro `sort="oldest"` nově aplikuje přes `.lt("created_at", cursor)`. `newest` a `publishDate` (DESC) zachovávají `.gt()`.
+  2. V `fetchMorePosts()` a `fetchFilteredPosts()` se `nextCursor` pro `sort="oldest"` počítá z **prvního** vykresleného řádku (ASC), pro DESC zůstává z **posledního** řádku (beze změny).
+  3. Logika okomentována, aby se kurzorový bug nevrátil.
+- **Ověření**: `npx tsc --noEmit` ✅ + manuální test „Load more" pod `sort=oldest` ✅ (uživatel potvrdil)
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/actions.ts`
+  - `ukol.md` (Krok 1 označen ✅)
+  - `CHANGELOG.md`
+
+## 2026-07-04
+
 ### Feat — Auto-Queue: updatePreferences + page.tsx rozšířeni o `posting_schedule` (Krok 5+6)
 
 - **Kontext**: Auto-Queue feature vyžaduje ukládání uživatelského rozvrhu publikování do DB.
@@ -152,20 +167,6 @@
   2. Tím se odstranila falešná generická nekompatibilita mezi Deno klientem v Edge Function a app-side typovou inferencí, aniž by se měnila publish logika pro YouTube, TikTok nebo ostatní platformy.
   3. Lokálně ověřeno přes `npm run build`; build nyní projde kompletně až do finálního route summary bez TypeScript chyb.
 - **Upravené soubory**:
-  - `supabase/functions/process-scheduled-posts/index.ts`
-  - `CHANGELOG.md`
-
-### 🐛 Fix — TikTok OAuth callback vrací uživatele zpět na lokalizované `/accounts`
-
-- **Kontext**: Po úspěšném propojení TikTok účtu se callback route snažila přesměrovat na neexistující adresu místo zpět na stránku účtů. Zároveň bylo potřeba ověřit, že `token_expires_at` pro TikTok počítáme korektně z `expires_in`.
-- **Oprava**:
-  1. V `src/app/api/accounts/tiktok/route.ts` oddělen CSRF `state` od post-auth redirect path. Původní návratová cesta (např. `/{locale}/accounts`) se nově ukládá do samostatné httpOnly cookie `tiktok_oauth_redirect`, takže callback po návratu z TikToku vždy ví, kam uživatele vrátit.
-  2. Redirect path se před použitím normalizuje a fallbackuje na `/{locale}/accounts`, takže už nevzniká chybný redirect na neexistující `/api/accounts/[id]?tiktok=connected`.
-  3. Potvrzen a okomentován výpočet expirace jako `Date.now() + expires_in * 1000`; u TikToku je krátký access token (často 24h / `86400`, včetně Sandboxu) očekávatelný, takže varování „Token vyprší za 1 den“ není samo o sobě chyba.
-  4. Stejný explicitní výklad `expires_in` doplněn i do TikTok refresh helperů v app publish flow a v scheduled Edge Function; navíc uklizen starší `no-explicit-any` typový alias v Edge Function, aby dotčené soubory znovu prošly lintem.
-- **Upravené soubory**:
-  - `src/app/api/accounts/tiktok/route.ts`
-  - `src/lib/actions/publish-tiktok.ts`
   - `supabase/functions/process-scheduled-posts/index.ts`
   - `CHANGELOG.md`
 

@@ -249,7 +249,10 @@
     "selectAll": "Select all",
     "deselectAll": "Deselect all",
     "select": "Select",
-    "deselect": "Deselect"
+    "deselect": "Deselect",
+    "addToQueue": "Add to Queue",
+    "queuedSuccess": "Post has been queued for __DATE__",
+    "queueLoading": "Calculating time..."
   },
   "dashboard": {
     "title": "Welcome to Postio",
@@ -300,10 +303,11 @@
     "labelsEmptyTitle": "No labels yet",
     "labelsEmptyDescription": "Add labels to your posts to track what you publish most often.",
     "labelsEmptyAction": "Create Labels",
-    "oneDraft": "{{count}} draft",
-    "fewDrafts": "{{count}} drafts",
-    "manyDrafts": "{{count}} drafts",
-    "postsCount": "posts"
+    "oneDraft": "1 draft",
+    "fewDrafts": "{count} drafts",
+    "manyDrafts": "{count} drafts",
+    "postsCount": "posts",
+    "free": "Free"
   },
   "posts": {
     "title": "Posts",
@@ -468,7 +472,10 @@
     "select": "Select",
     "deselect": "Deselect",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "addToQueue": "Add to Queue",
+    "queuedSuccess": "Post has been queued for {date}",
+    "queueLoading": "Calculating time..."
   },
   "accounts": {
     "title": "Social Accounts",
@@ -734,7 +741,16 @@
     "deleteAccountConfirm": "DELETE",
     "deletingAccount": "Deleting account...",
     "accountDeleted": "Account has been successfully deleted.",
-    "errorDeletingAccount": "Error deleting account."
+    "errorDeletingAccount": "Error deleting account.",
+    "queueSchedule": "Queue Schedule",
+    "queueScheduleDescription": "Set the days and times when posts are automatically added to the publishing queue.",
+    "autoQueueEnabled": "Auto Queue",
+    "addTime": "Add time",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday"
   },
   "cookie": {
     "usesCookies": "We use cookies to ensure you get the best experience on Postio.",

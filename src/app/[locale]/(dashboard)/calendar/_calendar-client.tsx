@@ -91,6 +91,10 @@ export function CalendarClient({
       drafts: string;
       thisMonth: string;
     };
+    // Auto-Queue
+    addToQueue?: string;
+    queueLoading?: string;
+    queuedSuccess?: string;
   };
 }) {
   const [platformFilter, setPlatformFilter] = React.useState(initialPlatform);

@@ -1,5 +1,16 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
+export type PostingSchedule = {
+  enabled: boolean
+  "0": string[] // Sunday
+  "1": string[] // Monday
+  "2": string[] // Tuesday
+  "3": string[] // Wednesday
+  "4": string[] // Thursday
+  "5": string[] // Friday
+  "6": string[] // Saturday
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -12,6 +23,11 @@ export interface Database {
           language: 'cs' | 'en' | 'uk'
           streak: number
           onboarded: boolean
+          timezone: string | null
+          time_format: '12' | '24' | null
+          start_of_week: 'sunday' | 'monday' | null
+          default_posting_time: string | null
+          posting_schedule: PostingSchedule | null
           created_at: string
         }
         Insert: {
@@ -22,6 +38,11 @@ export interface Database {
           language?: 'cs' | 'en' | 'uk'
           streak?: number
           onboarded?: boolean
+          timezone?: string | null
+          time_format?: '12' | '24' | null
+          start_of_week?: 'sunday' | 'monday' | null
+          default_posting_time?: string | null
+          posting_schedule?: PostingSchedule | null
           created_at?: string
         }
         Update: {
@@ -32,6 +53,11 @@ export interface Database {
           language?: 'cs' | 'en' | 'uk'
           streak?: number
           onboarded?: boolean
+          timezone?: string | null
+          time_format?: '12' | '24' | null
+          start_of_week?: 'sunday' | 'monday' | null
+          default_posting_time?: string | null
+          posting_schedule?: PostingSchedule | null
           created_at?: string
         }
       }

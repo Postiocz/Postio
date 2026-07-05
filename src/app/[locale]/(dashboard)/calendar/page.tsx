@@ -150,6 +150,10 @@ export default async function CalendarPage({
             drafts: t("stats.drafts"),
             thisMonth: t("stats.thisMonth"),
           },
+          // Auto-Queue
+          addToQueue: t("addToQueue"),
+          queueLoading: t("queueLoading"),
+          queuedSuccess: t("queuedSuccess"),
         }}
       />
     </div>

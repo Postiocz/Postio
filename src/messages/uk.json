@@ -249,7 +249,10 @@
     "selectAll": "Вибрати все",
     "deselectAll": "Зняти вибір",
     "select": "Вибрати",
-    "deselect": "Зняти вибір"
+    "deselect": "Зняти вибір",
+    "addToQueue": "Додати в чергу",
+    "queuedSuccess": "Публікацію додано в чергу на __DATE__",
+    "queueLoading": "Розрахунок часу..."
   },
   "dashboard": {
     "title": "Ласкаво просимо до Postio",
@@ -300,10 +303,11 @@
     "labelsEmptyTitle": "Поки що немає міток",
     "labelsEmptyDescription": "Додайте мітки до дописів і відстежуйте, що публікуєте найчастіше.",
     "labelsEmptyAction": "Створити мітки",
-    "oneDraft": "{{count}} чернетка",
-    "fewDrafts": "{{count}} чернетки",
-    "manyDrafts": "{{count}} чернеток",
-    "postsCount": "дописів"
+    "oneDraft": "1 чернетка",
+    "fewDrafts": "{count} чернетки",
+    "manyDrafts": "{count} чернеток",
+    "postsCount": "дописів",
+    "free": "Безкоштовно"
   },
   "posts": {
     "title": "Публікації",
@@ -468,7 +472,10 @@
     "select": "Вибрати",
     "deselect": "Зняти вибір",
     "showMore": "Показати більше",
-    "showLess": "Показати менше"
+    "showLess": "Показати менше",
+    "addToQueue": "Додати в чергу",
+    "queuedSuccess": "Публікацію додано в чергу на {date}",
+    "queueLoading": "Розрахунок часу..."
   },
   "accounts": {
     "title": "Акаунти в соцмережах",
@@ -734,7 +741,16 @@
     "deleteAccountConfirm": "ВИДАЛИТИ",
     "deletingAccount": "Видалення акаунту...",
     "accountDeleted": "Акаунт успішно видалено.",
-    "errorDeletingAccount": "Помилка видалення акаунту."
+    "errorDeletingAccount": "Помилка видалення акаунту.",
+    "queueSchedule": "Розклад черги",
+    "queueScheduleDescription": "Встановіть дні та часи, коли публікації автоматично додаються в чергу публікацій.",
+    "autoQueueEnabled": "Авто-черга",
+    "addTime": "Додати час",
+    "tuesday": "Вівторок",
+    "wednesday": "Середа",
+    "thursday": "Четвер",
+    "friday": "П'ятниця",
+    "saturday": "Субота"
   },
   "cookie": {
     "title": "Ми використовуємо файли cookie",

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import PreferencesForm from "./preferences-form";
+import type { PostingSchedule } from "./preferences-form";
 
 export default async function PreferencesPage({
   params,
@@ -17,11 +18,12 @@ export default async function PreferencesPage({
   let timeFormat = "24";
   let startOfWeek = "monday";
   let defaultPostingTime = "09:00";
+  let postingSchedule: PostingSchedule | null = null;
 
   if (user) {
     const { data: userData } = await supabase
       .from("users")
-      .select("timezone, time_format, start_of_week, default_posting_time")
+      .select("timezone, time_format, start_of_week, default_posting_time, posting_schedule")
       .eq("id", user.id)
       .single();
 
@@ -30,6 +32,7 @@ export default async function PreferencesPage({
       timeFormat = userData.time_format ?? "24";
       startOfWeek = userData.start_of_week ?? "monday";
       defaultPostingTime = userData.default_posting_time ?? "09:00";
+      postingSchedule = (userData.posting_schedule as PostingSchedule) ?? null;
     }
   }
 
@@ -47,6 +50,7 @@ export default async function PreferencesPage({
         timeFormat={timeFormat}
         startOfWeek={startOfWeek}
         defaultPostingTime={defaultPostingTime}
+        postingSchedule={postingSchedule}
         labels={{
           saved: t("savedPreferences"),
           timezone: t("timezone"),
@@ -62,6 +66,15 @@ export default async function PreferencesPage({
           defaultTime: t("defaultTime"),
           sunday: t("sunday"),
           monday: t("monday"),
+          queueSchedule: t("queueSchedule"),
+          queueScheduleDescription: t("queueScheduleDescription"),
+          autoQueueEnabled: t("autoQueueEnabled"),
+          addTime: t("addTime"),
+          tuesday: t("tuesday"),
+          wednesday: t("wednesday"),
+          thursday: t("thursday"),
+          friday: t("friday"),
+          saturday: t("saturday"),
         }}
       />
     </div>

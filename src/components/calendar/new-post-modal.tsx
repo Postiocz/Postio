@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, Loader2, MapPin, X } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronRight as ChevronRightIcon, ListOrdered, Loader2, MapPin, X } from "lucide-react";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
 import { PLATFORMS } from "@/lib/constants/platforms";
@@ -27,6 +27,7 @@ interface NewPostModalProps {
   formTagDraft: string;
   formSelectedTagIds: string[];
   formLoading: boolean;
+  queuing: boolean;
   formError: string | null;
   locale: string;
   onContentChange: (value: string) => void;
@@ -38,6 +39,7 @@ interface NewPostModalProps {
   onSelectedTagIdsChange: (ids: string[]) => void;
   onScheduledAtChange: (value: string) => void;
   onSubmit: (status: "draft" | "scheduled" | "published") => void;
+  onQueueToSchedule?: () => void;
   t: {
     newPost?: string;
     content?: string;
@@ -46,6 +48,8 @@ interface NewPostModalProps {
     saveDraft?: string;
     schedule?: string;
     publishNow?: string;
+    addToQueue?: string;
+    queueLoading?: string;
     scheduledAt?: string;
     saving?: string;
     addTags?: string;
@@ -72,6 +76,7 @@ export function NewPostModal({
   formTagDraft,
   formSelectedTagIds,
   formLoading,
+  queuing,
   formError,
   locale,
   onContentChange,
@@ -83,11 +88,12 @@ export function NewPostModal({
   onSelectedTagIdsChange,
   onScheduledAtChange,
   onSubmit,
+  onQueueToSchedule,
   t,
 }: NewPostModalProps) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent className="max-w-lg rounded-[20px] bg-white/90 dark:bg-card/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/10 p-0 sm:max-w-lg" showCloseButton>
+      <DialogContent className="max-w-[95vw] w-full sm:max-w-lg rounded-[20px] bg-white/90 dark:bg-card/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/10 p-0 md:max-w-lg" showCloseButton>
         <DialogHeader className="px-6 pt-6">
           <DialogTitle className="text-lg font-semibold">
             {t.newPost || "Nový příspěvek"}
@@ -99,7 +105,7 @@ export function NewPostModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="px-4 sm:px-6 space-y-4 max-h-[60vh] overflow-y-auto">
           {formError && (
             <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               {formError}
@@ -260,7 +266,7 @@ export function NewPostModal({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3 px-6 pb-6 pt-4 border-t border-gray-200 dark:border-white/5">
+        <div className="flex flex-wrap gap-2 sm:gap-3 px-3 sm:px-6 pb-4 sm:pb-6 pt-4 border-t border-gray-200 dark:border-white/5">
           <Button
             type="button"
             onClick={() => onSubmit("draft")}
@@ -271,6 +277,18 @@ export function NewPostModal({
             {formLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {formLoading ? (t.saving || "Ukládání...") : (t.saveDraft || "Koncept")}
           </Button>
+          {onQueueToSchedule && (
+            <Button
+              type="button"
+              onClick={onQueueToSchedule}
+              disabled={!formContent.trim() || formLoading || queuing}
+              variant="outline"
+              className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 dark:border-cyan-500/20 dark:bg-cyan-500/5 dark:hover:bg-cyan-500/10 transition-all"
+            >
+              {queuing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListOrdered className="mr-2 h-4 w-4" />}
+              {queuing ? (t.queueLoading || "Výpočet času...") : (t.addToQueue || "Přidat do fronty")}
+            </Button>
+          )}
           <Button
             type="button"
             onClick={() => onSubmit("scheduled")}

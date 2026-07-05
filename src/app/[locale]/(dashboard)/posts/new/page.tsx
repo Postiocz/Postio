@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
-import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
+import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -68,6 +69,7 @@ export default function NewPostPage() {
   const [tagDraft, setTagDraft] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [queuing, setQueuing] = useState(false);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
@@ -347,6 +349,86 @@ export default function NewPostPage() {
       toast.error("Publikování selhalo.");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  /**
+   * Queue a post to the next available slot from the user's posting schedule.
+   * Calls getNextAvailableQueueSlot server action, then submits as "scheduled".
+   */
+  const handleQueueToSchedule = async () => {
+    if (!content.trim()) return;
+    if (hasUploading()) {
+      toast.info(t("uploading"));
+      return;
+    }
+    if (isInstagramVideoIncompatible) {
+      const msg = t("instagramVideoTooSmall");
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setQueuing(true);
+    setError(null);
+
+    try {
+      const slotResult = await getNextAvailableQueueSlot();
+      if (!slotResult.success || !slotResult.scheduledAt) {
+        const msg = slotResult.error ?? t("errorSaving");
+        setError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      // Format the queued date/time for the success toast
+      const queuedDate = new Date(slotResult.scheduledAt);
+      const formattedDate = queuedDate.toLocaleString(
+        typeof locale === "string" && locale !== "en" ? `${locale}-${locale.toUpperCase()}` : "en-US",
+        {
+          dateStyle: "medium",
+          timeStyle: "short",
+        },
+      );
+
+      // Commit remaining tag draft before saving
+      let finalTags = [...tags];
+      if (tagDraft.trim()) {
+        const cleaned = tagDraft.trim();
+        const core = cleaned.startsWith("#") ? cleaned.slice(1) : cleaned;
+        const normalized = core.replace(/[^\p{L}\p{N}_-]+/gu, "");
+        if (normalized) {
+          const tag = `#${normalized}`;
+          const exists = finalTags.some((t0) => t0.toLowerCase() === tag.toLowerCase());
+          if (!exists) finalTags = [...finalTags, tag];
+        }
+      }
+      setTagDraft("");
+
+      const mediaUrls = getMediaUrls();
+      const result = await createPostAction({
+        content: content.trim(),
+        platforms: selectedPlatforms,
+        scheduledAt: slotResult.scheduledAt,
+        status: "scheduled",
+        location: location.trim() || undefined,
+        tags: finalTags,
+        tagIds: selectedTagIds,
+        mediaUrls,
+      });
+
+      if (result.success) {
+        toast.success(`Příspěvek byl zařazen do fronty na ${formattedDate}`);
+        router.push(`/${locale}/posts`);
+      } else {
+        setError(result.error ?? t("errorSaving"));
+        toast.error(result.error ?? t("errorSaving"));
+      }
+    } catch {
+      setError(t("errorSaving"));
+      toast.error(t("errorSaving"));
+    } finally {
+      setQueuing(false);
     }
   };
 
@@ -716,6 +798,16 @@ export default function NewPostPage() {
               >
                 {(loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {(loading || hasUploading()) ? t("saving") : t("saveDraft")}
+              </Button>
+              <Button
+                onClick={handleQueueToSchedule}
+                disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || queuing || hasUploading() || isInstagramVideoIncompatible}
+                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                variant="outline"
+                className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all"
+              >
+                {queuing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListOrdered className="mr-2 h-4 w-4" />}
+                {queuing ? t("queueLoading") : t("addToQueue")}
               </Button>
               <Button
                 onClick={() => handleSubmit("scheduled")}

@@ -6,13 +6,26 @@ import { useActionState } from "react";
 import { updatePreferences } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Check, Clock, Globe, Calendar as CalendarIcon } from "lucide-react";
+import { Check, Clock, Globe, Calendar as CalendarIcon, ListOrdered, Plus, X } from "lucide-react";
+
+export interface PostingSchedule {
+  enabled: boolean;
+  "0": string[];
+  "1": string[];
+  "2": string[];
+  "3": string[];
+  "4": string[];
+  "5": string[];
+  "6": string[];
+  [key: number]: string[] | boolean;
+}
 
 interface PreferencesFormProps {
   timezone: string;
   timeFormat: string;
   startOfWeek: string;
   defaultPostingTime: string;
+  postingSchedule: PostingSchedule | null;
   labels: {
     saved: string;
     timezone: string;
@@ -28,6 +41,15 @@ interface PreferencesFormProps {
     defaultTime: string;
     sunday: string;
     monday: string;
+    queueSchedule: string;
+    queueScheduleDescription: string;
+    autoQueueEnabled: string;
+    addTime: string;
+    tuesday: string;
+    wednesday: string;
+    thursday: string;
+    friday: string;
+    saturday: string;
   };
 }
 
@@ -80,6 +102,7 @@ export default function PreferencesForm({
   timeFormat: initialTimeFormat,
   startOfWeek: initialStartOfWeek,
   defaultPostingTime: initialDefaultPostingTime,
+  postingSchedule: initialPostingSchedule,
   labels,
 }: PreferencesFormProps) {
   const commonT = useTranslations("common");
@@ -91,6 +114,12 @@ export default function PreferencesForm({
   const [timeFormat, setTimeFormat] = useState(initialTimeFormat);
   const [startOfWeek, setStartOfWeek] = useState(initialStartOfWeek);
   const [defaultPostingTime, setDefaultPostingTime] = useState(initialDefaultPostingTime);
+  const [postingSchedule, setPostingSchedule] = useState<PostingSchedule>(
+    initialPostingSchedule ?? {
+      enabled: false,
+      "0": [], "1": ["09:00"], "2": ["09:00"], "3": ["09:00"], "4": ["09:00"], "5": ["09:00"], "6": [],
+    }
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +130,7 @@ export default function PreferencesForm({
     formData.set("time_format", timeFormat);
     formData.set("start_of_week", startOfWeek);
     formData.set("default_posting_time", defaultPostingTime);
+    formData.set("posting_schedule", JSON.stringify(postingSchedule));
 
     startTransition(() => {
       prefAction(formData);
@@ -112,9 +142,37 @@ export default function PreferencesForm({
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const toggleQueueEnabled = () => {
+    setPostingSchedule((prev) => ({ ...prev, enabled: !prev.enabled }));
+  };
+
+  const addTimeSlot = (day: string) => {
+    setPostingSchedule((prev) => ({
+      ...prev,
+      [day]: [...(prev[day as keyof PostingSchedule] as string[]), "12:00"],
+    }));
+  };
+
+  const removeTimeSlot = (day: string, index: number) => {
+    setPostingSchedule((prev) => ({
+      ...prev,
+      [day]: (prev[day as keyof PostingSchedule] as string[]).filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateTimeSlot = (day: string, index: number, value: string) => {
+    setPostingSchedule((prev) => {
+      const slots = [...(prev[day as keyof PostingSchedule] as string[])];
+      slots[index] = value;
+      return { ...prev, [day]: slots };
+    });
+  };
+
   if (prefState.success && saved === false) {
     handleSuccess();
   }
+
+  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
@@ -276,6 +334,104 @@ export default function PreferencesForm({
               <span className="text-sm text-muted-foreground flex-shrink-0">
                 {labels.defaultTime}
               </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Queue Schedule Section */}
+      <div className="rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-none">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+            <ListOrdered className="h-5 w-5 text-cyan-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-1">
+              <h2 className="text-base sm:text-lg font-semibold">{labels.queueSchedule}</h2>
+              <button
+                type="button"
+                onClick={toggleQueueEnabled}
+                className={`self-start sm:self-auto relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  postingSchedule.enabled ? "bg-cyan-500" : "bg-input"
+                }`}
+              >
+                <span className="sr-only">{labels.autoQueueEnabled}</span>
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    postingSchedule.enabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4 sm:mb-6 leading-relaxed">
+              {labels.queueScheduleDescription}
+            </p>
+
+            {!postingSchedule.enabled && (
+              <div className="rounded-xl bg-muted/50 border border-dashed border-muted-foreground/20 px-4 py-3 text-sm text-muted-foreground">
+                {labels.autoQueueEnabled} – {labels.queueScheduleDescription}
+              </div>
+            )}
+
+            <div className={`space-y-3 transition-opacity duration-200 ${!postingSchedule.enabled ? "opacity-50 pointer-events-none" : ""}`}>
+              {dayNames.map((day, dayIndex) => {
+                const slots = postingSchedule[dayIndex] as string[];
+                const isEnabled = slots.length > 0;
+
+                return (
+                  <div key={day} className="flex items-center gap-3">
+                    <span className="w-20 sm:w-24 text-sm font-medium flex-shrink-0 truncate">
+                      {labels[day]}
+                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                      {isEnabled ? (
+                        <>
+                          {slots.map((slot, slotIndex) => (
+                            <div key={slotIndex} className="flex items-center gap-1">
+                              <input
+                                type="time"
+                                value={slot}
+                                onChange={(e) => updateTimeSlot(String(dayIndex), slotIndex, e.target.value)}
+                                disabled={!postingSchedule.enabled}
+                                className="h-8 w-24 rounded-lg border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeTimeSlot(String(dayIndex), slotIndex)}
+                                disabled={!postingSchedule.enabled}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => addTimeSlot(String(dayIndex))}
+                            disabled={!postingSchedule.enabled}
+                            className="flex items-center gap-1 rounded-lg border border-dashed border-muted-foreground/25 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-xs text-muted-foreground/60 italic">–</span>
+                          <button
+                            type="button"
+                            onClick={() => addTimeSlot(String(dayIndex))}
+                            disabled={!postingSchedule.enabled}
+                            className="flex items-center gap-1 rounded-lg border border-dashed border-muted-foreground/25 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors"
+                          >
+                            <Plus className="h-3 w-3" />
+                            {labels.addTime}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

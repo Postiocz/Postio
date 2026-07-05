@@ -19,7 +19,7 @@ import {
   startOfWeek as dfnStartOfWeek,
   endOfWeek,
 } from "date-fns";
-import { Calendar as CalendarIcon, CheckCircle2, ChevronLeft, Film, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import { Calendar as CalendarIcon, CheckCircle2, ChevronLeft, Film, Image as ImageIcon, ListOrdered, Loader2, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
+import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import NextImage from "next/image";
@@ -140,6 +141,10 @@ interface CalendarViewProps {
       drafts: string;
       thisMonth: string;
     };
+    // Auto-Queue
+    addToQueue?: string;
+    queueLoading?: string;
+    queuedSuccess?: string;
   };
  }
 
@@ -187,6 +192,7 @@ export function CalendarView({
   const [formTagDraft, setFormTagDraft] = useState("");
   const [formSelectedTagIds, setFormSelectedTagIds] = useState<string[]>([]);
   const [formLoading, setFormLoading] = useState(false);
+  const [queuing, setQueuing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
@@ -466,6 +472,65 @@ export function CalendarView({
       setFormLoading(false);
     }
   }, [formContent, formPlatforms, formScheduledAt, formLocation, formTags, formSelectedTagIds, tCalendar, handleCloseModal, normalizeScheduledAt, getMediaUrls, hasUploading]);
+
+  // Queue post to next available slot from user's posting schedule
+  const handleQueueSubmit = useCallback(async () => {
+    if (!formContent.trim()) return;
+    if (hasUploading()) {
+      toast.info(tCalendar.uploading || "Nahrávání médií...");
+      return;
+    }
+    setQueuing(true);
+    setFormError(null);
+
+    try {
+      const slotResult = await getNextAvailableQueueSlot();
+      if (!slotResult.success || !slotResult.scheduledAt) {
+        const msg = slotResult.error ?? (tCalendar.errorSaving || "Chyba při ukládání");
+        setFormError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      // Format the queued date/time for the success toast
+      const queuedDate = new Date(slotResult.scheduledAt);
+      const formattedDate = queuedDate.toLocaleString(
+        locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "cs-CZ",
+        { dateStyle: "medium", timeStyle: "short" },
+      );
+
+      const mediaUrls = getMediaUrls();
+
+      const result = await createPostAction({
+        content: formContent.trim(),
+        platforms: formPlatforms,
+        scheduledAt: slotResult.scheduledAt,
+        status: "scheduled",
+        location: formLocation.trim() || undefined,
+        tags: formTags.length > 0 ? formTags : undefined,
+        tagIds: formSelectedTagIds,
+        mediaUrls,
+      });
+
+      if (result.success) {
+        toast.success(
+          (tCalendar.queuedSuccess ?? "Příspěvek byl zařazen do fronty na __DATE__")
+            .replace("__DATE__", formattedDate),
+        );
+        handleCloseModal();
+        router.refresh();
+        return;
+      }
+
+      setFormError(result.error ?? (tCalendar.errorSaving || "Chyba při ukládání"));
+      toast.error(result.error ?? (tCalendar.errorSaving || "Chyba při ukládání"));
+    } catch {
+      setFormError(tCalendar.errorSaving || "Chyba při ukládání");
+      toast.error(tCalendar.errorSaving || "Chyba při ukládání");
+    } finally {
+      setQueuing(false);
+    }
+  }, [formContent, formPlatforms, formLocation, formTags, formSelectedTagIds, locale, tCalendar, handleCloseModal, getMediaUrls, hasUploading]);
 
   const handlePostClick = useCallback((post: Post, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -778,8 +843,8 @@ export function CalendarView({
 
       {/* New Post Modal */}
       <Dialog open={modalDay !== null} onOpenChange={(open) => { if (!open) handleCloseModal(); }}>
-        <DialogContent className="max-w-lg rounded-[20px] bg-white/90 dark:bg-card/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/10 p-0 sm:max-w-lg" showCloseButton>
-          <DialogHeader className="px-6 pt-6">
+        <DialogContent className="max-w-[95vw] w-full sm:max-w-lg rounded-[20px] bg-white/90 dark:bg-card/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/10 p-0 md:max-w-lg" showCloseButton>
+          <DialogHeader className="px-4 sm:px-6 pt-6">
             <DialogTitle className="text-lg font-semibold">
               {tCalendar.newPost || "Nový příspěvek"}
               {modalDay && (
@@ -790,7 +855,7 @@ export function CalendarView({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="px-6 space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="px-4 sm:px-6 space-y-4 max-h-[60vh] overflow-y-auto">
             {formError && (
               <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 {formError}
@@ -1092,7 +1157,7 @@ export function CalendarView({
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 px-6 pb-6 pt-4 border-t border-gray-200 dark:border-white/5">
+          <div className="flex flex-wrap gap-2 sm:gap-3 px-4 sm:px-6 pb-4 sm:pb-6 pt-4 border-t border-gray-200 dark:border-white/5">
             <Button
               type="button"
               onClick={() => handleFormSubmit("draft")}
@@ -1102,6 +1167,16 @@ export function CalendarView({
             >
               {(formLoading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {(formLoading || hasUploading()) ? (tCalendar.saving || "Ukládání...") : (tCalendar.saveDraft || "Koncept")}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleQueueSubmit}
+              disabled={!formContent.trim() || formLoading || queuing || hasUploading()}
+              variant="outline"
+              className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 dark:border-cyan-500/20 dark:bg-cyan-500/5 dark:hover:bg-cyan-500/10 transition-all"
+            >
+              {queuing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListOrdered className="mr-2 h-4 w-4" />}
+              {queuing ? (tCalendar.queueLoading || "Výpočet času...") : (tCalendar.addToQueue || "Přidat do fronty")}
             </Button>
             <Button
               type="button"

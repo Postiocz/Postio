@@ -249,7 +249,10 @@
     "selectAll": "Vybrat vše",
     "deselectAll": "Zrušit výběr",
     "select": "Vybrat",
-    "deselect": "Zrušit výběr"
+    "deselect": "Zrušit výběr",
+    "addToQueue": "Přidat do fronty",
+    "queuedSuccess": "Příspěvek byl zařazen do fronty na __DATE__",
+    "queueLoading": "Výpočet času..."
   },
   "dashboard": {
     "title": "Vítejte v Postio",
@@ -270,11 +273,10 @@
     "emptyStateTitle": "Vítejte v Postio! 👋",
     "emptyStateDescription": "Začněte publikovat na sociální sítě. Připojte svůj první účet nebo vytvořte první příspěvek.",
     "createFirstPost": "Vytvořit první příspěvek",
-    "connectAccount": "Připojit účet",
+    "connectAccount": "Propojit účet",
     "newPost": "Nový příspěvek",
     "newPostDescription": "Vytvořit a naplánovat obsah",
     "viewAnalytics": "Sledovat výkon a metriky",
-    "connectAccount": "Propojit účet",
     "browseTemplates": "Prohlédnout šablony",
     "proCtaTitle": "Upgrade na Pro",
     "proCtaSubtitle": "Odemkněte neomezené příspěvky, analytiku a prémiové šablony.",
@@ -302,8 +304,8 @@
     "labelsEmptyDescription": "Přidejte štítky k příspěvkům a sledujte, co publikujete nejčastěji.",
     "labelsEmptyAction": "Vytvořit štítky",
     "oneDraft": "1 koncept",
-    "fewDrafts": "{{count}} koncepty",
-    "manyDrafts": "{{count}} konceptů",
+    "fewDrafts": "{count} koncepty",
+    "manyDrafts": "{count} konceptů",
     "postsCount": "příspěvků",
     "free": "Free"
   },
@@ -470,7 +472,10 @@
     "select": "Vybrat",
     "deselect": "Zrušit výběr",
     "showMore": "Zobrazit více",
-    "showLess": "Zobrazit méně"
+    "showLess": "Zobrazit méně",
+    "addToQueue": "Přidat do fronty",
+    "queuedSuccess": "Příspěvek byl zařazen do fronty na {date}",
+    "queueLoading": "Výpočet času..."
   },
   "accounts": {
     "title": "Sociální účty",
@@ -736,7 +741,16 @@
     "deleteAccountConfirm": "SMAZAT",
     "deletingAccount": "Mazání účtu...",
     "accountDeleted": "Účet byl úspěšně smazán.",
-    "errorDeletingAccount": "Chyba při mazání účtu."
+    "errorDeletingAccount": "Chyba při mazání účtu.",
+    "queueSchedule": "Rozvrh fronty",
+    "queueScheduleDescription": "Nastavte dny a časy, kdy se příspěvky automaticky zařazují do fronty publikování.",
+    "autoQueueEnabled": "Automatická fronta",
+    "addTime": "Přidat čas",
+    "tuesday": "Úterý",
+    "wednesday": "Středa",
+    "thursday": "Čtvrtek",
+    "friday": "Pátek",
+    "saturday": "Sobota"
   },
   "cookie": {
     "usesCookies": "Používáme soubory cookie k zajištění nejlepšího zážitku z Postio.",

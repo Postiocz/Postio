@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock } from "lucide-react";
+import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock, ListOrdered } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction, updatePost } from "@/lib/actions/posts";
 import { publishPost, updateRemotePostAction, publishAdditionalPlatforms, updateOnPlatformAction } from "@/lib/actions/publish";
+import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
 import {
   getTikTokCreatorInfoAction,
   type TikTokCreatorInfo,
@@ -159,6 +160,7 @@ export function EditPostDialog({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [queuing, setQueuing] = useState(false);
   const [isPublishingAdditional, setIsPublishingAdditional] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
@@ -1116,6 +1118,91 @@ export function EditPostDialog({
   const handleClose = useCallback(() => {
     onOpenChange(false);
   }, [onOpenChange]);
+
+  /**
+   * Queue a post to the next available slot from the user's posting schedule.
+   * Calls getNextAvailableQueueSlot server action, then submits as "scheduled".
+   */
+  const handleQueueToSchedule = async () => {
+    if (!content.trim()) return;
+    if (hasUploading()) {
+      toast.info(t("uploading"));
+      return;
+    }
+    if (isInstagramVideoIncompatible) {
+      const msg =
+        t("instagramVideoTooSmall") ??
+        "Toto video nelze na Instagramu publikovat.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setQueuing(true);
+    setError(null);
+
+    try {
+      const slotResult = await getNextAvailableQueueSlot();
+      if (!slotResult.success || !slotResult.scheduledAt) {
+        const msg = slotResult.error ?? t("errorSaving");
+        setError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      // Format the queued date/time for the success toast
+      const queuedDate = new Date(slotResult.scheduledAt);
+      const formattedDate = queuedDate.toLocaleString(
+        locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "cs-CZ",
+        {
+          dateStyle: "medium",
+          timeStyle: "short",
+        },
+      );
+
+      // Now submit as scheduled with the computed time
+      const finalTags = handleCommitRemainingTag();
+      const mediaUrls = getMediaUrls();
+
+      const result = isEdit && post?.id
+        ? await updatePost(post.id, {
+            content: content.trim(),
+            platforms,
+            scheduledAt: slotResult.scheduledAt,
+            status: "scheduled",
+            location: location.trim() || "",
+            tags: finalTags,
+            tagIds: selectedTagIds,
+            platformMetadata,
+            mediaUrls,
+          })
+        : await createPostAction({
+            content: content.trim(),
+            platforms,
+            scheduledAt: slotResult.scheduledAt,
+            status: "scheduled",
+            location: location.trim() || undefined,
+            tags: finalTags.length > 0 ? finalTags : undefined,
+            tagIds: selectedTagIds,
+            platformMetadata,
+            mediaUrls,
+          });
+
+      if (result.success) {
+        toast.success(t("queuedSuccess", { date: formattedDate }) ?? `Příspěvek byl zařazen do fronty na ${formattedDate}`);
+        await router.refresh();
+        onOpenChange(false);
+      } else {
+        setError(result.error ?? t("errorSaving"));
+        toast.error(result.error ?? t("errorSaving"));
+      }
+    } catch {
+      setError(t("errorSaving"));
+      toast.error(t("errorSaving"));
+    } finally {
+      setQueuing(false);
+    }
+  };
 
   // Prompt 003 – Platform accent colors for tab icons
   const PLATFORM_ACCENTS_MAP: Record<string, string> = {
@@ -2135,6 +2222,25 @@ export function EditPostDialog({
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? t("saving") : t("saveDraft")}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleQueueToSchedule}
+                disabled={
+                  !content.trim() ||
+                  platforms.length === 0 ||
+                  loading ||
+                  queuing ||
+                  publishing ||
+                  isInstagramVideoIncompatible
+                }
+                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                variant="outline"
+                className="rounded-xl border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all"
+              >
+                {queuing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <ListOrdered className="mr-2 h-4 w-4" />
+                {queuing ? t("queueLoading") : t("addToQueue")}
               </Button>
               <Button
                 type="button"

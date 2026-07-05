@@ -18,15 +18,27 @@ export async function updatePreferences(
   const timeFormat = formData.get("time_format") as string;
   const startOfWeek = formData.get("start_of_week") as string;
   const defaultPostingTime = formData.get("default_posting_time") as string;
+  const postingScheduleRaw = formData.get("posting_schedule") as string;
+
+  const updateData: Record<string, unknown> = {
+    timezone: timezone || "Europe/Prague",
+    time_format: timeFormat || "24",
+    start_of_week: startOfWeek || "monday",
+    default_posting_time: defaultPostingTime || "09:00",
+  };
+
+  // Parse posting_schedule JSONB from FormData
+  if (postingScheduleRaw) {
+    try {
+      updateData.posting_schedule = JSON.parse(postingScheduleRaw);
+    } catch {
+      return { error: "Invalid posting schedule format", success: false };
+    }
+  }
 
   const { error } = await supabase
     .from("users")
-    .update({
-      timezone: timezone || "Europe/Prague",
-      time_format: timeFormat || "24",
-      start_of_week: startOfWeek || "monday",
-      default_posting_time: defaultPostingTime || "09:00",
-    })
+    .update(updateData)
     .eq("id", user.id);
 
   if (error) {

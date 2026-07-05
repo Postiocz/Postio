@@ -266,3 +266,83 @@ Stránka Příspěvky používá **keyset (cursor) paginaci** s PAGE_SIZE = 20. 
 - **Zásah do paginace:** Kroky 1–2 se dotýkají klíčové logiky kurzoru, ale mění jen okrajové případy (ASC řazení, přesný násobek PAGE_SIZE). Defaultní `newest` režim zůstává beze změny – nejnižší riziko regrese.
 - **NEZMĚNÍME:** Filtry, bulk delete, publish flow, editace, tiktok logiku, prázdný stav, design – pouze paginace/cursor matematika a případný Framer layout warn.
 - **Testování:** Po každém kroku manuální test v prohlížeči (různé sorty + Load more + přesný násobek PAGE_SIZE) dle Striktního pravidla 3. Teprve po schválení uživatelem → odškrtnout ✅, zapsat do CHANGELOG.md a provést automatický commit (Pravidlo 4).
+
+---
+
+## Prompt 022 – Zprovoznění High-Fidelity TikTok náhledu na stránce Příspěvky
+
+> **Problém:** Po kliknutí na ikonu "Oka" (samostatný náhled) na stránce `/posts` se zobrazí věrné náhledy pro FB, IG, LI, YT – ale **TikTok záložka chybí**. Komponenta `TikTokPreview` v `post-preview.tsx` je plně funkční, ale `preview-dialog.tsx` ji nenapojuje.
+
+### Analýza příčiny
+
+Soubor `src/components/preview-dialog.tsx` má **pěť míst**, kde je TikTok explicitně vynechán:
+
+| # | Místo (řádek) | Aktuální stav | Co chybí |
+|---|---------------|---------------|----------|
+| 1 | ř. 53 – typ `PreviewPlatform` | `"facebook" \| "instagram" \| "youtube" \| "linkedin"` | přidat `\| "tiktok"` |
+| 2 | ř. 70–75 – `PREVIEWABLE_PLATFORMS` | 4 platformy bez TikTok | přidat `"tiktok"` do pole |
+| 3 | ř. 78–83 – `PLATFORM_ACCENTS` | 4 barvy bez TikTok | přidat `tiktok: "#00f2fe"` |
+| 4 | ř. 86–91 – `PLATFORM_LABELS` | 4 labely bez TikTok | přidat `tiktok: "TikTok"` |
+| 5 | ř. 122–127 – init state `profiles` | fb, ig, yt, li | přidat `tiktok: null` |
+| 6 | ř. 220–231 – `getTabLabel` | map pro 4 platformy | přidat `tiktok: t("previewTikTokTab")` |
+| 7 | ř. 467–693 – `renderPreviewForPlatform` | switch s 4 cases + default null | přidat case `"tiktok"` s vertikálním přehrávačem |
+
+**Proč to nefunguje:** `PREVIEWABLE_PLATFORMS` filtruje, které záložky se zobrazí. Protože `'tiktok'` není v tomto poli → `availableTabs` ho nikdy neobsahuje → žádná záložka TikTok → `renderPreviewForPlatform` pro tiktok se nikdy nespustí.
+
+**i18n:** Klíč `previewTikTokTab` už existuje ve všech 3 jazycích (cs, en, uk) – **žádná změna i18n není potřeba**.
+
+**TikTok pravidla splněná v `post-preview.tsx`:**
+- ✅ High-Fidelity: vertikální přehrávač bez černých okrajů, akční ikony vpravo (❤️💬🔖↗️), text dole přes video, gradient overlay, rotující disk
+- ✅ `external_id` → `buildLiveUrl` už má case pro `"tiktok"` (ř. 362–363)
+- ✅ Uzamčení 🔒 – TikTok není v `SUPPORTED_UPDATE_PLATFORMS` (edit-post-dialog.tsx ř. 82), po publikování nelze editovat
+
+### Plán implementace – Checklist
+
+#### Krok 1: Rozšířit typy a konstanty o `'tiktok'`
+- **Soubor:** `src/components/preview-dialog.tsx`
+- **Změny:**
+  - Typ `PreviewPlatform` (ř. 53): přidat `\| "tiktok"`
+  - Pole `PREVIEWABLE_PLATFORMS` (ř. 70–75): přidat `"tiktok"` na konec
+  - Record `PLATFORM_ACCENTS` (ř. 78–83): přidat `tiktok: "#00f2fe"`
+  - Record `PLATFORM_LABELS` (ř. 86–91): přidat `tiktok: "TikTok"`
+- **Ověření:** `npx tsc --noEmit` ✅
+
+#### Krok 2: Přidat `'tiktok'` do profiles state a getTabLabel
+- **Soubor:** `src/components/preview-dialog.tsx`
+- **Změny:**
+  - Init state `profiles` (ř. 122–127): přidat `tiktok: null`
+  - Callback `getTabLabel` (ř. 220–231): přidat `tiktok: t("previewTikTokTab") ?? PLATFORM_LABELS.tiktok`
+- **Ověření:** `npx tsc --noEmit` ✅ + manuální test – záložka TikTok se zobrazí u příspěvků publikovaných na TikToku
+
+#### Krok 3: Přidat case `"tiktok"` do `renderPreviewForPlatform`
+- **Soubor:** `src/components/preview-dialog.tsx` (funkce od ř. 467)
+- **Změna:** Před `default: return null` přidat nový case pro TikTok, který vykreslí High-Fidelity vertikální náhled:
+  - Černé pozadí (`bg-black`)
+  - Video na celou výšku (object-cover / contain) nebo placeholder s 🎵
+  - Gradient overlay dole pro čitelnost textu
+  - Levý sloupec: `@username` + caption (line-clamp-3) + původní zvuk
+  - Pravý sloupec: Avatar + Follow tlačítko + akční ikony (❤️ 💬 🔖 ↗️) + rotující disk
+  - Použít pomocné funkce `AvatarInline` a `PreviewMediaArea` (už existují v souboru)
+- **Ověření:** Manuální test – kliknout na Oko u TikTok příspěvku → náhled se zobrazí věrně
+
+#### Krok 4: Ověřit "Zobrazit na síti" + uzamčení 🔒
+- **Soubor:** `src/components/preview-dialog.tsx` (žádná změna kódu, pouze ověření)
+- **Ověření:**
+  - Tlačítko "Zobrazit na síti" se zobrazí pro TikTok (pokud má `external_id`) – `buildLiveUrl` už vrací `https://www.tiktok.com/@user/video/{id}`
+  - Ověřit, že u publikovaného TikTok příspěvku není možnost editace (uzamčení)
+
+### Pořadí implementace
+
+| Krok | Soubor | Popis |
+|------|--------|-------|
+| ✅ **Krok 1** | `src/components/preview-dialog.tsx` | Rozšířit typ `PreviewPlatform` + konstanty (`PREVIEWABLE_PLATFORMS`, `PLATFORM_ACCENTS`, `PLATFORM_LABELS`) o `'tiktok'` |
+| ✅ **Krok 2** | `src/components/preview-dialog.tsx` | Přidat `tiktok: null` do profiles state + `getTabLabel` map |
+| ⬜ **Krok 3** | `src/components/preview-dialog.tsx` | Přidat case `"tiktok"` do `renderPreviewForPlatform` (High-Fidelity vertikální náhled) |
+| ⬜ **Krok 4** | Žádný (ověření) | Ověřit "Zobrazit na síti" odkaz + uzamčení po publikování |
+
+### Rizika a poznámky
+
+- **Jeden soubor:** Všechny změny jsou pouze v `preview-dialog.tsx` – minimální riziko regrese.
+- **Žádný breaking change:** Přidání `'tiktok'` do typů a polí je plně aditivní. Existující náhledy (FB, IG, YT, LI) se nemění.
+- **i18n hotové:** `previewTikTokTab` existuje ve všech jazycích.
+- **NEZMĚNÍME:** `post-preview.tsx`, `_post-card.tsx`, i18n soubory, databázi, server actions.

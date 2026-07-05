@@ -50,7 +50,7 @@ export interface PreviewProfile {
   avatarUrl?: string | null;
 }
 
-type PreviewPlatform = "facebook" | "instagram" | "youtube" | "linkedin";
+type PreviewPlatform = "facebook" | "instagram" | "youtube" | "linkedin" | "tiktok";
 
 // ---------------------------------------------------------------------
 // Platform icon map
@@ -72,6 +72,7 @@ const PREVIEWABLE_PLATFORMS: PreviewPlatform[] = [
   "instagram",
   "youtube",
   "linkedin",
+  "tiktok",
 ];
 
 // Per-platform brand accents
@@ -80,6 +81,7 @@ const PLATFORM_ACCENTS: Record<PreviewPlatform, string> = {
   instagram: "#E1306C",
   youtube: "#FF0000",
   linkedin: "#0A66C2",
+  tiktok: "#00f2fe", // TikTok cyan
 };
 
 // Platform display labels (used when no translations are passed)
@@ -88,6 +90,7 @@ const PLATFORM_LABELS: Record<PreviewPlatform, string> = {
   instagram: "Instagram",
   youtube: "YouTube",
   linkedin: "LinkedIn",
+  tiktok: "TikTok",
 };
 
 // ---------------------------------------------------------------------
@@ -124,6 +127,7 @@ export function PreviewDialog({
     instagram: null,
     youtube: null,
     linkedin: null,
+    tiktok: null,
   });
   const [profilesLoaded, setProfilesLoaded] = useState(false);
 
@@ -224,6 +228,7 @@ export function PreviewDialog({
         instagram: t("previewInstagramTab") ?? PLATFORM_LABELS.instagram,
         youtube: t("previewYoutubeTab") ?? PLATFORM_LABELS.youtube,
         linkedin: t("previewLinkedinTab") ?? PLATFORM_LABELS.linkedin,
+        tiktok: t("previewTikTokTab") ?? PLATFORM_LABELS.tiktok,
       };
       return map[p];
     },

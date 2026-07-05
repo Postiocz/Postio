@@ -5,6 +5,18 @@
 
 ## 2026-07-05
 
+### 🐛 Fix — PreviewDialog: TikTok záložka chybí v samostatném náhledu (Oko) na stránce Příspěvky (Krok 1+2)
+
+- **Kontext**: Dialog "Oko" (`preview-dialog.tsx`) po kliknutí na ikonu oka na stránce `/posts` zobrazoval věrné náhledy pro FB, IG, YT, LI – ale záložka TikTok chyběla. Příčina: `PREVIEWABLE_PLATFORMS`, typ `PreviewPlatform`, `PLATFORM_ACCENTS`, `PLATFORM_LABELS`, profiles state i `getTabLabel` explicitně vynechávaly `'tiktok'`.
+- **Oprava (Krok 1)**: Typ `PreviewPlatform` rozšířen o `"tiktok"`. Konstanty `PREVIEWABLE_PLATFORMS`, `PLATFORM_ACCENTS` (`#00f2fe`), `PLATFORM_LABELS` doplněny o TikTok. **(Krok 2)**: Init state `profiles` doplněn o `tiktok: null`, `getTabLabel` map o `t("previewTikTokTab")`.
+- **Ověření**: `npx tsc --noEmit` ✅ + manuální test – záložka TikTok se zobrazuje u příspěvků publikovaných na TikToku ✅ (uživatel potvrdil)
+- **Upravené soubory**:
+  - `src/components/preview-dialog.tsx`
+  - `ukol.md` (Krok 1+2 označeny ✅)
+  - `CHANGELOG.md`
+
+## 2026-07-05
+
 ### ✅ No-op — Framer `layout` na PostCard nevyvolává runtime warning
 
 - **Kontext**: `_post-card.tsx` používá `<motion.article layout>` bez `layoutId`. Původní obava byla, že Framer Motion v12.x by mohl hlásit runtime warning pro layout animace bez `layoutId`.
@@ -142,62 +154,6 @@
   - `src/messages/cs.json`
   - `src/messages/en.json`
   - `src/messages/uk.json`
-  - `CHANGELOG.md`
-
-### 🐛 Fix — Vercel build: untyped select builder pro scheduled Edge Function
-
-- **Kontext**: Produkční deploy na Vercelu znovu padal při `next build` v `supabase/functions/process-scheduled-posts/index.ts` na chybě `Object is of type 'unknown'`. Příčinou bylo, že lokální alias `DenoSupabaseClient` vracel z `.from(...)` čisté `unknown`, ale helpery pro TikTok / YouTube / LinkedIn nad tím dál řetězily `.select().eq().order().limit()`.
-- **Oprava**:
-  1. V `supabase/functions/process-scheduled-posts/index.ts` doplněn úzký strukturální `UntypedTableBuilder` + `UntypedSelectFilterBuilder`, který pokrývá právě používaný query chain pro `social_accounts`.
-  2. Helper `getUntypedUpdateBuilder()` nově staví na společném `getUntypedTableBuilder()` a lookupy `getValidTikTokAccessToken()`, `getValidYouTubeAccessToken()` a `getValidLinkedInAccessToken()` už nevolají `.from(...)` přímo nad `unknown`.
-  3. Nešlo o změnu publikační logiky; zásah je čistě typový, aby Edge Function prošla strict TypeScript kontrolou v produkčním buildu.
-- **Ověření**:
-  - `npm run build` ✅
-- **Upravené soubory**:
-  - `supabase/functions/process-scheduled-posts/index.ts`
-  - `CHANGELOG.md`
-
-### 🐛 Fix — Prompt 017-C: TikTok private-only fallback + oprava i18n textů v editoru
-
-- **Kontext**: TikTok publish padal na chybě `unaudited_client_can_only_post_to_private_accounts`, protože neauditovaná / testovací aplikace smí publikovat jen jako `SELF_ONLY`. Zároveň bylo potřeba srovnat texty TikTok privacy sekce v `posts` namespace, aby editor používal správné překlady.
-- **Oprava**:
-  1. V `src/lib/actions/publish-tiktok.ts` doplněna pojistka pro TikTok private-only režim: při detekci dev/test prostředí se privacy přednostně nastaví na `SELF_ONLY`, a pokud `video/init` vrátí chybu `unaudited_client_can_only_post_to_private_accounts`, publish flow automaticky udělá retry se `SELF_ONLY` místo okamžitého failu.
-  2. Stejná private-only pojistka doplněna i do `supabase/functions/process-scheduled-posts/index.ts`, aby se okamžité a scheduled TikTok publikování nechovalo rozdílně.
-  3. `publish.ts` nyní předává do UI warning code pro úspěšný TikTok publish v private-only režimu a `EditPostDialog` zobrazí lokalizované info v editoru i po úspěšném publishi.
-  4. V `src/messages/cs.json`, `en.json`, `uk.json` sjednoceny TikTok privacy texty na požadované znění a doplněn nový lokalizovaný text pro private-only upozornění.
-- **Upravené soubory**:
-  - `src/lib/actions/publish-tiktok.ts`
-  - `src/lib/actions/publish.ts`
-  - `src/components/edit-post-dialog.tsx`
-  - `src/messages/cs.json`
-  - `src/messages/en.json`
-  - `src/messages/uk.json`
-  - `supabase/functions/process-scheduled-posts/index.ts`
-  - `AGENTS.md`
-  - `CHANGELOG.md`
-
-### 🐛 Fix — `posts` namespace znovu obsahuje TikTok texty pro editor příspěvků
-
-- **Kontext**: `EditPostDialog` používá `useTranslations("posts")`, ale část nových TikTok textů pro privacy a creator info byla uložená mimo `posts` namespace. Runtime pak v `/posts` padal na `MISSING_MESSAGE` pro klíče jako `posts.tiktokPrivacyTitle` a `posts.tiktokCreatorInfoSummary`.
-- **Oprava**:
-  1. Do `src/messages/cs.json`, `en.json`, `uk.json` doplněny chybějící TikTok klíče přímo do sekce `posts` (`tiktokPrivacy*`, `tiktokCreatorInfo*`, `tiktokCapability*`).
-  2. V `posts` sekci doplněn i `ttEditNotSupported`, aby TikTok lock banner nepadal při editaci už publikovaného příspěvku.
-  3. Oprava je čistě i18n; žádná publish logika ani TikTok API flow se nemění.
-- **Upravené soubory**:
-  - `src/messages/cs.json`
-  - `src/messages/en.json`
-  - `src/messages/uk.json`
-  - `CHANGELOG.md`
-
-### 🐛 Fix — Edge Function Supabase client typ už neblokuje TypeScript build
-
-- **Kontext**: `next build` znovu padal v `supabase/functions/process-scheduled-posts/index.ts` na chybě `Type 'SupabaseClient...' is not assignable ...`, konkrétně při předání `supabaseAdmin` do `getValidYouTubeAccessToken()`. Příčinou byl příliš úzký alias `ReturnType<typeof createClient>`, který v Deno Edge runtime neodpovídal skutečnému generickému tvaru klienta.
-- **Oprava**:
-  1. Helper alias `DenoSupabaseClient` změněn na úmyslně strukturální typ s metodou `.from(...)`, protože lokální helper vrstva používá právě jen tento minimální kontrakt.
-  2. Tím se odstranila falešná generická nekompatibilita mezi Deno klientem v Edge Function a app-side typovou inferencí, aniž by se měnila publish logika pro YouTube, TikTok nebo ostatní platformy.
-  3. Lokálně ověřeno přes `npm run build`; build nyní projde kompletně až do finálního route summary bez TypeScript chyb.
-- **Upravené soubory**:
-  - `supabase/functions/process-scheduled-posts/index.ts`
   - `CHANGELOG.md`
 
 *Starší historii projektu a předchozí milníky najdete v historii Git commitů na GitHubu.*

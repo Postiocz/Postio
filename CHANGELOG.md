@@ -5,14 +5,14 @@
 
 ## 2026-07-05
 
-### 🐛 Fix — PreviewDialog: TikTok záložka chybí v samostatném náhledu (Oko) na stránce Příspěvky (Krok 1+2)
+### 🐛 Fix — PreviewDialog: TikTok náhled plně funkční v samostatném náhledu (Oko) na stránce Příspěvky
 
-- **Kontext**: Dialog "Oko" (`preview-dialog.tsx`) po kliknutí na ikonu oka na stránce `/posts` zobrazoval věrné náhledy pro FB, IG, YT, LI – ale záložka TikTok chyběla. Příčina: `PREVIEWABLE_PLATFORMS`, typ `PreviewPlatform`, `PLATFORM_ACCENTS`, `PLATFORM_LABELS`, profiles state i `getTabLabel` explicitně vynechávaly `'tiktok'`.
-- **Oprava (Krok 1)**: Typ `PreviewPlatform` rozšířen o `"tiktok"`. Konstanty `PREVIEWABLE_PLATFORMS`, `PLATFORM_ACCENTS` (`#00f2fe`), `PLATFORM_LABELS` doplněny o TikTok. **(Krok 2)**: Init state `profiles` doplněn o `tiktok: null`, `getTabLabel` map o `t("previewTikTokTab")`.
-- **Ověření**: `npx tsc --noEmit` ✅ + manuální test – záložka TikTok se zobrazuje u příspěvků publikovaných na TikToku ✅ (uživatel potvrdil)
+- **Kontext**: Dialog "Oko" (`preview-dialog.tsx`) po kliknutí na ikonu oka na stránce `/posts` zobrazoval věrné náhledy pro FB, IG, YT, LI – ale TikTok chyběl.
+- **Oprava (Krok 1+2)**: Typ `PreviewPlatform`, konstanty (`PREVIEWABLE_PLATFORMS`, `PLATFORM_ACCENTS`, `PLATFORM_LABELS`), profiles state a `getTabLabel` rozšířeny o `'tiktok'`. **(Krok 3)**: Přidán case `"tiktok"` do `renderPreviewForPlatform` – High-Fidelity vertikální náhled s `h-full w-full object-cover` videem, gradient overlay, akční ikony vpravo (❤️💬🔖↗️), text + původní zvuk dole, rotující disk.
+- **Ověření**: `npx tsc --noEmit` ✅ + manuální test – záložka i náhled TikTok se zobrazují správně ve stejné velikosti jako ostatní platformy ✅ (uživatel potvrdil)
 - **Upravené soubory**:
   - `src/components/preview-dialog.tsx`
-  - `ukol.md` (Krok 1+2 označeny ✅)
+  - `ukol.md` (Krok 1–3 označeny ✅)
   - `CHANGELOG.md`
 
 ## 2026-07-05

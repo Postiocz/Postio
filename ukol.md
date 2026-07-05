@@ -259,7 +259,7 @@ Stránka Příspěvky používá **keyset (cursor) paginaci** s PAGE_SIZE = 20. 
 | ✅ **Krok 1** | `src/app/[locale]/(dashboard)/posts/actions.ts` | Oprava `.gt()` → `.lt()` pro `sort=oldest` + ASC kurzor = první řádek |
 | ✅ **Krok 2** | `src/app/[locale]/(dashboard)/posts/page.tsx` | `nextCursor` posílat jen když `hasMore` |
 | ✅ **Krok 3** | `src/app/[locale]/(dashboard)/posts/page.tsx` | Komentář invarianty: initial sort = `newest`, kurzor z `created_at` |
-| ⬜ **Krok 4** | `src/app/[locale]/(dashboard)/posts/_post-card.tsx` | Ověřit/no-op Framer `layout` runtime warn |
+| ✅ **Krok 4** | `src/app/[locale]/(dashboard)/posts/_post-card.tsx` | Ověřit/no-op Framer `layout` runtime warn — žádné varování, layout animace funguje korektně (expand/collapse) |
 
 ### Rizika a poznámky
 

@@ -5,6 +5,15 @@
 
 ## 2026-07-05
 
+### ✅ No-op — Framer `layout` na PostCard nevyvolává runtime warning
+
+- **Kontext**: `_post-card.tsx` používá `<motion.article layout>` bez `layoutId`. Původní obava byla, že Framer Motion v12.x by mohl hlásit runtime warning pro layout animace bez `layoutId`.
+- **Zjištění**: Framer Motion 12.38.0 nevyvolává žádný warning pro `layout` bez `layoutId`. Prop `layout` animuje změny vlastního layoutu karty (velikost/pozice), což je užitečné pro expand/collapse obsahu (`isExpanded`) a změnu select stavu (ring/border). Žádná oprava nepotřebná.
+- **Ověření**: Code review + kontrola Framer Motion 12 docs — warning existuje jen pro deprecated `layout="position"` / `layout="size"` string hodnoty, ne pro boolean `layout`. ✅
+- **Upravené soubory**: žádný (no-op)
+  - `ukol.md` (Krok 4 označen ✅)
+  - `CHANGELOG.md`
+
 ### 📝 Docs — Posts page: invarianta kurzorového sloupce v `posts/page.tsx`
 
 - **Kontext**: Po opravách Kurzorů (Kroky 1–2) zůstávala v `page.tsx` tichá architektonická křehkost: `lastCursor` se počítá z `created_at`, ale `_posts-container` podporuje i `sort="publishDate"` (porovnává kurzor vůči `scheduled_at`). Reálně se bug neprojevoval, protože initial render je vždy `newest` a jakákoliv změna sortu přepíše `currentCursor` přes `fetchFilteredPosts`. Nicméně kód nezdokumentoval, proč je `created_at` kurzor safe — future úpravce by mohl změnit initial sort a kurzorový sloupec přehlídnout.

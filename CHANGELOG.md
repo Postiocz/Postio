@@ -5,6 +5,16 @@
 
 ## 2026-07-05
 
+### 📝 Docs — Posts page: invarianta kurzorového sloupce v `posts/page.tsx`
+
+- **Kontext**: Po opravách Kurzorů (Kroky 1–2) zůstávala v `page.tsx` tichá architektonická křehkost: `lastCursor` se počítá z `created_at`, ale `_posts-container` podporuje i `sort="publishDate"` (porovnává kurzor vůči `scheduled_at`). Reálně se bug neprojevoval, protože initial render je vždy `newest` a jakákoliv změna sortu přepíše `currentCursor` přes `fetchFilteredPosts`. Nicméně kód nezdokumentoval, proč je `created_at` kurzor safe — future úpravce by mohl změnit initial sort a kurzorový sloupec přehlídnout.
+- **Oprava (dokumentace, žádná změna chování)**: Rozšířen komentář u `lastCursor` o explicitní invariantu — *initial render je vždy `newest` (DESC na `created_at`), proto kurzor z `created_at` odpovídá aktivnímu sortu; změna sortu jde přes `applyFilters` → `fetchFilteredPosts`, který `currentCursor` přepíše*. Doplněno varování: pokud kdy initial render změní sort, musí se upravit i kurzorový sloupec (nebo předat `initialSort` dolů).
+- **Ověření**: `npx tsc --noEmit` ✅ + manuální kontrola („Load more" v `newest` režimu nadále funguje) ✅ (uživatel potvrdil)
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/posts/page.tsx`
+  - `ukol.md` (Krok 3 označen ✅)
+  - `CHANGELOG.md`
+
 ### 🐛 Fix — Posts page: zbytečné „Load more" při přesném násobku PAGE_SIZE (keyset paginace)
 
 - **Kontext**: V `posts/page.tsx` se `lastCursor` (kurzor pro další stránku) počítal z podmínky `pagedPosts.length >= PAGE_SIZE` — tedy „pošli kurzor, kdykoli je první stránka plná". To nebralo v úvahu, zda další stránka reálně existuje. Při přesném násobku PAGE_SIZE (např. 20 nebo 40 příspěvků) byl `hasMore` sice `false` (PAGE_SIZE + 1 probe nic extra nepřinesl), ale `lastCursor` se **stejně odeslal** do `_posts-container`. Ten pak zobrazil tlačítko „Load more", po jehož kliknutí přišla prázdná stránka.

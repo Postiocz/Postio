@@ -79,6 +79,18 @@ export default async function PostsPage({
   // to the client, the client would render a stale "Load more" button, and
   // the subsequent fetch would return an empty page. `hasMore` is the single
   // source of truth derived from the PAGE_SIZE + 1 probe above.
+  //
+  // INVARIANT (cursor column): this initial cursor is derived from
+  // `created_at`, which is correct ONLY because the initial sort rendered
+  // server-side here is ALWAYS `newest` (DESC on `created_at`) — see the
+  // `.order("created_at", { ascending: false })` query above. The client
+  // `_posts-container` supports other sorts (`oldest`, `publishDate`), but
+  // any sort change goes through `applyFilters` → `fetchFilteredPosts`,
+  // which **overwrites** `currentCursor` correctly for the new sort/column.
+  // So the `created_at` cursor below is only ever consumed when sort is
+  // still `newest`. If a future change ever makes the initial render use a
+  // different sort, this cursor column MUST be updated to match — or,
+  // better, pass `initialSort` down so the initial cursor is column-aware.
   const lastCursor: string | undefined = hasMore
     ? pagedPosts[pagedPosts.length - 1]?.created_at
     : undefined;

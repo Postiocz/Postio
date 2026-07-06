@@ -12,6 +12,12 @@ type EmailAuthState = {
   successKey: "checkEmailToVerify" | null;
 };
 
+type ResetPasswordState = {
+  errorKey: "resetError" | null;
+  errorMessage: string | null;
+  successKey: "resetEmailSent" | null;
+};
+
 function normalizeLocale(value: unknown): Locale {
   const raw = String(value || "cs");
   return raw === "cs" || raw === "en" || raw === "uk" ? raw : "cs";
@@ -106,4 +112,53 @@ export async function emailAuthAction(
   }
 
   redirect(`/${locale}`);
+}
+
+// ============================================================
+// Password reset – Step 1: send the recovery e-mail
+// ============================================================
+// Triggered from the "Forgot password?" view in `email-signin.tsx`.
+// Supabase e-mails a magic link that lands on `/auth/callback` with
+// `?type=recovery`, which the callback route redirects to the
+// `/login/reset-password` page where the user sets a new password.
+export async function resetPasswordAction(
+  _prevState: ResetPasswordState,
+  formData: FormData
+): Promise<ResetPasswordState> {
+  const locale = normalizeLocale(formData.get("locale"));
+  const email = String(formData.get("email") || "").trim();
+
+  if (!email) {
+    return { errorKey: "resetError", errorMessage: null, successKey: null };
+  }
+
+  // Build the absolute base URL the same way as `emailAuthAction` so the
+  // recovery link points back to this exact deployment (works on localhost
+  // and on Vercel preview/production URLs alike).
+  const baseUrl = await (async () => {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    if (host) return `${proto}://${host}`;
+    return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  })();
+
+  const supabase = await createClient();
+
+  // The `redirectTo` includes `type=recovery` so the callback route can tell
+  // this apart from OAuth / e-mail-verification flows and forward the user to
+  // the reset-password page (see Step 5 of the plan).
+  const redirectTo = `${baseUrl}/auth/callback?type=recovery&next=${encodeURIComponent(
+    `/${locale}/login/reset-password`
+  )}`;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  if (error) {
+    return { errorKey: "resetError", errorMessage: error.message, successKey: null };
+  }
+
+  return { errorKey: null, errorMessage: null, successKey: "resetEmailSent" };
 }

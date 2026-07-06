@@ -5,6 +5,16 @@
 
 ## 2026-07-06
 
+### ✨ Feat — Reset hesla (Krok 2): server action `resetPasswordAction`
+
+- **Kontext**: Navazuje na Krok 1 (i18n). Připravuje serverovou logiku pro odeslání reset e-mailu přes Supabase.
+- **Změna**: Do `src/lib/actions/auth.ts` přidán typ `ResetPasswordState` a server action `resetPasswordAction`. Přečte `email` + `locale` z FormData, sestaví absolutní `baseUrl` (stejný pattern jako `emailAuthAction`) a zavolá `supabase.auth.resetPasswordForEmail(email, { redirectTo })`. `redirectTo` obsahuje `?type=recovery&next=/{locale}/login/reset-password`, aby callback route (Krok 5) poznal recovery flow. Vrací `resetEmailSent` / `resetError`.
+- **Ověření**: `npx tsc --noEmit` ✅
+- **Upravené soubory**:
+  - `src/lib/actions/auth.ts`
+  - `ukol.md` (Krok 2 označen ✅)
+  - `CHANGELOG.md`
+
 ### ✨ Feat — Reset hesla (Krok 1): i18n klíče pro celý flow "Zapomenuté heslo"
 
 - **Kontext**: Tlačítko "Zapomněli jste heslo?" na login page (`email-signin.tsx`) je mrtvé – chybí celý flow resetu hesla. Krok 1 připravuje lokalizaci pro nadcházející UI a server actions.

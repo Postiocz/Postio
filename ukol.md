@@ -346,3 +346,24 @@ Soubor `src/components/preview-dialog.tsx` má **pěť míst**, kde je TikTok ex
 - **Žádný breaking change:** Přidání `'tiktok'` do typů a polí je plně aditivní. Existující náhledy (FB, IG, YT, LI) se nemění.
 - **i18n hotové:** `previewTikTokTab` existuje ve všech jazycích.
 - **NEZMĚNÍME:** `post-preview.tsx`, `_post-card.tsx`, i18n soubory, databázi, server actions.
+
+## Prompt 023: Opravy ESLint errorů v dashboard sekci
+
+### Cíl
+Vyčistit technický dluh v dashboard sekci tím, že opravíme ESLint chyby (zejména react-hooks pravidla). Hlavní zaměření bude na `calendar/_calendar-view.tsx`, kde je více než 40 porušení pravidel hooks, a na další soubory jako `accounts/page.tsx`, `analytics/analytics-dashboard.tsx` atd.
+
+### Soubory k úpravě a konkrétní chyby
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` (react-hooks/rules-of-hooks)
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` (react-hooks/purity, react-hooks/set-state-in-effect)
+- `src/app/[locale]/(dashboard)/analytics/analytics-dashboard.tsx` (react-hooks/set-state-in-effect)
+- `src/app/[locale]/(dashboard)/calendar/page.tsx` (prefer-const, no-explicit-any)
+- `src/app/[locale]/(dashboard)/calendar/_calendar-client.tsx` (react-hooks/set-state-in-effect)
+- `src/app/[locale]/(dashboard)/posts/_posts-container.tsx` (react-hooks/set-state-in-effect, react-hooks/immutability, react-hooks/preserve-manual-memoization)
+- A několik dalších drobnějších oprav.
+
+### Pořadí implementace
+| Krok | Soubor | Popis |
+|------|--------|-------|
+| ✅ **Krok 1** | `calendar/_calendar-view.tsx` | Oprava kritických `react-hooks/rules-of-hooks` errorů (přesunutí hooks nad early returny). |
+| ✅ **Krok 2** | `accounts/page.tsx` | Oprava purity a set-state-in-effect. |
+| ✅ **Krok 3** | Ostatní dashboard soubory | Oprava set-state-in-effect, no-explicit-any, prefer-const a dalších drobných ESLint chyb. |

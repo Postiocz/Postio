@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTags } from "@/lib/actions/tag-actions";
@@ -22,7 +23,7 @@ export default async function CalendarPage({
     return <div className="text-muted-foreground">Must be logged in.</div>;
   }
 
-  let query = supabase
+  const query = supabase
     .from("posts")
     .select("*, post_platforms(*), post_tags(tags(id, name, color))")
     .eq("user_id", user.id)

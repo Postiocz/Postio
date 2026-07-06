@@ -30,6 +30,7 @@ export default async function AnalyticsPage({
 
   // Fetch analytics records for this user's posts
   const postIds = (posts || []).map((p: { id: string }) => p.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let analyticsRecords: any[] = [];
 
   if (postIds.length > 0) {

@@ -149,7 +149,7 @@ interface CalendarViewProps {
  }
 
 export function CalendarView({
-  posts,
+  posts = [],
   platforms,
   platformFilter,
   statusFilter,
@@ -159,8 +159,6 @@ export function CalendarView({
   locale,
   tCalendar,
 }: CalendarViewProps) {
-  if (!posts) return null;
-
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   // Prompt 002 – rozšířený view state: Agenda / Day / Week / Month / Year.

@@ -122,7 +122,7 @@
 |------|---------|-------|
 | ✅ **Krok 1** | `cs.json`, `en.json`, `uk.json` | Přidat i18n klíče pro celý reset flow |
 | ✅ **Krok 2** | `src/lib/actions/auth.ts` | Server action `resetPasswordAction` (odeslání reset emailu) |
-| ⬜ **Krok 3** | `src/lib/actions/auth.ts` | Server action `updatePasswordAction` (nastavení nového hesla) |
+| ✅ **Krok 3** | `src/lib/actions/auth.ts` | Server action `updatePasswordAction` (nastavení nového hesla) |
 | ⬜ **Krok 4** | `src/app/[locale]/(auth)/login/reset-password/page.tsx` | Nová stránka "Nastavit nové heslo" |
 | ⬜ **Krok 5** | `src/app/auth/callback/route.ts` | Přidat recovery redirect do auth callbacku |
 | ⬜ **Krok 6** | `src/components/auth/email-signin.tsx` | Aktivovat tlačítko + forgot mode UI |

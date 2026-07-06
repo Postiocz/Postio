@@ -18,6 +18,11 @@ type ResetPasswordState = {
   successKey: "resetEmailSent" | null;
 };
 
+type UpdatePasswordState = {
+  errorKey: "passwordsDoNotMatch" | "passwordTooShort" | "passwordUpdateError" | null;
+  successKey: "passwordUpdated" | null;
+};
+
 function normalizeLocale(value: unknown): Locale {
   const raw = String(value || "cs");
   return raw === "cs" || raw === "en" || raw === "uk" ? raw : "cs";
@@ -161,4 +166,37 @@ export async function resetPasswordAction(
   }
 
   return { errorKey: null, errorMessage: null, successKey: "resetEmailSent" };
+}
+
+// ============================================================
+// Password reset – Step 2: set the new password
+// ============================================================
+// Called from the `/login/reset-password` page. At this point Supabase has
+// already exchanged the recovery code for a session (in the callback route),
+// so the user is authenticated and `updateUser` can change their password.
+// We return a `successKey` instead of doing a server redirect so the page can
+// show the "password updated" confirmation before sending the user to login.
+export async function updatePasswordAction(
+  _prevState: UpdatePasswordState,
+  formData: FormData
+): Promise<UpdatePasswordState> {
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+
+  if (password.length < 6) {
+    return { errorKey: "passwordTooShort", successKey: null };
+  }
+
+  if (password !== confirmPassword) {
+    return { errorKey: "passwordsDoNotMatch", successKey: null };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { errorKey: "passwordUpdateError", successKey: null };
+  }
+
+  return { errorKey: null, successKey: "passwordUpdated" };
 }

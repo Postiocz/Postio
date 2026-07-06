@@ -5,6 +5,17 @@
 
 ## 2026-07-06
 
+### ✨ Feat — Reset hesla (Krok 3): server action `updatePasswordAction`
+
+- **Kontext**: Protějšek ke Kroku 2. Nastaví nové heslo poté, co je uživatel díky recovery callbacku v session.
+- **Změna**: Do `src/lib/actions/auth.ts` přidán typ `UpdatePasswordState` a server action `updatePasswordAction`. Přečte `password` + `confirmPassword`, validuje délku ≥ 6 znaků a shodu, zavolá `supabase.auth.updateUser({ password })`. Vrací `passwordUpdated` / `passwordTooShort` / `passwordsDoNotMatch` / `passwordUpdateError`.
+- **Odchylka od plánu**: Místo server redirectu na `/login` vrací `successKey: "passwordUpdated"` — tvrdý redirect by uživateli nikdy neukázal potvrzení; návrat lépe sedí s `useActionState` patternem a reset-password stránka (Krok 4) pak zobrazí zprávu + odkaz na přihlášení.
+- **Ověření**: `npx tsc --noEmit` ✅
+- **Upravené soubory**:
+  - `src/lib/actions/auth.ts`
+  - `ukol.md` (Krok 3 označen ✅)
+  - `CHANGELOG.md`
+
 ### ✨ Feat — Reset hesla (Krok 2): server action `resetPasswordAction`
 
 - **Kontext**: Navazuje na Krok 1 (i18n). Připravuje serverovou logiku pro odeslání reset e-mailu přes Supabase.

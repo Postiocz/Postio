@@ -22,9 +22,19 @@ import {
   TrendingUp,
   TrendingDown,
   Rocket,
+  Clock,
+  ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import {
+  Instagram,
+  Facebook,
+  Linkedin,
+  XIcon,
+  Youtube,
+  TikTok,
+} from "@/components/ui/social-icons";
 import {
   TopLabelsChart,
   type TopLabelItem,
@@ -47,15 +57,21 @@ type RecentPostItem = {
   content: string;
   created_at: string;
   status: PostStatus;
+  scheduled_at: string | null;
+  platforms: string[];
+  media_urls: string[];
+  post_tags: { id: string; name: string; color: string }[];
 };
 
 type RecentPostRow = {
   id: string;
   content: string | null;
   created_at: string;
+  media_urls: string[] | null;
   post_platforms:
-    | Array<{ platform: string; status: PostStatus }>
+    | Array<{ platform: string; status: PostStatus; scheduled_at: string | null }>
     | null;
+  post_tags: PostTagJoinRow[] | null;
 };
 
 type PostTagJoinRow = {
@@ -79,6 +95,46 @@ function buildRecentPostPreview(content: string) {
   const normalized = content.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
   return normalized.length > 96 ? `${normalized.slice(0, 93)}...` : normalized;
+}
+
+// Platform icon map — mirrors the one in posts/_post-card.tsx.
+const platformIcons: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  instagram: Instagram,
+  facebook: Facebook,
+  twitter: XIcon,
+  x: XIcon,
+  linkedin: Linkedin,
+  youtube: Youtube,
+  tiktok: TikTok,
+};
+
+// Detects a video URL by extension (same pattern as _post-card.tsx).
+function isVideoUrl(url: string) {
+  return /\.(mp4|mov)(\?.*)?$/i.test(url);
+}
+
+// Formats a timestamp as a localized relative time (e.g. "2 h ago").
+// Falls back to an absolute date for spans older than ~30 days.
+function formatRelativeTime(dateStr: string, locale: string, now: number) {
+  const then = new Date(dateStr).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffMs = then - now;
+  const diffSec = Math.round(diffMs / 1000);
+  const absSec = Math.abs(diffSec);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+  const minute = 60;
+  const hour = 3600;
+  const day = 86400;
+
+  if (absSec < minute) return rtf.format(diffSec, "second");
+  if (absSec < hour) return rtf.format(Math.round(diffSec / minute), "minute");
+  if (absSec < day) return rtf.format(Math.round(diffSec / hour), "hour");
+  if (absSec < day * 30) return rtf.format(Math.round(diffSec / day), "day");
+  return new Date(dateStr).toLocaleDateString(locale);
 }
 
 export default function DashboardPage({
@@ -192,7 +248,9 @@ export default function DashboardPage({
           // 4b. Poslední příspěvky (max 5, seřazeno podle created_at).
           supabase
             .from("posts")
-            .select("id, content, created_at, post_platforms(platform, status)")
+            .select(
+              "id, content, created_at, media_urls, post_platforms(platform, status, scheduled_at), post_tags(tags(id, name, color))",
+            )
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
             .limit(5),
@@ -218,11 +276,21 @@ export default function DashboardPage({
         const draftPosts = draftData.count ?? 0;
         const recentPosts = ((recentPostsRows.data ?? []) as RecentPostRow[]).map(
           (post) => {
+            const platformRows = post.post_platforms ?? [];
+            // scheduled_at lives on post_platforms, not posts — take the
+            // earliest scheduled time across this post's platforms.
+            const scheduledAt =
+              platformRows
+                .map((p) => p.scheduled_at)
+                .filter((s): s is string => Boolean(s))
+                .sort()[0] ?? null;
             const normalized = normalizePost({
               id: post.id,
               content: post.content ?? "",
               created_at: post.created_at,
-              post_platforms: post.post_platforms ?? [],
+              media_urls: post.media_urls ?? [],
+              post_platforms: platformRows,
+              post_tags: post.post_tags ?? [],
             } as Record<string, unknown>);
 
             return {
@@ -230,6 +298,10 @@ export default function DashboardPage({
               content: normalized.content,
               created_at: normalized.created_at,
               status: normalized.status,
+              scheduled_at: scheduledAt,
+              platforms: normalized.platforms,
+              media_urls: normalized.media_urls,
+              post_tags: normalized.post_tags,
             };
           },
         );
@@ -374,9 +446,12 @@ function DashboardContent({
   const postsT = useTranslations("posts");
   const navT = useTranslations("nav");
   const settingsT = useTranslations("settings");
+  // Timestamp captured once on mount — keeps relative-time rendering pure.
+  const [nowTs] = useState(() => Date.now());
   const recentPostStatusLabels: Partial<Record<PostStatus, string>> = {
     draft: postsT("statusDraft"),
     scheduled: postsT("statusScheduled"),
+    publishing: postsT("statusPublishing"),
     published: postsT("statusPublished"),
     failed: postsT("statusFailed"),
     removed_externally: postsT("statusRemovedExternally"),
@@ -525,39 +600,133 @@ function DashboardContent({
             </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.recentPosts.map((post) => (
-              <Card
-                key={post.id}
-                className="bg-card/40 backdrop-blur-md border-white/5 hover:bg-accent transition-all cursor-pointer"
-              >
-                <CardContent className="p-4">
-                  <Link href={`/${locale}/posts/${post.id}`}>
-                    <h3 className="font-medium line-clamp-2 mb-2">
-                      {buildRecentPostPreview(post.content) || postsT("newPost")}
-                    </h3>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{new Date(post.created_at).toLocaleDateString(locale)}</span>
-                      <Badge
-                        variant="outline"
-                        className={
-                          post.status === "published"
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : post.status === "scheduled"
-                              ? "bg-blue-500/10 text-blue-400"
-                              : post.status === "failed"
-                                ? "bg-red-500/10 text-red-400"
-                                : post.status === "removed_externally"
-                                  ? "bg-orange-500/10 text-orange-400"
-                                  : "bg-gray-500/10 text-gray-400"
-                        }
-                      >
-                        {recentPostStatusLabels[post.status] ?? post.status}
-                      </Badge>
-                    </div>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
+            {data.recentPosts.map((post) => {
+              const preview =
+                buildRecentPostPreview(post.content) || postsT("newPost");
+              const primaryMedia = post.media_urls[0] ?? null;
+              const extraMedia = post.media_urls.length - 1;
+              const uniquePlatforms = Array.from(
+                new Set(post.platforms.map((p) => p.toLowerCase())),
+              ).slice(0, 5);
+              const visibleTags = post.post_tags.slice(0, 2);
+              const extraTags = post.post_tags.length - 2;
+              const timeLabel =
+                post.status === "scheduled" && post.scheduled_at
+                  ? t("scheduledFor", {
+                      date: new Date(post.scheduled_at).toLocaleDateString(
+                        locale,
+                      ),
+                    })
+                  : formatRelativeTime(post.created_at, locale, nowTs);
+
+              return (
+                <Link
+                  key={post.id}
+                  href={`/${locale}/posts/${post.id}`}
+                  className="group block"
+                >
+                  <Card className="h-full bg-card/40 backdrop-blur-md border-white/5 group-hover:bg-accent transition-all">
+                    <CardContent className="flex h-full flex-col gap-3 p-4">
+                      {/* Top row: platform icons + status badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          {uniquePlatforms.length > 0 ? (
+                            uniquePlatforms.map((p) => {
+                              const Icon = platformIcons[p];
+                              return Icon ? (
+                                <Icon
+                                  key={p}
+                                  className="h-4 w-4 text-muted-foreground"
+                                />
+                              ) : null;
+                            })
+                          ) : (
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={
+                            post.status === "published"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : post.status === "publishing"
+                                ? "bg-indigo-500/10 text-indigo-400 animate-pulse"
+                                : post.status === "scheduled"
+                                  ? "bg-blue-500/10 text-blue-400"
+                                  : post.status === "failed"
+                                    ? "bg-red-500/10 text-red-400"
+                                    : post.status === "removed_externally"
+                                      ? "bg-orange-500/10 text-orange-400"
+                                      : "bg-gray-500/10 text-gray-400"
+                          }
+                        >
+                          {recentPostStatusLabels[post.status] ?? post.status}
+                        </Badge>
+                      </div>
+
+                      {/* Media thumbnail (first item) + count of others */}
+                      {primaryMedia && (
+                        <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10">
+                          {isVideoUrl(primaryMedia) ? (
+                            <video
+                              src={primaryMedia}
+                              className="h-full w-full object-cover"
+                              preload="metadata"
+                              muted
+                            />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={primaryMedia}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          )}
+                          {extraMedia > 0 && (
+                            <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                              <ImageIcon className="h-3 w-3" />+{extraMedia}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Content preview */}
+                      <h3 className="line-clamp-2 font-medium">{preview}</h3>
+
+                      {/* Internal labels (max 2 + overflow) */}
+                      {visibleTags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {visibleTags.map((tag) => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground"
+                            >
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: tag.color }}
+                              />
+                              {tag.name}
+                            </span>
+                          ))}
+                          {extraTags > 0 && (
+                            <span className="text-[11px] text-muted-foreground">
+                              +{extraTags}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Relative / scheduled time */}
+                      <div className="mt-auto flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{timeLabel}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

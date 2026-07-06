@@ -323,7 +323,8 @@
     "fewDrafts": "{count} чернетки",
     "manyDrafts": "{count} чернеток",
     "postsCount": "дописів",
-    "free": "Безкоштовно"
+    "free": "Безкоштовно",
+    "scheduledFor": "Заплановано на {date}"
   },
   "posts": {
     "title": "Публікації",
@@ -421,6 +422,7 @@
     "statusDraft": "Чернетка",
     "statusScheduled": "Заплановано",
     "statusPublished": "Опубліковано",
+    "statusPublishing": "Публікується",
     "statusFailed": "Невдача",
     "statusRemovedExternally": "Видалено зовні",
     "statusArchived": "Архівовано",

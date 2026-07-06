@@ -5,6 +5,45 @@
 
 ## 2026-07-06
 
+### ✨ Feat — Dashboard: redesign karty „Poslední příspěvky" (Krok 3, úkol dokončen)
+
+- **Kontext**: Finální krok úkolu. Karta v sekci Poslední příspěvky (`page.tsx`) ukazovala jen text + absolutní datum a klikatelný byl pouze vnitřek.
+- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
+  1. Celá `<Card>` je klikatelná — `<Link>` ji obaluje (`group` + `group-hover`).
+  2. Ikony platforem (reuse `platformIcons`, dedup, max 5; fallback `FileText`).
+  3. Miniatura prvního média (`aspect-video`, video/obrázek přes `isVideoUrl`) + overlay „+N" pro další.
+  4. Relativní čas přes `Intl.RelativeTimeFormat` (helper `formatRelativeTime`, nad ~30 dní absolutní datum); u `scheduled` postů „Naplánováno na {datum}" (nový i18n klíč `dashboard.scheduledFor` v cs/en/uk).
+  5. Max 2 barevné štítky (tečka v barvě + název) + „+N".
+  6. Purita: „teď" zachyceno jednou přes `useState(() => Date.now())` (ESLint react-hooks/purity zakazuje `Date.now()` v renderu).
+- **🐛 Bugfix při testování**: `scheduled_at` **není sloupec tabulky `posts`** (je na `post_platforms`). Krok 2 ho omylem přidal do top-level selectu → PostgREST 400 → query 4b spadla → sekce Poslední příspěvky celá zmizela. Opraveno: `scheduled_at` přesunut do embedu `post_platforms(...)`, v mapování se bere nejbližší naplánovaný čas napříč platformami. Ověřeno přímým dotazem (200 OK).
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `page.tsx`, `src/messages/cs.json` / `en.json` / `uk.json`, `ukol.md` (úkol dokončen a smazán), `CHANGELOG.md`
+
+### ✨ Feat — Dashboard: rozšíření dat pro Poslední příspěvky (Krok 2)
+
+- **Kontext**: Karta Posledního příspěvku měla pro plánovaný redesign (Krok 3) k dispozici jen `id/content/created_at/status`. Chyběla data pro ikony platforem, miniaturu média, relativní/plánovaný čas a barevné štítky.
+- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
+  1. Query 4b (`posts`) select rozšířen o `scheduled_at, media_urls, post_tags(tags(id, name, color))`. Vnořený join je RLS-filtrovaný přes rodiče `posts` (stejný vzor jako stránka Příspěvky).
+  2. Typ `RecentPostItem` doplněn o `scheduled_at`, `platforms`, `media_urls`, `post_tags`.
+  3. Typ `RecentPostRow` doplněn o `scheduled_at`, `media_urls`, `post_tags` (reuse `PostTagJoinRow`).
+  4. Mapování přes `normalizePost` propaguje nová pole do `RecentPostItem`.
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na `page.tsx` ✅, dashboard naběhne beze změny UI ✅ (uživatel potvrdil — data se zatím jen načítají navíc).
+- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 2 ✅), `CHANGELOG.md`
+
+### 🐛 Fix — Dashboard: status `publishing` v Posledních příspěvcích nebyl lokalizovaný (Krok 1)
+
+- **Kontext**: `normalizePost` může pro post vrátit computed status `"publishing"`, ale `recentPostStatusLabels` v dashboardu (`page.tsx`) ho nemapoval a klíč `statusPublishing` neexistoval v žádném jazyce — badge by ukázal syrové anglické "publishing" ve všech 3 locales. Badge barvy `publishing` také neřešily (spadl do šedé draft větve).
+- **Oprava**:
+  1. Do `posts` namespace v `cs.json` / `en.json` / `uk.json` přidán klíč `statusPublishing` — "Publikuje se" / "Publishing" / "Публікується".
+  2. `recentPostStatusLabels` doplněn o `publishing: postsT("statusPublishing")`.
+  3. Badge dostal větev pro `publishing`: `bg-indigo-500/10 text-indigo-400 animate-pulse` (pulz naznačuje probíhající publikaci).
+- **Ověření**: JSON validní ve všech 3 souborech ✅, `npx tsc --noEmit` ✅, `npx eslint` na `page.tsx` ✅, dashboard se vykresluje beze změny ✅ (uživatel potvrdil)
+- **Upravené soubory**:
+  - `src/app/[locale]/(dashboard)/page.tsx`
+  - `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`
+  - `ukol.md` (nový úkol "Vylepšení – Dashboard Poslední příspěvky", Krok 1 označen ✅)
+  - `CHANGELOG.md`
+
 ### ✨ Feat — Reset hesla (Krok 6): forgot mode v `email-signin.tsx` (flow uzavřen)
 
 - **Kontext**: Poslední článek celého flow. Tlačítko „Zapomněli jste heslo?" v `email-signin.tsx` bylo mrtvé (bez `onClick`). Krok 6 ho aktivuje a napojuje `resetPasswordAction` z Kroku 2.

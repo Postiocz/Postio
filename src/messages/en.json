@@ -323,7 +323,8 @@
     "fewDrafts": "{count} drafts",
     "manyDrafts": "{count} drafts",
     "postsCount": "posts",
-    "free": "Free"
+    "free": "Free",
+    "scheduledFor": "Scheduled for {date}"
   },
   "posts": {
     "title": "Posts",
@@ -421,6 +422,7 @@
     "statusDraft": "Draft",
     "statusScheduled": "Scheduled",
     "statusPublished": "Published",
+    "statusPublishing": "Publishing",
     "statusFailed": "Failed",
     "statusRemovedExternally": "Removed Externally",
     "statusArchived": "Archived",

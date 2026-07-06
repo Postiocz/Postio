@@ -323,7 +323,8 @@
     "fewDrafts": "{count} koncepty",
     "manyDrafts": "{count} konceptů",
     "postsCount": "příspěvků",
-    "free": "Free"
+    "free": "Free",
+    "scheduledFor": "Naplánováno na {date}"
   },
   "posts": {
     "title": "Příspěvky",
@@ -421,6 +422,7 @@
     "statusDraft": "Koncept",
     "statusScheduled": "Naplánované",
     "statusPublished": "Publikované",
+    "statusPublishing": "Publikuje se",
     "statusFailed": "Neúspěšné",
     "statusRemovedExternally": "Odstraněno externě",
     "statusArchived": "Archivováno",

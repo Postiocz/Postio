@@ -5,6 +5,18 @@
 
 ## 2026-07-06
 
+### ✨ Feat — Reset hesla (Krok 1): i18n klíče pro celý flow "Zapomenuté heslo"
+
+- **Kontext**: Tlačítko "Zapomněli jste heslo?" na login page (`email-signin.tsx`) je mrtvé – chybí celý flow resetu hesla. Krok 1 připravuje lokalizaci pro nadcházející UI a server actions.
+- **Změna**: Do `auth` namespace ve všech 3 jazycích (`cs.json`, `en.json`, `uk.json`) přidáno 16 klíčů: `forgotPasswordTitle`, `forgotPasswordDescription`, `sendResetLink`, `sendingResetLink`, `resetEmailSent`, `resetError`, `backToSignIn`, `resetPasswordTitle`, `newPassword`, `confirmNewPassword`, `passwordsDoNotMatch`, `passwordTooShort`, `passwordUpdated`, `passwordUpdateError`, `updatePassword`, `updatingPassword`.
+- **Ověření**: Validní JSON ve všech 3 souborech, 66 klíčů v auth namespace, žádný chybějící klíč ✅
+- **Upravené soubory**:
+  - `src/messages/cs.json`
+  - `src/messages/en.json`
+  - `src/messages/uk.json`
+  - `ukol.md` (Krok 1 označen ✅)
+  - `CHANGELOG.md`
+
 ### 🧹 Refactor — Oprava ESLint chyb v dashboard sekci (React Hooks pravidla)
 
 - **Kontext**: Při kontrole dashboardu bylo odhaleno přes 70 ESLint chyb, primárně se jednalo o porušení pravidel React Hooks (např. volání hooků po early returnu v `_calendar-view.tsx` nebo modifikace state v efektech).

@@ -5,6 +5,19 @@
 
 ## 2026-07-06
 
+### ✨ Feat — Reset hesla (Krok 4): stránka "Nastavit nové heslo"
+
+- **Kontext**: UI stránka, kam recovery odkaz z e-mailu uživatele dovede (napojení callbacku je Krok 5). Napojuje `updatePasswordAction` z Kroku 3.
+- **Změna**: Vytvořeny 2 nové soubory pod `login/reset-password/`:
+  1. `page.tsx` (server) — načte překlady, sestaví `labels`, vyrenderuje layout se stejným designem jako verify-2fa (grid pattern, glassmorphism card `rounded-[32px]`, Postio logo, indigo accent).
+  2. `reset-password-form.tsx` (client) — `useActionState(updatePasswordAction)`, 2 password inputy (nové + potvrzení) se sdíleným show/hide toggle, mapování `errorKey` na lokalizované hlášky, pending Loader2 spinner, success view se zelenou fajfkou + tlačítkem "Zpět na přihlášení".
+- **Ověření**: `npx tsc --noEmit` ✅ (plný manuální test flow až po Kroku 5+6)
+- **Upravené soubory**:
+  - `src/app/[locale]/(auth)/login/reset-password/page.tsx` (nový)
+  - `src/app/[locale]/(auth)/login/reset-password/reset-password-form.tsx` (nový)
+  - `ukol.md` (Krok 4 označen ✅)
+  - `CHANGELOG.md`
+
 ### ✨ Feat — Reset hesla (Krok 3): server action `updatePasswordAction`
 
 - **Kontext**: Protějšek ke Kroku 2. Nastaví nové heslo poté, co je uživatel díky recovery callbacku v session.

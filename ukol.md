@@ -106,7 +106,7 @@
 - **Změna:** Před existující `GET` handler přidat check: pokud `requestUrl.searchParams.get("type") === "recovery"`, po `exchangeCodeForSession` přesměrovat na `/{locale}/login/reset-password` (místo defaultního `/accounts`).
 - **Ověření:** `npx tsc --noEmit` ✅
 
-#### Krok 6: UI v `email-signin.tsx` – mode `"forgot"`
+#### ✅ Krok 6: UI v `email-signin.tsx` – mode `"forgot"`
 - **Soubor:** `src/components/auth/email-signin.tsx`
 - **Změny:**
   - Rozšířit `type Mode = "signin" | "signup" | "forgot"`
@@ -125,7 +125,7 @@
 | ✅ **Krok 3** | `src/lib/actions/auth.ts` | Server action `updatePasswordAction` (nastavení nového hesla) |
 | ✅ **Krok 4** | `src/app/[locale]/(auth)/login/reset-password/page.tsx` | Nová stránka "Nastavit nové heslo" |
 | ✅ **Krok 5** | `src/app/auth/callback/route.ts` | Přidat recovery redirect do auth callbacku |
-| ⬜ **Krok 6** | `src/components/auth/email-signin.tsx` | Aktivovat tlačítko + forgot mode UI |
+| ✅ **Krok 6** | `src/components/auth/email-signin.tsx` | Aktivovat tlačítko + forgot mode UI |
 
 ### Rizika a poznámky
 

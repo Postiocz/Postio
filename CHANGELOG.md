@@ -5,6 +5,21 @@
 
 ## 2026-07-06
 
+### ✨ Feat — Reset hesla (Krok 6): forgot mode v `email-signin.tsx` (flow uzavřen)
+
+- **Kontext**: Poslední článek celého flow. Tlačítko „Zapomněli jste heslo?" v `email-signin.tsx` bylo mrtvé (bez `onClick`). Krok 6 ho aktivuje a napojuje `resetPasswordAction` z Kroku 2.
+- **Změna**: V `src/components/auth/email-signin.tsx`:
+  1. `type Mode` rozšířen o `"forgot"`; přidán import `resetPasswordAction` + samostatný `useActionState(resetPasswordAction, …)` (`resetState`/`resetFormAction`/`isResetPending`), aby se reset formulář nebil se sign-in/sign-up submitem.
+  2. Při `mode === "forgot"` se renderuje samostatný forgot-formulář (titulek + popis z i18n, jen e-mail input, tlačítko `sendResetLink`/`sendingResetLink`); jinak beze změny původní sign-in/sign-up formulář.
+  3. Tlačítko „Zapomněli jste heslo?" dostalo `onClick={() => setMode("forgot")}` (+ vyčistí heslo); v forgot módu přidán odkaz „Zpět na přihlášení" (`backToSignIn`) zpět na `signin`.
+  4. Error/success text je nově mode-aware — v forgot módu čte `resetState` (zelená hláška „Odkaz odeslán…" po úspěchu), jinak `state`.
+  5. Preexisting `set-state-in-effect` v `useEffect` (reset po signupu) opatřen `eslint-disable` komentářem — stejný vzor jako v nedávném ESLint refactoru.
+- **Ověření**: `npx tsc --noEmit` ✅ + `npx eslint` na souboru ✅ + manuální test celého flow (forgot view → e-mail → recovery odkaz → reset-password → nové heslo → přihlášení) ✅ (uživatel potvrdil)
+- **Upravené soubory**:
+  - `src/components/auth/email-signin.tsx`
+  - `ukol.md` (Krok 6 označen ✅, sekce úkolu následně smazána dle Pravidla 7)
+  - `CHANGELOG.md`
+
 ### ✨ Feat — Reset hesla (Krok 5): auth callback zpracuje recovery odkaz
 
 - **Kontext**: Poslední chybějící článek serverové části flow. Recovery magic link z e-mailu míří na `/auth/callback?type=recovery&next=/{locale}/login/reset-password&code=...`. Bez explicitní obsluhy by generická OAuth větev callbacku uživatele omylem poslala na `/accounts` (příp. `verify-2fa` u 2FA účtů) místo na reset stránku.
@@ -118,16 +133,6 @@
 - **Ověření**: Code review + kontrola Framer Motion 12 docs — warning existuje jen pro deprecated `layout="position"` / `layout="size"` string hodnoty, ne pro boolean `layout`. ✅
 - **Upravené soubory**: žádný (no-op)
   - `ukol.md` (Krok 4 označen ✅)
-  - `CHANGELOG.md`
-
-### 📝 Docs — Posts page: invarianta kurzorového sloupce v `posts/page.tsx`
-
-- **Kontext**: Po opravách Kurzorů (Kroky 1–2) zůstávala v `page.tsx` tichá architektonická křehkost: `lastCursor` se počítá z `created_at`, ale `_posts-container` podporuje i `sort="publishDate"` (porovnává kurzor vůči `scheduled_at`). Reálně se bug neprojevoval, protože initial render je vždy `newest` a jakákoliv změna sortu přepíše `currentCursor` přes `fetchFilteredPosts`. Nicméně kód nezdokumentoval, proč je `created_at` kurzor safe — future úpravce by mohl změnit initial sort a kurzorový sloupec přehlídnout.
-- **Oprava (dokumentace, žádná změna chování)**: Rozšířen komentář u `lastCursor` o explicitní invariantu — *initial render je vždy `newest` (DESC na `created_at`), proto kurzor z `created_at` odpovídá aktivnímu sortu; změna sortu jde přes `applyFilters` → `fetchFilteredPosts`, který `currentCursor` přepíše*. Doplněno varování: pokud kdy initial render změní sort, musí se upravit i kurzorový sloupec (nebo předat `initialSort` dolů).
-- **Ověření**: `npx tsc --noEmit` ✅ + manuální kontrola („Load more" v `newest` režimu nadále funguje) ✅ (uživatel potvrdil)
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/posts/page.tsx`
-  - `ukol.md` (Krok 3 označen ✅)
   - `CHANGELOG.md`
 
 *Starší historii projektu a předchozí milníky najdete v historii Git commitů na GitHubu.*

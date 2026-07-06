@@ -5,6 +5,19 @@
 
 ## 2026-07-06
 
+### ✨ Feat — Reset hesla (Krok 5): auth callback zpracuje recovery odkaz
+
+- **Kontext**: Poslední chybějící článek serverové části flow. Recovery magic link z e-mailu míří na `/auth/callback?type=recovery&next=/{locale}/login/reset-password&code=...`. Bez explicitní obsluhy by generická OAuth větev callbacku uživatele omylem poslala na `/accounts` (příp. `verify-2fa` u 2FA účtů) místo na reset stránku.
+- **Změna**: V `src/app/auth/callback/route.ts`:
+  1. Nová funkce `handleRecoveryCallback` — odvodí `locale` z `next`/refereru, bezpečně validuje `next` (jen locale-prefixed interní cesta, jinak fallback `/{locale}/login/reset-password`), vymění `code` za session přes `exchangeCodeForSession` se správným cookie handlingem a přenese auth cookies na redirect, aby reset stránka viděla recovery session pro `updateUser`.
+  2. V `GET` handleru přidán check `type === "recovery"` hned za YouTube větví — deleguje na `handleRecoveryCallback` **před** generickou OAuth logikou (záměrně přeskakuje OAuth token harvesting, 2FA větev i `?fb=connected` hint, které by recovery flow rozbily).
+  3. Bonus: opraven preexisting `prefer-const` (let `response` → const) v `GET`, aby soubor prošel lintem čistě.
+- **Ověření**: `npx tsc --noEmit` ✅ + `npx eslint` na souboru ✅ (plný manuální test flow po Kroku 6)
+- **Upravené soubory**:
+  - `src/app/auth/callback/route.ts`
+  - `ukol.md` (Krok 5 označen ✅)
+  - `CHANGELOG.md`
+
 ### ✨ Feat — Reset hesla (Krok 4): stránka "Nastavit nové heslo"
 
 - **Kontext**: UI stránka, kam recovery odkaz z e-mailu uživatele dovede (napojení callbacku je Krok 5). Napojuje `updatePasswordAction` z Kroku 3.
@@ -116,82 +129,5 @@
   - `src/app/[locale]/(dashboard)/posts/page.tsx`
   - `ukol.md` (Krok 3 označen ✅)
   - `CHANGELOG.md`
-
-### 🐛 Fix — Posts page: zbytečné „Load more" při přesném násobku PAGE_SIZE (keyset paginace)
-
-- **Kontext**: V `posts/page.tsx` se `lastCursor` (kurzor pro další stránku) počítal z podmínky `pagedPosts.length >= PAGE_SIZE` — tedy „pošli kurzor, kdykoli je první stránka plná". To nebralo v úvahu, zda další stránka reálně existuje. Při přesném násobku PAGE_SIZE (např. 20 nebo 40 příspěvků) byl `hasMore` sice `false` (PAGE_SIZE + 1 probe nic extra nepřinesl), ale `lastCursor` se **stejně odeslal** do `_posts-container`. Ten pak zobrazil tlačítko „Load more", po jehož kliknutí přišla prázdná stránka.
-- **Oprava**: `lastCursor` se nově počítá výhradně z `hasMore` (`const lastCursor = hasMore ? pagedPosts[...].created_at : undefined`). `hasMore` z PAGE_SIZE + 1 probe je nyní single source of truth — kurzor se pošle jen tehdy, když reálně existuje další stránka.
-- **Komentář**: Doplněn invariant, aby se bug nevrátil (vysvětluje proč `hasMore` a ne `length >= PAGE_SIZE`).
-- **Ověření**: `npx tsc --noEmit` ✅ + manuální test (přesně 20/40 postů → žádné „Load more"; 21 postů → „Load more" přinese 1 zbytek) ✅ (uživatel potvrdil)
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/posts/page.tsx`
-  - `ukol.md` (Krok 2 označen ✅)
-  - `CHANGELOG.md`
-
-### 🐛 Fix — Posts page: „Load more" rozbíjeno při `sort=oldest` (keyset paginace ASC)
-
-- **Kontext**: Stránka Příspěvky (`/posts`) používá keyset (cursor) paginaci s PAGE_SIZE = 20. V `actions.ts` se při `sort="oldest"` (ASC) řadilo `created_at ASC`, ale kurzor se vždy aplikoval přes `.gt()` (greater-than). Při ASC by se ale mělo pokračovat `.lt()`, jinak „Load more" pod `sort=oldest` vrátil prázdnou/špatnou stránku. Stejně tak `nextCursor` se pro ASC bral z posledního řádku místo prvního, takže by další stránka začínala až za koncem seznamu.
-- **Oprava**:
-  1. V `fetchPostPage()` se kurzor pro `sort="oldest"` nově aplikuje přes `.lt("created_at", cursor)`. `newest` a `publishDate` (DESC) zachovávají `.gt()`.
-  2. V `fetchMorePosts()` a `fetchFilteredPosts()` se `nextCursor` pro `sort="oldest"` počítá z **prvního** vykresleného řádku (ASC), pro DESC zůstává z **posledního** řádku (beze změny).
-  3. Logika okomentována, aby se kurzorový bug nevrátil.
-- **Ověření**: `npx tsc --noEmit` ✅ + manuální test „Load more" pod `sort=oldest` ✅ (uživatel potvrdil)
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/posts/actions.ts`
-  - `ukol.md` (Krok 1 označen ✅)
-  - `CHANGELOG.md`
-
-## 2026-07-04
-
-### Feat — Auto-Queue: updatePreferences + page.tsx rozšířeni o `posting_schedule` (Krok 5+6)
-
-- **Kontext**: Auto-Queue feature vyžaduje ukládání uživatelského rozvrhu publikování do DB.
-- **Změny**:
-  1. `actions.ts` – `updatePreferences` čte `posting_schedule` z FormData jako JSON string, parsuje a přidá do update dat s `try/catch`.
-  2. `page.tsx` – SELECT query načítá `posting_schedule` z DB (JSONB), předává jako `PostingSchedule | null` prop.
-  3. `preferences-form.tsx` – nový `export interface PostingSchedule`, stav s default hodnotou (`enabled: false`, Po–Pá 09:00), FormData serializuje rozvrh jako JSON.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test uložení předvoleb ✅
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/settings/preferences/actions.ts`
-  - `src/app/[locale]/(dashboard)/settings/preferences/page.tsx`
-  - `src/app/[locale]/(dashboard)/settings/preferences/preferences-form.tsx`
-
-## 2026-07-04
-
-### 🐛 Fix — Dashboard: data pro Recent Posts / Top Labels / Platform Breakdown byla namapovaná na špatné query výsledky
-
-- **Kontext**: Dashboard v `src/app/[locale]/(dashboard)/page.tsx` po předchozím client-side přepisu rozbil synchronizaci proti stránce Příspěvky. V `Promise.all` bylo po páté položce špatně seřazené destructuring pořadí, takže:
-  1. `post_tags` widget dostával data z recent posts query,
-  2. donut chart dostával data z `post_tags` místo `post_platforms`,
-  3. consistency/streak/trend pracovaly s cizím shape,
-  4. recent posts četly jen `created_at` a zároveň query sahala na neexistující sloupce `posts.title` a `posts.status`.
-- **Oprava**:
-  1. Srovnáno pořadí výsledků z `Promise.all`, aby každá dashboard karta četla správný dataset.
-  2. Recent posts query nově bere `id, content, created_at, post_platforms(platform, status)` místo neexistujících `title/status`.
-  3. Dashboard recent posts nově používají stejnou status logiku jako stránka Příspěvky přes `normalizePost()`, takže badge i obsah vycházejí ze stejného source of truth.
-  4. Dočištěn lokální technický dluh v dashboard souboru (`any`, nepoužitý import, `Math.random()` v React key), aby soubor znovu prošel lintem bez warningů a errorů.
-- **Ověření**:
-  - `npx eslint 'src/app/[locale]/(dashboard)/page.tsx'` ✅
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/page.tsx`
-  - `CHANGELOG.md`
-
-### 🐛 Fix — Dashboard #2: Hardcoded CZ text v ConsistencyScore → i18n (CS/EN/UK)
-
-- **Kontext**: Komponenta `ConsistencyScore` na dashboardu (`page.tsx`) zobrazovala hardcoded české texty `"Výborná konzistence!"`, `"Dobrá, můžeš lepší!"`, `"Zkus postovat pravidelněji."` — EN/UK uživatelé viděli češtinu.
-- **Oprava**:
-  1. Do `src/messages/cs.json`, `en.json`, `uk.json` přidány klíče `consistencyExcellent`, `consistencyGood`, `consistencyImprove`.
-  2. Komponenta `ConsistencyScore` nově přijímá prop `t: (key: string) => string` a volá `t("consistencyExcellent")` / `t("consistencyGood")` / `t("consistencyImprove")` místo hardcoded řetězců.
-  3. Volání na ř. 184 rozšířeno o `t={t}`.
-- **Ověření**:
-  - `node -e "JSON.parse(...)"` pro cs.json, en.json, uk.json ✅
-  - `npx tsc --noEmit` ✅
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/page.tsx`
-  - `src/messages/cs.json`
-  - `src/messages/en.json`
-  - `src/messages/uk.json`
-  - `CHANGELOG.md`
-  - `ukol.md`
 
 *Starší historii projektu a předchozí milníky najdete v historii Git commitů na GitHubu.*

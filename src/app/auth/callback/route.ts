@@ -303,6 +303,79 @@ async function handleYouTubeCallback(request: NextRequest): Promise<NextResponse
   );
 }
 
+// ============================================================
+// Password recovery – establish a session, land on reset page
+// ============================================================
+// Triggered by the magic link from `resetPasswordForEmail`, which points
+// at `/auth/callback?type=recovery&next=/{locale}/login/reset-password`
+// (Supabase appends the `code`). We exchange the code for a session so the
+// user is authenticated, then redirect to the reset-password page where
+// `updatePasswordAction` can call `updateUser`. We deliberately skip the
+// OAuth token harvesting, the 2FA branch and the `?fb=connected` hint.
+async function handleRecoveryCallback(request: NextRequest): Promise<NextResponse> {
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
+  const nextParam = requestUrl.searchParams.get("next") || "";
+
+  const localeFromNext = nextParam.match(/^\/(cs|en|uk)(?:\/|$)/)?.[1];
+  const localeFromReferer = request.headers
+    .get("referer")
+    ?.match(/\/(cs|en|uk)(?:\/|$)/)?.[1];
+  const locale = localeFromNext ?? localeFromReferer ?? "cs";
+
+  // Only trust `next` if it is a locale-prefixed internal path; otherwise
+  // fall back to the default reset-password page for this locale.
+  const resetPath =
+    nextParam && /^\/(cs|en|uk)\//.test(nextParam)
+      ? nextParam
+      : `/${locale}/login/reset-password`;
+
+  // No code → cannot establish a recovery session; send to login.
+  if (!code) {
+    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+  }
+
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  const response = NextResponse.next({ request: { headers: request.headers } });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    key!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return NextResponse.redirect(
+      new URL(
+        `/${locale}/login?error=${encodeURIComponent(error.message)}`,
+        request.url
+      )
+    );
+  }
+
+  // Carry the freshly-set auth cookies onto the redirect so the reset page
+  // sees the recovery session.
+  const redirectResponse = NextResponse.redirect(new URL(resetPath, request.url));
+  response.cookies.getAll().forEach((cookie) => {
+    redirectResponse.cookies.set(cookie);
+  });
+  return redirectResponse;
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
 
@@ -311,6 +384,15 @@ export async function GET(request: NextRequest) {
   // Google and discard the YouTube-specific scope.
   if (requestUrl.searchParams.get("provider") === "youtube") {
     return handleYouTubeCallback(request);
+  }
+
+  // Password-recovery flow (magic link from `resetPasswordForEmail`).
+  // Must be handled BEFORE the generic OAuth branch so we skip the
+  // Facebook/Instagram token harvesting, the 2FA redirect and the
+  // `?fb=connected` hint – a recovery session only needs to be
+  // established so the user can set a new password on the reset page.
+  if (requestUrl.searchParams.get("type") === "recovery") {
+    return handleRecoveryCallback(request);
   }
 
   const code = requestUrl.searchParams.get("code");
@@ -371,7 +453,7 @@ export async function GET(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  const response = NextResponse.next({ request: { headers: request.headers } });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     key!,

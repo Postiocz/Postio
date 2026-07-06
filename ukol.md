@@ -101,7 +101,7 @@
 - **Design:** Stejný styl jako login page (glassmorphism card, rounded-[20px], indigo accent).
 - **Ověření:** `npx tsc --noEmit` ✅ + manuální test celého flow (email → odkaz → nová stránka → změna hesla → přihlášení)
 
-#### Krok 5: Auth callback – handling recovery
+#### ✅ Krok 5: Auth callback – handling recovery
 - **Soubor:** `src/app/auth/callback/route.ts`
 - **Změna:** Před existující `GET` handler přidat check: pokud `requestUrl.searchParams.get("type") === "recovery"`, po `exchangeCodeForSession` přesměrovat na `/{locale}/login/reset-password` (místo defaultního `/accounts`).
 - **Ověření:** `npx tsc --noEmit` ✅
@@ -124,7 +124,7 @@
 | ✅ **Krok 2** | `src/lib/actions/auth.ts` | Server action `resetPasswordAction` (odeslání reset emailu) |
 | ✅ **Krok 3** | `src/lib/actions/auth.ts` | Server action `updatePasswordAction` (nastavení nového hesla) |
 | ✅ **Krok 4** | `src/app/[locale]/(auth)/login/reset-password/page.tsx` | Nová stránka "Nastavit nové heslo" |
-| ⬜ **Krok 5** | `src/app/auth/callback/route.ts` | Přidat recovery redirect do auth callbacku |
+| ✅ **Krok 5** | `src/app/auth/callback/route.ts` | Přidat recovery redirect do auth callbacku |
 | ⬜ **Krok 6** | `src/components/auth/email-signin.tsx` | Aktivovat tlačítko + forgot mode UI |
 
 ### Rizika a poznámky

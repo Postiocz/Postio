@@ -599,7 +599,7 @@ function DashboardContent({
               </Link>
             </Button>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {data.recentPosts.map((post) => {
               const preview =
                 buildRecentPostPreview(post.content) || postsT("newPost");
@@ -626,7 +626,7 @@ function DashboardContent({
                   className="group block"
                 >
                   <Card className="h-full bg-card/40 backdrop-blur-md border-white/5 group-hover:bg-accent transition-all">
-                    <CardContent className="flex h-full flex-col gap-3 p-4">
+                    <CardContent className="flex h-full flex-col gap-3 p-3.5">
                       {/* Top row: platform icons + status badge */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
@@ -666,7 +666,7 @@ function DashboardContent({
 
                       {/* Media thumbnail (first item) + count of others */}
                       {primaryMedia && (
-                        <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10">
+                        <div className="relative aspect-video max-h-[140px] overflow-hidden rounded-lg border border-white/10">
                           {isVideoUrl(primaryMedia) ? (
                             <video
                               src={primaryMedia}
@@ -692,7 +692,7 @@ function DashboardContent({
                       )}
 
                       {/* Content preview */}
-                      <h3 className="line-clamp-2 font-medium">{preview}</h3>
+                      <h3 className="line-clamp-2 text-sm font-medium">{preview}</h3>
 
                       {/* Internal labels (max 2 + overflow) */}
                       {visibleTags.length > 0 && (

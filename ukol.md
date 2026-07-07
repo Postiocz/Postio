@@ -37,3 +37,19 @@
 9. **SEKCE - AKTUÁLNÍCH ÚKOLŮ:**
   📌 Aktuální úkoly
 
+  ## 🎯 Prompt 024 — Optimalizace velikosti karet "Poslední příspěvky" (Dashboard)
+
+  **Cíl**: Karty v sekci "Poslední příspěvky" jsou vizuálně příliš velké a disproporční oproti ostatním widgetům. Zmenšit je a poskládat kompaktněji.
+
+  **Analýza (FÁZE 1)** — soubor `src/app/[locale]/(dashboard)/page.tsx`:
+  - Grid sekce (ř. 602): `grid gap-3 sm:grid-cols-2 lg:grid-cols-3` → na `xl` stále jen **3 sloupce** (chybí `xl` breakpoint).
+  - Karta (ř. 628–726): `<Card>` (`bg-card/40 backdrop-blur-md border-white/5`), `<CardContent>` = `flex h-full flex-col gap-3 p-4`.
+  - Media thumbnail (ř. 669): `relative aspect-video ... rounded-xl border-white/10` → výška se s úžením sloupce zmenší automaticky, ale **chybí `max-height`**.
+  - Texty: `h3` = `line-clamp-2 font-medium` (výchozí `text-base` ≈ 16px); tagy `text-[11px]`; čas `text-xs`. V užší kartě může být `text-base` moc.
+  - Sekce leží na **plné šířce** dashboardu (mimo užší sloupce analytiky), takže 4 sloupce na `xl` mají dostatek místa. (Max 5 příspěvků → při 4/s lze 4 + 1.)
+
+  **Navržený plán (3 kroky, krokování dle Pravidla 2)**:
+  - [x] **Krok 1 — Grid**: Změněno na `grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` (lg 3, sm 2). ✅
+  - [x] **Krok 2 — Thumbnail**: Přidáno `max-h-[140px]` k media kontejneru (ř. 669) + `rounded-xl` → `rounded-lg`. ✅
+  - [x] **Krok 3 — Texty & padding**: `h3` → `text-sm`; `CardContent` padding `p-4` → `p-3.5` (kompaktnější, čitelné i v užším formátu). ✅
+

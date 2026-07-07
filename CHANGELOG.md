@@ -5,6 +5,32 @@
 
 ## 2026-07-07
 
+### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 3: texty & padding)
+
+- **Kontext**: Závěrečný krok Prompt 024 (po Krok 1 grid xl:4 a Krok 2 max-h thumbnailu). Krok 3 zkompaktí vnitřek karty pro čitelnost v užším formátu.
+- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
+  1. `CardContent` padding `p-4` → `p-3.5` (úspornější vnitřek).
+  2. Nadpis příspěvku `h3` doplněn o `text-sm` (menší, stále čitelný).
+- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil — karty vypadají přesně podle zadání).
+- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 3 označen ✅)
+
+### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 2)
+
+- **Kontext**: Pokračování Prompt 024 (Krok 1 změnil grid na xl:grid-cols-4). Krok 2 omezuje výšku media náhledu v užší 4-sloupcové kartě.
+- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
+  1. Media kontejner (ř. 669) rozšířen o `max-h-[140px]` → výška náhledu nepřesáhne 140px (při 4 sloupcích se mírně zúží/ořízne přes `object-cover`).
+  2. `rounded-xl` → `rounded-lg` (menší radius sedí ke kompaktnější kartě).
+- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 2 označen ✅)
+
+### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 1)
+
+- **Kontext**: Úkol Prompt 024 — karty v sekci Poslední příspěvky byly vizuálně příliš velké a disproporční oproti ostatním widgetům. Krok 1 mění pouze rozložení gridu.
+- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
+  1. Grid sekce Poslední příspěvky (ř. 602) rozšířen o `xl:grid-cols-4` → na xl (≥1280px) **4 karty na řádek**, lg zůstává 3, sm 2.
+- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 1 označen ✅)
+
 ### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 4: Auto-Deselect)
 
 - **Kontext**: Finální krok úkolu Prompt 023. Krok 1 přidal `disabled` logiku, Krok 2 vizuální zpětnou vazbu (zeslabení + tooltip), Krok 3 překlady. Krok 4 zajišťuje, že vybraná platforma se automaticky odškrtne, když uživatel smaže médium, které požaduje.
@@ -83,47 +109,6 @@
   - `src/app/[locale]/(dashboard)/page.tsx`
   - `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`
   - `ukol.md` (nový úkol "Vylepšení – Dashboard Poslední příspěvky", Krok 1 označen ✅)
-  - `CHANGELOG.md`
-
-### ✨ Feat — Reset hesla (Krok 6): forgot mode v `email-signin.tsx` (flow uzavřen)
-
-- **Kontext**: Poslední článek celého flow. Tlačítko „Zapomněli jste heslo?" v `email-signin.tsx` bylo mrtvé (bez `onClick`). Krok 6 ho aktivuje a napojuje `resetPasswordAction` z Kroku 2.
-- **Změna**: V `src/components/auth/email-signin.tsx`:
-  1. `type Mode` rozšířen o `"forgot"`; přidán import `resetPasswordAction` + samostatný `useActionState(resetPasswordAction, …)` (`resetState`/`resetFormAction`/`isResetPending`), aby se reset formulář nebil se sign-in/sign-up submitem.
-  2. Při `mode === "forgot"` se renderuje samostatný forgot-formulář (titulek + popis z i18n, jen e-mail input, tlačítko `sendResetLink`/`sendingResetLink`); jinak beze změny původní sign-in/sign-up formulář.
-  3. Tlačítko „Zapomněli jste heslo?" dostalo `onClick={() => setMode("forgot")}` (+ vyčistí heslo); v forgot módu přidán odkaz „Zpět na přihlášení" (`backToSignIn`) zpět na `signin`.
-  4. Error/success text je nově mode-aware — v forgot módu čte `resetState` (zelená hláška „Odkaz odeslán…" po úspěchu), jinak `state`.
-  5. Preexisting `set-state-in-effect` v `useEffect` (reset po signupu) opatřen `eslint-disable` komentářem — stejný vzor jako v nedávném ESLint refactoru.
-- **Ověření**: `npx tsc --noEmit` ✅ + `npx eslint` na souboru ✅ + manuální test celého flow (forgot view → e-mail → recovery odkaz → reset-password → nové heslo → přihlášení) ✅ (uživatel potvrdil)
-- **Upravené soubory**:
-  - `src/components/auth/email-signin.tsx`
-  - `ukol.md` (Krok 6 označen ✅, sekce úkolu následně smazána dle Pravidla 7)
-  - `CHANGELOG.md`
-
-### ✨ Feat — Reset hesla (Krok 5): auth callback zpracuje recovery odkaz
-
-- **Kontext**: Poslední chybějící článek serverové části flow. Recovery magic link z e-mailu míří na `/auth/callback?type=recovery&next=/{locale}/login/reset-password&code=...`. Bez explicitní obsluhy by generická OAuth větev callbacku uživatele omylem poslala na `/accounts` (příp. `verify-2fa` u 2FA účtů) místo na reset stránku.
-- **Změna**: V `src/app/auth/callback/route.ts`:
-  1. Nová funkce `handleRecoveryCallback` — odvodí `locale` z `next`/refereru, bezpečně validuje `next` (jen locale-prefixed interní cesta, jinak fallback `/{locale}/login/reset-password`), vymění `code` za session přes `exchangeCodeForSession` se správným cookie handlingem a přenese auth cookies na redirect, aby reset stránka viděla recovery session pro `updateUser`.
-  2. V `GET` handleru přidán check `type === "recovery"` hned za YouTube větví — deleguje na `handleRecoveryCallback` **před** generickou OAuth logikou (záměrně přeskakuje OAuth token harvesting, 2FA větev i `?fb=connected` hint, které by recovery flow rozbily).
-  3. Bonus: opraven preexisting `prefer-const` (let `response` → const) v `GET`, aby soubor prošel lintem čistě.
-- **Ověření**: `npx tsc --noEmit` ✅ + `npx eslint` na souboru ✅ (plný manuální test flow po Kroku 6)
-- **Upravené soubory**:
-  - `src/app/auth/callback/route.ts`
-  - `ukol.md` (Krok 5 označen ✅)
-  - `CHANGELOG.md`
-
-### ✨ Feat — Reset hesla (Krok 4): stránka "Nastavit nové heslo"
-
-- **Kontext**: UI stránka, kam recovery odkaz z e-mailu uživatele dovede (napojení callbacku je Krok 5). Napojuje `updatePasswordAction` z Kroku 3.
-- **Změna**: Vytvořeny 2 nové soubory pod `login/reset-password/`:
-  1. `page.tsx` (server) — načte překlady, sestaví `labels`, vyrenderuje layout se stejným designem jako verify-2fa (grid pattern, glassmorphism card `rounded-[32px]`, Postio logo, indigo accent).
-  2. `reset-password-form.tsx` (client) — `useActionState(updatePasswordAction)`, 2 password inputy (nové + potvrzení) se sdíleným show/hide toggle, mapování `errorKey` na lokalizované hlášky, pending Loader2 spinner, success view se zelenou fajfkou + tlačítkem "Zpět na přihlášení".
-- **Ověření**: `npx tsc --noEmit` ✅ (plný manuální test flow až po Kroku 5+6)
-- **Upravené soubory**:
-  - `src/app/[locale]/(auth)/login/reset-password/page.tsx` (nový)
-  - `src/app/[locale]/(auth)/login/reset-password/reset-password-form.tsx` (nový)
-  - `ukol.md` (Krok 4 označen ✅)
   - `CHANGELOG.md`
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

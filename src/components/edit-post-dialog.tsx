@@ -39,6 +39,7 @@ import {
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
 import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/components/post-preview";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -315,6 +316,61 @@ export function EditPostDialog({
         })),
     [mediaItems],
   );
+
+  // Prompt 023 (Krok 1) – Media presence flags that gate platform selection.
+  // TikTok/YouTube require a video; Instagram requires any media. Derived
+  // once from `mediaItems`, excluding failed uploads so an erroring file
+  // does not satisfy a requirement.
+  const hasVideoAttachment = useMemo(
+    () => mediaItems.some((i) => i.kind === "video" && i.status !== "error"),
+    [mediaItems],
+  );
+  const hasAnyMediaAttachment = useMemo(
+    () => mediaItems.some((i) => i.status !== "error"),
+    [mediaItems],
+  );
+
+  // Prompt 023 (Krok 1) – Whether the current media satisfies a platform's
+  // attachment requirement. facebook/twitter/linkedin accept anything.
+  function isPlatformMediaRequirementMet(platformId: string): boolean {
+    if (platformId === "tiktok" || platformId === "youtube") {
+      return hasVideoAttachment;
+    }
+    if (platformId === "instagram") {
+      return hasAnyMediaAttachment;
+    }
+    return true;
+  }
+
+  // Prompt 023 (Krok 4) – When the user removes a media item, deselect any
+  // platform whose attachment requirement is no longer met (e.g. removing the
+  // only video while TikTok/YouTube is selected). We only ever REMOVE platforms
+  // here, never re-add them: if a platform regains its requirement (user
+  // re-adds media) it stays deselected until chosen again. Computed against the
+  // post-removal media set so the selection updates in the same tick as removal.
+  const handleRemoveMedia = (id: string) => {
+    const nextMedia = mediaItems.filter((i) => i.id !== id);
+    const nextHasVideo = nextMedia.some((i) => i.kind === "video" && i.status !== "error");
+    const nextHasAnyMedia = nextMedia.some((i) => i.status !== "error");
+    removeMediaItem(id);
+    setPlatforms((prev) =>
+      prev.filter((p) => {
+        if (p === "tiktok" || p === "youtube") return nextHasVideo;
+        if (p === "instagram") return nextHasAnyMedia;
+        return true;
+      }),
+    );
+  };
+
+  // Prompt 023 (Krok 2) – Tooltip text explaining why a platform chip is
+  // disabled (its attachment requirement is not met by the current media).
+  // Returns null for platforms that are always enabled.
+  function getPlatformRequirementTooltip(platformId: string): string | null {
+    if (platformId === "tiktok") return t("tiktokRequiresVideo") ?? "TikTok vyžaduje video soubor";
+    if (platformId === "youtube") return t("youtubeRequiresVideo") ?? "YouTube vyžaduje video soubor";
+    if (platformId === "instagram") return t("instagramRequiresMedia") ?? "Instagram vyžaduje fotku nebo video";
+    return null;
+  }
 
   // Labels for PostPreview with safe fallbacks so the dialog works even
   // when a consumer didn't wire up the new optional translation keys.
@@ -1937,7 +1993,7 @@ export function EditPostDialog({
                     )}
                     <button
                       type="button"
-                      onClick={() => removeMediaItem(item.id)}
+                      onClick={() => handleRemoveMedia(item.id)}
                       className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
                       aria-label="Remove"
                     >
@@ -1962,10 +2018,21 @@ export function EditPostDialog({
             <Label className="text-sm font-medium text-muted-foreground/80">
               {t("selectPlatforms")}
             </Label>
+            <TooltipProvider delayDuration={150}>
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((platform) => {
                 const isSelected = platforms.includes(platform.id);
                 const isPublished = (post?.post_platforms || []).some(p => p.platform === platform.id && p.status === 'published');
+                // Prompt 023 (Krok 1) – disable the chip when the current media
+                // does not meet the platform's attachment requirement. Published
+                // platforms are locked separately (handled below).
+                const requirementMet = isPlatformMediaRequirementMet(platform.id);
+                const isPlatformDisabled = !isPublished && !requirementMet;
+                // Prompt 023 (Krok 2) – tooltip explaining the requirement when
+                // the chip is disabled; null for always-enabled platforms.
+                const tooltipMessage = isPlatformDisabled
+                  ? getPlatformRequirementTooltip(platform.id)
+                  : null;
                 const Icon = PlatformIconMap[platform.id];
                 const platformColor = {
                   instagram: "text-[#E1306C]",
@@ -1975,10 +2042,11 @@ export function EditPostDialog({
                   youtube: "text-[#FF0000]",
                   tiktok: "text-[#010101]",
                 }[platform.id] ?? "text-muted-foreground";
-                return (
+                const platformButton = (
                   <button
                     key={platform.id}
                     type="button"
+                    disabled={isPlatformDisabled}
                     onClick={() => !isPublished && togglePlatform(platform.id)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
@@ -1989,7 +2057,8 @@ export function EditPostDialog({
                           : cn(
                               "border-black/5 dark:border-white/5 bg-white/60 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground hover:bg-white dark:hover:bg-white/[0.06]",
                               "dark:text-muted-foreground",
-                            )
+                            ),
+                      isPlatformDisabled && "opacity-50 cursor-not-allowed",
                     )}
                   >
                     {Icon && <Icon className={cn("h-3.5 w-3.5", isPublished ? "" : (isSelected ? "" : platformColor))} />}
@@ -1997,8 +2066,24 @@ export function EditPostDialog({
                     {isPublished && <Check className="h-3 w-3 text-green-500" />}
                   </button>
                 );
+                // Prompt 023 (Krok 2) – wrap a disabled chip in a Tooltip so the
+                // user learns why it cannot be selected. The disabled <button> is
+                // wrapped in an always-interactive <span> because a disabled
+                // button does not emit the hover events a Tooltip needs.
+                if (tooltipMessage) {
+                  return (
+                    <Tooltip key={platform.id}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex">{platformButton}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{tooltipMessage}</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return platformButton;
               })}
             </div>
+            </TooltipProvider>
           </div>
 
           {hasTikTokIntent && (

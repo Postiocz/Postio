@@ -3,7 +3,48 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-## 2026-07-06
+## 2026-07-07
+
+### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 4: Auto-Deselect)
+
+- **Kontext**: Finální krok úkolu Prompt 023. Krok 1 přidal `disabled` logiku, Krok 2 vizuální zpětnou vazbu (zeslabení + tooltip), Krok 3 překlady. Krok 4 zajišťuje, že vybraná platforma se automaticky odškrtne, když uživatel smaže médium, které požaduje.
+- **Změna** (`src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`):
+  1. Nový handler `handleRemoveMedia(id)` nahrazuje přímé volání `removeMediaItem` na tlačítku pro mazání média.
+  2. Handler spočítá množinu médií *po* smazání (`nextMedia`) a odvodí `nextHasVideo` / `nextHasAnyMedia`, pak z `platforms`/`selectedPlatforms` odfiltruje jen platformy, jejichž požadavek je v nové množině splněn (TikTok/YouTube → video, Instagram → jakékoliv médium).
+  3. Odfiltrují se **pouze** platformy, které přestaly vyhovovat — nikdy se nepřidávají zpět (vrátí-li uživatel média, musí platformu zaškrtnout znovu).
+  4. Záměrně implementováno jako handler události, ne `useEffect` + `setState` (lint pravidlo `react-hooks/set-state-in-effect` by to zamítlo).
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na obou souborech ✅ (zbývá jen pre-existing warning na nepoužitý `eslint-disable` v TikTok náhledu).
+- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 4 označen ✅, sekce úkolu smazána dle Pravidla 7), `CHANGELOG.md`
+
+### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 2: UI)
+
+- **Kontext**: Pokračování úkolu Prompt 023. Krok 1 přidal logiku `disabled`; Krok 2 přidává vizuální zpětnou vazbu (zeslabení + tooltip s vysvětlením).
+- **Změna**:
+  1. Nová komponenta `src/components/ui/tooltip.tsx` (Radix `Tooltip`, portálovaná do `<body>`, takže ji neoorízne scroll kontejner dialogu).
+  2. `edit-post-dialog.tsx` i `posts/new/page.tsx`: zakázaná tlačítka platforem dostala `opacity-50 cursor-not-allowed`.
+  3. Když je tlačítko zakázané kvůli chybějící příloze, je obaleno `Tooltipem` s i18n vysvětlením (`tiktokRequiresVideo` / `youtubeRequiresVideo` / `instagramRequiresMedia`, klíče z Krok 3).
+  4. Disabled `<button>` je zabalen do vždy-interaktivního `<span>`u (disabled tlačítko nevysílá hover události, tooltip by nefungoval). Sekce platforem obalena `TooltipProvider`.
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na všech 3 souborech ✅ (jediná výtka je pre-existing warning v TikTok náhledu).
+- **Upravené soubory**: `src/components/ui/tooltip.tsx` (nový), `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 2 označen ✅)
+
+### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 3: překlady)
+
+- **Kontext**: Pokračování úkolu Prompt 023. Krok 3 přidává i18n klíče pro tooltipy, které se použijí v Krok 2 (Tooltip při najetí na zakázané tlačítko platformy).
+- **Změna** (`src/messages/cs.json`, `en.json`, `uk.json`):
+  1. Do namespace `posts` (a záložně i `calendar`, kde stejné klíče duplikovaně existují) přidány 3 klíče: `tiktokRequiresVideo`, `youtubeRequiresVideo`, `instagramRequiresMedia`.
+  2. Překlady cs / en / uk s vysvětlením požadavku na přílohu (video / médium).
+- **Ověření**: JSON validní ve všech 3 souborech ✅ (`node -e JSON.parse`).
+- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 3 označen ✅)
+
+### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 1)
+
+- **Kontext**: Úkol Prompt 023 – zabránit výběru platformy, která nepodporuje nahraný typ obsahu (např. TikTok bez videa). Krok 1 zavádí pouze validační logiku (disabled stav); vizuální zvýraznění (opacity-50 / Tooltip) přijde v Krok 2 a auto-odškrtnutí vybrané platformy po smazání média v Krok 4.
+- **Změna** (`src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`):
+  1. Přidány memoizované příznaky `hasVideoAttachment` / `hasAnyMediaAttachment` odvozené z `mediaItems` (vynechány chybné uploady `status === "error"`).
+  2. Přidána `isPlatformMediaRequirementMet(platformId)`: TikTok & YouTube vyžadují video, Instagram vyžaduje jakékoliv médium, Facebook/X/LinkedIn podporují cokoliv.
+  3. Tlačítka platforem dostala `disabled`, když požadavek není splněn a platforma není již publikovaná (`isPublished`).
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na obou souborech ✅ (jediná výtka je pre-existing warning na řádku 1550 v TikTok náhledu, mimo tento zásah).
+- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 1 označen ✅)
 
 ### ✨ Feat — Dashboard: redesign karty „Poslední příspěvky" (Krok 3, úkol dokončen)
 
@@ -85,93 +126,4 @@
   - `ukol.md` (Krok 4 označen ✅)
   - `CHANGELOG.md`
 
-### ✨ Feat — Reset hesla (Krok 3): server action `updatePasswordAction`
-
-- **Kontext**: Protějšek ke Kroku 2. Nastaví nové heslo poté, co je uživatel díky recovery callbacku v session.
-- **Změna**: Do `src/lib/actions/auth.ts` přidán typ `UpdatePasswordState` a server action `updatePasswordAction`. Přečte `password` + `confirmPassword`, validuje délku ≥ 6 znaků a shodu, zavolá `supabase.auth.updateUser({ password })`. Vrací `passwordUpdated` / `passwordTooShort` / `passwordsDoNotMatch` / `passwordUpdateError`.
-- **Odchylka od plánu**: Místo server redirectu na `/login` vrací `successKey: "passwordUpdated"` — tvrdý redirect by uživateli nikdy neukázal potvrzení; návrat lépe sedí s `useActionState` patternem a reset-password stránka (Krok 4) pak zobrazí zprávu + odkaz na přihlášení.
-- **Ověření**: `npx tsc --noEmit` ✅
-- **Upravené soubory**:
-  - `src/lib/actions/auth.ts`
-  - `ukol.md` (Krok 3 označen ✅)
-  - `CHANGELOG.md`
-
-### ✨ Feat — Reset hesla (Krok 2): server action `resetPasswordAction`
-
-- **Kontext**: Navazuje na Krok 1 (i18n). Připravuje serverovou logiku pro odeslání reset e-mailu přes Supabase.
-- **Změna**: Do `src/lib/actions/auth.ts` přidán typ `ResetPasswordState` a server action `resetPasswordAction`. Přečte `email` + `locale` z FormData, sestaví absolutní `baseUrl` (stejný pattern jako `emailAuthAction`) a zavolá `supabase.auth.resetPasswordForEmail(email, { redirectTo })`. `redirectTo` obsahuje `?type=recovery&next=/{locale}/login/reset-password`, aby callback route (Krok 5) poznal recovery flow. Vrací `resetEmailSent` / `resetError`.
-- **Ověření**: `npx tsc --noEmit` ✅
-- **Upravené soubory**:
-  - `src/lib/actions/auth.ts`
-  - `ukol.md` (Krok 2 označen ✅)
-  - `CHANGELOG.md`
-
-### ✨ Feat — Reset hesla (Krok 1): i18n klíče pro celý flow "Zapomenuté heslo"
-
-- **Kontext**: Tlačítko "Zapomněli jste heslo?" na login page (`email-signin.tsx`) je mrtvé – chybí celý flow resetu hesla. Krok 1 připravuje lokalizaci pro nadcházející UI a server actions.
-- **Změna**: Do `auth` namespace ve všech 3 jazycích (`cs.json`, `en.json`, `uk.json`) přidáno 16 klíčů: `forgotPasswordTitle`, `forgotPasswordDescription`, `sendResetLink`, `sendingResetLink`, `resetEmailSent`, `resetError`, `backToSignIn`, `resetPasswordTitle`, `newPassword`, `confirmNewPassword`, `passwordsDoNotMatch`, `passwordTooShort`, `passwordUpdated`, `passwordUpdateError`, `updatePassword`, `updatingPassword`.
-- **Ověření**: Validní JSON ve všech 3 souborech, 66 klíčů v auth namespace, žádný chybějící klíč ✅
-- **Upravené soubory**:
-  - `src/messages/cs.json`
-  - `src/messages/en.json`
-  - `src/messages/uk.json`
-  - `ukol.md` (Krok 1 označen ✅)
-  - `CHANGELOG.md`
-
-### 🧹 Refactor — Oprava ESLint chyb v dashboard sekci (React Hooks pravidla)
-
-- **Kontext**: Při kontrole dashboardu bylo odhaleno přes 70 ESLint chyb, primárně se jednalo o porušení pravidel React Hooks (např. volání hooků po early returnu v `_calendar-view.tsx` nebo modifikace state v efektech).
-- **Oprava**:
-  1. `calendar/_calendar-view.tsx` (Kritické): Odstraněn early return `if (!posts) return null;` před voláním desítek hooků. Místo toho byl přidán defaultní prázdný array `posts = []` v props, čímž se vyřešilo ~50 `react-hooks/rules-of-hooks` errorů.
-  2. Přidány specifikované eslint-disable direktivy do souborů `accounts/page.tsx`, `analytics/analytics-dashboard.tsx`, `calendar/page.tsx`, `calendar/_calendar-client.tsx`, `posts/_posts-container.tsx` a dalších, kde se vyskytovaly neškodné a v tomto kontextu funkční vzory, které linter vyhodnocoval jako `set-state-in-effect`, `purity`, `exhaustive-deps` atd.
-  3. Drobné typové opravy a zavedení `const` namísto `let`.
-- **Ověření**: `npx eslint` napříč celou dashboard složkou vrací čistý stav (0 errorů), `npx tsc --noEmit` běží bezchybně ✅
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx`
-  - `src/app/[locale]/(dashboard)/accounts/page.tsx`
-  - `src/app/[locale]/(dashboard)/analytics/analytics-dashboard.tsx`
-  - `src/app/[locale]/(dashboard)/analytics/page.tsx`
-  - `src/app/[locale]/(dashboard)/calendar/page.tsx`
-  - `src/app/[locale]/(dashboard)/calendar/_calendar-client.tsx`
-  - `src/app/[locale]/(dashboard)/posts/_posts-container.tsx`
-  - `src/app/[locale]/(dashboard)/posts/_post-card.tsx`
-  - `src/app/[locale]/(dashboard)/settings/labels/tag-info-banner.tsx`
-  - `src/app/[locale]/(dashboard)/settings/profile/profile-form.tsx`
-  - `CHANGELOG.md`
-  - `ukol.md`
-
-## 2026-07-05
-
-### 🐛 Fix — EditPostDialog + PostPreview: TikTok náhled chyběl v pravém panelu editoru
-
-- **Kontext**: V dialogu "Upravit příspěvek" se pro Facebook, IG, YT, LI zobrazovaly věrné náhledy v pravém panelu – ale TikTok ukazoval jen prázdný placeholder s ikonou. Důvod: `renderPlatformPreview` v `edit-post-dialog.tsx` neměl case pro `"tiktok"` a `TikTokPreview` v `post-preview.tsx` používal `MediaArea aspect="square"` (1:1 čtverec) místo vertikálního 9:16.
-- **Oprava**: 1) `edit-post-dialog.tsx` – přidán `tiktok: tiktokProfile` do `profileMap` + celý TikTok case do `renderPlatformPreview` (High-Fidelity vertikální náhled). 2) `post-preview.tsx` – `TikTokPreview` přepsán z `MediaArea aspect="square"` na přímé `<video>`/`<img>` s `h-full w-full object-cover` + `flex-1 overflow-y-auto` pattern jako Facebook. Náhled teď odpovídá PreviewDialog (Oko).
-- **Ověření**: `npx tsc --noEmit` ✅ + manuální test – TikTok náhled v editoru i v "Oko" vypadají stejně, vertikálně 9:16 ✅ (uživatel potvrdil)
-- **Upravené soubory**:
-  - `src/components/edit-post-dialog.tsx`
-  - `src/components/post-preview.tsx`
-  - `ukol.md` (Krok 4 označen ✅)
-  - `CHANGELOG.md`
-
-### 🐛 Fix — PreviewDialog: TikTok náhled plně funkční v samostatném náhledu (Oko) na stránce Příspěvky
-
-- **Kontext**: Dialog "Oko" (`preview-dialog.tsx`) po kliknutí na ikonu oka na stránce `/posts` zobrazoval věrné náhledy pro FB, IG, YT, LI – ale TikTok chyběl.
-- **Oprava (Krok 1+2)**: Typ `PreviewPlatform`, konstanty (`PREVIEWABLE_PLATFORMS`, `PLATFORM_ACCENTS`, `PLATFORM_LABELS`), profiles state a `getTabLabel` rozšířeny o `'tiktok'`. **(Krok 3)**: Přidán case `"tiktok"` do `renderPreviewForPlatform` – High-Fidelity vertikální náhled s `h-full w-full object-cover` videem, gradient overlay, akční ikony vpravo (❤️💬🔖↗️), text + původní zvuk dole, rotující disk.
-- **Ověření**: `npx tsc --noEmit` ✅ + manuální test – záložka i náhled TikTok se zobrazují správně ve stejné velikosti jako ostatní platformy ✅ (uživatel potvrdil)
-- **Upravené soubory**:
-  - `src/components/preview-dialog.tsx`
-  - `ukol.md` (Krok 1–3 označeny ✅)
-  - `CHANGELOG.md`
-
-## 2026-07-05
-
-### ✅ No-op — Framer `layout` na PostCard nevyvolává runtime warning
-
-- **Kontext**: `_post-card.tsx` používá `<motion.article layout>` bez `layoutId`. Původní obava byla, že Framer Motion v12.x by mohl hlásit runtime warning pro layout animace bez `layoutId`.
-- **Zjištění**: Framer Motion 12.38.0 nevyvolává žádný warning pro `layout` bez `layoutId`. Prop `layout` animuje změny vlastního layoutu karty (velikost/pozice), což je užitečné pro expand/collapse obsahu (`isExpanded`) a změnu select stavu (ring/border). Žádná oprava nepotřebná.
-- **Ověření**: Code review + kontrola Framer Motion 12 docs — warning existuje jen pro deprecated `layout="position"` / `layout="size"` string hodnoty, ne pro boolean `layout`. ✅
-- **Upravené soubory**: žádný (no-op)
-  - `ukol.md` (Krok 4 označen ✅)
-  - `CHANGELOG.md`
-
-*Starší historii projektu a předchozí milníky najdete v historii Git commitů na GitHubu.*
+*Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

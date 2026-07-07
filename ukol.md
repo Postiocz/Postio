@@ -29,4 +29,11 @@
 7. **MAZÁNÍ KOMPLETNĚ HOTOVÝCH ÚKOLŮ:**
    Jakmile jsou VŠECHNY kroky daného úkolu označeny jako ✅ A byl proveden `git commit` (Pravidlo 4), smaž celou sekci tohoto úkolu z `ukol.md`. Ponechej pouze striktní pravidla (tato sekce). Po smazání vypíšeš: **"Všechny úkoly jsou hotové, s čím chceš pokračovat?"**
 
+8. **PRAVIDLA V UKOL.MD - ZÁKAZ ÚPRAV A MAZÁNÍ PRAVIDEL:**
+   "Za žádných okolností nesmíš smazat nebo upravovat pravidla v ukol.md"**
+
 ---
+
+9. **SEKCE - AKTUÁLNÍCH ÚKOLŮ:**
+  📌 Aktuální úkoly
+

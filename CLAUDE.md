@@ -119,6 +119,18 @@ Tato pravidla mají striktní prioritu při implementaci features spojených s p
 - **LinkedIn:** Žádné PDF karusely. Tagování lidí (`@mention`) je jen prostý text – API ho neřeší jako entity.
 - **X (Twitter):** Free tier – jen write-only (publikování a smazání). Nelze číst timeline.
 
+### 5. TikTok OAuth – produkční Redirect URI (DŮLEŽITÉ)
+
+- **Hardcoded URL:** `TIKTOK_REDIRECT_URI` v `src/app/api/accounts/tiktok/route.ts` je natvrdo
+  `"https://postio-alpha.vercel.app/api/accounts/tiktok"` (BEZ trailing lomítka). Shoduje se s Redirect URI
+  zadanou v TikTok Developer Portalu.
+- **Na produkci (Vercel deploy) funguje.** Na `localhostu` (dev) **NE** – TikTok nepřesměruje zpět na localhost.
+  Lokální test TikTok OAuth vyžaduje tunel (ngrok/cloudflared) nebo testování přímo na produkci.
+- **Nikdy neměň tuto URL na `localhost`** ani nepřidávej trailing lomítko (`.../tiktok/` je jiná adresa a TikTok
+  ji odmítne). Prod verze musí zůstat na výše uvedené adrese.
+- Frontend odkazuje na OAuth přes `/api/accounts/tiktok` (viz `accounts/page.tsx`, handler `connectModalPlatform.id === "tiktok"`).
+- Žádná `/callback` route pro TikTok neexistuje – veškerý OAuth flow řeší `/api/accounts/tiktok`.
+
 ## Pravidla pro psaní kódu
 
 - TypeScript strict mode

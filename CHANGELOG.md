@@ -3,6 +3,26 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✨ Feat — Očistění getTokenStatus (čistý render) (Prompt 025, Krok 5)
+
+- **Kontext**: Krok 5 úkolu Prompt 025 – `getTokenStatus` volala `Date.now()` přímo v render-fázi (u každého účtu v `.map`), což dělalo komponentu nečistou a vyžadovalo file-level `eslint-disable react-hooks/purity`.
+- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
+  1. `Date.now()` přesunuto z těla `getTokenStatus` do `useMemo(() => Date.now(), [])` (`now`) – počítá se jednou při mountu, ne při každém renderu.
+  2. `getTokenStatus(account)` → `getTokenStatus(account, now)` (čistá funkce, žádné `Date.now()` v těle).
+  3. File-level `/* eslint-disable react-hooks/purity */` odstraněn; ponechán jen scoped `// eslint-disable-next-line react-hooks/purity` přesně na `useMemo` inicializéru (který je vnitřně nečistý).
+- **Ověření**: `npx tsc --noEmit` ✅; `npx eslint` na souboru ✅ (0 errors, jen 3 pre-existing warningy mimo tento zásah: `Clock` nepoužitý, 2× hook deps). Manuální test v prohlížeči ✅ (uživatel potvrdil – token-expiry badge se zobrazuje správně).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 5 ✅)
+
+### 🔧 Fix — Vrácení TikTok OAuth route do produkčního stavu + poznámka
+
+- **Kontext**: TikTok OAuth fungoval na produkci (`https://postio-alpha.vercel.app/api/accounts/tiktok`), ale selhával na localhostu. Zkouška s `/callback` variantou (lokální route, která redirectovala zpět) na produkci neprošla – správná je původní prod adresa bez trailing lomítka.
+- **Změna**:
+  1. Smazána dočasná `/src/app/callback/route.ts` (lokální `/callback` varianta) – v kódu nezůstala žádná `/callback` reference kromě `/auth/callback`.
+  2. `src/app/api/accounts/tiktok/route.ts` obnovena z HEAD do původního stavu (hardcoded prod URL, `sha256`/`base64url` PKCE, `secure`/`sameSite:"none"` cookies).
+  3. Frontend reference v `accounts/page.tsx` vráceny z `/callback` zpět na `/api/accounts/tiktok` (OAuth handler i komentáře).
+  4. Zapsána poznámka do `CLAUDE.md` (sekce 5 "TikTok OAuth – produkční Redirect URI"): URL je hardcoded na prod, na localhostu nefunguje, netrailing lomítko, žádná `/callback` route.
+- **Ověření**: `grep -rn "/callback"` (kromě `/auth/callback`) → žádné ✅; `npx tsc --noEmit` po smazání `.next` → čisté ✅.
+
 ### ✨ Feat — Náhrada hardcoded textů za i18n na stránce Účty (Prompt 025, Krok 4)
 
 - **Kontext**: Krok 4 úkolu Prompt 025 – na stránce Účty zůstaly natvrdo psané řetězce a mixed fallbacky (`t("x") || "y"`), které obcházely překlad a rozbíjely lokalizaci (chyba `MISSING_MESSAGE: accounts.loading`).
@@ -81,25 +101,5 @@
   4. Záměrně implementováno jako handler události, ne `useEffect` + `setState` (lint pravidlo `react-hooks/set-state-in-effect` by to zamítlo).
 - **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na obou souborech ✅ (zbývá jen pre-existing warning na nepoužitý `eslint-disable` v TikTok náhledu).
 - **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 4 označen ✅, sekce úkolu smazána dle Pravidla 7), `CHANGELOG.md`
-
-### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 2: UI)
-
-- **Kontext**: Pokračování úkolu Prompt 023. Krok 1 přidal logiku `disabled`; Krok 2 přidává vizuální zpětnou vazbu (zeslabení + tooltip s vysvětlením).
-- **Změna**:
-  1. Nová komponenta `src/components/ui/tooltip.tsx` (Radix `Tooltip`, portálovaná do `<body>`, takže ji neoorízne scroll kontejner dialogu).
-  2. `edit-post-dialog.tsx` i `posts/new/page.tsx`: zakázaná tlačítka platforem dostala `opacity-50 cursor-not-allowed`.
-  3. Když je tlačítko zakázané kvůli chybějící příloze, je obaleno `Tooltipem` s i18n vysvětlením (`tiktokRequiresVideo` / `youtubeRequiresVideo` / `instagramRequiresMedia`, klíče z Krok 3).
-  4. Disabled `<button>` je zabalen do vždy-interaktivního `<span>`u (disabled tlačítko nevysílá hover události, tooltip by nefungoval). Sekce platforem obalena `TooltipProvider`.
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na všech 3 souborech ✅ (jediná výtka je pre-existing warning v TikTok náhledu).
-- **Upravené soubory**: `src/components/ui/tooltip.tsx` (nový), `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 2 označen ✅)
-
-### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 3: překlady)
-
-- **Kontext**: Pokračování úkolu Prompt 023. Krok 3 přidává i18n klíče pro tooltipy, které se použijí v Krok 2 (Tooltip při najetí na zakázané tlačítko platformy).
-- **Změna** (`src/messages/cs.json`, `en.json`, `uk.json`):
-  1. Do namespace `posts` (a záložně i `calendar`, kde stejné klíče duplikovaně existují) přidány 3 klíče: `tiktokRequiresVideo`, `youtubeRequiresVideo`, `instagramRequiresMedia`.
-  2. Překlady cs / en / uk s vysvětlením požadavku na přílohu (video / médium).
-- **Ověření**: JSON validní ve všech 3 souborech ✅ (`node -e JSON.parse`).
-- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 3 označen ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

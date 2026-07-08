@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -216,6 +216,11 @@ export default function AccountsPage() {
     () => accounts.filter((a) => a.is_active).length,
     [accounts]
   );
+  // Snapshot "now" once at mount; getTokenStatus then stays pure
+  // (no Date.now() call in its body). The useMemo initializer is impure,
+  // so the scoped eslint-disable below is required.
+  // eslint-disable-next-line react-hooks/purity
+  const now = useMemo(() => Date.now(), []);
   // True when the user already has as many active accounts as their plan
   // allows (Pro is unlimited, so it is never at the limit).
   const isAtAccountLimit =
@@ -227,10 +232,9 @@ export default function AccountsPage() {
 
   // Determine token expiry status for an account.
   // Returns { isExpired, daysLeft, label } or null if no expiry info.
-  function getTokenStatus(account: SocialAccount) {
+  function getTokenStatus(account: SocialAccount, now: number) {
     if (!account.token_expires_at) return null;
     const expires = new Date(account.token_expires_at).getTime();
-    const now = Date.now();
     const daysLeft = Math.max(0, Math.ceil((expires - now) / (1000 * 60 * 60 * 24)));
     const isExpired = expires < now;
     return { isExpired, daysLeft };
@@ -606,7 +610,7 @@ export default function AccountsPage() {
           {accounts.filter((a) => a.is_active).map((account) => {
             const platform = platformById.get(account.platform as PlatformId);
             const Icon = platform?.icon;
-            const tokenStatus = getTokenStatus(account);
+            const tokenStatus = getTokenStatus(account, now);
             const isExpired = tokenStatus?.isExpired ?? false;
             const expiringSoon = tokenStatus?.daysLeft != null && tokenStatus.daysLeft < 7 && !isExpired;
 

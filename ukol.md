@@ -56,7 +56,7 @@
 - [x] **Krok 4 – Náhrada hardcoded textů za i18n:**
   Nahradit natvrdo psané řetězce klíči z `messages`: `"Načítání…"` (ř. 405) → `accounts.loading`, a odstranit míchané fallbacky typu `t("connecting") || "Connecting..."` a `t("active") || "Aktivní"`. Doplnit chybějící klíče do cs/en/uk.
 
-- [ ] **Krok 5 – Očištění `getTokenStatus` (čistý render):**
+- [x] **Krok 5 – Očištění `getTokenStatus` (čistý render):**
   Přesunout výpočet token-expiry stavu z render-fáze (`Date.now()` na ř. 195) do `useMemo`, aby render byl čistý a šlo odstranit ESLint disable `react-hooks/purity`.
 
 - [ ] **Krok 6 – Ověření reconnect (žádné duplicity):**

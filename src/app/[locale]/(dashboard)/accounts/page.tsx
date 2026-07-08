@@ -433,7 +433,7 @@ export default function AccountsPage() {
     setDeleting(false);
   }
 
-  if (loading) return <div className="text-muted-foreground">Načítání…</div>;
+  if (loading) return <div className="text-muted-foreground">{t("loading")}</div>;
 
   const hasConnectedAccounts = accounts.some((a) => a.is_active);
 
@@ -703,7 +703,7 @@ export default function AccountsPage() {
                         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
                       </div>
                       <span className="text-sm font-medium text-emerald-400">
-                        {t("active") || "Aktivní"}
+                        {t("active")}
                       </span>
                     </div>
                   )}

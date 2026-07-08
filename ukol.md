@@ -53,7 +53,7 @@
 - [x] **Krok 3 – Odstranění mrtvého manuálního token formuláře:**
   Smazat legacy manuální formulář (accountName + accessToken, ř. ~501–594) včetně nepoužívaných stavů, `handleConnect` a zbytečné větve. Žádná platforma ho nepoužívá (vše jede přes OAuth).
 
-- [ ] **Krok 4 – Náhrada hardcoded textů za i18n:**
+- [x] **Krok 4 – Náhrada hardcoded textů za i18n:**
   Nahradit natvrdo psané řetězce klíči z `messages`: `"Načítání…"` (ř. 405) → `accounts.loading`, a odstranit míchané fallbacky typu `t("connecting") || "Connecting..."` a `t("active") || "Aktivní"`. Doplnit chybějící klíče do cs/en/uk.
 
 - [ ] **Krok 5 – Očištění `getTokenStatus` (čistý render):**

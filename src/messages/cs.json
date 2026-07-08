@@ -522,6 +522,7 @@
     "active": "Aktivní",
     "connected": "Propojené",
     "disconnected": "Odpojené",
+    "loading": "Načítání...",
     "connectedAccounts": "{count, plural, =0 {0 propojených účtů} one {# propojený účet} few {# propojené účty} other {# propojených účtů}}",
     "noAccounts": "Žádné propojené účty",
     "noAccountsSubtitle": "Propojte svůj první účet na sociální síti",

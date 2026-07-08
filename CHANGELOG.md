@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✨ Feat — Náhrada hardcoded textů za i18n na stránce Účty (Prompt 025, Krok 4)
+
+- **Kontext**: Krok 4 úkolu Prompt 025 – na stránce Účty zůstaly natvrdo psané řetězce a mixed fallbacky (`t("x") || "y"`), které obcházely překlad a rozbíjely lokalizaci (chyba `MISSING_MESSAGE: accounts.loading`).
+- **Změna**:
+  1. `Načítání…` (early-return při načítání) → `{t("loading")}`.
+  2. Mixed fallback `{t("active") || "Aktivní"}` → `{t("active")}` (čistý překlad, bez hardcodu).
+  3. Doplněn chybějící klíč `loading` do `accounts` namespace v cs/en/uk (dříve existoval jen v jiném namespace → `MISSING_MESSAGE`).
+- **Ověření**: JSON validní ve všech 3 souborech ✅, `npx tsc --noEmit` ✅. Manuální test v prohlížeči ✅ (uživatel potvrdil, chyba `MISSING_MESSAGE` odstraněna).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `ukol.md` (Krok 4 ✅)
+
 ### ✨ Feat — Odstranění mrtvého manuálního token formuláře (Prompt 025, Krok 3)
 
 - **Kontext**: Krok 3 úkolu Prompt 025 – na stránce Účty zůstal legacy manuální formulář (jméno účtu + access token), který nepoužívala žádná platforma (vše jede přes OAuth). Technický dluh a matoucí UI.
@@ -91,15 +101,5 @@
   2. Překlady cs / en / uk s vysvětlením požadavku na přílohu (video / médium).
 - **Ověření**: JSON validní ve všech 3 souborech ✅ (`node -e JSON.parse`).
 - **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 3 označen ✅)
-
-### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 1)
-
-- **Kontext**: Úkol Prompt 023 – zabránit výběru platformy, která nepodporuje nahraný typ obsahu (např. TikTok bez videa). Krok 1 zavádí pouze validační logiku (disabled stav); vizuální zvýraznění (opacity-50 / Tooltip) přijde v Krok 2 a auto-odškrtnutí vybrané platformy po smazání média v Krok 4.
-- **Změna** (`src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`):
-  1. Přidány memoizované příznaky `hasVideoAttachment` / `hasAnyMediaAttachment` odvozené z `mediaItems` (vynechány chybné uploady `status === "error"`).
-  2. Přidána `isPlatformMediaRequirementMet(platformId)`: TikTok & YouTube vyžadují video, Instagram vyžaduje jakékoliv médium, Facebook/X/LinkedIn podporují cokoliv.
-  3. Tlačítka platforem dostala `disabled`, když požadavek není splněn a platforma není již publikovaná (`isPublished`).
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na obou souborech ✅ (jediná výtka je pre-existing warning na řádku 1550 v TikTok náhledu, mimo tento zásah).
-- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 1 označen ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

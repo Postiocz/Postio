@@ -3,6 +3,18 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✨ Feat — Odstranění mrtvého manuálního token formuláře (Prompt 025, Krok 3)
+
+- **Kontext**: Krok 3 úkolu Prompt 025 – na stránce Účty zůstal legacy manuální formulář (jméno účtu + access token), který nepoužívala žádná platforma (vše jede přes OAuth). Technický dluh a matoucí UI.
+- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
+  1. Smazán `handleConnect` i celý JSX manuálního formuláře včetně jeho `ternary`/`IIFE` obálky v gridu platforem.
+  2. Odebrány mrtvé stavy `selectedPlatform`, `accountName`, `accessToken`, `connecting` (používaly výhradně tento formulář).
+  3. `onClick` zjednodušen: všechny platformy jdou rovnou přes OAuth modal (`ConnectAccountModal`); odstraněna nedosažitelná `else` větev i legacy komentář.
+  4. Stav `error` (jeho jediné vykreslení bylo ve formuláři) zcela odstraněn; chyby z delete/OAuth handlerů převedeny na `toast.error` (zachována zpětná vazba, dříve se ztratily).
+  5. Odebrány nepoužité importy `Input`, `Label`, `X`.
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅ (zbývají jen 3 pre-existing warningy: `Clock` nepoužitý, 2× hook deps mimo tento zásah). Manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 3 ✅)
+
 ### ✨ Feat — Fallback pro nefunkční avatary na stránce Účty (Prompt 025, Krok 2)
 
 - **Kontext**: Krok 2 úkolu Prompt 025 – avatary připojených účtů i pending FB stránek se načítaly z CDN bez ošetření chyby. Při 403/expiraci CDN se zobrazoval rozbitý obrázek.
@@ -89,20 +101,5 @@
   3. Tlačítka platforem dostala `disabled`, když požadavek není splněn a platforma není již publikovaná (`isPublished`).
 - **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na obou souborech ✅ (jediná výtka je pre-existing warning na řádku 1550 v TikTok náhledu, mimo tento zásah).
 - **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 1 označen ✅)
-
-### ✨ Feat — Dashboard: redesign karty „Poslední příspěvky" (Krok 3, úkol dokončen)
-
-- **Kontext**: Finální krok úkolu. Karta v sekci Poslední příspěvky (`page.tsx`) ukazovala jen text + absolutní datum a klikatelný byl pouze vnitřek.
-- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
-  1. Celá `<Card>` je klikatelná — `<Link>` ji obaluje (`group` + `group-hover`).
-  2. Ikony platforem (reuse `platformIcons`, dedup, max 5; fallback `FileText`).
-  3. Miniatura prvního média (`aspect-video`, video/obrázek přes `isVideoUrl`) + overlay „+N" pro další.
-  4. Relativní čas přes `Intl.RelativeTimeFormat` (helper `formatRelativeTime`, nad ~30 dní absolutní datum); u `scheduled` postů „Naplánováno na {datum}" (nový i18n klíč `dashboard.scheduledFor` v cs/en/uk).
-  5. Max 2 barevné štítky (tečka v barvě + název) + „+N".
-  6. Purita: „teď" zachyceno jednou přes `useState(() => Date.now())` (ESLint react-hooks/purity zakazuje `Date.now()` v renderu).
-- **🐛 Bugfix při testování**: `scheduled_at` **není sloupec tabulky `posts`** (je na `post_platforms`). Krok 2 ho omylem přidal do top-level selectu → PostgREST 400 → query 4b spadla → sekce Poslední příspěvky celá zmizela. Opraveno: `scheduled_at` přesunut do embedu `post_platforms(...)`, v mapování se bere nejbližší naplánovaný čas napříč platformami. Ověřeno přímým dotazem (200 OK).
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `page.tsx`, `src/messages/cs.json` / `en.json` / `uk.json`, `ukol.md` (úkol dokončen a smazán), `CHANGELOG.md`
-
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

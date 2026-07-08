@@ -50,7 +50,7 @@
 - [x] **Krok 2 – Fallback pro nefunkční avatary (`onError`):**
   U `<img>` avatarů (připojené účty ř. ~693 i pending pages ř. ~639) doplnit `onError` handler, který při selhání načtení (403/expirace CDN) zobrazí fallback ikonu platformy místo rozbitého obrázku.
 
-- [ ] **Krok 3 – Odstranění mrtvého manuálního token formuláře:**
+- [x] **Krok 3 – Odstranění mrtvého manuálního token formuláře:**
   Smazat legacy manuální formulář (accountName + accessToken, ř. ~501–594) včetně nepoužívaných stavů, `handleConnect` a zbytečné větve. Žádná platforma ho nepoužívá (vše jede přes OAuth).
 
 - [ ] **Krok 4 – Náhrada hardcoded textů za i18n:**

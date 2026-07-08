@@ -7,8 +7,6 @@ import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -20,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   Trash2,
-  X,
   PlusCircle,
   ChevronRight,
   Sparkles,
@@ -188,13 +185,6 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [platforms, setPlatforms] = useState<Platform[]>(DEFAULT_PLATFORMS);
-  const [selectedPlatform, setSelectedPlatform] = useState<PlatformId | null>(
-    null
-  );
-  const [accountName, setAccountName] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<SocialAccount | null>(
     null
   );
@@ -419,43 +409,11 @@ export default function AccountsPage() {
     }
   }, [ytSignal, liSignal, xSignal, tiktokSignal, errorSignal, router, t]);
 
-  async function handleConnect(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedPlatform || !accountName || !accessToken) return;
-
-    setConnecting(true);
-    setError(null);
-
-    const res = await fetch("/api/accounts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        platform: selectedPlatform,
-        accountName,
-        accessToken,
-      }),
-    });
-
-    const result = await res.json();
-
-    if (!res.ok) {
-      setError(result.error || t("errorConnecting"));
-      setConnecting(false);
-      return;
-    }
-
-    setSelectedPlatform(null);
-    setAccountName("");
-    setAccessToken("");
-    fetchAccounts();
-    setConnecting(false);
-  }
-
   async function handleDeleteConnectedAccount() {
     if (!accountToDelete) return;
 
     setDeleting(true);
-    setError(null);
+    setDeleting(true);
 
     const res = await fetch("/api/accounts", {
       method: "DELETE",
@@ -465,7 +423,7 @@ export default function AccountsPage() {
     const result = (await res.json()) as { error?: string };
 
     if (!res.ok) {
-      setError(result.error || t("errorDeletingAccount"));
+      toast.error(result.error || t("errorDeletingAccount"));
       setDeleting(false);
       return;
     }
@@ -496,12 +454,11 @@ export default function AccountsPage() {
       </div>
 
       <div className="max-w-xl mx-auto mt-12 bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-8 shadow-2xl relative">
-        {selectedPlatform === null ? (
-          <div className="space-y-6">
-            <h2 className="text-sm font-medium uppercase tracking-widest text-muted-foreground/40">
-              {t("connect")}
-            </h2>
-            <Reorder.Group
+        <div className="space-y-6">
+          <h2 className="text-sm font-medium uppercase tracking-widest text-muted-foreground/40">
+            {t("connect")}
+          </h2>
+          <Reorder.Group
               axis="y"
               values={platforms}
               onReorder={setPlatforms}
@@ -536,28 +493,13 @@ export default function AccountsPage() {
                       toast.error(t("accountLimitReached"));
                       return;
                     }
-                    // Platforms that go through the universal OAuth connect
-                    // modal (ConnectAccountModal → Google / Meta / LinkedIn).
-                    // The "else" branch shows the legacy manual token +
-                    // account-name form — no platform currently uses this
-                    // (all platforms have OAuth flows). Kept as fallback.
-                    const isOAuthPlatform =
-                      platform.id === "instagram" ||
-                      platform.id === "facebook" ||
-                      platform.id === "linkedin" ||
-                      platform.id === "youtube" ||
-                      platform.id === "twitter" ||
-                      platform.id === "tiktok";
-                    if (isOAuthPlatform) {
-                      setConnectModalPlatform({
-                        id: platform.id,
-                        name: getPlatformLabel(platform.id),
-                        icon: platform.icon,
-                      });
-                      setShowConnectModal(true);
-                    } else {
-                      setSelectedPlatform(platform.id);
-                    }
+                    // All platforms connect through the universal OAuth modal.
+                    setConnectModalPlatform({
+                      id: platform.id,
+                      name: getPlatformLabel(platform.id),
+                      icon: platform.icon,
+                    });
+                    setShowConnectModal(true);
                   }}
                   whileDrag={{
                     scale: 1.06,
@@ -582,100 +524,6 @@ export default function AccountsPage() {
               ))}
             </Reorder.Group>
           </div>
-        ) : (() => {
-          const platform = platformById.get(selectedPlatform);
-          const Icon = platform?.icon;
-          return (
-            <>
-              <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-lg font-semibold">
-                  {Icon && <Icon className="h-5 w-5" />}
-                  {getPlatformLabel(selectedPlatform)}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedPlatform(null);
-                    setAccountName("");
-                    setAccessToken("");
-                    setError(null);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {error && (
-                <div className="mt-4 rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
-
-              <form onSubmit={handleConnect} className="mt-6 space-y-5">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="accountName"
-                    className="text-sm font-medium text-muted-foreground/80"
-                  >
-                    {t("accountName")}
-                  </Label>
-                  <Input
-                    id="accountName"
-                    placeholder="@username"
-                    value={accountName}
-                    onChange={(e) => setAccountName(e.target.value)}
-                    required
-                    className="bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="accessToken"
-                    className="text-sm font-medium text-muted-foreground/80"
-                  >
-                    {t("accessToken")}
-                  </Label>
-                  <Input
-                    id="accessToken"
-                    type="password"
-                    placeholder={t("accessTokenPlaceholder")}
-                    value={accessToken}
-                    onChange={(e) => setAccessToken(e.target.value)}
-                    required
-                    className="bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button
-                    type="submit"
-                    disabled={connecting}
-                    className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-                  >
-                    {connecting
-                      ? t("connecting") || "Connecting..."
-                      : t("connectAccount") || "Connect Account"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedPlatform(null);
-                      setAccountName("");
-                      setAccessToken("");
-                      setError(null);
-                    }}
-                    className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                  >
-                    {t("cancel")}
-                  </Button>
-                </div>
-              </form>
-            </>
-          );
-        })()}
       </div>
 
       {/* Pending Facebook Pages – "tick which Pages to enable" section. */}
@@ -874,7 +722,6 @@ export default function AccountsPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      setError(null);
                       setAccountToDelete(account);
                     }}
                     className="rounded-xl hover:bg-destructive/10"
@@ -988,7 +835,7 @@ export default function AccountsPage() {
                 },
               });
               if (error) {
-                setError(error.message);
+                toast.error(error.message);
                 return;
               }
               if (data?.url) {
@@ -1009,7 +856,7 @@ export default function AccountsPage() {
                 },
               });
               if (error) {
-                setError(error.message);
+                toast.error(error.message);
                 return;
               }
               if (data?.url) {

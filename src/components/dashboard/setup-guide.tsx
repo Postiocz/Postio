@@ -50,9 +50,24 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
     let cancelled = false;
     const checkProgress = async () => {
       try {
+        // Scope to the authenticated user explicitly. RLS should enforce this,
+        // but if it is disabled/misconfigured in the DB, an unfiltered count
+        // would leak other users' accounts/posts to a new (empty) user.
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const userId = user?.id ?? "";
+
         const [accountsData, postsData] = await Promise.all([
-          supabase.from("social_accounts").select("*", { count: "exact", head: true }).eq("is_active", true),
-          supabase.from("posts").select("*", { count: "exact", head: true }),
+          supabase
+            .from("social_accounts")
+            .select("*", { count: "exact", head: true })
+            .eq("is_active", true)
+            .eq("user_id", userId),
+          supabase
+            .from("posts")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", userId),
         ]);
 
         const hasAccounts = (accountsData.count ?? 0) > 0;

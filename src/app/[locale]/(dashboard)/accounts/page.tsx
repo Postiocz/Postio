@@ -177,10 +177,25 @@ export default function AccountsPage() {
   const [loadingPending, setLoadingPending] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const isDraggingRef = useRef(false);
+  // Current user plan – used for client-side account-limit enforcement.
+  const [userPlan, setUserPlan] = useState<"free" | "creator" | "pro">("free");
 
   const platformById = useMemo(() => {
     return new Map(platforms.map((p) => [p.id, p]));
   }, [platforms]);
+
+  // Maximum number of *connected* (active) accounts allowed per plan.
+  // Mirrors the server-side limits in src/lib/account-limit.ts.
+  const ACCOUNT_LIMITS = { free: 1, creator: 5, pro: Infinity } as const;
+  const accountLimit = ACCOUNT_LIMITS[userPlan];
+  const activeAccountCount = useMemo(
+    () => accounts.filter((a) => a.is_active).length,
+    [accounts]
+  );
+  // True when the user already has as many active accounts as their plan
+  // allows (Pro is unlimited, so it is never at the limit).
+  const isAtAccountLimit =
+    accountLimit !== Infinity && activeAccountCount >= accountLimit;
 
   function getPlatformLabel(id: PlatformId) {
     return t(`platforms.${id}` as never);
@@ -210,17 +225,29 @@ export default function AccountsPage() {
   }, [platformById]);
 
   async function fetchAccounts() {
-    const { data: accounts, error } = await supabase
-      .from("social_accounts")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      // Load accounts through a server route that strips secrets (access tokens,
+      // refresh tokens in metadata) before anything reaches the browser.
+      const res = await fetch("/api/accounts", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const result = (await res.json()) as {
+        accounts?: SocialAccount[];
+        error?: string;
+      };
 
-    if (error) {
+      if (!res.ok) {
+        setAccounts([]);
+        return;
+      }
+
+      setAccounts(result.accounts ?? []);
+    } catch {
+      setAccounts([]);
+    } finally {
       setLoading(false);
-      return;
     }
-    if (accounts) setAccounts(accounts as SocialAccount[]);
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -254,9 +281,19 @@ export default function AccountsPage() {
     }
   };
 
+  // Load the user's plan so we can enforce the account limit client-side
+  // (proactively block new connections before they hit the server).
+  const fetchPlan = async () => {
+    const { data } = await supabase.from("users").select("plan").single();
+    if (data?.plan) {
+      setUserPlan(data.plan as "free" | "creator" | "pro");
+    }
+  };
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       fetchPendingPages();
+      fetchPlan();
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
@@ -386,13 +423,15 @@ export default function AccountsPage() {
     setDeleting(true);
     setError(null);
 
-    const { error: deleteError } = await supabase
-      .from("social_accounts")
-      .delete()
-      .eq("id", accountToDelete.id);
+    const res = await fetch("/api/accounts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId: accountToDelete.id }),
+    });
+    const result = (await res.json()) as { error?: string };
 
-    if (deleteError) {
-      setError(deleteError.message);
+    if (!res.ok) {
+      setError(result.error || t("errorDeletingAccount"));
       setDeleting(false);
       return;
     }
@@ -452,6 +491,17 @@ export default function AccountsPage() {
                   }}
                   onClick={() => {
                     if (isDraggingRef.current) return;
+                    // Proactively block NEW connections when the user is at
+                    // their plan's account limit. Reconnecting an already
+                    // connected (active) account is always allowed because it
+                    // does not increase the connected-account count.
+                    const alreadyConnected = accounts.some(
+                      (a) => a.platform === platform.id && a.is_active
+                    );
+                    if (isAtAccountLimit && !alreadyConnected) {
+                      toast.error(t("accountLimitReached"));
+                      return;
+                    }
                     // Platforms that go through the universal OAuth connect
                     // modal (ConnectAccountModal → Google / Meta / LinkedIn).
                     // The "else" branch shows the legacy manual token +

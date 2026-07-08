@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { isNewAccountAllowed, accountLimitErrorMessage } from "@/lib/account-limit";
 
 const LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
@@ -151,6 +152,22 @@ export async function GET(request: NextRequest) {
       userInfo.name ?? `${userInfo.given_name ?? ""} ${userInfo.family_name ?? ""}`.trim() ?? "LinkedIn Account";
     const avatarUrl = userInfo.picture ?? null;
     const platformId = userInfo.sub; // LinkedIn OpenID subject (unique user ID)
+
+    // Enforce the plan account limit before upserting. A reconnect of the
+    // same LinkedIn account (same platform_id) is always allowed; a brand-new
+    // connection is blocked once the user is at their plan's limit.
+    const { allowed: linkedinAllowed, info: linkedinInfo } = await isNewAccountAllowed(
+      supabase,
+      userId,
+      "linkedin",
+      platformId,
+    );
+    if (!linkedinAllowed) {
+      console.error("[LinkedIn OAuth] Account limit reached:", linkedinInfo);
+      return NextResponse.redirect(
+        new URL(errorRedirect(accountLimitErrorMessage(linkedinInfo)), request.url)
+      );
+    }
 
     // LinkedIn tokens expire in 60 days
     const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();

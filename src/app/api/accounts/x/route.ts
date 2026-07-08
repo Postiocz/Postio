@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { isNewAccountAllowed, accountLimitErrorMessage } from "@/lib/account-limit";
 
 const X_AUTH_URL = "https://twitter.com/i/oauth2/authorize";
 const X_TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
@@ -255,6 +256,22 @@ export async function GET(request: NextRequest) {
       : new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
     // ── Step 6: Save to social_accounts ────────────────────────────
+    // Enforce the plan account limit before upserting. A reconnect of the
+    // same X account (same platform_id) is always allowed; a brand-new
+    // connection is blocked once the user is at their plan's limit.
+    const { allowed: xAllowed, info: xInfo } = await isNewAccountAllowed(
+      supabase,
+      userId,
+      "twitter",
+      platformId,
+    );
+    if (!xAllowed) {
+      console.error("[X OAuth] Account limit reached:", xInfo);
+      const limitErrorUrl = new URL(`/${locale}/accounts`, request.url);
+      limitErrorUrl.searchParams.set("error", accountLimitErrorMessage(xInfo));
+      return NextResponse.redirect(limitErrorUrl);
+    }
+
     const supabaseAdmin = createAdminClient();
     const { error: dbError } = await supabaseAdmin
       .from("social_accounts")

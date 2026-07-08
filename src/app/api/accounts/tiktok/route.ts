@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { isNewAccountAllowed, accountLimitErrorMessage } from "@/lib/account-limit";
 import crypto from "crypto";
 
 const TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize";
@@ -240,6 +241,22 @@ export async function GET(request: NextRequest) {
     if (!platformId) {
        console.error("[TikTok OAuth] No open_id found for user");
        return NextResponse.redirect(new URL(redirectOnError, request.url));
+    }
+
+    // Enforce the plan account limit before upserting. A reconnect of the
+    // same TikTok account (same platform_id) is always allowed; a brand-new
+    // connection is blocked once the user is at their plan's limit.
+    const { allowed: tiktokAllowed, info: tiktokInfo } = await isNewAccountAllowed(
+      supabase,
+      userId,
+      "tiktok",
+      platformId,
+    );
+    if (!tiktokAllowed) {
+      console.error("[TikTok OAuth] Account limit reached:", tiktokInfo);
+      return NextResponse.redirect(
+        new URL(errorRedirect(accountLimitErrorMessage(tiktokInfo)), request.url)
+      );
     }
 
     // TikTok commonly returns a short-lived access token (often 24h / 86400 s,

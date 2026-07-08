@@ -607,7 +607,8 @@
     "tokenExpiringSoon": "Термін дії токену мине через {days} днів",
     "tokenExpiredStatus": "Минув",
     "tokenExpiringStatus": "Скоро мине",
-    "reconnect": "Підключити знову"
+    "reconnect": "Підключити знову",
+    "accountLimitReached": "Ви досягли ліміту облікових записів для свого тарифу. Перейдіть на вищий план у Налаштуваннях."
   },
   "templates": {
     "title": "Шаблони",

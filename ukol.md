@@ -37,19 +37,43 @@
 9. **SEKCE - AKTUÁLNÍCH ÚKOLŮ:**
   📌 Aktuální úkoly
 
-  ## 🎯 Prompt 024 — Optimalizace velikosti karet "Poslední příspěvky" (Dashboard)
+---
 
-  **Cíl**: Karty v sekci "Poslední příspěvky" jsou vizuálně příliš velké a disproporční oproti ostatním widgetům. Zmenšit je a poskládat kompaktněji.
+## 🚨 Oprava: Izolace účtů (nový uživatel vidí cizí/testovací účty)
 
-  **Analýza (FÁZE 1)** — soubor `src/app/[locale]/(dashboard)/page.tsx`:
-  - Grid sekce (ř. 602): `grid gap-3 sm:grid-cols-2 lg:grid-cols-3` → na `xl` stále jen **3 sloupce** (chybí `xl` breakpoint).
-  - Karta (ř. 628–726): `<Card>` (`bg-card/40 backdrop-blur-md border-white/5`), `<CardContent>` = `flex h-full flex-col gap-3 p-4`.
-  - Media thumbnail (ř. 669): `relative aspect-video ... rounded-xl border-white/10` → výška se s úžením sloupce zmenší automaticky, ale **chybí `max-height`**.
-  - Texty: `h3` = `line-clamp-2 font-medium` (výchozí `text-base` ≈ 16px); tagy `text-[11px]`; čas `text-xs`. V užší kartě může být `text-base` moc.
-  - Sekce leží na **plné šířce** dashboardu (mimo užší sloupce analytiky), takže 4 sloupce na `xl` mají dostatek místa. (Max 5 příspěvků → při 4/s lze 4 + 1.)
+> Prioritní chyba hlášená uživatelem: po přihlášení jako zcela nový uživatel se na stránce "Účty" zobrazovaly všechny propojené účty z testovacího účtu (všech 6 platforem). Příčina: dotazy na `social_accounts` na straně klienta spoléhaly čistě na RLS, které ve live DB reálně nefiltrovalo. Oprava: explicitní `.eq("user_id", userId")` v klientských načítáních (defense-in-depth).
 
-  **Navržený plán (3 kroky, krokování dle Pravidla 2)**:
-  - [x] **Krok 1 — Grid**: Změněno na `grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` (lg 3, sm 2). ✅
-  - [x] **Krok 2 — Thumbnail**: Přidáno `max-h-[140px]` k media kontejneru (ř. 669) + `rounded-xl` → `rounded-lg`. ✅
-  - [x] **Krok 3 — Texty & padding**: `h3` → `text-sm`; `CardContent` padding `p-4` → `p-3.5` (kompaktnější, čitelné i v užším formátu). ✅
+- [x] **Krok 1 – Explicitní filtrování účtů podle uživatele (klient):**
+  - `accounts/page.tsx` `fetchAccounts`: přidat `supabase.auth.getUser()` a `.eq("user_id", user.id)` (hlášená chyba – nový uživatel už nevidí cizí účty).
+  - `components/dashboard/setup-guide.tsx` `checkProgress`: přidat `user_id` filtr k počtu aktivních účtů i příspěvků (nový uživatel nevidí "máš propojené účty/příspěvky").
+  - Ověřit, že ostatní klientská načítání (`edit-post-dialog`, `preview-dialog`, `dashboard/page.tsx`) už `user_id` filtrují (ano – ponecháno).
+  - Poznámka: doporučeno zkontrolovat v Supabase dashboardu, zda je na `social_accounts` zapnuté RLS a existují politiky `auth.uid() = user_id` (migrace 013 je definuje, ale v live DB mohly chybět).
+
+---
+
+## 🧹 Prompt 025 – Úklid a byznys logika na stránce Účty
+
+> Cíl: Vyčistit technický dluh na stránce `accounts` odhalený auditem, než přidáme další funkce.
+
+- [x] **Krok 1 – Vynucení limitu účtů podle plánu (server-side + klientská blokace):**
+  Do `POST /api/accounts/route.ts` (a relevantních OAuth routes) přidat kontrolu počtu připojených účtů dle plánu uživatele: Free = 1, Creator = 5, Pro = ∞. Při překročení vrátit chybu a zabránit připojení. Kontrola musí být server-side (klient lze obejít).
+  - **Dodatek (klientská blokace, UX):** Na stránce Účty přidat proaktivní UI blokaci – pokud `activeAccounts >= limit`, kliknutí na nepřipojenou platformu NESMÍ zahájit OAuth flow ani otevřít formulář, místo toho `toast.error` s hláškou. Reconnect připojeného účtu povolit (nezvyšuje počet). Hlášku lokalizovat (cs/en/uk) pod klíčem `accountLimitReached`.
+
+- [ ] **Krok 2 – Fallback pro nefunkční avatary (`onError`):**
+  U `<img>` avatarů (připojené účty ř. ~693 i pending pages ř. ~639) doplnit `onError` handler, který při selhání načtení (403/expirace CDN) zobrazí fallback ikonu platformy místo rozbitého obrázku.
+
+- [ ] **Krok 3 – Odstranění mrtvého manuálního token formuláře:**
+  Smazat legacy manuální formulář (accountName + accessToken, ř. ~501–594) včetně nepoužívaných stavů, `handleConnect` a zbytečné větve. Žádná platforma ho nepoužívá (vše jede přes OAuth).
+
+- [ ] **Krok 4 – Náhrada hardcoded textů za i18n:**
+  Nahradit natvrdo psané řetězce klíči z `messages`: `"Načítání…"` (ř. 405) → `accounts.loading`, a odstranit míchané fallbacky typu `t("connecting") || "Connecting..."` a `t("active") || "Aktivní"`. Doplnit chybějící klíče do cs/en/uk.
+
+- [ ] **Krok 5 – Očištění `getTokenStatus` (čistý render):**
+  Přesunout výpočet token-expiry stavu z render-fáze (`Date.now()` na ř. 195) do `useMemo`, aby render byl čistý a šlo odstranit ESLint disable `react-hooks/purity`.
+
+- [ ] **Krok 6 – Ověření reconnect (žádné duplicity):**
+  Ověřit, že tlačítko Reconnect u všech platforem (zejména Instagram/TikTok) provádí upsert a nevytváří druhý řádek v `social_accounts`. Případně opravit na upsert dle `(user_id, platform, platform_id)`.
+
+- [ ] **Krok 7 – Zpětná vazba při 0 pending pages:**
+  Po návratu z Facebook OAuth (`?fb=connected`) při 0 spravovatelných stránkách zobrazit informativní toast místo tichého smazání query paramu.
 

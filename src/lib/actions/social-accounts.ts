@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getAccountLimitInfo, accountLimitErrorMessage } from "@/lib/account-limit";
 
 /**
  * Toggle the `is_active` flag on a `social_accounts` row owned by the
@@ -35,7 +36,7 @@ export async function toggleAccountActive(
   // the two cases in the response so we do not leak row existence.
   const { data: owned, error: ownershipError } = await supabase
     .from("social_accounts")
-    .select("id")
+    .select("id, is_active")
     .eq("id", accountId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -45,6 +46,16 @@ export async function toggleAccountActive(
   }
   if (!owned) {
     return { success: false, error: "Account not found" };
+  }
+
+  // Activating a currently-inactive account increases the user's connected
+  // (active) account count, so it must respect the plan limit. Reactivating
+  // an account that is already active is a no-op and is always allowed.
+  if (isActive && !owned.is_active) {
+    const info = await getAccountLimitInfo(supabase, user.id);
+    if (info.limit !== Infinity && info.activeCount >= info.limit) {
+      return { success: false, error: accountLimitErrorMessage(info) };
+    }
   }
 
   const { error: updateError } = await supabase

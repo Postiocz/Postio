@@ -607,7 +607,8 @@
     "tokenExpiringSoon": "Token vyprší za {days} dní",
     "tokenExpiredStatus": "Vypršel",
     "tokenExpiringStatus": "Vyprší brzy",
-    "reconnect": "Znovu připojit"
+    "reconnect": "Znovu připojit",
+    "accountLimitReached": "Dosáhli jste limitu účtů pro váš tarif. Přejděte na vyšší plán v Nastavení."
   },
   "templates": {
     "title": "Šablony",

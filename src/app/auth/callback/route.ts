@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { getAccountLimitInfo, accountLimitErrorMessage } from "@/lib/account-limit";
 
 type FacebookPagesResponse = {
   data?: Array<{
@@ -496,10 +497,15 @@ export async function GET(request: NextRequest) {
   const targetUserId =
     existingSession?.user?.id ?? existingUser?.id ?? oauthUser?.id ?? null;
 
+  // Set when the Facebook OAuth upsert had to drop new active accounts that
+  // would exceed the user's plan limit. Surfaced to the /accounts page via a
+  // `?error=` query param after the redirect.
+  let facebookLimitWarning: string | null = null;
+
   if (oauthSession?.provider_token && targetUserId) {
     const facebookUserToken = oauthSession.provider_token;
 
-    const rowsToUpsert: Array<{
+    let rowsToUpsert: Array<{
       user_id: string;
       platform: "facebook" | "instagram";
       account_name: string;
@@ -746,8 +752,46 @@ export async function GET(request: NextRequest) {
     }
 
     if (rowsToUpsert.length > 0) {
-      console.log(`[Postio] Ukládám ${rowsToUpsert.length} účtů do social_accounts:`, rowsToUpsert.map(r => `${r.platform}:${r.account_name}(${r.platform_id})`));
       const supabaseAdmin = createAdminClient();
+      // Enforce the plan account limit. Only the *active* rows (Instagram
+      // direct / via Page) consume a slot; inactive Facebook Pages do not
+      // count until the user opts in (toggleAccountActive). A reconnect of an
+      // existing active account never increases the count, so it is allowed
+      // even at the limit. Brand-new active accounts beyond the remaining
+      // limit are dropped (existing connections + inactive Pages are kept).
+      const limitInfo = await getAccountLimitInfo(supabaseAdmin, targetUserId);
+      if (limitInfo.limit !== Infinity) {
+        const activeRows = rowsToUpsert.filter((r) => r.is_active);
+        if (activeRows.length > 0) {
+          const { data: existing } = await supabaseAdmin
+            .from("social_accounts")
+            .select("platform, platform_id")
+            .eq("user_id", targetUserId)
+            .in("platform", activeRows.map((r) => r.platform));
+          const existingSet = new Set(
+            (existing ?? []).map((e) => `${e.platform}:${e.platform_id}`)
+          );
+          const newActive = activeRows.filter(
+            (r) => !existingSet.has(`${r.platform}:${r.platform_id}`)
+          );
+          const remaining = Math.max(0, limitInfo.limit - limitInfo.activeCount);
+          if (newActive.length > remaining) {
+            const dropKeys = new Set(
+              newActive.slice(remaining).map((r) => `${r.platform}:${r.platform_id}`)
+            );
+            rowsToUpsert = rowsToUpsert.filter(
+              (r) => !dropKeys.has(`${r.platform}:${r.platform_id}`)
+            );
+            console.warn(
+              `[Postio] Account limit reached (${limitInfo.plan}, max ${limitInfo.limit}). ` +
+                `Dropped ${newActive.length - remaining} new active account(s) from Facebook OAuth upsert.`
+            );
+            facebookLimitWarning = accountLimitErrorMessage(limitInfo);
+          }
+        }
+      }
+
+      console.log(`[Postio] Ukládám ${rowsToUpsert.length} účtů do social_accounts:`, rowsToUpsert.map(r => `${r.platform}:${r.account_name}(${r.platform_id})`));
       const { data: upsertData, error: upsertError } = await supabaseAdmin
         .from("social_accounts")
         .upsert(rowsToUpsert, {
@@ -787,6 +831,13 @@ export async function GET(request: NextRequest) {
   if (requestedPlatform !== "instagram") {
     const separator = finalNext.includes("?") ? "&" : "?";
     finalNext = `${finalNext}${separator}fb=connected`;
+  }
+
+  // Surface the plan account-limit warning (if any accounts were dropped
+  // during the Facebook OAuth upsert) so the /accounts page can toast it.
+  if (facebookLimitWarning) {
+    const separator = finalNext.includes("?") ? "&" : "?";
+    finalNext = `${finalNext}${separator}error=${encodeURIComponent(facebookLimitWarning)}`;
   }
 
   const redirectResponse = NextResponse.redirect(new URL(finalNext, request.url));

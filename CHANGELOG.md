@@ -5,6 +5,28 @@
 
 ## 2026-07-07
 
+### 🐛 Fix — Izolace účtů: nový uživatel viděl cizí/testovací účty (RLS)
+
+- **Kontext**: Po přihlášení jako zcela nový uživatel se na stránce "Účty" zobrazovaly všechny propojené účty z testovacího účtu (všech 6 platforem). Klientská načítání `social_accounts` spoléhala čistě na RLS, které ve live DB reálně nefiltrovalo → únik cizích dat.
+- **Oprava** (defense-in-depth, explicitní filtr podle uživatele):
+  1. `accounts/page.tsx` `fetchAccounts`: `supabase.auth.getUser()` + `.eq("user_id", user.id)` (hlášená chyba odstraněna).
+  2. `components/dashboard/setup-guide.tsx` `checkProgress`: `user_id` filtr u počtu aktivních účtů i příspěvků.
+  3. Ověřeno, že `edit-post-dialog`, `preview-dialog` a `dashboard/page.tsx` už `user_id` filtrují – ponecháno.
+- **DB oprava**: v live Supabase byla odstraněna chybná `Testing policy` na `public.social_accounts` a nahrazena 4 korektními RLS politikami pro `SELECT` / `INSERT` / `UPDATE` / `DELETE` s podmínkou `auth.uid() = user_id`.
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na změněných souborech ✅ (pre-existing warningy; `setup-guide.tsx` má 2 pre-existing chyby v ref-patternu mimo tuto změnu). Manuální test uživatelem po opravě live RLS ✅: nový uživatel nevidí cizí účty ani cizí progress na dashboardu.
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/components/dashboard/setup-guide.tsx`, `src/app/api/accounts/route.ts`, `ukol.md` (oprava ✅), `CHANGELOG.md`
+
+### ✨ Feat — Vynucení limitu účtů podle plánu (Prompt 025, Krok 1: server + klient)
+
+- **Kontext**: Krok 1 úkolu Prompt 025 – zabránit připojení více účtů, než povoluje plán uživatele (Free=1, Creator=5, Pro=∞). Dříve šlo limit obejít na straně klienta.
+- **Změna**:
+  - Nový sdílený helper `src/lib/account-limit.ts`: `ACCOUNT_LIMITS`, `getAccountLimitInfo` (počítá aktivní účty `is_active=true`), `isNewAccountAllowed` (reconnect existujícího účtu povolen i na limitu), `accountLimitErrorMessage`.
+  - Server-side kontrola v `POST /api/accounts/route.ts`, OAuth routech `linkedin`/`x`/`tiktok`, server action `toggleAccountActive` (aktivace FB stránky) a `auth/callback/route.ts` (IG auto-aktivace ve FB OAuth). Při překročení: 403 JSON / redirect `?error=` / toast.
+  - Klientská proaktivní blokace v `accounts/page.tsx`: pokud `activeAccounts >= limit`, kliknutí na nepřipojenou platformu zobrazí `toast.error` (`accountLimitReached`) a neotevře OAuth; reconnect připojeného účtu povolen.
+  - i18n klíč `accountLimitReached` v cs/en/uk.
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na změněných souborech ✅ (jen pre-existing warningy). Manuální test v prohlížeči potvrdil uživatel jako hotové bez vlastního testu (nemá jak otestovat).
+- **Upravené soubory**: `src/lib/account-limit.ts` (nový), `src/app/api/accounts/route.ts`, `linkedin/route.ts`, `x/route.ts`, `tiktok/route.ts`, `src/lib/actions/social-accounts.ts`, `src/app/auth/callback/route.ts`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `ukol.md` (Krok 1 ✅)
+
 ### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 3: texty & padding)
 
 - **Kontext**: Závěrečný krok Prompt 024 (po Krok 1 grid xl:4 a Krok 2 max-h thumbnailu). Krok 3 zkompaktí vnitřek karty pro čitelnost v užším formátu.
@@ -86,29 +108,5 @@
 - **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `page.tsx`, `src/messages/cs.json` / `en.json` / `uk.json`, `ukol.md` (úkol dokončen a smazán), `CHANGELOG.md`
 
-### ✨ Feat — Dashboard: rozšíření dat pro Poslední příspěvky (Krok 2)
-
-- **Kontext**: Karta Posledního příspěvku měla pro plánovaný redesign (Krok 3) k dispozici jen `id/content/created_at/status`. Chyběla data pro ikony platforem, miniaturu média, relativní/plánovaný čas a barevné štítky.
-- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
-  1. Query 4b (`posts`) select rozšířen o `scheduled_at, media_urls, post_tags(tags(id, name, color))`. Vnořený join je RLS-filtrovaný přes rodiče `posts` (stejný vzor jako stránka Příspěvky).
-  2. Typ `RecentPostItem` doplněn o `scheduled_at`, `platforms`, `media_urls`, `post_tags`.
-  3. Typ `RecentPostRow` doplněn o `scheduled_at`, `media_urls`, `post_tags` (reuse `PostTagJoinRow`).
-  4. Mapování přes `normalizePost` propaguje nová pole do `RecentPostItem`.
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na `page.tsx` ✅, dashboard naběhne beze změny UI ✅ (uživatel potvrdil — data se zatím jen načítají navíc).
-- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 2 ✅), `CHANGELOG.md`
-
-### 🐛 Fix — Dashboard: status `publishing` v Posledních příspěvcích nebyl lokalizovaný (Krok 1)
-
-- **Kontext**: `normalizePost` může pro post vrátit computed status `"publishing"`, ale `recentPostStatusLabels` v dashboardu (`page.tsx`) ho nemapoval a klíč `statusPublishing` neexistoval v žádném jazyce — badge by ukázal syrové anglické "publishing" ve všech 3 locales. Badge barvy `publishing` také neřešily (spadl do šedé draft větve).
-- **Oprava**:
-  1. Do `posts` namespace v `cs.json` / `en.json` / `uk.json` přidán klíč `statusPublishing` — "Publikuje se" / "Publishing" / "Публікується".
-  2. `recentPostStatusLabels` doplněn o `publishing: postsT("statusPublishing")`.
-  3. Badge dostal větev pro `publishing`: `bg-indigo-500/10 text-indigo-400 animate-pulse` (pulz naznačuje probíhající publikaci).
-- **Ověření**: JSON validní ve všech 3 souborech ✅, `npx tsc --noEmit` ✅, `npx eslint` na `page.tsx` ✅, dashboard se vykresluje beze změny ✅ (uživatel potvrdil)
-- **Upravené soubory**:
-  - `src/app/[locale]/(dashboard)/page.tsx`
-  - `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`
-  - `ukol.md` (nový úkol "Vylepšení – Dashboard Poslední příspěvky", Krok 1 označen ✅)
-  - `CHANGELOG.md`
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

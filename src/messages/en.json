@@ -607,7 +607,8 @@
     "tokenExpiringSoon": "Token expires in {days} days",
     "tokenExpiredStatus": "Expired",
     "tokenExpiringStatus": "Expiring soon",
-    "reconnect": "Reconnect"
+    "reconnect": "Reconnect",
+    "accountLimitReached": "You have reached the account limit for your plan. Upgrade your plan in Settings."
   },
   "templates": {
     "title": "Templates",

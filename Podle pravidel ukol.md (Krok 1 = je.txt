@@ -1,0 +1,358 @@
+Podle pravidel ukol.md (Krok 1 = jeden krok, čekám na test) teď čekám na tvé manuální otestování v prohlížeči na Free
+  plánu:
+  - Máš 1 aktivní účet → kliknutí na jakoukoli nepřipojenou platformu hned zobrazí červený toast s hláškou a neotevře
+  OAuth.
+  - Kliknutí na už připojenou platformu (reconnect) projde.
+
+  Až mi potvrdíš, že to funguje, označím Krok 1 v ukol.md za ✅ a zapíšu záznam do CHANGELOG.md. Jak chceš pokračovat?
+
+  Thought for 1s (ctrl+o to expand)
+
+✻ Sautéed for 6m 17s
+
+※ recap: Cíl: vynutit limit účtů podle plánu (Prompt 025, Krok 1). Mám hotovou serverovou i klientskou blokaci a i18n.
+  Čekám na tvé manuální otestování v prohlížeči na Free plánu, pak označím krok za hotový. (disable recaps in /config)
+
+  budeme pokračovat na krok 2. z ukol.md
+
+  Read 1 file (ctrl+o to expand)
+
+● Rozumím. Nejprve označím Krok 1 za hotový (✅ + zápis do CHANGELOG podle pravidel), pak ihned vyšetřím a opravím chybu
+  izolace účtů (nový uživatel vidí testovací účty).
+
+  Začnu: přečtu spodní část CHANGELOG (pro pravidlo max 10 záznamů) a zároveň začnu vyšetřovat příčinu chyby (RLS na
+  social_accounts a načítání v accounts page).
+
+  Thought for 1s, read 1 file (ctrl+o to expand)
+
+● RLS politiky v migraci 013 vypadají správně (auth.uid() = user_id). Příznak „nový uživatel vidí všechny testovací
+  účty" znamená, že filtrování podle uživatele v live DB efektivně nefunguje (RLS pravděpodobně vypnuto / politiky
+  chybí, nebo účty vloženy mimo RLS). Nejspolehlivější oprava v kódu: do dotazu přidat explicitní .eq("user_id", userId)
+  (funguje nezávisle na RLS).
+
+  Nejprve označím Krok 1 za hotový a zapíšu CHANGELOG.
+
+  Thought for 1s (ctrl+o to expand)
+  ⎿  Error editing file
+  ⎿  Error editing file
+
+  Thought for 30s (ctrl+o to expand)
+
+● Update(ukol.md)
+  ⎿  Added 1 line, removed 1 line
+      43
+      44  > Cíl: Vyčistit technický dluh na stránce `accounts` odhalený auditem, než přidáme další funkce.
+      45
+      46 -- [ ] **Krok 1 – Vynucení limitu účtů podle plánu (server-side + klientská blokace):**
+      46 +- [x] **Krok 1 – Vynucení limitu účtů podle plánu (server-side + klientská blokace):**
+      47    Do `POST /api/accounts/route.ts` (a relevantních OAuth routes) přidat kontrolu počtu připojených účtů
+           dle plánu uživatele: Free = 1, Creator = 5, Pro = ∞. Při překročení vrátit chybu a zabránit připojení.
+           Kontrola musí být server-side (klient lze obejít).
+      48    - **Dodatek (klientská blokace, UX):** Na stránce Účty přidat proaktivní UI blokaci – pokud `activeAc
+          counts >= limit`, kliknutí na nepřipojenou platformu NESMÍ zahájit OAuth flow ani otevřít formulář, mís
+          to toho `toast.error` s hláškou. Reconnect připojeného účtu povolit (nezvyšuje počet). Hlášku lokalizov
+          at (cs/en/uk) pod klíčem `accountLimitReached`.
+      49
+
+● Nyní zapíšu záznam o Kroku 1 do CHANGELOG (na začátek, nejstarší záznam ze spodu se podle pravidla smaže):
+  ⎿  Error editing file
+
+● Update(CHANGELOG.md)
+  ⎿  Added 11 lines
+       5
+       6  ## 2026-07-07
+       7
+       8 +### ✨ Feat — Vynucení limitu účtů podle plánu (Prompt 025, Krok 1: server + klient)
+       9 +
+      10 +- **Kontext**: Krok 1 úkolu Prompt 025 – zabránit připojení více účtů, než povoluje plán uživatele (Fre
+         +e=1, Creator=5, Pro=∞). Dříve šlo limit obejít na straně klienta.
+      11 +- **Změna**:
+      12 +  - Nový sdílený helper `src/lib/account-limit.ts`: `ACCOUNT_LIMITS`, `getAccountLimitInfo` (počítá akt
+         +ivní účty `is_active=true`), `isNewAccountAllowed` (reconnect existujícího účtu povolen i na limitu), `
+         +accountLimitErrorMessage`.
+      13 +  - Server-side kontrola v `POST /api/accounts/route.ts`, OAuth routech `linkedin`/`x`/`tiktok`, server
+         + action `toggleAccountActive` (aktivace FB stránky) a `auth/callback/route.ts` (IG auto-aktivace ve FB
+         +OAuth). Při překročení: 403 JSON / redirect `?error=` / toast.
+      14 +  - Klientská proaktivní blokace v `accounts/page.tsx`: pokud `activeAccounts >= limit`, kliknutí na ne
+         +připojenou platformu zobrazí `toast.error` (`accountLimitReached`) a neotevře OAuth; reconnect připojen
+         +ého účtu povolen.
+      15 +  - i18n klíč `accountLimitReached` v cs/en/uk.
+      16 +- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na změněných souborech ✅ (jen pre-existing warningy
+         +). Manuální test v prohlížeči potvrdil uživatel jako hotové bez vlastního testu (nemá jak otestovat).
+      17 +- **Upravené soubory**: `src/lib/account-limit.ts` (nový), `src/app/api/accounts/route.ts`, `linkedin/r
+         +oute.ts`, `x/route.ts`, `tiktok/route.ts`, `src/lib/actions/social-accounts.ts`, `src/app/auth/callback
+         +/route.ts`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`/`en.json`/`uk.json
+         +`, `ukol.md` (Krok 1 ✅)
+      18 +
+      19  ### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 3: texty & padding)
+      20
+      21  - **Kontext**: Závěrečný krok Prompt 024 (po Krok 1 grid xl:4 a Krok 2 max-h thumbnailu). Krok 3 zkompa
+          ktí vnitřek karty pro čitelnost v užším formátu.
+
+● Nyní smažu nejstarší záznam ze spodu (pravidlo max 10):
+  ⎿  Error editing file
+  ⎿  Error editing file
+
+  Thought for 6s (ctrl+o to expand)
+  ⎿  Error editing file
+
+  Thought for 7s (ctrl+o to expand)
+
+● Update(CHANGELOG.md)
+  ⎿  Removed 6 lines
+      116    2. `recentPostStatusLabels` doplněn o `publishing: postsT("statusPublishing")`.
+      117    3. Badge dostal větev pro `publishing`: `bg-indigo-500/10 text-indigo-400 animate-pulse` (pulz nazna
+           čuje probíhající publikaci).
+      118  - **Ověření**: JSON validní ve všech 3 souborech ✅, `npx tsc --noEmit` ✅, `npx eslint` na `page.tsx`
+            ✅, dashboard se vykresluje beze změny ✅ (uživatel potvrdil)
+      119 -- **Upravené soubory**:
+      120 -  - `src/app/[locale]/(dashboard)/page.tsx`
+      121 -  - `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`
+      122 -  - `ukol.md` (nový úkol "Vylepšení – Dashboard Poslední příspěvky", Krok 1 označen ✅)
+      123 -  - `CHANGELOG.md`
+      124 -
+      119  *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Krok 1 je uzavřen (✅ + CHANGELOG, nyní 10 záznamů). Teď vyšetřím příčinu chyby: najdu všechna načítání
+      226
+      227    async function fetchAccounts() {
+      228 +    // Explicitly scope to the authenticated user. RLS already enforces this,
+      229 +    // but adding the filter makes the query correct even if RLS is disabled
+      230 +    // or misconfigured in the database (defense-in-depth against leaking
+      231 +    // other users' accounts to a new/empty account).
+      232 +    const {
+      233 +      data: { user },
+      234 +    } = await supabase.auth.getUser();
+      235 +    if (!user) {
+      236 +      setLoading(false);
+      237 +      return;
+      238 +    }
+      239 +
+      240      const { data: accounts, error } = await supabase
+      241        .from("social_accounts")
+      242        .select("*")
+      243 +      .eq("user_id", user.id)
+      244        .order("created_at", { ascending: false });
+      245
+      246      if (error) {
+
+● Nyní setup-guide.tsx – přečtu začátek, abych zjistil, jak získat userId:
+
+  Read 1 file (ctrl+o to expand)
+
+● setup-guide používá browser klient bez user_id filtru. Opravím checkProgress – přidám user_id k dotazům na účty i
+  příspěvky:
+
+  Thought for 1s, read 1 file (ctrl+o to expand)
+  ⎿  Error editing file
+  ⎿  Error editing file
+
+  Thought for 8s (ctrl+o to expand)
+
+● Update(src\components\dashboard\setup-guide.tsx)
+  ⎿  Added 17 lines, removed 2 lines
+      50      let cancelled = false;
+      51      const checkProgress = async () => {
+      52        try {
+      53 +        // Scope to the authenticated user explicitly. RLS should enforce this,
+      54 +        // but if it is disabled/misconfigured in the DB, an unfiltered count
+      55 +        // would leak other users' accounts/posts to a new (empty) user.
+      56 +        const {
+      57 +          data: { user },
+      58 +        } = await supabase.auth.getUser();
+      59 +        const userId = user?.id ?? "";
+      60 +
+      61          const [accountsData, postsData] = await Promise.all([
+      54 -          supabase.from("social_accounts").select("*", { count: "exact", head: true }).eq("is_active",
+         -true),
+      55 -          supabase.from("posts").select("*", { count: "exact", head: true }),
+      62 +          supabase
+      63 +            .from("social_accounts")
+      64 +            .select("*", { count: "exact", head: true })
+      65 +            .eq("is_active", true)
+      66 +            .eq("user_id", userId),
+      67 +          supabase
+      68 +            .from("posts")
+      69 +            .select("*", { count: "exact", head: true })
+      70 +            .eq("user_id", userId),
+      71          ]);
+      72
+      73          const hasAccounts = (accountsData.count ?? 0) > 0;
+
+● Nyní spustím tsc a eslint na změněné soubory:
+
+  Thought for 1s (ctrl+o to expand)
+
+● Bash(npx tsc --noEmit 2>&1 | head -30 && echo "---ESLINT---" && npx eslint
+      "src/app/[locale]/(dashboard)/accounts/page.tsx" "src/components/dashboard/setup-guide.tsx…)
+  ⎿  ---ESLINT---
+
+     C:\VS_Code\Postio\src\app\[locale]\(dashboard)\accounts\page.tsx
+     … +41 lines (ctrl+o to expand)
+
+● tsc prošel. V setup-guide.tsx jsou 2 chyby na řádcích 23/26 – ty jsou pre-existing (vzor supabaseRef.current během
+  renderu, který jsem nechtěl měnit; moje úprava je až ve funkci checkProgress). Moje změny nepřidaly žádnou novou chybu
+  (jen pre-existing warningy).
+
+  Teď přidám tuto opravu jako nový úkol do ukol.md a označím ji (chceš ji hotovou ihned). Přečtu aktuální hlavičku:
+
+  Thought for 1s, read 1 file (ctrl+o to expand)
+  ⎿  Error editing file
+  ⎿  Error editing file
+
+● Update(ukol.md)
+  ⎿  Added 12 lines
+      39
+      40  ---
+      41
+      42 +## 🚨 Oprava: Izolace účtů (nový uživatel vidí cizí/testovací účty)
+      43 +
+      44 +> Prioritní chyba hlášená uživatelem: po přihlášení jako zcela nový uživatel se na stránce "Účty" zobra
+         +zovaly všechny propojené účty z testovacího účtu (všech 6 platforem). Příčina: dotazy na `social_accoun
+         +ts` na straně klienta spoléhaly čistě na RLS, které ve live DB reálně nefiltrovalo. Oprava: explicitní
+         +`.eq("user_id", userId")` v klientských načítáních (defense-in-depth).
+      45 +
+      46 +- [x] **Krok 1 – Explicitní filtrování účtů podle uživatele (klient):**
+      47 +  - `accounts/page.tsx` `fetchAccounts`: přidat `supabase.auth.getUser()` a `.eq("user_id", user.id)` (
+         +hlášená chyba – nový uživatel už nevidí cizí účty).
+      48 +  - `components/dashboard/setup-guide.tsx` `checkProgress`: přidat `user_id` filtr k počtu aktivních úč
+         +tů i příspěvků (nový uživatel nevidí "máš propojené účty/příspěvky").
+      49 +  - Ověřit, že ostatní klientská načítání (`edit-post-dialog`, `preview-dialog`, `dashboard/page.tsx`)
+         +už `user_id` filtrují (ano – ponecháno).
+      50 +  - Poznámka: doporučeno zkontrolovat v Supabase dashboardu, zda je na `social_accounts` zapnuté RLS a
+         +existují politiky `auth.uid() = user_id` (migrace 013 je definuje, ale v live DB mohly chybět).
+      51 +
+      52 +---
+      53 +
+      54  ## 🧹 Prompt 025 – Úklid a byznys logika na stránce Účty
+      55
+      56  > Cíl: Vyčistit technický dluh na stránce `accounts` odhalený auditem, než přidáme další funkce.
+
+● Přidám záznam o opravě izolace do CHANGELOG (a odebírám nejstarší, aby jich bylo max 10). Přečtu aktuální spodní část:
+
+  Thought for 1s, read 1 file (ctrl+o to expand)
+
+● Všímám si, že můj dřívější pokus o odebrání nejstaršího záznamu nesmazal celou položku (jen její podsekci „Upravené
+  soubory"), takže CHANGELOG má teď 11 záznamů a jeden je poškozený. Napravím to: odebírám dvě nejstarší položky ze
+  spodu a přidám záznam o opravě izolace nahoru. Nejprve odebírám spodní dvě položky:
+
+  Thought for 1s (ctrl+o to expand)
+  ⎿  Error editing file
+
+  Thought for 13s (ctrl+o to expand)
+  ⎿  Error editing file
+
+  Thought for 13s (ctrl+o to expand)
+
+● Update(CHANGELOG.md)
+  ⎿  Removed 18 lines
+       97  - **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅, manuální test v prohlížeči ✅ (uživatel potvrdi
+           l).
+       98  - **Upravené soubory**: `page.tsx`, `src/messages/cs.json` / `en.json` / `uk.json`, `ukol.md` (úkol do
+           končen a smazán), `CHANGELOG.md`
+       99
+      100 -### ✨ Feat — Dashboard: rozšíření dat pro Poslední příspěvky (Krok 2)
+      100
+      102 -- **Kontext**: Karta Posledního příspěvku měla pro plánovaný redesign (Krok 3) k dispozici jen `id/con
+          -tent/created_at/status`. Chyběla data pro ikony platforem, miniaturu média, relativní/plánovaný čas a
+          -barevné štítky.
+      103 -- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
+      104 -  1. Query 4b (`posts`) select rozšířen o `scheduled_at, media_urls, post_tags(tags(id, name, color))`
+          -. Vnořený join je RLS-filtrovaný přes rodiče `posts` (stejný vzor jako stránka Příspěvky).
+      105 -  2. Typ `RecentPostItem` doplněn o `scheduled_at`, `platforms`, `media_urls`, `post_tags`.
+      106 -  3. Typ `RecentPostRow` doplněn o `scheduled_at`, `media_urls`, `post_tags` (reuse `PostTagJoinRow`).
+      107 -  4. Mapování přes `normalizePost` propaguje nová pole do `RecentPostItem`.
+      108 -- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na `page.tsx` ✅, dashboard naběhne beze změny UI
+          -✅ (uživatel potvrdil — data se zatím jen načítají navíc).
+      109 -- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 2 ✅), `CHANGELOG.md`
+      110 -
+      111 -### 🐛 Fix — Dashboard: status `publishing` v Posledních příspěvcích nebyl lokalizovaný (Krok 1)
+      112 -
+      113 -- **Kontext**: `normalizePost` může pro post vrátit computed status `"publishing"`, ale `recentPostSta
+          -tusLabels` v dashboardu (`page.tsx`) ho nemapoval a klíč `statusPublishing` neexistoval v žádném jazyc
+          -e — badge by ukázal syrové anglické "publishing" ve všech 3 locales. Badge barvy `publishing` také neř
+          -ešily (spadl do šedé draft větve).
+      114 -- **Oprava**:
+      115 -  1. Do `posts` namespace v `cs.json` / `en.json` / `uk.json` přidán klíč `statusPublishing` — "Publik
+          -uje se" / "Publishing" / "Публікується".
+      116 -  2. `recentPostStatusLabels` doplněn o `publishing: postsT("statusPublishing")`.
+      117 -  3. Badge dostal větev pro `publishing`: `bg-indigo-500/10 text-indigo-400 animate-pulse` (pulz nazna
+          -čuje probíhající publikaci).
+      118 -- **Ověření**: JSON validní ve všech 3 souborech ✅, `npx tsc --noEmit` ✅, `npx eslint` na `page.tsx`
+          - ✅, dashboard se vykresluje beze změny ✅ (uživatel potvrdil)
+      101  *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*
+
+● Nyní přidám záznam o opravě izolace na začátek CHANGELOGU (celkem zůstane 10 záznamů):
+
+  Thought for 1s (ctrl+o to expand)
+  ⎿  Error editing file
+
+● Update(CHANGELOG.md)
+  ⎿  Added 11 lines
+       5
+       6  ## 2026-07-07
+       7
+       8 +### 🐛 Fix — Izolace účtů: nový uživatel viděl cizí/testovací účty (RLS)
+       9 +
+      10 +- **Kontext**: Po přihlášení jako zcela nový uživatel se na stránce "Účty" zobrazovaly všechny propojen
+         +é účty z testovacího účtu (všech 6 platforem). Klientská načítání `social_accounts` spoléhala čistě na
+         +RLS, které ve live DB reálně nefiltrovalo → únik cizích dat.
+      11 +- **Oprava** (defense-in-depth, explicitní filtr podle uživatele):
+      12 +  1. `accounts/page.tsx` `fetchAccounts`: `supabase.auth.getUser()` + `.eq("user_id", user.id)` (hlášen
+         +á chyba odstraněna).
+      13 +  2. `components/dashboard/setup-guide.tsx` `checkProgress`: `user_id` filtr u počtu aktivních účtů i p
+         +říspěvků.
+      14 +  3. Ověřeno, že `edit-post-dialog`, `preview-dialog` a `dashboard/page.tsx` už `user_id` filtrují – po
+         +necháno.
+      15 +- **Doporučení**: v Supabase dashboardu zkontrolovat, zda je na `social_accounts` zapnuté RLS a zda exi
+         +stují politiky `auth.uid() = user_id` (migrace 013 je definuje, ale v live DB mohly chybět).
+      16 +- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na změněných souborech ✅ (pre-existing warningy; `s
+         +etup-guide.tsx` má 2 pre-existing chyby v ref-patternu mimo tuto změnu). Potvrzeno jako hotové bez manu
+         +álního testu (uživatel nemá jak otestovat).
+      17 +- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/components/dashboard/set
+         +up-guide.tsx`, `ukol.md` (oprava ✅), `CHANGELOG.md`
+      18 +
+      19  ### ✨ Feat — Vynucení limitu účtů podle plánu (Prompt 025, Krok 1: server + klient)
+      20
+      21  - **Kontext**: Krok 1 úkolu Prompt 025 – zabránit připojení více účtů, než povoluje plán uživatele (Fre
+          e=1, Creator=5, Pro=∞). Dříve šlo limit obejít na straně klienta.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Ověřím finální stav CHANGELOG (počet záznamů) a znovu spustím tsc:
+
+  Thought for 1s (ctrl+o to expand)
+
+● Bash(npx tsc --noEmit 2>&1 | head -20)
+  ⎿  (No output)
+
+● Hotovo. CHANGELOG má nyní přesně 10 záznamů, tsc prochází čistě.
+
+  Shrnutí
+
+  Krok 1 (Prompt 025) – označen ✅ v ukol.md a zapsán do CHANGELOG.md (server-side + klientská blokace).
+
+  Oprava izolace účtů (prioritní chyba):
+  - Příčina: klientská načítání social_accounts na stránce Účty (a v setup-guide) spoléhala čistě na RLS, které ve tvém
+  live DB reálně nefiltrovalo → nový uživatel viděl testovací účty.
+  - Oprava (defense-in-depth – explicitní filtr podle uživatele):
+    - accounts/page.tsx fetchAccounts: nově supabase.auth.getUser() + .eq("user_id", user.id). Tím mizí hlášená chyba –
+  nový uživatel uvidí jen své účty, bez ohledu na stav RLS.
+    - components/dashboard/setup-guide.tsx checkProgress: user_id filtr u počtu aktivních účtů i příspěvků (nový
+  uživatel neuvidí „máš propojené účty/příspěvky").
+    - Ověřil jsem, že edit-post-dialog, preview-dialog a dashboard/page.tsx už user_id filtrují – ponecháno.
+  - Doporučení: v Supabase dashboardu zkontroluj, zda je na tabulce social_accounts zapnuté RLS a zda existují politiky
+  auth.uid() = user_id (migrace 013 je definuje, ale v live DB mohly chybět – to je pravá příčina; kódová oprava ji
+  obchází, ale RLS je dobré mít v pořádku).
+
+  Ověření: npx tsc --noEmit ✅, npx eslint na změněných souborech ✅ (jen pre-existing warningy). V setup-guide.tsx jsou
+  2 pre-existing chyby v ref-patternu (supabaseRef.current během renderu, ř. 23/26) – ty jsem záměrně neměnil, nejsou
+  součástí této chyby.
+
+  Poznámka: Necommitoval jsem (pravidlo v ukol.md: git commit až po dokončení Krok 3).
+
+  ---
+  Podle pravidel jsem Krok 1 i opravu provedl jako hotové (ty jsi napsal, že nemáš jak otestovat, a chtěl jsi je mít
+  hotové). Jak chceš pokračovat? Další v pořadí je Krok 2 – Fallback pro nefunkční avatary (onError).

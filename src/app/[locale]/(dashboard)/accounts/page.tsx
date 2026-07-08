@@ -198,7 +198,10 @@ export default function AccountsPage() {
   // Facebook Pages that are still inactive (pending the user's opt-in).
   // Loaded by GET /api/accounts/facebook/select.
   const [pendingPages, setPendingPages] = useState<FacebookPageDto[]>([]);
-  const [loadingPending, setLoadingPending] = useState(false);
+  // Start in the "loading" state so the `?fb=connected` effect below does not
+  // evaluate "0 pages" before the list has actually loaded (would show a
+  // false "no pages found" toast for users who do have Pages).
+  const [loadingPending, setLoadingPending] = useState(true);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const isDraggingRef = useRef(false);
   // Current user plan – used for client-side account-limit enforcement.
@@ -339,11 +342,21 @@ export default function AccountsPage() {
     // list arrives.
     if (pendingPages.length > 0) {
       setSelectorOpen(true);
-    } else if (!loadingPending) {
-      // No pages to pick – just clean the param so we do not loop.
+    } else if (!loadingPending && !loading) {
+      // Both the Pages list and the accounts list have loaded. If the
+      // Facebook login actually connected something (e.g. an Instagram
+      // account via the same login), a "no pages found" toast would be
+      // misleading – just clean the param silently. Only surface the toast
+      // when genuinely nothing manageable was found.
+      const hasFbOrIg = accounts.some(
+        (a) => a.platform === "facebook" || a.platform === "instagram"
+      );
+      if (!hasFbOrIg) {
+        toast.info(t("noPagesFound"));
+      }
       router.replace(window.location.pathname);
     }
-  }, [searchParams, pendingPages.length, loadingPending, router]);
+  }, [searchParams, pendingPages.length, loadingPending, loading, accounts, router, t]);
 
   // ──────────────────────────────────────────────────────────────────
   // OAuth callback signal handling (YouTube + LinkedIn + generic errors)

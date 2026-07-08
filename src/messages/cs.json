@@ -576,6 +576,7 @@
     },
     "pendingPagesTitle": "Nalezené stránky k připojení",
     "pendingPagesSubtitle": "Při posledním přihlášení přes Facebook jsme našli stránky, které jste dosud nepřipojili. Vyberte ty, na které chcete přes Postio publikovat.",
+    "noPagesFound": "Při posledním přihlášení přes Facebook jsme nenašli žádné stránky k připojení.",
     "managePagesButton": "Spravovat stránky",
     "andMore": "a {count} dalších",
     "selectorTitle": "Vyberte Facebook stránky",

@@ -576,6 +576,7 @@
     },
     "pendingPagesTitle": "Facebook Pages to connect",
     "pendingPagesSubtitle": "When you last signed in with Facebook, we found some pages you haven't connected yet. Pick the ones you want to publish to through Postio.",
+    "noPagesFound": "We didn't find any Facebook Pages to connect after your last sign-in.",
     "managePagesButton": "Manage pages",
     "andMore": "and {count} more",
     "selectorTitle": "Choose your Facebook Pages",

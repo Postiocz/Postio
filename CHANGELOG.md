@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✨ Feat — Informativní toast při 0 Facebook Pages po OAuth (Prompt 025, Krok 7)
+
+- **Kontext**: Krok 7 úkolu Prompt 025 – po návratu z Facebook OAuth (`?fb=connected`) se při nulovém počtu spravovatelných stránek query parametr jen tiše mazal, takže uživatel nedostal žádnou zpětnou vazbu.
+- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
+  1. Effect pro `?fb=connected` čeká na dokončení načtení pending Pages i připojených účtů, aby nevyhodnotil stav předčasně.
+  2. Pokud po načtení neexistují žádné pending Facebook Pages ani nově připojený Facebook/Instagram účet, zobrazí `toast.info(t("noPagesFound"))`.
+  3. Pokud OAuth připojil aspoň Facebook nebo Instagram účet, parametr se dál jen uklidí bez toastu, aby se nezobrazovala zavádějící hláška.
+- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil, že krok 7 je hotový a zkontrolovaný).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 7 ✅)
+
 ### 🔧 Fix — Idempotentní POST /api/accounts (žádné duplicity u ručního připojení)
 
 - **Kontext**: Návaznost na Krok 6 (Prompt 025). `POST /api/accounts` používal prostý `.insert()` bez `platform_id`/onConflict → při opakovaném ručním připojení (onboarding) vznikal druhý řádek. Endpoint není mrtvý – volá ho `onboarding/client.tsx` (krok 1 „připoj účet"), takže jej nelze jen zlikvidovat.
@@ -90,14 +100,5 @@
   2. Nadpis příspěvku `h3` doplněn o `text-sm` (menší, stále čitelný).
 - **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil — karty vypadají přesně podle zadání).
 - **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 3 označen ✅)
-
-### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 2)
-
-- **Kontext**: Pokračování Prompt 024 (Krok 1 změnil grid na xl:grid-cols-4). Krok 2 omezuje výšku media náhledu v užší 4-sloupcové kartě.
-- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
-  1. Media kontejner (ř. 669) rozšířen o `max-h-[140px]` → výška náhledu nepřesáhne 140px (při 4 sloupcích se mírně zúží/ořízne přes `object-cover`).
-  2. `rounded-xl` → `rounded-lg` (menší radius sedí ke kompaktnější kartě).
-- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 2 označen ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

@@ -102,29 +102,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enforce the account limit for the user's plan (server-side).
-    // The manual form has no platform_id, so reconnects are not detected and
-    // every submission is treated as a new account (consistent with legacy use).
-    const { allowed, info } = await isNewAccountAllowed(supabase, user.id, platform);
-    if (!allowed) {
-      return NextResponse.json(
-        { error: accountLimitErrorMessage(info) },
-        { status: 403 }
-      );
+    // Idempotent connect (legacy manual token entry used by onboarding).
+    // A manual entry carries no platform_id, so we dedupe at the application
+    // level on (user_id, platform) instead of relying on the DB unique index
+    // (user_id, platform, platform_id), which treats NULL platform_id as
+    // distinct. Re-connecting the same platform updates the existing row
+    // rather than inserting a duplicate.
+    const { data: existing } = await supabase
+      .from("social_accounts")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("platform", platform)
+      .is("platform_id", null)
+      .maybeSingle();
+
+    // Reconnecting an already-connected manual account is always allowed.
+    // A brand-new connection is blocked once the user is at their plan's limit.
+    if (!existing) {
+      const { allowed, info } = await isNewAccountAllowed(supabase, user.id, platform);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: accountLimitErrorMessage(info) },
+          { status: 403 }
+        );
+      }
     }
 
-    const { error } = await supabase
-      .from("social_accounts")
-      .insert({
-        user_id: user.id,
-        platform,
-        account_name: accountName,
-        access_token: accessToken,
-        is_active: true,
-      });
+    // Update the existing manual row, or insert a new one if none exists.
+    let dbError: { message: string } | null = null;
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from("social_accounts")
+        .update({ account_name: accountName, access_token: accessToken, is_active: true })
+        .eq("id", existing.id);
+      dbError = updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from("social_accounts")
+        .insert({
+          user_id: user.id,
+          platform,
+          account_name: accountName,
+          access_token: accessToken,
+          is_active: true,
+        });
+      dbError = insertError;
+    }
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (dbError) {
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

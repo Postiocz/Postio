@@ -59,7 +59,7 @@
 - [x] **Krok 5 – Očištění `getTokenStatus` (čistý render):**
   Přesunout výpočet token-expiry stavu z render-fáze (`Date.now()` na ř. 195) do `useMemo`, aby render byl čistý a šlo odstranit ESLint disable `react-hooks/purity`.
 
-- [ ] **Krok 6 – Ověření reconnect (žádné duplicity):**
+- [x] **Krok 6 – Ověření reconnect (žádné duplicity):**
   Ověřit, že tlačítko Reconnect u všech platforem (zejména Instagram/TikTok) provádí upsert a nevytváří druhý řádek v `social_accounts`. Případně opravit na upsert dle `(user_id, platform, platform_id)`.
 
 - [ ] **Krok 7 – Zpětná vazba při 0 pending pages:**

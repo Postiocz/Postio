@@ -3,6 +3,23 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix — Idempotentní POST /api/accounts (žádné duplicity u ručního připojení)
+
+- **Kontext**: Návaznost na Krok 6 (Prompt 025). `POST /api/accounts` používal prostý `.insert()` bez `platform_id`/onConflict → při opakovaném ručním připojení (onboarding) vznikal druhý řádek. Endpoint není mrtvý – volá ho `onboarding/client.tsx` (krok 1 „připoj účet"), takže jej nelze jen zlikvidovat.
+- **Změna** (`src/app/api/accounts/route.ts`):
+  1. Před zápisem se zkontroluje existence ručního záznamu (`user_id, platform, platform_id IS NULL`); pokud existuje, `update`, jinak `insert` → idempotentní připojení bez duplicit.
+  2. Reconnect existujícího ručního účtu povolen i na limitu plánu (nový účet blokován až po vyčerpání kapacity).
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `src/app/api/accounts/route.ts`.
+
+### ✨ Feat — Ověření reconnect: žádné duplicity (Prompt 025, Krok 6)
+
+- **Kontext**: Krok 6 úkolu Prompt 025 – ověřit, že Reconnect u všech platforem (zejm. Instagram/TikTok) dělá upsert a nevytváří druhý řádek v `social_accounts`.
+- **Změna**: Žádná (verifikační krok). Všechny OAuth routy (`tiktok`, `linkedin`, `x`, `auth/callback` pro FB/IG i YouTube) již používají `.upsert(..., { onConflict: "user_id,platform,platform_id" })`. Migrace `012` definuje unikátní index `social_accounts_user_platform_platform_id_key` na `(user_id, platform, platform_id)`, takže upsert koliduje se stávajícím řádkem a aktualizuje ho – **žádné duplicity** při reconnectu.
+- **Zjištění (mimo rozsah Kroku 6)**: `POST /api/accounts` stále používá `.insert()` bez `platform_id`/onConflict (legacy ruční token formulář). Není mrtvý – volá ho `onboarding/client.tsx`. Oddělený úklid viz následující akce.
+- **Ověření**: Code/DB review všech OAuth route + migrace `012` ✅. Manuální test reconnectu v prohlížeči ✅ (uživatel potvrdil závěr).
+- **Upravené soubory**: `ukol.md` (Krok 6 ✅).
+
 ### ✨ Feat — Očistění getTokenStatus (čistý render) (Prompt 025, Krok 5)
 
 - **Kontext**: Krok 5 úkolu Prompt 025 – `getTokenStatus` volala `Date.now()` přímo v render-fázi (u každého účtu v `.map`), což dělalo komponentu nečistou a vyžadovalo file-level `eslint-disable react-hooks/purity`.
@@ -82,24 +99,5 @@
   2. `rounded-xl` → `rounded-lg` (menší radius sedí ke kompaktnější kartě).
 - **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 2 označen ✅)
-
-### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 1)
-
-- **Kontext**: Úkol Prompt 024 — karty v sekci Poslední příspěvky byly vizuálně příliš velké a disproporční oproti ostatním widgetům. Krok 1 mění pouze rozložení gridu.
-- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
-  1. Grid sekce Poslední příspěvky (ř. 602) rozšířen o `xl:grid-cols-4` → na xl (≥1280px) **4 karty na řádek**, lg zůstává 3, sm 2.
-- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 1 označen ✅)
-
-### ✨ Feat — Chytrá validace platforem podle příloh (Prompt 023, Krok 4: Auto-Deselect)
-
-- **Kontext**: Finální krok úkolu Prompt 023. Krok 1 přidal `disabled` logiku, Krok 2 vizuální zpětnou vazbu (zeslabení + tooltip), Krok 3 překlady. Krok 4 zajišťuje, že vybraná platforma se automaticky odškrtne, když uživatel smaže médium, které požaduje.
-- **Změna** (`src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`):
-  1. Nový handler `handleRemoveMedia(id)` nahrazuje přímé volání `removeMediaItem` na tlačítku pro mazání média.
-  2. Handler spočítá množinu médií *po* smazání (`nextMedia`) a odvodí `nextHasVideo` / `nextHasAnyMedia`, pak z `platforms`/`selectedPlatforms` odfiltruje jen platformy, jejichž požadavek je v nové množině splněn (TikTok/YouTube → video, Instagram → jakékoliv médium).
-  3. Odfiltrují se **pouze** platformy, které přestaly vyhovovat — nikdy se nepřidávají zpět (vrátí-li uživatel média, musí platformu zaškrtnout znovu).
-  4. Záměrně implementováno jako handler události, ne `useEffect` + `setState` (lint pravidlo `react-hooks/set-state-in-effect` by to zamítlo).
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na obou souborech ✅ (zbývá jen pre-existing warning na nepoužitý `eslint-disable` v TikTok náhledu).
-- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `ukol.md` (Krok 4 označen ✅, sekce úkolu smazána dle Pravidla 7), `CHANGELOG.md`
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

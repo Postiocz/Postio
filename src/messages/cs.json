@@ -327,6 +327,8 @@
     "manyDrafts": "{count} konceptů",
     "postsCount": "příspěvků",
     "free": "Free",
+    "planPro": "Pro",
+    "planCreator": "Creator",
     "scheduledFor": "Naplánováno na {date}"
   },
   "posts": {

@@ -327,6 +327,8 @@
     "manyDrafts": "{count} чернеток",
     "postsCount": "дописів",
     "free": "Безкоштовно",
+    "planPro": "Pro",
+    "planCreator": "Creator",
     "scheduledFor": "Заплановано на {date}"
   },
   "posts": {

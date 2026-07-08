@@ -39,18 +39,6 @@
 
 ---
 
-## 🚨 Oprava: Izolace účtů (nový uživatel vidí cizí/testovací účty)
-
-> Prioritní chyba hlášená uživatelem: po přihlášení jako zcela nový uživatel se na stránce "Účty" zobrazovaly všechny propojené účty z testovacího účtu (všech 6 platforem). Příčina: dotazy na `social_accounts` na straně klienta spoléhaly čistě na RLS, které ve live DB reálně nefiltrovalo. Oprava: explicitní `.eq("user_id", userId")` v klientských načítáních (defense-in-depth).
-
-- [x] **Krok 1 – Explicitní filtrování účtů podle uživatele (klient):**
-  - `accounts/page.tsx` `fetchAccounts`: přidat `supabase.auth.getUser()` a `.eq("user_id", user.id)` (hlášená chyba – nový uživatel už nevidí cizí účty).
-  - `components/dashboard/setup-guide.tsx` `checkProgress`: přidat `user_id` filtr k počtu aktivních účtů i příspěvků (nový uživatel nevidí "máš propojené účty/příspěvky").
-  - Ověřit, že ostatní klientská načítání (`edit-post-dialog`, `preview-dialog`, `dashboard/page.tsx`) už `user_id` filtrují (ano – ponecháno).
-  - Poznámka: doporučeno zkontrolovat v Supabase dashboardu, zda je na `social_accounts` zapnuté RLS a existují politiky `auth.uid() = user_id` (migrace 013 je definuje, ale v live DB mohly chybět).
-
----
-
 ## 🧹 Prompt 025 – Úklid a byznys logika na stránce Účty
 
 > Cíl: Vyčistit technický dluh na stránce `accounts` odhalený auditem, než přidáme další funkce.
@@ -59,7 +47,7 @@
   Do `POST /api/accounts/route.ts` (a relevantních OAuth routes) přidat kontrolu počtu připojených účtů dle plánu uživatele: Free = 1, Creator = 5, Pro = ∞. Při překročení vrátit chybu a zabránit připojení. Kontrola musí být server-side (klient lze obejít).
   - **Dodatek (klientská blokace, UX):** Na stránce Účty přidat proaktivní UI blokaci – pokud `activeAccounts >= limit`, kliknutí na nepřipojenou platformu NESMÍ zahájit OAuth flow ani otevřít formulář, místo toho `toast.error` s hláškou. Reconnect připojeného účtu povolit (nezvyšuje počet). Hlášku lokalizovat (cs/en/uk) pod klíčem `accountLimitReached`.
 
-- [ ] **Krok 2 – Fallback pro nefunkční avatary (`onError`):**
+- [x] **Krok 2 – Fallback pro nefunkční avatary (`onError`):**
   U `<img>` avatarů (připojené účty ř. ~693 i pending pages ř. ~639) doplnit `onError` handler, který při selhání načtení (403/expirace CDN) zobrazí fallback ikonu platformy místo rozbitého obrázku.
 
 - [ ] **Krok 3 – Odstranění mrtvého manuálního token formuláře:**

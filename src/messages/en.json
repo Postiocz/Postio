@@ -327,6 +327,8 @@
     "manyDrafts": "{count} drafts",
     "postsCount": "posts",
     "free": "Free",
+    "planPro": "Pro",
+    "planCreator": "Creator",
     "scheduledFor": "Scheduled for {date}"
   },
   "posts": {

@@ -3,18 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-## 2026-07-07
+### ✨ Feat — Fallback pro nefunkční avatary na stránce Účty (Prompt 025, Krok 2)
 
-### 🐛 Fix — Izolace účtů: nový uživatel viděl cizí/testovací účty (RLS)
-
-- **Kontext**: Po přihlášení jako zcela nový uživatel se na stránce "Účty" zobrazovaly všechny propojené účty z testovacího účtu (všech 6 platforem). Klientská načítání `social_accounts` spoléhala čistě na RLS, které ve live DB reálně nefiltrovalo → únik cizích dat.
-- **Oprava** (defense-in-depth, explicitní filtr podle uživatele):
-  1. `accounts/page.tsx` `fetchAccounts`: `supabase.auth.getUser()` + `.eq("user_id", user.id)` (hlášená chyba odstraněna).
-  2. `components/dashboard/setup-guide.tsx` `checkProgress`: `user_id` filtr u počtu aktivních účtů i příspěvků.
-  3. Ověřeno, že `edit-post-dialog`, `preview-dialog` a `dashboard/page.tsx` už `user_id` filtrují – ponecháno.
-- **DB oprava**: v live Supabase byla odstraněna chybná `Testing policy` na `public.social_accounts` a nahrazena 4 korektními RLS politikami pro `SELECT` / `INSERT` / `UPDATE` / `DELETE` s podmínkou `auth.uid() = user_id`.
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na změněných souborech ✅ (pre-existing warningy; `setup-guide.tsx` má 2 pre-existing chyby v ref-patternu mimo tuto změnu). Manuální test uživatelem po opravě live RLS ✅: nový uživatel nevidí cizí účty ani cizí progress na dashboardu.
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/components/dashboard/setup-guide.tsx`, `src/app/api/accounts/route.ts`, `ukol.md` (oprava ✅), `CHANGELOG.md`
+- **Kontext**: Krok 2 úkolu Prompt 025 – avatary připojených účtů i pending FB stránek se načítaly z CDN bez ošetření chyby. Při 403/expiraci CDN se zobrazoval rozbitý obrázek.
+- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
+  1. Nová komponenta `PlatformAvatar` (lokální `useState` `errored` + `<img onError>`): při selhání načtení skryje `<img>` a renderuje fallback (ikona platformy), místo rozbitého obrázku. Při chybějícím `src` jde rovnou na fallback.
+  2. Nahrazena obě místa s nativním `<img>`: připojené účty (fallback = `Icon`, jinak 🔗) i pending FB stránky (fallback = `<Facebook>` ikona).
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅ (jen pre-existing warningy: `Clock` nepoužitý, 2× hook deps mimo tento zásah). Manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 2 ✅)
 
 ### ✨ Feat — Vynucení limitu účtů podle plánu (Prompt 025, Krok 1: server + klient)
 

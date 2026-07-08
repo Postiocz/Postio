@@ -146,6 +146,40 @@ type SocialAccount = {
   } | null;
 };
 
+/**
+ * Renders a platform/account avatar image with a graceful fallback.
+ * If the image URL fails to load (e.g. 403 / expired CDN), we hide the
+ * broken <img> and render the provided fallback node (usually the platform
+ * icon) instead.
+ */
+function PlatformAvatar({
+  src,
+  alt,
+  fallback,
+  className,
+}: {
+  src?: string | null;
+  alt: string;
+  fallback: React.ReactNode;
+  className?: string;
+}) {
+  const [errored, setErrored] = useState(false);
+
+  if (!src || errored) {
+    return <>{fallback}</>;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setErrored(true)}
+      className={className}
+    />
+  );
+}
+
 export default function AccountsPage() {
   const t = useTranslations("accounts");
   const supabase = createClient();
@@ -684,16 +718,12 @@ export default function AccountsPage() {
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-white/10 overflow-hidden"
                   title={page.account_name}
                 >
-                  {page.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={page.avatar_url}
-                      alt={page.account_name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Facebook className="h-4 w-4 text-blue-300" />
-                  )}
+                  <PlatformAvatar
+                    src={page.avatar_url}
+                    alt={page.account_name}
+                    className="h-full w-full object-cover"
+                    fallback={<Facebook className="h-4 w-4 text-blue-300" />}
+                  />
                 </div>
               ))}
             </div>
@@ -739,17 +769,20 @@ export default function AccountsPage() {
               >
                 <div className="flex items-center gap-4">
                   <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 overflow-hidden">
-                    {account.avatar_url ? (
-                      <img
-                        src={String(account.avatar_url)}
-                        alt={account.account_name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : Icon ? (
-                      <Icon className="h-7 w-7 text-muted-foreground/60" />
-                    ) : (
-                      <span className="text-2xl">🔗</span>
-                    )}
+                    <PlatformAvatar
+                      src={
+                        account.avatar_url ? String(account.avatar_url) : null
+                      }
+                      alt={account.account_name}
+                      className="h-full w-full object-cover"
+                      fallback={
+                        Icon ? (
+                          <Icon className="h-7 w-7 text-muted-foreground/60" />
+                        ) : (
+                          <span className="text-2xl">🔗</span>
+                        )
+                      }
+                    />
                     {Icon && (
                       <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-black/50 backdrop-blur">
                         <Icon className="h-3.5 w-3.5 text-white/80" />

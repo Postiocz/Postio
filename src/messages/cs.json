@@ -856,7 +856,8 @@
     "current": "Aktuální",
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
-    "subscribe": "Odebírat"
+    "subscribe": "Odebírat",
+    "recommended": "Doporučujeme"
   },
   "onboarding": {
     "welcome": "Vítejte v Postio!",

@@ -857,7 +857,8 @@
     "current": "Поточний",
     "upgrade": "Оновити",
     "downgrade": "Знизити",
-    "subscribe": "Підписатися"
+    "subscribe": "Підписатися",
+    "recommended": "Рекомендовано"
   },
   "onboarding": {
     "welcome": "Ласкаво просимо до Postio!",

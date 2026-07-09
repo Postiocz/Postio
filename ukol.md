@@ -36,31 +36,3 @@
 
 9. **SEKCE - AKTUÁLNÍCH ÚKOLŮ:**
   📌 Aktuální úkoly
-
----
-
-## 🧹 Prompt 025 – Úklid a byznys logika na stránce Účty
-
-> Cíl: Vyčistit technický dluh na stránce `accounts` odhalený auditem, než přidáme další funkce.
-
-- [x] **Krok 1 – Vynucení limitu účtů podle plánu (server-side + klientská blokace):**
-  Do `POST /api/accounts/route.ts` (a relevantních OAuth routes) přidat kontrolu počtu připojených účtů dle plánu uživatele: Free = 1, Creator = 5, Pro = ∞. Při překročení vrátit chybu a zabránit připojení. Kontrola musí být server-side (klient lze obejít).
-  - **Dodatek (klientská blokace, UX):** Na stránce Účty přidat proaktivní UI blokaci – pokud `activeAccounts >= limit`, kliknutí na nepřipojenou platformu NESMÍ zahájit OAuth flow ani otevřít formulář, místo toho `toast.error` s hláškou. Reconnect připojeného účtu povolit (nezvyšuje počet). Hlášku lokalizovat (cs/en/uk) pod klíčem `accountLimitReached`.
-
-- [x] **Krok 2 – Fallback pro nefunkční avatary (`onError`):**
-  U `<img>` avatarů (připojené účty ř. ~693 i pending pages ř. ~639) doplnit `onError` handler, který při selhání načtení (403/expirace CDN) zobrazí fallback ikonu platformy místo rozbitého obrázku.
-
-- [x] **Krok 3 – Odstranění mrtvého manuálního token formuláře:**
-  Smazat legacy manuální formulář (accountName + accessToken, ř. ~501–594) včetně nepoužívaných stavů, `handleConnect` a zbytečné větve. Žádná platforma ho nepoužívá (vše jede přes OAuth).
-
-- [x] **Krok 4 – Náhrada hardcoded textů za i18n:**
-  Nahradit natvrdo psané řetězce klíči z `messages`: `"Načítání…"` (ř. 405) → `accounts.loading`, a odstranit míchané fallbacky typu `t("connecting") || "Connecting..."` a `t("active") || "Aktivní"`. Doplnit chybějící klíče do cs/en/uk.
-
-- [x] **Krok 5 – Očištění `getTokenStatus` (čistý render):**
-  Přesunout výpočet token-expiry stavu z render-fáze (`Date.now()` na ř. 195) do `useMemo`, aby render byl čistý a šlo odstranit ESLint disable `react-hooks/purity`.
-
-- [x] **Krok 6 – Ověření reconnect (žádné duplicity):**
-  Ověřit, že tlačítko Reconnect u všech platforem (zejména Instagram/TikTok) provádí upsert a nevytváří druhý řádek v `social_accounts`. Případně opravit na upsert dle `(user_id, platform, platform_id)`.
-
-- [x] **Krok 7 – Zpětná vazba při 0 pending pages:**
-  Po návratu z Facebook OAuth (`?fb=connected`) při 0 spravovatelných stránkách zobrazit informativní toast místo tichého smazání query paramu.

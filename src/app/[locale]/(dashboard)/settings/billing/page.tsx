@@ -109,6 +109,7 @@ export default async function BillingPage({
             plan={plan}
             translations={{
               current: t("current"),
+              recommended: t("recommended"),
               perMonth: t("perMonth"),
               subscribe: t("subscribe"),
               upgrade: t("upgrade"),

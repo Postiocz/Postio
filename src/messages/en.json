@@ -856,7 +856,8 @@
     "current": "Current",
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
-    "subscribe": "Subscribe"
+    "subscribe": "Subscribe",
+    "recommended": "Recommended"
   },
   "onboarding": {
     "welcome": "Welcome to Postio!",

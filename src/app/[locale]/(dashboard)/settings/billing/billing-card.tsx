@@ -26,6 +26,7 @@ interface BillingCardProps {
   plan: Plan;
   translations: {
     current: string;
+    recommended: string;
     perMonth: string;
     subscribe: string;
     upgrade: string;
@@ -57,7 +58,7 @@ export function BillingCard({ plan, translations }: BillingCardProps) {
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500 px-3 py-1 text-xs font-semibold text-white shadow-lg">
             <Check className="h-3 w-3" />
-            {translations.current || "Recommended"}
+            {translations.recommended}
           </span>
         </div>
       )}

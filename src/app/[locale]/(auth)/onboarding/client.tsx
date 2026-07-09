@@ -97,7 +97,7 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName }),
       });
-      router.push(`/${locale}`);
+      router.push(`/${locale}/dashboard`);
     } catch {
       // ignore, let user retry
     } finally {

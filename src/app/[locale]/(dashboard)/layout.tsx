@@ -59,7 +59,7 @@ export default async function DashboardLayout({
   }
 
   const navItems = [
-    { href: `/${locale}`, label: navT("dashboard"), icon: "dashboard" as const },
+    { href: `/${locale}/dashboard`, label: navT("dashboard"), icon: "dashboard" as const },
     { href: `/${locale}/posts`, label: navT("posts"), icon: "posts" as const },
     { href: `/${locale}/calendar`, label: navT("calendar"), icon: "calendar" as const },
     { href: `/${locale}/accounts`, label: navT("accounts"), icon: "accounts" as const },

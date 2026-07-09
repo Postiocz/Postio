@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
     restPath.startsWith("/onboarding/");
 
   const isDashboardRoute =
-    restPath === "/" ||
+    restPath.startsWith("/dashboard") ||
     restPath.startsWith("/posts") ||
     restPath.startsWith("/calendar") ||
     restPath.startsWith("/accounts") ||
@@ -73,6 +73,17 @@ export async function middleware(request: NextRequest) {
     restPath.startsWith("/analytics") ||
     restPath.startsWith("/inbox") ||
     restPath.startsWith("/settings");
+
+  // Authenticated user landing on the public homepage ("/") goes straight to the app.
+  if (
+    restPath === "/" &&
+    !isAuthRoute &&
+    session &&
+    !supabaseError &&
+    isSupabaseConfigured
+  ) {
+    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
+  }
 
   if (
     isDashboardRoute &&

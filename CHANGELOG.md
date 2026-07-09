@@ -3,6 +3,48 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix — Hero dashboard preview: responzivní, odlišná od Login vizuálu (Prompt 021-FIX)
+
+- **Kontext**: Oprava Promptu 021-FIX. V Hero sekci landing page byla `<LoginVisual />`, která měla dva problémy: (1) byla uříznutá vpravo – původní příčinou byl `scale-125` (forced 125% šířky) + `max-w` s `overflow-hidden` kontejnerem, takže "REACH", "+24% engagement" a "Dashboard" byly mimo viditelnou oblast; (2) byla 1:1 identická s Login vizuálem (líné, repetitivní).
+- **Změny**:
+  1. `src/components/marketing/hero-dashboard-preview.tsx` (nový): odvozená varianta `LoginVisual`, NE kopie 1:1. Zachovává styl (adaptivní karta, fialové gradienty, sloupcový graf, "128 Posts" / "12.4K Reach" / "4.2% Eng."). Odlišení: jiná "scéna" – pod dashboardem **Scheduled queue** s platform chipy (IG/FB/LinkedIn/X) místo bubliny "Post scheduled". Plně responzivní: `w-full`, žádná fixed px šířka, žádný `scale` transform; `overflow-hidden` je jen na samotné kartě (neřeže vlastní obsah). Glow bloby adaptivní (light jemnější, dark silnější).
+  2. `src/app/[locale]/(marketing)/page.tsx` (úprava Hero): `<LoginVisual />` → `<HeroDashboardPreview />`. Wrapper karty má `overflow-visible`; `<section>` má `overflow-hidden` jen proto, aby glow orby zůstaly uvnitř Hero (žádný horizontální scroll). Glow za kartou (`-inset-6`, `blur-3xl`) záměrně přesahuje uvnitř sekce.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Vizuální screenshot v Dark/Light v sandboxu NELZE (síť k browser-CDN blokovaná) – k finálnímu oku uživatele.
+- **Upravené soubory**: `src/components/marketing/hero-dashboard-preview.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`.
+
+### 🌐 Doplnění (i18n) – lokalizace HeroDashboardPreview (návaznost na 021-FIX)
+
+- **Kontext**: Texty v `<HeroDashboardPreview />` byly natvrdo v angličtině ("Dashboard", "This week", "Scheduled queue", "Posts", "Reach", "Eng."). Aplikace má lokalizaci cs/en/uk.
+- **Změny**:
+  1. `src/messages/{cs,en,uk}.json`: nový namespace `landing.heroPreview` s klíči `dashboard`, `thisWeek`, `scheduledQueue`, `posts`, `reach`, `eng` pro všechny 3 jazyky (cs: Přehled/Tento týden/Naplánovaná fronta/Příspěvky/Dosah/Zap.; uk: Панель/Цей тиждень/Запланована черга/Дописи/Охоплення/Залуч.). Shoda klíčů napříč jazyky ověřena.
+  2. `src/components/marketing/hero-dashboard-preview.tsx`: `useTranslations("landing.heroPreview")` (client) místo hardcodu; CSS `uppercase` třídy zajišťují zobrazení velkými písmeny.
+- **Ověření**: JSON validita cs/en/uk ✅; shoda klíčů `landing.heroPreview` ✅; `npx tsc --noEmit` ✅ (EXIT 0); žádné natvrdo psané renderované stringy v komponentě. `NextIntlClientProvider` (přes `getMessages()` v `LocaleLayout`, který marketing dědí) dodá messages i client komponentě → žádné `MISSING_MESSAGE`.
+- **Upravené soubory**: `src/components/marketing/hero-dashboard-preview.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
+### ✨ Feat — Marketing Layout: plovoucí glass nav (Prompt 021, Krok 2)
+
+- **Kontext**: Krok 2 úkolu Prompt 021 (Marketingové stránky). Veřejná Landing potřebuje vlastní navigaci oddělenou od dashboardu: plovoucí glass pill s brandem, odkazy, přepínači jazyka/téma a CTA na login.
+- **Změny**:
+  1. `src/app/[locale]/(marketing)/layout.tsx` (nový): Server Component dědící `LocaleLayout` (NextIntl + ThemeProvider + CookieConsent). Aplikuje Geist jako brand font celé marketing sekce. Pozadí dle Theme Lock: pure black + 24x24 grid (opacity 0.04) + indigo záře (blur 160px), shodné s loginem/dashboardem.
+  2. `src/components/marketing/marketing-nav.tsx` (nový, client): plovoucí glass pill (`fixed top-6`, `rounded-full`, `backdrop-blur-xl`, `h-16` = 64px, single-line) s Logo, odkazy Funkce/Ceník/FAQ (anchory `#funkce`/`#cenik`/`#faq`, cíle vzniknou v Krocích 3-4), LocaleSwitcher, ThemeToggle a CTA "Přihlásit se" -> `/${locale}/login` (indigo `#6366F1` s button-in-button šipkou). Mobil: hamburger -> full-screen glass overlay s prokládaným (staggered) zjevem; zavření Esc/clickem, lock scrollování.
+  3. `geist` nainstalován (brand font marketing sekce; Inter je v manuálech banned, CLAUDE.md povoluje Geist).
+  4. `messages/cs.json`/`en.json`/`uk.json`: nový namespace `landing.nav` (features/pricing/faq/login) pro lokalizované popisky navigu.
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅. Manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/app/[locale]/(marketing)/layout.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `package.json` (geist), `ukol.md` (Krok 2 ✅)
+
+### 🔧 Feat — Routing: veřejná Landing Page na domovské URL (Prompt 021, Krok 1)
+
+- **Kontext**: Krok 1 úkolu Prompt 021 (Marketingové stránky). Doposud `/` (resp. `/cs`) byl dashboard a nepřihlášené okamžitě přesměrovával na login. Cíl: neregistrovaný uživatel vidí veřejnou Landing page; na login jde jen při vstupu do chráněné `(dashboard)` sekce.
+- **Změny**:
+  1. `middleware.ts`: `/` už není v `isDashboardRoute` (je veřejná). Přidáno `startsWith("/dashboard")` mezi chráněné route. Přihlášený na `/` → `redirect` na `/cs/dashboard`.
+  2. Přesun domovské stránky dashboardu: `(dashboard)/page.tsx` → `(dashboard)/dashboard/page.tsx` (URL `/cs/dashboard`); oprava relativního importu `./posts/normalize-post` → `../posts/normalize-post`.
+  3. `(dashboard)/layout.tsx` + `mobile-nav.tsx`: odkaz "Dashboard" → `/cs/dashboard`.
+  4. Post-login/OAuth redirecty (`auth.ts`, `auth/callback/route.ts`, `onboarding/client.tsx`, `verify-2fa/actions.ts`) → `/cs/dashboard` (ne na Landing).
+  5. `src/app/page.tsx`: oprava `redirect("/cs/login")` → `redirect("/cs")` (root nesmí posílat na login).
+  6. Vytvořen `(marketing)/page.tsx` – placeholder veřejné Landing (skutečný obsah v Krocích 2–3).
+- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil — odhlášený zůstává na `/`, přihlášený jde na `/cs/dashboard`).
+- **Upravené soubory**: `middleware.ts`, `src/app/page.tsx`, `src/app/[locale]/(dashboard)/layout.tsx`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/mobile-nav.tsx`, `src/lib/actions/auth.ts`, `src/app/auth/callback/route.ts`, `src/app/[locale]/(auth)/onboarding/client.tsx`, `src/app/[locale]/(auth)/login/verify-2fa/actions.ts`, `src/app/[locale]/(marketing)/page.tsx`, `ukol.md` (Krok 1 ✅)
+
 ### ✨ Feat — Informativní toast při 0 Facebook Pages po OAuth (Prompt 025, Krok 7)
 
 - **Kontext**: Krok 7 úkolu Prompt 025 – po návratu z Facebook OAuth (`?fb=connected`) se při nulovém počtu spravovatelných stránek query parametr jen tiše mazal, takže uživatel nedostal žádnou zpětnou vazbu.
@@ -50,55 +92,16 @@
   4. Zapsána poznámka do `CLAUDE.md` (sekce 5 "TikTok OAuth – produkční Redirect URI"): URL je hardcoded na prod, na localhostu nefunguje, netrailing lomítko, žádná `/callback` route.
 - **Ověření**: `grep -rn "/callback"` (kromě `/auth/callback`) → žádné ✅; `npx tsc --noEmit` po smazání `.next` → čisté ✅.
 
-### ✨ Feat — Náhrada hardcoded textů za i18n na stránce Účty (Prompt 025, Krok 4)
+### ✨ Feat — Ceník & FAQ sekce na Landing Page (Prompt 021, Krok 4)
 
-- **Kontext**: Krok 4 úkolu Prompt 025 – na stránce Účty zůstaly natvrdo psané řetězce a mixed fallbacky (`t("x") || "y"`), které obcházely překlad a rozbíjely lokalizaci (chyba `MISSING_MESSAGE: accounts.loading`).
-- **Změna**:
-  1. `Načítání…` (early-return při načítání) → `{t("loading")}`.
-  2. Mixed fallback `{t("active") || "Aktivní"}` → `{t("active")}` (čistý překlad, bez hardcodu).
-  3. Doplněn chybějící klíč `loading` do `accounts` namespace v cs/en/uk (dříve existoval jen v jiném namespace → `MISSING_MESSAGE`).
-- **Ověření**: JSON validní ve všech 3 souborech ✅, `npx tsc --noEmit` ✅. Manuální test v prohlížeči ✅ (uživatel potvrdil, chyba `MISSING_MESSAGE` odstraněna).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `ukol.md` (Krok 4 ✅)
-
-### ✨ Feat — Odstranění mrtvého manuálního token formuláře (Prompt 025, Krok 3)
-
-- **Kontext**: Krok 3 úkolu Prompt 025 – na stránce Účty zůstal legacy manuální formulář (jméno účtu + access token), který nepoužívala žádná platforma (vše jede přes OAuth). Technický dluh a matoucí UI.
-- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
-  1. Smazán `handleConnect` i celý JSX manuálního formuláře včetně jeho `ternary`/`IIFE` obálky v gridu platforem.
-  2. Odebrány mrtvé stavy `selectedPlatform`, `accountName`, `accessToken`, `connecting` (používaly výhradně tento formulář).
-  3. `onClick` zjednodušen: všechny platformy jdou rovnou přes OAuth modal (`ConnectAccountModal`); odstraněna nedosažitelná `else` větev i legacy komentář.
-  4. Stav `error` (jeho jediné vykreslení bylo ve formuláři) zcela odstraněn; chyby z delete/OAuth handlerů převedeny na `toast.error` (zachována zpětná vazba, dříve se ztratily).
-  5. Odebrány nepoužité importy `Input`, `Label`, `X`.
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅ (zbývají jen 3 pre-existing warningy: `Clock` nepoužitý, 2× hook deps mimo tento zásah). Manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 3 ✅)
-
-### ✨ Feat — Fallback pro nefunkční avatary na stránce Účty (Prompt 025, Krok 2)
-
-- **Kontext**: Krok 2 úkolu Prompt 025 – avatary připojených účtů i pending FB stránek se načítaly z CDN bez ošetření chyby. Při 403/expiraci CDN se zobrazoval rozbitý obrázek.
-- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
-  1. Nová komponenta `PlatformAvatar` (lokální `useState` `errored` + `<img onError>`): při selhání načtení skryje `<img>` a renderuje fallback (ikona platformy), místo rozbitého obrázku. Při chybějícím `src` jde rovnou na fallback.
-  2. Nahrazena obě místa s nativním `<img>`: připojené účty (fallback = `Icon`, jinak 🔗) i pending FB stránky (fallback = `<Facebook>` ikona).
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅ (jen pre-existing warningy: `Clock` nepoužitý, 2× hook deps mimo tento zásah). Manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 2 ✅)
-
-### ✨ Feat — Vynucení limitu účtů podle plánu (Prompt 025, Krok 1: server + klient)
-
-- **Kontext**: Krok 1 úkolu Prompt 025 – zabránit připojení více účtů, než povoluje plán uživatele (Free=1, Creator=5, Pro=∞). Dříve šlo limit obejít na straně klienta.
-- **Změna**:
-  - Nový sdílený helper `src/lib/account-limit.ts`: `ACCOUNT_LIMITS`, `getAccountLimitInfo` (počítá aktivní účty `is_active=true`), `isNewAccountAllowed` (reconnect existujícího účtu povolen i na limitu), `accountLimitErrorMessage`.
-  - Server-side kontrola v `POST /api/accounts/route.ts`, OAuth routech `linkedin`/`x`/`tiktok`, server action `toggleAccountActive` (aktivace FB stránky) a `auth/callback/route.ts` (IG auto-aktivace ve FB OAuth). Při překročení: 403 JSON / redirect `?error=` / toast.
-  - Klientská proaktivní blokace v `accounts/page.tsx`: pokud `activeAccounts >= limit`, kliknutí na nepřipojenou platformu zobrazí `toast.error` (`accountLimitReached`) a neotevře OAuth; reconnect připojeného účtu povolen.
-  - i18n klíč `accountLimitReached` v cs/en/uk.
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` na změněných souborech ✅ (jen pre-existing warningy). Manuální test v prohlížeči potvrdil uživatel jako hotové bez vlastního testu (nemá jak otestovat).
-- **Upravené soubory**: `src/lib/account-limit.ts` (nový), `src/app/api/accounts/route.ts`, `linkedin/route.ts`, `x/route.ts`, `tiktok/route.ts`, `src/lib/actions/social-accounts.ts`, `src/app/auth/callback/route.ts`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `ukol.md` (Krok 1 ✅)
-
-### ✨ Feat — Dashboard: kompaktnější karty "Poslední příspěvky" (Prompt 024, Krok 3: texty & padding)
-
-- **Kontext**: Závěrečný krok Prompt 024 (po Krok 1 grid xl:4 a Krok 2 max-h thumbnailu). Krok 3 zkompaktí vnitřek karty pro čitelnost v užším formátu.
-- **Změna** (`src/app/[locale]/(dashboard)/page.tsx`):
-  1. `CardContent` padding `p-4` → `p-3.5` (úspornější vnitřek).
-  2. Nadpis příspěvku `h3` doplněn o `text-sm` (menší, stále čitelný).
-- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil — karty vypadají přesně podle zadání).
-- **Upravené soubory**: `page.tsx`, `ukol.md` (Krok 3 označen ✅)
+- **Kontext**: Krok 4 úkolu Prompt 021 (Marketingové stránky). Veřejná Landing page potřebuje sekce Ceník a FAQ pro konverzi návštěvníků.
+- **Změny**:
+  1. `src/components/marketing/pricing-section.tsx` (nový): 3 karty Free / Creator / Pro znovupoužívající strukturu BillingCard (ikony, ceny 0€ / 8€ / 20€, features). Creator je `isRecommended` → zvýrazněný glowem, liftem (`-translate-y-2`) a badge "Doporučujeme". CTA vede na `/${locale}/login`.
+  2. `src/components/marketing/faq-section.tsx` (nový): wrapper načítající `landing.faq.items`.
+  3. `src/components/marketing/faq-accordion.tsx` (nový, client): accordion s Framer Motion AnimatePresence (výška/opacity), `useReducedMotion` fallback, první položka otevřená.
+  4. `src/app/[locale]/(marketing)/page.tsx`: `<PricingSection />` a `<FaqSection />` vloženy mezi Benefits a koncem `<main>`; sekce mají `id="cenik"` a `id="faq"` (nav anchory) + `scroll-mt-28`.
+  5. `messages/cs.json`/`en.json`/`uk.json`: namespace `landing.pricing` + `landing.faq` (5 Q&A), shoda klíčů napříč jazyky.
+- **Ověření**: JSON validita cs/en/uk ✅; shoda klíčů pricing + 5 faq.items ✅; žádné em-dash v landing namespace ✅; `npx tsc --noEmit` ✅ (EXIT 0). Manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`, `src/components/marketing/faq-accordion.tsx`, `src/app/[locale]/(marketing)/page.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `ukol.md` (Krok 4 ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

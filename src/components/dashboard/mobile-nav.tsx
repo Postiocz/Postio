@@ -48,7 +48,7 @@ const navItems: BottomNavItem[] = [
   {
     id: "dashboard",
     icon: LayoutDashboard,
-    path: "/",
+    path: "/dashboard",
     labelKey: "nav.dashboard"
   },
   {

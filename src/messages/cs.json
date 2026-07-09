@@ -948,5 +948,72 @@
     "aiEmptyContent": "Nejprve napište nějaký text.",
     "generateFromImage": "Generovat z obrázku ✨",
     "aiNoImage": "Nejprve nahrajte obrázek."
+  },
+  "landing": {
+    "nav": {
+      "features": "Funkce",
+      "pricing": "Ceník",
+      "faq": "FAQ",
+      "login": "Přihlásit se"
+    },
+    "hero": {
+      "title": "Plánuj a publikuj příspěvky na všech sítích",
+      "subtitle": "Jednoduchý plánovač pro tvůrce obsahu. Ušetři čas a publikuj na sociální sítě najednou.",
+      "cta": "Začít zdarma",
+      "ctaSecondary": "Prohlédnout ceník"
+    },
+    "heroPreview": {
+      "dashboard": "Přehled",
+      "thisWeek": "Tento týden",
+      "scheduledQueue": "Naplánovaná fronta",
+      "posts": "Příspěvky",
+      "reach": "Dosah",
+      "eng": "Zap."
+    },
+    "benefits": {
+      "heading": "Vše, co potřebuješ k růstu",
+      "aiVisionTitle": "AI Vision",
+      "aiVisionDesc": "Generuj a vylepšuj příspěvky pomocí umělé inteligence.",
+      "autoQueueTitle": "Auto-Queue",
+      "autoQueueDesc": "Automaticky zařazuj příspěvky do optimální publikační fronty.",
+      "multiTitle": "Více sítí najednou",
+      "multiDesc": "Facebook, Instagram, LinkedIn, X, TikTok a YouTube z jednoho místa.",
+      "analyticsTitle": "Přehledná analýtika",
+      "analyticsDesc": "Sleduj výkon příspěvků na přehledném dashboardu."
+    },
+    "pricing": {
+      "heading": "Ceník, který roste s tebou",
+      "subheading": "Začni zdarma. Přejdi na vyšší tarif kdykoliv.",
+      "perMonth": "/měsíc",
+      "recommended": "Doporučujeme",
+      "free": "Free",
+      "freeDesc": "Pro začátek",
+      "creator": "Creator",
+      "creatorDesc": "Pro tvůrce obsahu",
+      "pro": "Pro",
+      "proDesc": "Pro profesionály",
+      "accounts": "Účty",
+      "postsPerMonth": "Příspěvky měsíčně",
+      "templates": "Šablony",
+      "analytics": "Analytika",
+      "support": "Podpora",
+      "unlimited": "Neomezeně",
+      "basic": "Základní",
+      "advanced": "Pokročilá",
+      "priority": "Prioritní",
+      "ctaFree": "Začít zdarma",
+      "ctaPaid": "Vybrat tarif"
+    },
+    "faq": {
+      "heading": "Často kladené dotazy",
+      "subheading": "Vše, co potřebuješ vědět, než začneš.",
+      "items": [
+        { "q": "Mohu začít zdarma?", "a": "Ano. Tarif Free je trvale zdarma a umožňuje propojit 1 účet a publikovat až 10 příspěvků měsíčně. Kreditní kartu nepotřebuješ." },
+        { "q": "Jaké sítě Postio podporuje?", "a": "Facebook, Instagram, LinkedIn, X (Twitter), TikTok a YouTube. Všechny spravuješ z jednoho místa." },
+        { "q": "Co se stane, když překročím limit příspěvků?", "a": "Na tarifu Free další příspěvky v daném měsíci nepublikuješ, dokud se limit nevynuluje. Přechod na Creator nebo Pro limit odstraní." },
+        { "q": "Lze kdykoliv změnit tarif?", "a": "Ano. Přechod na vyšší i nižší tarif je možný kdykoliv a projeví se okamžitě." },
+        { "q": "Jsou moje data v bezpečí?", "a": "Ano. Přihlašování i přístupové tokeny sítí jsou šifrované, ukládáme je bezpečně a pravidelně obnovujeme." }
+      ]
+    }
   }
 }

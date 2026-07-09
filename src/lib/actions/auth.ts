@@ -116,7 +116,7 @@ export async function emailAuthAction(
   } catch {
   }
 
-  redirect(`/${locale}`);
+  redirect(`/${locale}/dashboard`);
 }
 
 // ============================================================

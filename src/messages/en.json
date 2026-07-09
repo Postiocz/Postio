@@ -948,5 +948,72 @@
     "aiEmptyContent": "Write some text first.",
     "generateFromImage": "Generate from image ✨",
     "aiNoImage": "Upload an image first."
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "login": "Sign in"
+    },
+    "hero": {
+      "title": "Plan and publish posts across every network",
+      "subtitle": "A simple scheduler for content creators. Save time and publish to social networks at once.",
+      "cta": "Start free",
+      "ctaSecondary": "View pricing"
+    },
+    "heroPreview": {
+      "dashboard": "Dashboard",
+      "thisWeek": "This week",
+      "scheduledQueue": "Scheduled queue",
+      "posts": "Posts",
+      "reach": "Reach",
+      "eng": "Eng."
+    },
+    "benefits": {
+      "heading": "Everything you need to grow",
+      "aiVisionTitle": "AI Vision",
+      "aiVisionDesc": "Generate and improve posts with artificial intelligence.",
+      "autoQueueTitle": "Auto-Queue",
+      "autoQueueDesc": "Automatically schedule posts into the optimal publishing queue.",
+      "multiTitle": "Multiple networks at once",
+      "multiDesc": "Facebook, Instagram, LinkedIn, X, TikTok and YouTube from one place.",
+      "analyticsTitle": "Clear analytics",
+      "analyticsDesc": "Track post performance on a clear dashboard."
+    },
+    "pricing": {
+      "heading": "Pricing that grows with you",
+      "subheading": "Start free. Upgrade whenever you want.",
+      "perMonth": "/month",
+      "recommended": "Recommended",
+      "free": "Free",
+      "freeDesc": "For getting started",
+      "creator": "Creator",
+      "creatorDesc": "For content creators",
+      "pro": "Pro",
+      "proDesc": "For professionals",
+      "accounts": "Accounts",
+      "postsPerMonth": "Posts per month",
+      "templates": "Templates",
+      "analytics": "Analytics",
+      "support": "Support",
+      "unlimited": "Unlimited",
+      "basic": "Basic",
+      "advanced": "Advanced",
+      "priority": "Priority",
+      "ctaFree": "Start free",
+      "ctaPaid": "Choose plan"
+    },
+    "faq": {
+      "heading": "Frequently asked questions",
+      "subheading": "Everything you need to know before you start.",
+      "items": [
+        { "q": "Can I start for free?", "a": "Yes. The Free plan is free forever and lets you connect 1 account and publish up to 10 posts per month. No credit card needed." },
+        { "q": "Which networks does Postio support?", "a": "Facebook, Instagram, LinkedIn, X (Twitter), TikTok and YouTube. You manage them all from one place." },
+        { "q": "What happens if I exceed the post limit?", "a": "On the Free plan you won't be able to publish more posts that month until the limit resets. Upgrading to Creator or Pro removes the limit." },
+        { "q": "Can I change my plan anytime?", "a": "Yes. You can move to a higher or lower plan whenever you want, and the change applies immediately." },
+        { "q": "Is my data safe?", "a": "Yes. Login and network access tokens are encrypted, stored securely, and refreshed regularly." }
+      ]
+    }
   }
 }

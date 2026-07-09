@@ -436,7 +436,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!path.startsWith("/")) return `/${locale}/accounts`;
-    if (path === "/") return `/${locale}`;
+    if (path === "/") return `/${locale}/dashboard`;
     if (path.startsWith("/auth/callback")) return `/${locale}/accounts`;
 
     const hasLocale = /^\/(cs|en|uk)(?:\/|$)/.test(path);

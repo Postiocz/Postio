@@ -50,7 +50,7 @@ import {
   calculateStreak,
   calculateTrend,
 } from "@/lib/dashboard-stats";
-import { normalizePost } from "./posts/normalize-post";
+import { normalizePost } from "../posts/normalize-post";
 
 type RecentPostItem = {
   id: string;

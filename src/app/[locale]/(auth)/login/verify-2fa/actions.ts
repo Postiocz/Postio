@@ -37,7 +37,7 @@ export async function verify2FACode(
     if (!userData.two_factor_enabled) {
       // 2FA is not enabled, redirect to dashboard
       const locale = formData.get("locale") as string;
-      redirect(`/${locale}`);
+      redirect(`/${locale}/dashboard`);
     }
 
     // Recovery code mode
@@ -62,7 +62,7 @@ export async function verify2FACode(
       }
 
       const locale = formData.get("locale") as string;
-      redirect(`/${locale}`);
+      redirect(`/${locale}/dashboard`);
     }
 
     // TOTP verification

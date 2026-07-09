@@ -29,10 +29,55 @@
 7. **MAZÁNÍ KOMPLETNĚ HOTOVÝCH ÚKOLŮ:**
    Jakmile jsou VŠECHNY kroky daného úkolu označeny jako ✅ A byl proveden `git commit` (Pravidlo 4), smaž celou sekci tohoto úkolu z `ukol.md`. Ponechej pouze striktní pravidla (tato sekce). Po smazání vypíšeš: **"Všechny úkoly jsou hotové, s čím chceš pokračovat?"**
 
-8. **PRAVIDLA V UKOL.MD - ZÁKAZ ÚPRAV A MAZÁNÍ PRAVIDEL:**
+8. **DODRŽOVÁNÍ DESIGN MANUÁLU (Taste Skill):**
+   Kdykoliv vytváříš, upravuješ nebo navrhuješ vizuální část aplikace (UI komponenty, Tailwind třídy, layout, landing pages), jsi bezpodmínečně POVINEN si nejprve načíst a striktně aplikovat designová pravidla z těchto dvou souborů:
+    1. .agents/skills/design-taste-frontend/SKILL.md
+    2. .agents/skills/high-end-visual-design/SKILL.md
+       Náš cíl je prémiový, moderní, vzdušný vzhled (Premium Glassmorphism) přesně podle těchto manuálů.
+
+9. **PRAVIDLA V UKOL.MD - ZÁKAZ ÚPRAV A MAZÁNÍ PRAVIDEL:**
    "Za žádných okolností nesmíš smazat nebo upravovat pravidla v ukol.md"**
 
 ---
 
-9. **SEKCE - AKTUÁLNÍCH ÚKOLŮ:**
+10. **SEKCE - AKTUÁLNÍCH ÚKOLŮ:**
   📌 Aktuální úkoly
+
+  ### 🚀 Prompt 021 – Kompletní Frontend / Marketingové stránky (Landing Page)
+  **Cíl:** Veřejná "výkladní skříň" (Landing Page) na domovské URL místo okamžitého přesměrování na login.
+
+  **Design Read (dle manuálů):** `design-taste-frontend` + `high-end-visual-design` →
+  čteme to jako *"B2B/SaaS marketing landing pro tvůrce obsahu, prémiový dark glassmorphism jazyk,
+  leaning toward Next.js + Tailwind v4 + Motion + Geist"*.
+  - DIALY: `VARIANCE 7 / MOTION 6 / DENSITY 4` (landing preset).
+  - BRAND LOCK: indigo `#6366F1` je povolený (LILA RULE override + CLAUDE.md). Jeden akcent napříč stránkou.
+  - THEME LOCK: dark (pure black `#000`/`#09090b`, glassmorphism, grid 24x24, glow) – shodné s existujícím loginem/dashboardem.
+  - FONT: Geist (next/font) pro marketing sekci (Inter je v manuálech banned; CLAUDE.md povoluje Geist).
+  - RADIUS: 20px všude (`rounded-[20px]`). Ikon: lucide (projekt už závisí – přípustné).
+  - ZAKÁZANÉ TELLY: em-dash (`—`) nikde, žádné 3× stejné karty, žádné div-fake-screenshots (použít reálný screenshot aplikace / vygenerovaný obrázek), max 1 eyebrow / 3 sekce, hero ≤2 řádky + subtext ≤20 slov + CTA bez scrollu, `min-h-[100dvh]` nikoli `h-screen`.
+
+  **Kroky (jednotlivě dle Pravidla 2):**
+  - [x] **Krok 1 – Úprava Routingu**
+    - V `middleware.ts`: odebrat `restPath === "/"` z `isDashboardRoute` (domovská `/` bude VEŘEJNÁ).
+    - Přesunout současnou domovskou stránku `(dashboard)/page.tsx` → `(dashboard)/dashboard/page.tsx` (nová URL `/cs/dashboard`).
+    - Přidat `/dashboard` do `isDashboardRoute` v middleware (konzistence + redirect nepřihlášených na login).
+    - Aktualizovat všechny odkazy na dashboard-kořen `/${locale}` → `/${locale}/dashboard` (Sidebar `navItems[0]`, MobileNav, případné další `redirect`).
+    - Vytvořit route group `app/[locale]/(marketing)/page.tsx` → veřejná Landing na `/cs`.
+    - **Doporučení chování:** nepřihlášený na `/` vidí Landing; přihlášený na `/` → `redirect` na `/cs/dashboard` (aby app "domů" zůstala aplikace). Nutno potvrdit při implementaci Krok 1.
+  - [x] **Krok 2 – Marketing Layout (veřejná navigace)**
+    - Nový `(marketing)/layout.tsx`: plovoucí glass nav (Logo, odkazy Funkce/Ceník/FAQ, LocaleSwitcher, ThemeToggle, CTA "Přihlásit se" → `/cs/login`).
+    - Per high-end skill: floating glass pill (`mt-6 mx-auto rounded-full backdrop-blur`), height ≤80px, single-line.
+    - Dědí `LocaleLayout` (NextIntl + ThemeProvider + CookieConsent).
+  - [ ] **Krok 3 – Hero Sekce & Výhody**
+    - Asymetrický split hero (text vlevo, reálný vizuál aplikace vpravo) – NE centerovaný (VARIANCE 7).
+    - H1 ≤2 řádky, subtext ≤20 slov, 1 primární CTA ("Začít zdarma" → `/cs/login`) + max 1 sekundární.
+    - Reálný vizuál: screenshot existující aplikace nebo vygenerovaný obrázek (NE div-fake).
+    - Sekce Výhody: AI Vision, Auto-Queue (dle CLAUDE.md) – bento grid s rytmem, ne 3× stejné karty.
+  - [x] **Krok 4 – Ceník & FAQ**
+    - Ceník: znovupoužít strukturu `Plan` z `billing-card.tsx` (free/creator/pro, `priceCzk/Eur/Usd`, `features`) → 3 veřejné karty s `isRecommended` (Creator).
+    - FAQ: rozbalovací accordion (Motion `whileInView`, reduced-motion fallback).
+  - [ ] **Krok 5 – Lokalizace (cs/en/uk)**
+    - Přidat nový namespace `landing` do `messages/cs.json`, `en.json`, `uk.json` (hero, výhody, ceník, FAQ, nav).
+    - Všechny řetězce přes `useTranslations("landing")` / server `getTranslations`.
+
+  **Poznámka k ověření (Pravidlo 3):** každý Krok se označí ✅ až po tvém manuálním otestování v prohlížeči + zápisu do CHANGELOG.md.

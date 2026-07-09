@@ -1,5 +1,5 @@
 import * as React from "react";
-import { getTranslations, getLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Check, Crown, Sparkles, Zap } from "lucide-react";
 import { Reveal } from "@/components/marketing/reveal";
@@ -30,9 +30,8 @@ interface Plan {
   ctaLabel: string;
 }
 
-export async function PricingSection() {
-  const t = await getTranslations("landing");
-  const locale = await getLocale();
+export async function PricingSection({ locale }: { locale: string }) {
+  const t = await getTranslations({ locale, namespace: "landing" });
 
   const plans: Plan[] = [
     {

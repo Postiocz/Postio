@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 Feat — Dokončení lokalizace Landing Page + server locale fix (Prompt 021, Krok 5)
+
+- **Kontext**: Landing page byla přeložená jen částečně. Client části (např. navigace / preview) se přepínaly správně, ale server-renderované sekce Hero, Ceník a FAQ v `en`/`uk` zůstávaly v češtině, protože používaly `getTranslations("landing")` bez explicitního `locale`.
+- **Změny**:
+  1. `src/app/[locale]/(marketing)/page.tsx`: locale se nově bere přímo z route params a `getTranslations` se volá jako `getTranslations({ locale, namespace: "landing" })`.
+  2. `src/components/marketing/pricing-section.tsx` + `src/components/marketing/faq-section.tsx`: odstraněno implicitní čtení locale; obě server komponenty přijímají `locale` z parentu a používají explicitní `getTranslations({ locale, namespace: "landing" })`.
+  3. `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json` + `src/components/marketing/marketing-nav.tsx`: doplněny/učesány zbývající texty v `landing` namespace, včetně mobile-menu aria labelů a finálního EN/UK copy.
+- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint src/app/[locale]/(marketing)/page.tsx src/components/marketing/pricing-section.tsx src/components/marketing/faq-section.tsx` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil, že vše je v pořádku).
+- **Upravené soubory**: `src/app/[locale]/(marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md`.
+
 ### 🔧 Fix — Hero dashboard preview: responzivní, odlišná od Login vizuálu (Prompt 021-FIX)
 
 - **Kontext**: Oprava Promptu 021-FIX. V Hero sekci landing page byla `<LoginVisual />`, která měla dva problémy: (1) byla uříznutá vpravo – původní příčinou byl `scale-125` (forced 125% šířky) + `max-w` s `overflow-hidden` kontejnerem, takže "REACH", "+24% engagement" a "Dashboard" byly mimo viditelnou oblast; (2) byla 1:1 identická s Login vizuálem (líné, repetitivní).
@@ -91,17 +101,5 @@
   3. Frontend reference v `accounts/page.tsx` vráceny z `/callback` zpět na `/api/accounts/tiktok` (OAuth handler i komentáře).
   4. Zapsána poznámka do `CLAUDE.md` (sekce 5 "TikTok OAuth – produkční Redirect URI"): URL je hardcoded na prod, na localhostu nefunguje, netrailing lomítko, žádná `/callback` route.
 - **Ověření**: `grep -rn "/callback"` (kromě `/auth/callback`) → žádné ✅; `npx tsc --noEmit` po smazání `.next` → čisté ✅.
-
-### ✨ Feat — Ceník & FAQ sekce na Landing Page (Prompt 021, Krok 4)
-
-- **Kontext**: Krok 4 úkolu Prompt 021 (Marketingové stránky). Veřejná Landing page potřebuje sekce Ceník a FAQ pro konverzi návštěvníků.
-- **Změny**:
-  1. `src/components/marketing/pricing-section.tsx` (nový): 3 karty Free / Creator / Pro znovupoužívající strukturu BillingCard (ikony, ceny 0€ / 8€ / 20€, features). Creator je `isRecommended` → zvýrazněný glowem, liftem (`-translate-y-2`) a badge "Doporučujeme". CTA vede na `/${locale}/login`.
-  2. `src/components/marketing/faq-section.tsx` (nový): wrapper načítající `landing.faq.items`.
-  3. `src/components/marketing/faq-accordion.tsx` (nový, client): accordion s Framer Motion AnimatePresence (výška/opacity), `useReducedMotion` fallback, první položka otevřená.
-  4. `src/app/[locale]/(marketing)/page.tsx`: `<PricingSection />` a `<FaqSection />` vloženy mezi Benefits a koncem `<main>`; sekce mají `id="cenik"` a `id="faq"` (nav anchory) + `scroll-mt-28`.
-  5. `messages/cs.json`/`en.json`/`uk.json`: namespace `landing.pricing` + `landing.faq` (5 Q&A), shoda klíčů napříč jazyky.
-- **Ověření**: JSON validita cs/en/uk ✅; shoda klíčů pricing + 5 faq.items ✅; žádné em-dash v landing namespace ✅; `npx tsc --noEmit` ✅ (EXIT 0). Manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`, `src/components/marketing/faq-accordion.tsx`, `src/app/[locale]/(marketing)/page.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `ukol.md` (Krok 4 ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

@@ -951,6 +951,9 @@
   },
   "landing": {
     "nav": {
+      "ariaLabel": "Marketing navigation",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
       "features": "Features",
       "pricing": "Pricing",
       "faq": "FAQ",
@@ -958,7 +961,7 @@
     },
     "hero": {
       "title": "Plan and publish posts across every network",
-      "subtitle": "A simple scheduler for content creators. Save time and publish to social networks at once.",
+      "subtitle": "A simple scheduler for content creators. Save time and publish across social networks at once.",
       "cta": "Start free",
       "ctaSecondary": "View pricing"
     },

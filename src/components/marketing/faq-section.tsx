@@ -4,8 +4,8 @@ import { FaqAccordion } from "@/components/marketing/faq-accordion";
 
 // Public FAQ section. Questions/answers live in the landing i18n namespace
 // (landing.faq.items) and are passed as raw data to the client accordion.
-export async function FaqSection() {
-  const t = await getTranslations("landing");
+export async function FaqSection({ locale }: { locale: string }) {
+  const t = await getTranslations({ locale, namespace: "landing" });
   const items = t.raw("faq.items") as { q: string; a: string }[];
 
   return (

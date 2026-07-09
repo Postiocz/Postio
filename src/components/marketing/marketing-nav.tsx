@@ -57,7 +57,7 @@ export function MarketingNav() {
       {/* Floating glass pill nav: milk glass in light, glass in dark. Single line, <=80px. */}
       <header className="fixed left-1/2 top-6 z-50 w-[calc(100%-2rem)] max-w-5xl -translate-x-1/2">
         <nav
-          aria-label="Marketing"
+          aria-label={t("ariaLabel")}
           className="flex h-16 items-center justify-between gap-4 rounded-full border border-black/10 bg-white/70 px-4 shadow-[0_8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md dark:border-white/10 dark:bg-black/70 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_30px_rgba(0,0,0,0.45)] sm:px-6"
         >
           {/* Brand */}
@@ -97,7 +97,7 @@ export function MarketingNav() {
             <button
               type="button"
               onClick={() => setOpen(true)}
-              aria-label="Otevřít menu"
+              aria-label={t("openMenu")}
               aria-expanded={open}
               className="flex h-9 w-9 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-black/5 hover:text-slate-900 dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white md:hidden"
             >
@@ -125,7 +125,7 @@ export function MarketingNav() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="Zavřít menu"
+                aria-label={t("closeMenu")}
                 className="flex h-9 w-9 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-black/5 hover:text-slate-900 dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 <X className="h-5 w-5" />

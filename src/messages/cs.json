@@ -951,6 +951,9 @@
   },
   "landing": {
     "nav": {
+      "ariaLabel": "Marketingová navigace",
+      "openMenu": "Otevřít menu",
+      "closeMenu": "Zavřít menu",
       "features": "Funkce",
       "pricing": "Ceník",
       "faq": "FAQ",

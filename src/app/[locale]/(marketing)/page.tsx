@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { ArrowRight, BarChart3, ListOrdered, Share2, Sparkles } from "lucide-react";
 import { Reveal } from "@/components/marketing/reveal";
 import { HeroDashboardPreview } from "@/components/marketing/hero-dashboard-preview";
@@ -36,9 +36,13 @@ function BenefitCard({
   );
 }
 
-export default async function MarketingPage() {
-  const t = await getTranslations("landing");
-  const locale = await getLocale();
+export default async function MarketingPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "landing" });
 
   return (
     <main className="relative">
@@ -126,9 +130,9 @@ export default async function MarketingPage() {
         </div>
       </section>
 
-      <PricingSection />
+      <PricingSection locale={locale} />
 
-      <FaqSection />
+      <FaqSection locale={locale} />
     </main>
   );
 }

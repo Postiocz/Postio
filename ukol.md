@@ -68,7 +68,7 @@
     - Nový `(marketing)/layout.tsx`: plovoucí glass nav (Logo, odkazy Funkce/Ceník/FAQ, LocaleSwitcher, ThemeToggle, CTA "Přihlásit se" → `/cs/login`).
     - Per high-end skill: floating glass pill (`mt-6 mx-auto rounded-full backdrop-blur`), height ≤80px, single-line.
     - Dědí `LocaleLayout` (NextIntl + ThemeProvider + CookieConsent).
-  - [ ] **Krok 3 – Hero Sekce & Výhody**
+  - [x] **Krok 3 – Hero Sekce & Výhody**
     - Asymetrický split hero (text vlevo, reálný vizuál aplikace vpravo) – NE centerovaný (VARIANCE 7).
     - H1 ≤2 řádky, subtext ≤20 slov, 1 primární CTA ("Začít zdarma" → `/cs/login`) + max 1 sekundární.
     - Reálný vizuál: screenshot existující aplikace nebo vygenerovaný obrázek (NE div-fake).
@@ -76,7 +76,7 @@
   - [x] **Krok 4 – Ceník & FAQ**
     - Ceník: znovupoužít strukturu `Plan` z `billing-card.tsx` (free/creator/pro, `priceCzk/Eur/Usd`, `features`) → 3 veřejné karty s `isRecommended` (Creator).
     - FAQ: rozbalovací accordion (Motion `whileInView`, reduced-motion fallback).
-  - [ ] **Krok 5 – Lokalizace (cs/en/uk)**
+  - [x] **Krok 5 – Lokalizace (cs/en/uk)**
     - Přidat nový namespace `landing` do `messages/cs.json`, `en.json`, `uk.json` (hero, výhody, ceník, FAQ, nav).
     - Všechny řetězce přes `useTranslations("landing")` / server `getTranslations`.
 

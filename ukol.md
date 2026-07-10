@@ -89,7 +89,7 @@ Nejde o nový design jazyk, pouze o sjednocení s Hero sekcí landing page. Dial
   - Zkontrolovat všechny šířky (1280/1440/1920), že badge ani karta nepřetékají a nic není oříznuté.
 - Zachovat existující i18n (login page předává `labels` s `visual*` klíči z `auth` namespace).
 
-### Krok 4 - Typografie a odsazení nadpisů
+### ✅ Krok 4 - Typografie a odsazení nadpisů
 - "Postio" wordmark vlevo: nahradit ruční `<h1><span className="text-primary">P</span>ostio</h1>` za
   komponentu `<Logo />` (stejná jako v navbaru) pro 100% brand konzistenci.
 - "Začněte s Postio" (`getStarted`) zarovnat na typografii Hero nadpisu: `text-4xl font-bold tracking-tight

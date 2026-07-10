@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Feat — Typografie nadpisů sjednocena s Hero + Logo component (Prompt 026, Krok 4)
+
+- **Kontext**: Login page používala ruční `<h1><span>P</span>ostio</h1>` místo sdílené `<Logo />` komponenty a `getStarted` nadpis měl `font-semibold` namísto `font-bold` z Hero typografie.
+- **Změny**:
+  1. `src/app/[locale]/(auth)/login/page.tsx`: ruční wordmark nahrazen `<Logo />` komponentou pro 100% brand konzistenci (gradient `P` místo `text-primary`). `getStarted` nadpis sjednocen na Hero typografii: `text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl`.
+- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 4 ✅).
+
 ### 🎨 Feat — LoginVisual: sjednocený shell s Hero + fix překrývajících se badge (Prompt 026, Krok 3)
 
 - **Kontext**: Pravý panel login page (`LoginVisual`) měl vlastní SVG gridy, `scale-125` (příčina oříznutí) a floating badge překrývající metriky. Vizuálně neseděl s HeroDashboardPreview.
@@ -91,14 +99,5 @@
   3. Pokud OAuth připojil aspoň Facebook nebo Instagram účet, parametr se dál jen uklidí bez toastu, aby se nezobrazovala zavádějící hláška.
 - **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil, že krok 7 je hotový a zkontrolovaný).
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 7 ✅)
-
-### 🔧 Fix — Idempotentní POST /api/accounts (žádné duplicity u ručního připojení)
-
-- **Kontext**: Návaznost na Krok 6 (Prompt 025). `POST /api/accounts` používal prostý `.insert()` bez `platform_id`/onConflict → při opakovaném ručním připojení (onboarding) vznikal druhý řádek. Endpoint není mrtvý – volá ho `onboarding/client.tsx` (krok 1 „připoj účet"), takže jej nelze jen zlikvidovat.
-- **Změna** (`src/app/api/accounts/route.ts`):
-  1. Před zápisem se zkontroluje existence ručního záznamu (`user_id, platform, platform_id IS NULL`); pokud existuje, `update`, jinak `insert` → idempotentní připojení bez duplicit.
-  2. Reconnect existujícího ručního účtu povolen i na limitu plánu (nový účet blokován až po vyčerpání kapacity).
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `src/app/api/accounts/route.ts`.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

@@ -2,6 +2,7 @@ import { EmailSignIn } from "@/components/auth/email-signin";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { LoginVisual } from "@/components/auth/login-visual";
 import { AuthNav } from "@/components/auth/auth-nav";
+import { Logo } from "@/components/ui/logo";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 
@@ -31,11 +32,11 @@ export default async function LoginPage({
           {/* Premium Light: white glass card */}
           <div className="mx-auto w-full max-w-md lg:max-w-md px-4 text-center">
             <div className="bg-white/60 dark:bg-transparent backdrop-blur-xl dark:backdrop-blur-none border border-white dark:border-transparent shadow-xl dark:shadow-none rounded-[32px] dark:rounded-none p-8 dark:p-0">
-              <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl lg:text-5xl">
-                <span className="text-primary">P</span>ostio
+              <h1 className="flex justify-center">
+                <Logo className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-5xl" />
               </h1>
 
-              <h2 className="mt-8 text-4xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+              <h2 className="mt-8 text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
                 {t("getStarted")}
               </h2>
 

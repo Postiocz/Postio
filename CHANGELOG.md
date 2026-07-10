@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix — Duplicitní Logo v mobilním overlay menu (Prompt 026, Krok 6)
+
+- **Kontext:** Mobilní overlay (z-40) v `MarketingNav` obsahoval vlastní Logo v horní liště. Fixed navbar (z-50) je skleněný (`bg-white/70 backdrop-blur-md`), takže overlayové Logo prosvítalo skrz a vytvářelo "duplicitní" efekt.
+- **Změny:**
+  1. `src/components/marketing/marketing-nav.tsx`: mobilní overlay pozadí změněno z `bg-white/85 backdrop-blur-3xl` na plně neprůhledné `bg-white dark:bg-black`, aby skrz navbar nic neprosvítalo.
+- **Ověření:** `npx tsc --noEmit` ✅.
+- **Upravené soubory:** `src/components/marketing/marketing-nav.tsx`, `ukol.md` (Krok 6).
+
 ### 🎨 Feat — Typografie nadpisů sjednocena s Hero + Logo component (Prompt 026, Krok 4)
 
 - **Kontext**: Login page používala ruční `<h1><span>P</span>ostio</h1>` místo sdílené `<Logo />` komponenty a `getStarted` nadpis měl `font-semibold` namísto `font-bold` z Hero typografie.
@@ -89,15 +97,5 @@
   6. Vytvořen `(marketing)/page.tsx` – placeholder veřejné Landing (skutečný obsah v Krocích 2–3).
 - **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil — odhlášený zůstává na `/`, přihlášený jde na `/cs/dashboard`).
 - **Upravené soubory**: `middleware.ts`, `src/app/page.tsx`, `src/app/[locale]/(dashboard)/layout.tsx`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/mobile-nav.tsx`, `src/lib/actions/auth.ts`, `src/app/auth/callback/route.ts`, `src/app/[locale]/(auth)/onboarding/client.tsx`, `src/app/[locale]/(auth)/login/verify-2fa/actions.ts`, `src/app/[locale]/(marketing)/page.tsx`, `ukol.md` (Krok 1 ✅)
-
-### ✨ Feat — Informativní toast při 0 Facebook Pages po OAuth (Prompt 025, Krok 7)
-
-- **Kontext**: Krok 7 úkolu Prompt 025 – po návratu z Facebook OAuth (`?fb=connected`) se při nulovém počtu spravovatelných stránek query parametr jen tiše mazal, takže uživatel nedostal žádnou zpětnou vazbu.
-- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
-  1. Effect pro `?fb=connected` čeká na dokončení načtení pending Pages i připojených účtů, aby nevyhodnotil stav předčasně.
-  2. Pokud po načtení neexistují žádné pending Facebook Pages ani nově připojený Facebook/Instagram účet, zobrazí `toast.info(t("noPagesFound"))`.
-  3. Pokud OAuth připojil aspoň Facebook nebo Instagram účet, parametr se dál jen uklidí bez toastu, aby se nezobrazovala zavádějící hláška.
-- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil, že krok 7 je hotový a zkontrolovaný).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 7 ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

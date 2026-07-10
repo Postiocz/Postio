@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Feat — Auth navbar pro login page (Prompt 026, Krok 2)
+
+- **Kontext**: Login page postrádala konzistentní navigaci — `LocaleSwitcher` byl osamoceně v levém panelu. Chyběl jednotný glass navbar jako na marketingové stránce.
+- **Změny**:
+  1. `src/components/auth/auth-nav.tsx` (nový): plovoucí glass pill navbar (zjednodušená varianta `MarketingNav`) — `fixed top-6`, `rounded-full`, `backdrop-blur-md`, border + shadow. Logo vlevo (odkaz na `/${locale}`), `LocaleSwitcher` + `ThemeToggle` vpravo. Bez marketing odkazů a CTA.
+  2. `src/app/[locale]/(auth)/login/page.tsx`: přidán `<AuthNav />`, odebrán osamocený `<LocaleSwitcher>` z levého panelu.
+- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/components/auth/auth-nav.tsx` (nový), `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 2 ✅).
+
 ### 🎨 Feat — Sjednocení pozadí login page s Hero sekcí (Prompt 026, Krok 1)
 
 - **Kontext**: Login page měla vlastní SVG grid pattern bez glow orbů, zatímco marketing layout používal CSS linear-gradient grid + centrální indigo glow. Vizuálně tak působila odtrženě od zbytku brandu.
@@ -90,15 +99,5 @@
 - **Zjištění (mimo rozsah Kroku 6)**: `POST /api/accounts` stále používá `.insert()` bez `platform_id`/onConflict (legacy ruční token formulář). Není mrtvý – volá ho `onboarding/client.tsx`. Oddělený úklid viz následující akce.
 - **Ověření**: Code/DB review všech OAuth route + migrace `012` ✅. Manuální test reconnectu v prohlížeči ✅ (uživatel potvrdil závěr).
 - **Upravené soubory**: `ukol.md` (Krok 6 ✅).
-
-### ✨ Feat — Očistění getTokenStatus (čistý render) (Prompt 025, Krok 5)
-
-- **Kontext**: Krok 5 úkolu Prompt 025 – `getTokenStatus` volala `Date.now()` přímo v render-fázi (u každého účtu v `.map`), což dělalo komponentu nečistou a vyžadovalo file-level `eslint-disable react-hooks/purity`.
-- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
-  1. `Date.now()` přesunuto z těla `getTokenStatus` do `useMemo(() => Date.now(), [])` (`now`) – počítá se jednou při mountu, ne při každém renderu.
-  2. `getTokenStatus(account)` → `getTokenStatus(account, now)` (čistá funkce, žádné `Date.now()` v těle).
-  3. File-level `/* eslint-disable react-hooks/purity */` odstraněn; ponechán jen scoped `// eslint-disable-next-line react-hooks/purity` přesně na `useMemo` inicializéru (který je vnitřně nečistý).
-- **Ověření**: `npx tsc --noEmit` ✅; `npx eslint` na souboru ✅ (0 errors, jen 3 pre-existing warningy mimo tento zásah: `Clock` nepoužitý, 2× hook deps). Manuální test v prohlížeči ✅ (uživatel potvrdil – token-expiry badge se zobrazuje správně).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 5 ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

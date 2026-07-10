@@ -1,7 +1,7 @@
 import { EmailSignIn } from "@/components/auth/email-signin";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { LoginVisual } from "@/components/auth/login-visual";
+import { AuthNav } from "@/components/auth/auth-nav";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 
@@ -21,9 +21,11 @@ export default async function LoginPage({
         <div className="absolute left-1/2 top-[-12%] h-[440px] w-[860px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-[160px] dark:bg-indigo-500/35" />
       </div>
 
+      {/* Floating glass nav */}
+      <AuthNav />
+
       {/* Left: form panel – full width mobile, 40% desktop */}
       <div className="relative z-10 flex w-full min-h-[100dvh] pt-12 pb-48 lg:py-12 flex-col justify-between px-6 lg:w-[40%] lg:px-16 xl:px-24 lg:justify-center">
-        <LocaleSwitcher className="absolute top-4 right-4 sm:top-8 sm:right-8 z-50" />
 
         <div className="flex-1 flex items-center justify-center">
           {/* Premium Light: white glass card */}

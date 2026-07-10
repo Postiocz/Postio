@@ -66,7 +66,7 @@ Nejde o nový design jazyk, pouze o sjednocení s Hero sekcí landing page. Dial
 - Zachovat `min-h-screen` (resp. `min-h-[100dvh]`) a `bg-slate-50 dark:bg-black` jako základ.
 - Ověřit, že intenzita glow odpovídá landing page v obou módech (light jemnější, dark silnější).
 
-### Krok 2 - Horní lišta (navbar) v stylu marketingu
+### ✅ Krok 2 - Horní lišta (navbar) v stylu marketingu
 - Vytvořit `src/components/auth/auth-nav.tsx` (client komponenta) jako zjednodušená varianta `MarketingNav`:
   plovoucí glass pill (`fixed top-6 left-1/2 -translate-x-1/2`, `rounded-full`, `bg-white/70 dark:bg-black/70
   backdrop-blur-md`, border, shadow) s `Logo` vlevo (odkaz na `/${locale}`) a `LocaleSwitcher` + `ThemeToggle`

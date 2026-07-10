@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Feat — Sjednocení pozadí login page s Hero sekcí (Prompt 026, Krok 1)
+
+- **Kontext**: Login page měla vlastní SVG grid pattern bez glow orbů, zatímco marketing layout používal CSS linear-gradient grid + centrální indigo glow. Vizuálně tak působila odtrženě od zbytku brandu.
+- **Změny**:
+  1. `src/app/[locale]/(auth)/login/page.tsx`: nahrazeno `bg-slate-200/50` + SVG grid za identický základ jako `(marketing)/layout.tsx` — 24x24 CSS gradient grid (šedý v light, bílý v dark) + indigo glow orb `bg-indigo-500/20 blur-[160px]` (light) / `bg-indigo-500/35` (dark). Přidáno `overflow-hidden` na root div. Oba panely dostaly `relative z-10` pro korektní stacking nad fixed pozadím.
+- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 1 ✅).
+
+
 ### 🌐 Feat — Dokončení lokalizace Landing Page + server locale fix (Prompt 021, Krok 5)
 
 - **Kontext**: Landing page byla přeložená jen částečně. Client části (např. navigace / preview) se přepínaly správně, ale server-renderované sekce Hero, Ceník a FAQ v `en`/`uk` zůstávaly v češtině, protože používaly `getTranslations("landing")` bez explicitního `locale`.
@@ -91,15 +100,5 @@
   3. File-level `/* eslint-disable react-hooks/purity */` odstraněn; ponechán jen scoped `// eslint-disable-next-line react-hooks/purity` přesně na `useMemo` inicializéru (který je vnitřně nečistý).
 - **Ověření**: `npx tsc --noEmit` ✅; `npx eslint` na souboru ✅ (0 errors, jen 3 pre-existing warningy mimo tento zásah: `Clock` nepoužitý, 2× hook deps). Manuální test v prohlížeči ✅ (uživatel potvrdil – token-expiry badge se zobrazuje správně).
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 5 ✅)
-
-### 🔧 Fix — Vrácení TikTok OAuth route do produkčního stavu + poznámka
-
-- **Kontext**: TikTok OAuth fungoval na produkci (`https://postio-alpha.vercel.app/api/accounts/tiktok`), ale selhával na localhostu. Zkouška s `/callback` variantou (lokální route, která redirectovala zpět) na produkci neprošla – správná je původní prod adresa bez trailing lomítka.
-- **Změna**:
-  1. Smazána dočasná `/src/app/callback/route.ts` (lokální `/callback` varianta) – v kódu nezůstala žádná `/callback` reference kromě `/auth/callback`.
-  2. `src/app/api/accounts/tiktok/route.ts` obnovena z HEAD do původního stavu (hardcoded prod URL, `sha256`/`base64url` PKCE, `secure`/`sameSite:"none"` cookies).
-  3. Frontend reference v `accounts/page.tsx` vráceny z `/callback` zpět na `/api/accounts/tiktok` (OAuth handler i komentáře).
-  4. Zapsána poznámka do `CLAUDE.md` (sekce 5 "TikTok OAuth – produkční Redirect URI"): URL je hardcoded na prod, na localhostu nefunguje, netrailing lomítko, žádná `/callback` route.
-- **Ověření**: `grep -rn "/callback"` (kromě `/auth/callback`) → žádné ✅; `npx tsc --noEmit` po smazání `.next` → čisté ✅.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

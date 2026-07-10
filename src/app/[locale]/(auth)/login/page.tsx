@@ -14,17 +14,15 @@ export default async function LoginPage({
   const t = await getTranslations({ locale, namespace: "auth" });
 
   return (
-    <div className="relative flex w-full min-h-screen bg-slate-50 dark:bg-black">
-      {/* Grid pattern background – light: visible gray grid, dark: subtle white grid */}
-      <div
-        className="absolute inset-0 bg-slate-200/50 dark:opacity-[0.04]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 24 0 L 0 0 0 24' fill='none' stroke='%23a0a0a0' stroke-width='0.5'/%3E%3C/svg%3E")`,
-        }}
-      />
+    <div className="relative flex w-full min-h-screen bg-slate-50 dark:bg-black overflow-hidden">
+      {/* Theme-adaptive background: 24x24 grid + indigo glow (subtler in light, stronger in dark) */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.05)_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)]" />
+        <div className="absolute left-1/2 top-[-12%] h-[440px] w-[860px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-[160px] dark:bg-indigo-500/35" />
+      </div>
 
       {/* Left: form panel – full width mobile, 40% desktop */}
-      <div className="relative flex w-full min-h-[100dvh] pt-12 pb-48 lg:py-12 flex-col justify-between px-6 lg:w-[40%] lg:px-16 xl:px-24 lg:justify-center">
+      <div className="relative z-10 flex w-full min-h-[100dvh] pt-12 pb-48 lg:py-12 flex-col justify-between px-6 lg:w-[40%] lg:px-16 xl:px-24 lg:justify-center">
         <LocaleSwitcher className="absolute top-4 right-4 sm:top-8 sm:right-8 z-50" />
 
         <div className="flex-1 flex items-center justify-center">
@@ -69,7 +67,7 @@ export default async function LoginPage({
       </div>
 
       {/* Right: visual panel – hidden on <lg, 60% on lg+ */}
-      <div className="hidden w-[60%] lg:flex">
+      <div className="relative z-10 hidden w-[60%] lg:flex">
         <LoginVisual
           labels={{
             dashboard: t("visualDashboard"),

@@ -38,46 +38,70 @@
 9. **PRAVIDLA V UKOL.MD - ZÁKAZ ÚPRAV A MAZÁNÍ PRAVIDEL:**
    "Za žádných okolností nesmíš smazat nebo upravovat pravidla v ukol.md"**
 
+
+## 🎯 Úkol: Sjednocení Login page s vizuálním stylem Landing page (Prompt 026)
+
+**Design Read (dle taste skill 0.B):** Redesign-preserve přihlašovací stránky tak, aby vizuálně odpovídala
+již zavedenému Postio marketingu (Premium Glassmorphism, indigo/purple glow orby, 24x24 grid, Geist wordmark).
+Nejde o nový design jazyk, pouze o sjednocení s Hero sekcí landing page. Dials: VARIANCE 5 / MOTION 5 / DENSITY 4
+(shodné s existujícím marketingem). Žádné em-dash, žádné AI-slop novoty.
+
+**Klíčové soubory:**
+- `src/app/[locale]/(auth)/login/page.tsx` (upravovaná stránka)
+- `src/components/auth/login-visual.tsx` (pravý panel - stará komponenta s bugem)
+- `src/components/marketing/hero-dashboard-preview.tsx` (cílový styl karty)
+- `src/components/marketing/marketing-nav.tsx` (cílový styl navbaru / mléčné sklo)
+- `src/app/[locale]/(marketing)/layout.tsx` (cílové pozadí: grid + indigo glow)
+- `src/components/ui/logo.tsx`, `src/components/locale-switcher.tsx`, `src/components/theme-toggle.tsx` (sdílené)
+
 ---
 
-10. **SEKCE - AKTUÁLNÍCH ÚKOLŮ:**
-  📌 Aktuální úkoly
+### ✅ Krok 1 - Pozadí login page sjednotit s Hero (grid + glow orby)
+- V `login/page.tsx` nahradit stávající `bg-slate-200/50` + svg grid za stejný vizuální základ jako
+  `(marketing)/layout.tsx`: 24x24 grid přes `bg-[linear-gradient(...)] bg-[size:24px_24px]` (šedé v light,
+  bílé v dark) + centrální indigo glow orb `bg-indigo-500/20 blur-[160px]` nahoře uprostřed (dark silnější
+  `bg-indigo-500/35`).
+- Kořenový `div` stránky opatřit `overflow-hidden`, aby glow orby nemohly způsobit horizontální scroll
+  (stejně jako `overflow-hidden` na `<section>` v Hero).
+- Zachovat `min-h-screen` (resp. `min-h-[100dvh]`) a `bg-slate-50 dark:bg-black` jako základ.
+- Ověřit, že intenzita glow odpovídá landing page v obou módech (light jemnější, dark silnější).
 
-  ### 🚀 Prompt 021 – Kompletní Frontend / Marketingové stránky (Landing Page)
-  **Cíl:** Veřejná "výkladní skříň" (Landing Page) na domovské URL místo okamžitého přesměrování na login.
+### Krok 2 - Horní lišta (navbar) v stylu marketingu
+- Vytvořit `src/components/auth/auth-nav.tsx` (client komponenta) jako zjednodušená varianta `MarketingNav`:
+  plovoucí glass pill (`fixed top-6 left-1/2 -translate-x-1/2`, `rounded-full`, `bg-white/70 dark:bg-black/70
+  backdrop-blur-md`, border, shadow) s `Logo` vlevo (odkaz na `/${locale}`) a `LocaleSwitcher` + `ThemeToggle`
+  vpravo. Bez marketing odkazů (#funkce/#cenik/#faq) a bez Login CTA (jsme na loginu).
+- V `login/page.tsx` vložit `<AuthNav />` a odebrat osamocený `<LocaleSwitcher className="absolute top-4 right-4 ..." />`
+  z levého panelu (přepínač jazyka přejde do navbaru).
 
-  **Design Read (dle manuálů):** `design-taste-frontend` + `high-end-visual-design` →
-  čteme to jako *"B2B/SaaS marketing landing pro tvůrce obsahu, prémiový dark glassmorphism jazyk,
-  leaning toward Next.js + Tailwind v4 + Motion + Geist"*.
-  - DIALY: `VARIANCE 7 / MOTION 6 / DENSITY 4` (landing preset).
-  - BRAND LOCK: indigo `#6366F1` je povolený (LILA RULE override + CLAUDE.md). Jeden akcent napříč stránkou.
-  - THEME LOCK: dark (pure black `#000`/`#09090b`, glassmorphism, grid 24x24, glow) – shodné s existujícím loginem/dashboardem.
-  - FONT: Geist (next/font) pro marketing sekci (Inter je v manuálech banned; CLAUDE.md povoluje Geist).
-  - RADIUS: 20px všude (`rounded-[20px]`). Ikon: lucide (projekt už závisí – přípustné).
-  - ZAKÁZANÉ TELLY: em-dash (`—`) nikde, žádné 3× stejné karty, žádné div-fake-screenshots (použít reálný screenshot aplikace / vygenerovaný obrázek), max 1 eyebrow / 3 sekce, hero ≤2 řádky + subtext ≤20 slov + CTA bez scrollu, `min-h-[100dvh]` nikoli `h-screen`.
+### Krok 3 - Pravý panel: sjednotit styl + opravit překrývající se badge
+- V `login-visual.tsx` sjednotit kartu s `HeroDashboardPreview`: stejný shell
+  (`rounded-[20px] border border-border bg-gradient-hero shadow-[0_20px_60px_...]`), grid overlay
+  (`opacity-[0.05] dark:opacity-[0.04]`) a glow blobs (light jemnější / dark silnější).
+- **Oprava bugu:** floating badge "Post scheduled" a "+24% engagement" se nesmí překrývat kartu statistik
+  ani uřezávat 3. stat ("4.2% Eng."). Řešení (stejné jako u HeroDashboardPreview, kde překryv zmizel):
+  - Odebrat `scale-125` (příčina uříznutí) - použít responzivní `w-full max-w-*` bez scale transformu.
+  - "Post scheduled" badge umístit do mezery NAD hlavní kartou (např. `absolute -top-4 left-4` mimo obsah karty),
+    "+24% engagement" badge do mezery POD kartou (např. `absolute -bottom-4 right-4`), aby ani jeden
+    nepřekrýval řádek metrik.
+  - Vnější wrapper mít `overflow-visible` (badge nejsou oříznuty); `overflow-hidden` pouze na samotné kartě
+    pro clip jejího glow.
+  - Zkontrolovat všechny šířky (1280/1440/1920), že badge ani karta nepřetékají a nic není oříznuté.
+- Zachovat existující i18n (login page předává `labels` s `visual*` klíči z `auth` namespace).
 
-  **Kroky (jednotlivě dle Pravidla 2):**
-  - [x] **Krok 1 – Úprava Routingu**
-    - V `middleware.ts`: odebrat `restPath === "/"` z `isDashboardRoute` (domovská `/` bude VEŘEJNÁ).
-    - Přesunout současnou domovskou stránku `(dashboard)/page.tsx` → `(dashboard)/dashboard/page.tsx` (nová URL `/cs/dashboard`).
-    - Přidat `/dashboard` do `isDashboardRoute` v middleware (konzistence + redirect nepřihlášených na login).
-    - Aktualizovat všechny odkazy na dashboard-kořen `/${locale}` → `/${locale}/dashboard` (Sidebar `navItems[0]`, MobileNav, případné další `redirect`).
-    - Vytvořit route group `app/[locale]/(marketing)/page.tsx` → veřejná Landing na `/cs`.
-    - **Doporučení chování:** nepřihlášený na `/` vidí Landing; přihlášený na `/` → `redirect` na `/cs/dashboard` (aby app "domů" zůstala aplikace). Nutno potvrdit při implementaci Krok 1.
-  - [x] **Krok 2 – Marketing Layout (veřejná navigace)**
-    - Nový `(marketing)/layout.tsx`: plovoucí glass nav (Logo, odkazy Funkce/Ceník/FAQ, LocaleSwitcher, ThemeToggle, CTA "Přihlásit se" → `/cs/login`).
-    - Per high-end skill: floating glass pill (`mt-6 mx-auto rounded-full backdrop-blur`), height ≤80px, single-line.
-    - Dědí `LocaleLayout` (NextIntl + ThemeProvider + CookieConsent).
-  - [x] **Krok 3 – Hero Sekce & Výhody**
-    - Asymetrický split hero (text vlevo, reálný vizuál aplikace vpravo) – NE centerovaný (VARIANCE 7).
-    - H1 ≤2 řádky, subtext ≤20 slov, 1 primární CTA ("Začít zdarma" → `/cs/login`) + max 1 sekundární.
-    - Reálný vizuál: screenshot existující aplikace nebo vygenerovaný obrázek (NE div-fake).
-    - Sekce Výhody: AI Vision, Auto-Queue (dle CLAUDE.md) – bento grid s rytmem, ne 3× stejné karty.
-  - [x] **Krok 4 – Ceník & FAQ**
-    - Ceník: znovupoužít strukturu `Plan` z `billing-card.tsx` (free/creator/pro, `priceCzk/Eur/Usd`, `features`) → 3 veřejné karty s `isRecommended` (Creator).
-    - FAQ: rozbalovací accordion (Motion `whileInView`, reduced-motion fallback).
-  - [x] **Krok 5 – Lokalizace (cs/en/uk)**
-    - Přidat nový namespace `landing` do `messages/cs.json`, `en.json`, `uk.json` (hero, výhody, ceník, FAQ, nav).
-    - Všechny řetězce přes `useTranslations("landing")` / server `getTranslations`.
+### Krok 4 - Typografie a odsazení nadpisů
+- "Postio" wordmark vlevo: nahradit ruční `<h1><span className="text-primary">P</span>ostio</h1>` za
+  komponentu `<Logo />` (stejná jako v navbaru) pro 100% brand konzistenci.
+- "Začněte s Postio" (`getStarted`) zarovnat na typografii Hero nadpisu: `text-4xl font-bold tracking-tight
+  text-foreground sm:text-5xl lg:text-6xl` (nyní je `text-4xl font-semibold`, což nesedí s Hero).
+- Zkontrolovat odsazení (mt-*) a barvy, aby odpovídaly Hero sekci (ne ad-hoc styl).
 
-  **Poznámka k ověření (Pravidlo 3):** každý Krok se označí ✅ až po tvém manuálním otestování v prohlížeči + zápisu do CHANGELOG.md.
+### Krok 5 - Testování (Dark/Light + 1280/1440/1920px)
+- Spustit `npx tsc --noEmit` a `npx eslint` na změněných souborech (0 errors).
+- Vizuálně zkontrolovat v prohlížeči (manuální test uživatele dle Pravidla 3):
+  - Dark i Light mode.
+  - Šířky 1280 / 1440 / 1920 px.
+  - Žádné uříznutí karty/badge/3. statistiky.
+  - Glow orby nezpůsobují horizontální scroll (overflow-hidden funguje).
+  - Navbar konzistentní s marketingem, LocaleSwitcher + ThemeToggle funkční.
+- Až uživatel potvrdí OK, označit kroky ✅ a zapsat záznam do CHANGELOG.md (Pravidlo 3).

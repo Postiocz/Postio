@@ -5,6 +5,8 @@ import { Reveal } from "@/components/marketing/reveal";
 import { HeroDashboardPreview } from "@/components/marketing/hero-dashboard-preview";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { FaqSection } from "@/components/marketing/faq-section";
+import { SocialProofStrip } from "@/components/marketing/social-proof-strip";
+import { SiteFooter } from "@/components/marketing/site-footer";
 
 // Single bento cell. `accent` gives the hero feature a subtle brand gradient
 // so the grid has visual rhythm (not 3 identical cards).
@@ -90,6 +92,8 @@ export default async function MarketingPage({
         </div>
       </section>
 
+      <SocialProofStrip />
+
       {/* Benefits: bento grid with rhythm (2+1, 1+2) */}
       <section id="funkce" className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-28">
         <Reveal>
@@ -133,6 +137,8 @@ export default async function MarketingPage({
       <PricingSection locale={locale} />
 
       <FaqSection locale={locale} />
+
+      <SiteFooter locale={locale} />
     </main>
   );
 }

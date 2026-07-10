@@ -973,6 +973,9 @@
       "reach": "Reach",
       "eng": "Eng."
     },
+    "socialProof": {
+      "text": "Join content creators. Secure login via official APIs."
+    },
     "benefits": {
       "heading": "Everything you need to grow",
       "aiVisionTitle": "AI Vision",
@@ -1017,6 +1020,17 @@
         { "q": "Can I change my plan anytime?", "a": "Yes. You can move to a higher or lower plan whenever you want, and the change applies immediately." },
         { "q": "Is my data safe?", "a": "Yes. Login and network access tokens are encrypted, stored securely, and refreshed regularly." }
       ]
+    },
+    "footer": {
+      "newsletterTitle": "Get tips for social media",
+      "newsletterDesc": "Subscribe to updates on content creation, new features, and social media tips.",
+      "newsletterPlaceholder": "Your email",
+      "newsletterCta": "Subscribe",
+      "copyright": "All rights reserved.",
+      "linkFeatures": "Features",
+      "linkPricing": "Pricing",
+      "linkFaq": "FAQ",
+      "linkLogin": "Log in"
     }
   }
 }

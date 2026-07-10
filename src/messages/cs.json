@@ -973,6 +973,9 @@
       "reach": "Dosah",
       "eng": "Zap."
     },
+    "socialProof": {
+      "text": "Připojte se k tvůrcům obsahu. Bezpečné přihlášení přes oficiální API."
+    },
     "benefits": {
       "heading": "Vše, co potřebuješ k růstu",
       "aiVisionTitle": "AI Vision",
@@ -1017,6 +1020,17 @@
         { "q": "Lze kdykoliv změnit tarif?", "a": "Ano. Přechod na vyšší i nižší tarif je možný kdykoliv a projeví se okamžitě." },
         { "q": "Jsou moje data v bezpečí?", "a": "Ano. Přihlašování i přístupové tokeny sítí jsou šifrované, ukládáme je bezpečně a pravidelně obnovujeme." }
       ]
+    },
+    "footer": {
+      "newsletterTitle": "Získejte tipy pro sítě",
+      "newsletterDesc": "Přihlaste se k odběru novinek o tvorbě obsahu, nových funkcích a tipech pro sociální sítě.",
+      "newsletterPlaceholder": "Váš e-mail",
+      "newsletterCta": "Odebírat",
+      "copyright": "Všechna vyhrazena.",
+      "linkFeatures": "Funkce",
+      "linkPricing": "Ceník",
+      "linkFaq": "FAQ",
+      "linkLogin": "Přihlásit se"
     }
   }
 }

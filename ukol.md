@@ -38,5 +38,37 @@
 9. **PRAVIDLA V UKOL.MD - ZÁKAZ ÚPRAV A MAZÁNÍ PRAVIDEL:**
    "Za žádných okolností nesmíš smazat nebo upravovat pravidla v ukol.md"**
 
+---
 
+## 🎯 Prompt 025 – Marketingové vylepšení Landing Page (Social Proof & Trust)
 
+**Kontext**: Landing page postrádá konverzní prvky – social proof, trust signály a email capture. Cíl je zvýšit důvěryhodnost a konverzi veřejné stránky.
+
+### Krok 1: Social Proof Strip (pod Hero sekcí) ✅
+
+- Vytvořit novou komponentu `src/components/marketing/social-proof-strip.tsx` (client, pro hover animace)
+- **Umístění**: samostatná sekce `<section>` ihned pod Hero v `page.tsx` (podle taste skill 4.7: trust prvky patří POD hero, ne dovnitř)
+- **Obsah**: Horizontální flex center s:
+  - 4 překrývající se kroužky (avatar siluety) – `rounded-full`, překrytí `:-ml-3`, border 2px solid bg-background
+  - Text: "Připojte se k tvůrcům obsahu. Bezpečné přihlášení přes oficiální API."
+- **Styling**: jemné glassmorphism pozadí (`bg-card/50 backdrop-blur-sm rounded-[20px] border border-border`), `Reveal` animace
+- i18n: texty v `landing.socialProof` namespace
+
+### Krok 2: Newsletter + Footer ✅
+
+- Vytvořit novou komponentu `src/components/marketing/site-footer.tsx` (server component)
+- **Přidat do `page.tsx`** za `<FaqSection />` a do `layout.tsx` jako spodní část
+- **Struktura Footeru**:
+  - Newsletter sekce: glassmorphism karta (`rounded-[20px]`, `bg-card/60 backdrop-blur-md`, border) s nadpisem, popisem, input + CTA tlačítko
+  - Spodní řádek: copyright, odkazy (Funkce, Ceník, FAQ, Login), social ikony (placeholder)
+- **UI-only** – žádná backend logika pro odesílání formuláře
+- i18n: texty v `landing.footer` namespace
+
+### Krok 3: Lokalizace (i18n) ✅
+
+- Přidat všechny nové klíče do `src/messages/cs.json`, `en.json`, `uk.json`:
+  - `landing.socialProof.text` (social proof strip)
+  - `landing.footer.*` (newsletter nadpisy, popisky, placeholder, copyright, odkazy)
+- Ověřit shodu klíčů napříč všemi 3 jazyky
+
+**Design manuál (pravidlo 8)**: Dodrženo – Geist font, `rounded-[20px]`, Pure Black pozadí, glassmorphism, #6366F1 accent, žádné em-dash, žádné AI Tells. Social proof strip = `Reveal` entry animation (scroll-triggered). Newsletter karta = Double-Bezel nested architecture z high-end-visual-design.

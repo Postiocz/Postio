@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Newsletter Footer na Landing Page (Prompt 025, Krok 2)
+
+- **Kontext**: Landing page neměla žádnou patičku ani email capture prvek. Cíl byl přidat newsletter formulář a základní footer s navigací.
+- **Změny**:
+  1. `src/components/marketing/site-footer.tsx` (nový): server komponenta s newsletter glassmorphism kartou (`rounded-[20px] bg-card/60 backdrop-blur-md`), spodním řádkem (copyright + navigační odkazy).
+  2. `src/components/marketing/newsletter-form.tsx` (nový): client komponenta s email inputem a CTA tlačítkem (arrow-in-button pattern). UI-only, bez backend logiky.
+  3. `src/app/[locale]/(marketing)/page.tsx`: `<SiteFooter locale={locale} />` přidán za `<FaqSection />`.
+  4. `src/messages/{cs,en,uk}.json`: nový `landing.footer.*` namespace (newsletterTitle, newsletterDesc, newsletterPlaceholder, newsletterCta, copyright, 4 odkazy).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/components/marketing/site-footer.tsx` (nový), `src/components/marketing/newsletter-form.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 2 ✅).
+
 ### 🎨 Feat — Typografie nadpisů sjednocena s Hero + Logo component (Prompt 026, Krok 4)
 
 - **Kontext**: Login page používala ruční `<h1><span>P</span>ostio</h1>` místo sdílené `<Logo />` komponenty a `getStarted` nadpis měl `font-semibold` namísto `font-bold` z Hero typografie.
@@ -77,27 +88,14 @@
 - **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅. Manuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/app/[locale]/(marketing)/layout.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `package.json` (geist), `ukol.md` (Krok 2 ✅)
 
-### 🔧 Feat — Routing: veřejná Landing Page na domovské URL (Prompt 021, Krok 1)
+### ✨ Social Proof strip na Landing Page (Prompt 025, Krok 1)
 
-- **Kontext**: Krok 1 úkolu Prompt 021 (Marketingové stránky). Doposud `/` (resp. `/cs`) byl dashboard a nepřihlášené okamžitě přesměrovával na login. Cíl: neregistrovaný uživatel vidí veřejnou Landing page; na login jde jen při vstupu do chráněné `(dashboard)` sekce.
+- **Kontext**: Landing page postrádala social proof prvek – důvěryhodnostní signál pro návštěvníky hned pod Hero sekcí.
 - **Změny**:
-  1. `middleware.ts`: `/` už není v `isDashboardRoute` (je veřejná). Přidáno `startsWith("/dashboard")` mezi chráněné route. Přihlášený na `/` → `redirect` na `/cs/dashboard`.
-  2. Přesun domovské stránky dashboardu: `(dashboard)/page.tsx` → `(dashboard)/dashboard/page.tsx` (URL `/cs/dashboard`); oprava relativního importu `./posts/normalize-post` → `../posts/normalize-post`.
-  3. `(dashboard)/layout.tsx` + `mobile-nav.tsx`: odkaz "Dashboard" → `/cs/dashboard`.
-  4. Post-login/OAuth redirecty (`auth.ts`, `auth/callback/route.ts`, `onboarding/client.tsx`, `verify-2fa/actions.ts`) → `/cs/dashboard` (ne na Landing).
-  5. `src/app/page.tsx`: oprava `redirect("/cs/login")` → `redirect("/cs")` (root nesmí posílat na login).
-  6. Vytvořen `(marketing)/page.tsx` – placeholder veřejné Landing (skutečný obsah v Krocích 2–3).
-- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil — odhlášený zůstává na `/`, přihlášený jde na `/cs/dashboard`).
-- **Upravené soubory**: `middleware.ts`, `src/app/page.tsx`, `src/app/[locale]/(dashboard)/layout.tsx`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/mobile-nav.tsx`, `src/lib/actions/auth.ts`, `src/app/auth/callback/route.ts`, `src/app/[locale]/(auth)/onboarding/client.tsx`, `src/app/[locale]/(auth)/login/verify-2fa/actions.ts`, `src/app/[locale]/(marketing)/page.tsx`, `ukol.md` (Krok 1 ✅)
-
-### ✨ Feat — Informativní toast při 0 Facebook Pages po OAuth (Prompt 025, Krok 7)
-
-- **Kontext**: Krok 7 úkolu Prompt 025 – po návratu z Facebook OAuth (`?fb=connected`) se při nulovém počtu spravovatelných stránek query parametr jen tiše mazal, takže uživatel nedostal žádnou zpětnou vazbu.
-- **Změna** (`src/app/[locale]/(dashboard)/accounts/page.tsx`):
-  1. Effect pro `?fb=connected` čeká na dokončení načtení pending Pages i připojených účtů, aby nevyhodnotil stav předčasně.
-  2. Pokud po načtení neexistují žádné pending Facebook Pages ani nově připojený Facebook/Instagram účet, zobrazí `toast.info(t("noPagesFound"))`.
-  3. Pokud OAuth připojil aspoň Facebook nebo Instagram účet, parametr se dál jen uklidí bez toastu, aby se nezobrazovala zavádějící hláška.
-- **Ověření**: manuální test v prohlížeči ✅ (uživatel potvrdil, že krok 7 je hotový a zkontrolovaný).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 7 ✅)
+  1. `src/components/marketing/social-proof-strip.tsx` (nový): client komponenta s 4 překrývajícími se avatary (lucide `User`), přeloženým trust textem a `ShieldCheck` ikonou. Glassmorphism styling (`bg-card/50 backdrop-blur-sm rounded-[20px] border border-border`). `Reveal` scroll animace. Top padding pro oddělení od Hero.
+  2. `src/app/[locale]/(marketing)/page.tsx`: `<SocialProofStrip />` přidán mezi Hero a Benefits sekce.
+  3. `src/messages/{cs,en,uk}.json`: nový `landing.socialProof.text` klíč ve všech 3 jazycích.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/components/marketing/social-proof-strip.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 1 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

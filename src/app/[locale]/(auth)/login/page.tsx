@@ -25,7 +25,7 @@ export default async function LoginPage({
       <AuthNav />
 
       {/* Left: form panel – full width mobile, 40% desktop */}
-      <div className="relative z-10 flex w-full min-h-[100dvh] pt-12 pb-48 lg:py-12 flex-col justify-between px-6 lg:w-[40%] lg:px-16 xl:px-24 lg:justify-center">
+      <div className="relative z-10 flex w-full min-h-[100dvh] pt-28 pb-48 lg:py-12 flex-col justify-between px-6 lg:w-[40%] lg:px-16 xl:px-24 lg:justify-center">
 
         <div className="flex-1 flex items-center justify-center">
           {/* Premium Light: white glass card */}

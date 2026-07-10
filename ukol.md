@@ -74,7 +74,7 @@ Nejde o nový design jazyk, pouze o sjednocení s Hero sekcí landing page. Dial
 - V `login/page.tsx` vložit `<AuthNav />` a odebrat osamocený `<LocaleSwitcher className="absolute top-4 right-4 ..." />`
   z levého panelu (přepínač jazyka přejde do navbaru).
 
-### Krok 3 - Pravý panel: sjednotit styl + opravit překrývající se badge
+### ✅ Krok 3 - Pravý panel: sjednotit styl + opravit překrývající se badge
 - V `login-visual.tsx` sjednotit kartu s `HeroDashboardPreview`: stejný shell
   (`rounded-[20px] border border-border bg-gradient-hero shadow-[0_20px_60px_...]`), grid overlay
   (`opacity-[0.05] dark:opacity-[0.04]`) a glow blobs (light jemnější / dark silnější).

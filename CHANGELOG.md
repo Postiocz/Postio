@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Feat — LoginVisual: sjednocený shell s Hero + fix překrývajících se badge (Prompt 026, Krok 3)
+
+- **Kontext**: Pravý panel login page (`LoginVisual`) měl vlastní SVG gridy, `scale-125` (příčina oříznutí) a floating badge překrývající metriky. Vizuálně neseděl s HeroDashboardPreview.
+- **Změny**:
+  1. `src/components/auth/login-visual.tsx`: kompletní refaktor — sjednocen shell s `HeroDashboardPreview` (`rounded-[20px] border border-border bg-gradient-hero shadow[...]`, grid overlay, glow bloby). Odstraněn `scale-125` (příčina uříznutí). Badge přesunuty do `absolute -top-4 left-4` (scheduled) a `-bottom-4 right-4` (engagement) mimo card shell. Wrapper `overflow-visible`, card shell `overflow-hidden`. Zachováno i18n.
+  2. `src/app/[locale]/(auth)/login/page.tsx`: `pt-12` → `pt-28` na mobile (odstraněn překryv navbaru s nadpisem na mobilu).
+- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/components/auth/login-visual.tsx`, `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 3 ✅).
+
 ### 🎨 Feat — Auth navbar pro login page (Prompt 026, Krok 2)
 
 - **Kontext**: Login page postrádala konzistentní navigaci — `LocaleSwitcher` byl osamoceně v levém panelu. Chyběl jednotný glass navbar jako na marketingové stránce.
@@ -91,13 +100,5 @@
   2. Reconnect existujícího ručního účtu povolen i na limitu plánu (nový účet blokován až po vyčerpání kapacity).
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `src/app/api/accounts/route.ts`.
-
-### ✨ Feat — Ověření reconnect: žádné duplicity (Prompt 025, Krok 6)
-
-- **Kontext**: Krok 6 úkolu Prompt 025 – ověřit, že Reconnect u všech platforem (zejm. Instagram/TikTok) dělá upsert a nevytváří druhý řádek v `social_accounts`.
-- **Změna**: Žádná (verifikační krok). Všechny OAuth routy (`tiktok`, `linkedin`, `x`, `auth/callback` pro FB/IG i YouTube) již používají `.upsert(..., { onConflict: "user_id,platform,platform_id" })`. Migrace `012` definuje unikátní index `social_accounts_user_platform_platform_id_key` na `(user_id, platform, platform_id)`, takže upsert koliduje se stávajícím řádkem a aktualizuje ho – **žádné duplicity** při reconnectu.
-- **Zjištění (mimo rozsah Kroku 6)**: `POST /api/accounts` stále používá `.insert()` bez `platform_id`/onConflict (legacy ruční token formulář). Není mrtvý – volá ho `onboarding/client.tsx`. Oddělený úklid viz následující akce.
-- **Ověření**: Code/DB review všech OAuth route + migrace `012` ✅. Manuální test reconnectu v prohlížeči ✅ (uživatel potvrdil závěr).
-- **Upravené soubory**: `ukol.md` (Krok 6 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

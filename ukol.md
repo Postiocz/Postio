@@ -96,7 +96,7 @@ Nejde o nový design jazyk, pouze o sjednocení s Hero sekcí landing page. Dial
   text-foreground sm:text-5xl lg:text-6xl` (nyní je `text-4xl font-semibold`, což nesedí s Hero).
 - Zkontrolovat odsazení (mt-*) a barvy, aby odpovídaly Hero sekci (ne ad-hoc styl).
 
-### ✅ Krok 5 - Testování (Dark/Light + 1280/1440/1920px)
+### Krok 5 - Testování (Dark/Light + 1280/1440/1920px)
 - Spustit `npx tsc --noEmit` a `npx eslint` na změněných souborech (0 errors).
 - Vizuálně zkontrolovat v prohlížeči (manuální test uživatele dle Pravidla 3):
   - Dark i Light mode.
@@ -105,8 +105,3 @@ Nejde o nový design jazyk, pouze o sjednocení s Hero sekcí landing page. Dial
   - Glow orby nezpůsobují horizontální scroll (overflow-hidden funguje).
   - Navbar konzistentní s marketingem, LocaleSwitcher + ThemeToggle funkční.
 - Až uživatel potvrdí OK, označit kroky ✅ a zapsat záznam do CHANGELOG.md (Pravidlo 3).
-
-### Krok 6 - Oprava duplicitního Loga v mobilním overlay menu
-- **Bug:** V `MarketingNav` komponentě mobilní overlay (z-40) obsahuje vlastní Logo v horní liště. Fixed navbar (z-50) je skleněný (`bg-white/70 backdrop-blur-md`), takže overlayové Logo prosvítá skrz a vytváří "duplicitní" efekt.
-- **Řešení:** Mobilní overlay pozadí změnit z `bg-white/85 backdrop-blur-3xl` na plně neprůhledné `bg-white dark:bg-black`, aby skrz navbar nic neprosvítalo.
-- Až uživatel potvrdí OK, označit Krok 6 ✅ a zapsat záznam do CHANGELOG.md (Pravidlo 3).

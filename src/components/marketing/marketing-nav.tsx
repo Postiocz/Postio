@@ -116,7 +116,7 @@ export function MarketingNav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-40 flex flex-col bg-white dark:bg-black md:hidden"
+            className="fixed inset-0 z-40 flex flex-col bg-white/85 backdrop-blur-3xl dark:bg-black/85 md:hidden"
           >
             <div className="flex h-16 items-center justify-between px-6">
               <Link href={`/${locale}`} onClick={() => setOpen(false)} aria-label="Postio">

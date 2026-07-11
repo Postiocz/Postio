@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 💳 Feat — Stripe databázová příprava (Prompt 024, Krok 1)
+
+- **Kontext**: Integrace platební brány Stripe. Před samotným napojením API je potřeba připravit databázové sloupce pro evidenci Stripe zákazníků a stavu předplatného.
+- **Změny**:
+  1. `supabase/migrations/035_add_stripe_fields.sql` (nový): přidány sloupce `stripe_customer_id TEXT`, `stripe_subscription_id TEXT`, `subscription_status TEXT`, `trial_ends_at TIMESTAMPTZ` do `public.users`.
+  2. `src/lib/supabase/types.ts`: doplněny nové sloupce do `Row`, `Insert` a `Update` typů tabulky `users`.
+- **Ověření**: `npx tsc --noEmit` ✅, uživatel potvrdil test migrace.
+- **Upravené soubory**: `supabase/migrations/035_add_stripe_fields.sql` (nový), `src/lib/supabase/types.ts`, `ukol.md` (Krok 1 ✅).
+
 ### 🎨 Newsletter Footer na Landing Page (Prompt 025, Krok 2)
 
 - **Kontext**: Landing page neměla žádnou patičku ani email capture prvek. Cíl byl přidat newsletter formulář a základní footer s navigací.
@@ -87,15 +96,5 @@
   4. `messages/cs.json`/`en.json`/`uk.json`: nový namespace `landing.nav` (features/pricing/faq/login) pro lokalizované popisky navigu.
 - **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅. Manuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/app/[locale]/(marketing)/layout.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `package.json` (geist), `ukol.md` (Krok 2 ✅)
-
-### ✨ Social Proof strip na Landing Page (Prompt 025, Krok 1)
-
-- **Kontext**: Landing page postrádala social proof prvek – důvěryhodnostní signál pro návštěvníky hned pod Hero sekcí.
-- **Změny**:
-  1. `src/components/marketing/social-proof-strip.tsx` (nový): client komponenta s 4 překrývajícími se avatary (lucide `User`), přeloženým trust textem a `ShieldCheck` ikonou. Glassmorphism styling (`bg-card/50 backdrop-blur-sm rounded-[20px] border border-border`). `Reveal` scroll animace. Top padding pro oddělení od Hero.
-  2. `src/app/[locale]/(marketing)/page.tsx`: `<SocialProofStrip />` přidán mezi Hero a Benefits sekce.
-  3. `src/messages/{cs,en,uk}.json`: nový `landing.socialProof.text` klíč ve všech 3 jazycích.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/components/marketing/social-proof-strip.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 1 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

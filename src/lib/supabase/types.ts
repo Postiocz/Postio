@@ -28,6 +28,10 @@ export interface Database {
           start_of_week: 'sunday' | 'monday' | null
           default_posting_time: string | null
           posting_schedule: PostingSchedule | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
+          trial_ends_at: string | null
           created_at: string
         }
         Insert: {
@@ -43,6 +47,10 @@ export interface Database {
           start_of_week?: 'sunday' | 'monday' | null
           default_posting_time?: string | null
           posting_schedule?: PostingSchedule | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          trial_ends_at?: string | null
           created_at?: string
         }
         Update: {
@@ -58,6 +66,10 @@ export interface Database {
           start_of_week?: 'sunday' | 'monday' | null
           default_posting_time?: string | null
           posting_schedule?: PostingSchedule | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          trial_ends_at?: string | null
           created_at?: string
         }
       }

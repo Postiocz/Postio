@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 💳 Feat — Stripe Webhook Handler (Prompt 024, Krok 3)
+
+- **Kontext**: Potřeba API endpointu pro příjem událostí ze Stripe, aby se změny předplatného propsaly do databáze.
+- **Změny**:
+  1. `src/app/api/webhooks/stripe/route.ts` (nový): handler událostí `checkout.session.completed` (upgrade plan), `customer.subscription.updated` (sync status), `customer.subscription.deleted` (revert na free).
+- **Ověření**: `npx tsc --noEmit` ✅, user potvrdil pokračování.
+- **Upravené soubory**: `src/app/api/webhooks/stripe/route.ts` (nový).
+
 ### 💳 Feat — Stripe Checkout API Route (Prompt 024, Krok 2)
 
 - **Kontext**: Potřeba API endpointu, který vytvoří Stripe Checkout Session pro přechod z free na creator/pro tarif.
@@ -86,14 +94,5 @@
   2. `src/app/[locale]/(marketing)/page.tsx` (úprava Hero): `<LoginVisual />` → `<HeroDashboardPreview />`. Wrapper karty má `overflow-visible`; `<section>` má `overflow-hidden` jen proto, aby glow orby zůstaly uvnitř Hero (žádný horizontální scroll). Glow za kartou (`-inset-6`, `blur-3xl`) záměrně přesahuje uvnitř sekce.
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Vizuální screenshot v Dark/Light v sandboxu NELZE (síť k browser-CDN blokovaná) – k finálnímu oku uživatele.
 - **Upravené soubory**: `src/components/marketing/hero-dashboard-preview.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`.
-
-### 🌐 Doplnění (i18n) – lokalizace HeroDashboardPreview (návaznost na 021-FIX)
-
-- **Kontext**: Texty v `<HeroDashboardPreview />` byly natvrdo v angličtině ("Dashboard", "This week", "Scheduled queue", "Posts", "Reach", "Eng."). Aplikace má lokalizaci cs/en/uk.
-- **Změny**:
-  1. `src/messages/{cs,en,uk}.json`: nový namespace `landing.heroPreview` s klíči `dashboard`, `thisWeek`, `scheduledQueue`, `posts`, `reach`, `eng` pro všechny 3 jazyky (cs: Přehled/Tento týden/Naplánovaná fronta/Příspěvky/Dosah/Zap.; uk: Панель/Цей тиждень/Запланована черга/Дописи/Охоплення/Залуч.). Shoda klíčů napříč jazyky ověřena.
-  2. `src/components/marketing/hero-dashboard-preview.tsx`: `useTranslations("landing.heroPreview")` (client) místo hardcodu; CSS `uppercase` třídy zajišťují zobrazení velkými písmeny.
-- **Ověření**: JSON validita cs/en/uk ✅; shoda klíčů `landing.heroPreview` ✅; `npx tsc --noEmit` ✅ (EXIT 0); žádné natvrdo psané renderované stringy v komponentě. `NextIntlClientProvider` (přes `getMessages()` v `LocaleLayout`, který marketing dědí) dodá messages i client komponentě → žádné `MISSING_MESSAGE`.
-- **Upravené soubory**: `src/components/marketing/hero-dashboard-preview.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

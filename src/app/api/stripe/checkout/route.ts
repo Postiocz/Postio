@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { plan } = body;
+    const locale = body?.locale ?? "cs";
 
     if (!plan || !["creator", "pro"].includes(plan)) {
       return NextResponse.json(
@@ -69,8 +70,8 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/settings/billing?success=true`,
-      cancel_url: `${origin}/settings/billing?canceled=true`,
+      success_url: `${origin}/${locale}/settings/billing?success=true`,
+      cancel_url: `${origin}/${locale}/settings/billing?canceled=true`,
       metadata: { user_id: user.id, plan },
     });
 

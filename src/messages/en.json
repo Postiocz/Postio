@@ -857,7 +857,9 @@
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
     "subscribe": "Subscribe",
-    "recommended": "Recommended"
+    "recommended": "Recommended",
+    "manageSubscription": "Manage Subscription",
+    "manageSubscriptionDesc": "Manage your payment method, cancel subscription, or download invoices"
   },
   "onboarding": {
     "welcome": "Welcome to Postio!",

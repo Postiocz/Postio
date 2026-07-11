@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { BillingCard } from "./billing-card";
+import { ManageSubscriptionButton } from "@/components/billing/manage-subscription-button";
 
 export default async function BillingPage({
   params,
@@ -12,15 +13,17 @@ export default async function BillingPage({
   const dashboardT = await getTranslations({ locale, namespace: "dashboard" });
 
   let currentPlan = "free";
+  let stripeCustomerId: string | null = null;
 
   try {
     const supabase = await createClient();
     const { data: userData } = await supabase
       .from("users")
-      .select("plan")
+      .select("plan, stripe_customer_id")
       .single();
 
     currentPlan = userData?.plan ?? "free";
+    stripeCustomerId = userData?.stripe_customer_id ?? null;
   } catch {
     // Supabase unavailable
   }
@@ -101,6 +104,10 @@ export default async function BillingPage({
           {t("subtitle")}
         </p>
       </div>
+
+      {stripeCustomerId && (
+        <ManageSubscriptionButton />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
         {plans.map((plan) => (

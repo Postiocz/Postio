@@ -858,7 +858,9 @@
     "upgrade": "Оновити",
     "downgrade": "Знизити",
     "subscribe": "Підписатися",
-    "recommended": "Рекомендовано"
+    "recommended": "Рекомендовано",
+    "manageSubscription": "Керувати підпискою",
+    "manageSubscriptionDesc": "Керуйте способом оплати, скасуйте підписку або завантажте рахунки"
   },
   "onboarding": {
     "welcome": "Ласкаво просимо до Postio!",

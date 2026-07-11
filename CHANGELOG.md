@@ -3,6 +3,19 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 💳 Feat — Stripe Customer Portal + Manage Subscription UI (Prompt 024, Krok 4)
+
+- **Kontext**: Potřeba API endpointu a UI tlačítka pro správu předplatného ve Stripe Customer Portal.
+- **Změny**:
+  1. `src/app/api/stripe/portal/route.ts` (nový): `POST /api/stripe/portal` vytvoří Billing Portal session a vrátí URL.
+  2. `src/components/billing/manage-subscription-button.tsx` (nový): client komponenta s Button-in-Button pattern, loading stavem, indigo stylingem dle design manuálů.
+  3. `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: načítá `stripe_customer_id`, zobrazí ManageSubscriptionButton pokud existuje.
+  4. `src/messages/{cs,en,uk}.json`: nové klíče `manageSubscription`, `manageSubscriptionDesc`.
+  5. `src/app/api/stripe/checkout/route.ts`: fix `success_url`/`cancel_url` o locale prefix.
+  6. `src/app/api/stripe/portal/route.ts`: fix `return_url` o locale prefix.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (Stripe Portal se otevře, návrat na správnou URL).
+- **Upravené soubory**: `src/app/api/stripe/portal/route.ts` (nový), `src/components/billing/manage-subscription-button.tsx` (nový), `src/app/[locale]/(dashboard)/settings/billing/page.tsx`, `src/app/api/stripe/checkout/route.ts`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
 ### 💳 Feat — Stripe Webhook Handler (Prompt 024, Krok 3)
 
 - **Kontext**: Potřeba API endpointu pro příjem událostí ze Stripe, aby se změny předplatného propsaly do databáze.
@@ -85,14 +98,5 @@
   3. `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json` + `src/components/marketing/marketing-nav.tsx`: doplněny/učesány zbývající texty v `landing` namespace, včetně mobile-menu aria labelů a finálního EN/UK copy.
 - **Ověření**: `npx tsc --noEmit` ✅, `npx eslint src/app/[locale]/(marketing)/page.tsx src/components/marketing/pricing-section.tsx src/components/marketing/faq-section.tsx` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil, že vše je v pořádku).
 - **Upravené soubory**: `src/app/[locale]/(marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md`.
-
-### 🔧 Fix — Hero dashboard preview: responzivní, odlišná od Login vizuálu (Prompt 021-FIX)
-
-- **Kontext**: Oprava Promptu 021-FIX. V Hero sekci landing page byla `<LoginVisual />`, která měla dva problémy: (1) byla uříznutá vpravo – původní příčinou byl `scale-125` (forced 125% šířky) + `max-w` s `overflow-hidden` kontejnerem, takže "REACH", "+24% engagement" a "Dashboard" byly mimo viditelnou oblast; (2) byla 1:1 identická s Login vizuálem (líné, repetitivní).
-- **Změny**:
-  1. `src/components/marketing/hero-dashboard-preview.tsx` (nový): odvozená varianta `LoginVisual`, NE kopie 1:1. Zachovává styl (adaptivní karta, fialové gradienty, sloupcový graf, "128 Posts" / "12.4K Reach" / "4.2% Eng."). Odlišení: jiná "scéna" – pod dashboardem **Scheduled queue** s platform chipy (IG/FB/LinkedIn/X) místo bubliny "Post scheduled". Plně responzivní: `w-full`, žádná fixed px šířka, žádný `scale` transform; `overflow-hidden` je jen na samotné kartě (neřeže vlastní obsah). Glow bloby adaptivní (light jemnější, dark silnější).
-  2. `src/app/[locale]/(marketing)/page.tsx` (úprava Hero): `<LoginVisual />` → `<HeroDashboardPreview />`. Wrapper karty má `overflow-visible`; `<section>` má `overflow-hidden` jen proto, aby glow orby zůstaly uvnitř Hero (žádný horizontální scroll). Glow za kartou (`-inset-6`, `blur-3xl`) záměrně přesahuje uvnitř sekce.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Vizuální screenshot v Dark/Light v sandboxu NELZE (síť k browser-CDN blokovaná) – k finálnímu oku uživatele.
-- **Upravené soubory**: `src/components/marketing/hero-dashboard-preview.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

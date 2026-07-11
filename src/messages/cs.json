@@ -857,7 +857,9 @@
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
     "subscribe": "Odebírat",
-    "recommended": "Doporučujeme"
+    "recommended": "Doporučujeme",
+    "manageSubscription": "Spravovat předplatné",
+    "manageSubscriptionDesc": "Spravujte svou platební metodu, zrušte předplatné nebo si stáhněte faktury"
   },
   "onboarding": {
     "welcome": "Vítejte v Postio!",

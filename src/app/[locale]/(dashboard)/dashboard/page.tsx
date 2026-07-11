@@ -989,7 +989,7 @@ function UpgradeBanner({
           </div>
 
           <Button asChild className="gap-2 sm:self-center">
-            <Link href={`/${locale}/settings`}>
+            <Link href={`/${locale}/settings/billing`}>
               {currentPlan === "pro" ? settingsT("upgrade") : t("proCtaButton")}
               <ArrowRight className="h-4 w-4" />
             </Link>

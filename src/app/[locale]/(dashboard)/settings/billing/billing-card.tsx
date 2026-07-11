@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Check, Crown, Sparkles, Zap } from "lucide-react";
+import React, { useTransition } from "react";
+import { Check, Crown, Loader2, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,7 @@ interface Plan {
 
 interface BillingCardProps {
   plan: Plan;
+  locale: string;
   translations: {
     current: string;
     recommended: string;
@@ -39,10 +40,30 @@ const iconMap: Record<string, React.ElementType> = {
   pro: Crown,
 };
 
-export function BillingCard({ plan, translations }: BillingCardProps) {
+export function BillingCard({ plan, locale, translations }: BillingCardProps) {
   const Icon = iconMap[plan.id] || Sparkles;
+  const [isPending, startTransition] = useTransition();
 
   const displayPrice = plan.priceEur > 0 ? `${plan.priceEur}€` : "Free";
+
+  const handleCheckout = () => {
+    if (plan.isCurrent) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: plan.id, locale }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } catch {
+        // Silent fail
+      }
+    });
+  };
 
   return (
     <div
@@ -121,13 +142,18 @@ export function BillingCard({ plan, translations }: BillingCardProps) {
           "w-full rounded-xl",
           plan.isRecommended && "bg-indigo-500 hover:bg-indigo-600 text-white"
         )}
-        disabled={plan.isCurrent}
+        disabled={plan.isCurrent || isPending}
+        onClick={handleCheckout}
       >
-        {plan.isCurrent
-          ? translations.current
-          : plan.id === "free"
-          ? translations.subscribe
-          : translations.upgrade}
+        {isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : plan.isCurrent ? (
+          translations.current
+        ) : plan.id === "free" ? (
+          translations.subscribe
+        ) : (
+          translations.upgrade
+        )}
       </Button>
     </div>
   );

@@ -114,6 +114,7 @@ export default async function BillingPage({
           <BillingCard
             key={plan.id}
             plan={plan}
+            locale={locale}
             translations={{
               current: t("current"),
               recommended: t("recommended"),

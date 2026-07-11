@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 💳 Feat — UI propojení BillingCard se Stripe Checkout (Prompt 024, Krok 5)
+
+- **Kontext**: Potřeba napojit tlačítka v ceníku na reálné Stripe Checkout API s loading stavy.
+- **Změny**:
+  1. `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx`: tlačítka "Upgrade"/"Subscribe" volají `POST /api/stripe/checkout`, přesměrují na Stripe URL. Loading stav přes `useTransition` + `Loader2` spinner.
+  2. `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: předán `locale` prop do BillingCard.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil přesměrování na Stripe Checkout).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx`, `src/app/[locale]/(dashboard)/settings/billing/page.tsx`.
+
 ### 💳 Feat — Stripe Customer Portal + Manage Subscription UI (Prompt 024, Krok 4)
 
 - **Kontext**: Potřeba API endpointu a UI tlačítka pro správu předplatného ve Stripe Customer Portal.
@@ -79,15 +88,6 @@
   2. `src/app/[locale]/(auth)/login/page.tsx`: přidán `<AuthNav />`, odebrán osamocený `<LocaleSwitcher>` z levého panelu.
 - **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/components/auth/auth-nav.tsx` (nový), `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 2 ✅).
-
-### 🎨 Feat — Sjednocení pozadí login page s Hero sekcí (Prompt 026, Krok 1)
-
-- **Kontext**: Login page měla vlastní SVG grid pattern bez glow orbů, zatímco marketing layout používal CSS linear-gradient grid + centrální indigo glow. Vizuálně tak působila odtrženě od zbytku brandu.
-- **Změny**:
-  1. `src/app/[locale]/(auth)/login/page.tsx`: nahrazeno `bg-slate-200/50` + SVG grid za identický základ jako `(marketing)/layout.tsx` — 24x24 CSS gradient grid (šedý v light, bílý v dark) + indigo glow orb `bg-indigo-500/20 blur-[160px]` (light) / `bg-indigo-500/35` (dark). Přidáno `overflow-hidden` na root div. Oba panely dostaly `relative z-10` pro korektní stacking nad fixed pozadím.
-- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 1 ✅).
-
 
 ### 🌐 Feat — Dokončení lokalizace Landing Page + server locale fix (Prompt 021, Krok 5)
 

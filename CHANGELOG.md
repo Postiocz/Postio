@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 💳 Feat — Stripe Checkout API Route (Prompt 024, Krok 2)
+
+- **Kontext**: Potřeba API endpointu, který vytvoří Stripe Checkout Session pro přechod z free na creator/pro tarif.
+- **Změny**:
+  1. `src/lib/stripe.ts` (nový): serverový Stripe klient s aktuální API verzí.
+  2. `src/app/api/stripe/checkout/route.ts` (nový): `POST /api/stripe/checkout` — autentizace uživatele, vytvoření/opětovné použití Stripe Customer, vytvoření Checkout Session, vrácení URL.
+  3. `package.json`: přidán `stripe` npm balíček.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test API v prohlížeči (vrácena platná Stripe Checkout URL) ✅.
+- **Upravené soubory**: `src/lib/stripe.ts` (nový), `src/app/api/stripe/checkout/route.ts` (nový), `package.json`.
+
 ### 💳 Feat — Stripe databázová příprava (Prompt 024, Krok 1)
 
 - **Kontext**: Integrace platební brány Stripe. Před samotným napojením API je potřeba připravit databázové sloupce pro evidenci Stripe zákazníků a stavu předplatného.
@@ -85,16 +95,5 @@
   2. `src/components/marketing/hero-dashboard-preview.tsx`: `useTranslations("landing.heroPreview")` (client) místo hardcodu; CSS `uppercase` třídy zajišťují zobrazení velkými písmeny.
 - **Ověření**: JSON validita cs/en/uk ✅; shoda klíčů `landing.heroPreview` ✅; `npx tsc --noEmit` ✅ (EXIT 0); žádné natvrdo psané renderované stringy v komponentě. `NextIntlClientProvider` (přes `getMessages()` v `LocaleLayout`, který marketing dědí) dodá messages i client komponentě → žádné `MISSING_MESSAGE`.
 - **Upravené soubory**: `src/components/marketing/hero-dashboard-preview.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-### ✨ Feat — Marketing Layout: plovoucí glass nav (Prompt 021, Krok 2)
-
-- **Kontext**: Krok 2 úkolu Prompt 021 (Marketingové stránky). Veřejná Landing potřebuje vlastní navigaci oddělenou od dashboardu: plovoucí glass pill s brandem, odkazy, přepínači jazyka/téma a CTA na login.
-- **Změny**:
-  1. `src/app/[locale]/(marketing)/layout.tsx` (nový): Server Component dědící `LocaleLayout` (NextIntl + ThemeProvider + CookieConsent). Aplikuje Geist jako brand font celé marketing sekce. Pozadí dle Theme Lock: pure black + 24x24 grid (opacity 0.04) + indigo záře (blur 160px), shodné s loginem/dashboardem.
-  2. `src/components/marketing/marketing-nav.tsx` (nový, client): plovoucí glass pill (`fixed top-6`, `rounded-full`, `backdrop-blur-xl`, `h-16` = 64px, single-line) s Logo, odkazy Funkce/Ceník/FAQ (anchory `#funkce`/`#cenik`/`#faq`, cíle vzniknou v Krocích 3-4), LocaleSwitcher, ThemeToggle a CTA "Přihlásit se" -> `/${locale}/login` (indigo `#6366F1` s button-in-button šipkou). Mobil: hamburger -> full-screen glass overlay s prokládaným (staggered) zjevem; zavření Esc/clickem, lock scrollování.
-  3. `geist` nainstalován (brand font marketing sekce; Inter je v manuálech banned, CLAUDE.md povoluje Geist).
-  4. `messages/cs.json`/`en.json`/`uk.json`: nový namespace `landing.nav` (features/pricing/faq/login) pro lokalizované popisky navigu.
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint` ✅. Manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/app/[locale]/(marketing)/layout.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/messages/cs.json`/`en.json`/`uk.json`, `package.json` (geist), `ukol.md` (Krok 2 ✅)
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

@@ -17,7 +17,7 @@ interface ConnectAccountModalProps {
   onOpenChange: (open: boolean) => void;
   platformName: string;
   PlatformIcon: ComponentType<{ className?: string }>;
-  onConnect: (publishingType: "direct" | "manual") => void | Promise<void>;
+  onConnect: () => void | Promise<void>;
   // Krok 4.3 (Prompt 026): already-connected accounts of THIS platform, so the
   // modal can show their identity (avatar + name + direct/manual badge) and
   // make it clear the user can connect ANOTHER account of the same platform.
@@ -36,11 +36,6 @@ interface ConnectAccountModalProps {
     learnMore: string;
     learnMoreUrl?: string;
     errorTitle?: string;
-    profileChoiceTitle: string;
-    profileChoiceDirectTitle: string;
-    profileChoiceDirectDesc: string;
-    profileChoiceManualTitle: string;
-    profileChoiceManualDesc: string;
     alreadyConnected?: string;
     connectAnotherHint?: string;
   };
@@ -83,12 +78,12 @@ export function ConnectAccountModal({
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleConnect = async (publishingType: "direct" | "manual") => {
+  const handleConnect = async () => {
     if (connecting) return;
     setConnecting(true);
     setError(null);
     try {
-      await onConnect(publishingType);
+      await onConnect();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Došlo k chybě při připojování.");
     } finally {
@@ -228,7 +223,7 @@ export function ConnectAccountModal({
           {/* Main action area – always connect a business account (auto-publish). */}
           <div className="px-6 sm:px-8 pb-4">
             <Button
-              onClick={() => handleConnect("direct")}
+              onClick={() => handleConnect()}
               disabled={connecting}
               className="w-full py-4 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >

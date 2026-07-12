@@ -804,7 +804,7 @@ export default function AccountsPage() {
           connectedAccounts={accounts.filter(
             (a) => a.platform === connectModalPlatform.id && a.is_active
           )}
-          onConnect={async (publishingType) => {
+          onConnect={async () => {
             setShowConnectModal(false);
             const next = window.location.pathname || "/accounts";
 
@@ -848,7 +848,7 @@ export default function AccountsPage() {
                 options: {
                   scopes:
                     "public_profile,email,instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_insights,business_management",
-                  redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&platform=instagram&publishing_type=${publishingType}`,
+                  redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&platform=instagram`,
                   queryParams: {
                     auth_type: "rerequest",
                     config_id: "891876470597727",
@@ -869,7 +869,7 @@ export default function AccountsPage() {
                 options: {
                   scopes:
                     "public_profile,email,instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts",
-                  redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&publishing_type=${publishingType}`,
+                  redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
                   queryParams: {
                     auth_type: "rerequest",
                     config_id: "891876470597727",
@@ -905,11 +905,6 @@ export default function AccountsPage() {
                         : t("connectModal.warningDesc"),
             connectButton: t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
-            profileChoiceTitle: t("connectModal.profileChoiceTitle"),
-            profileChoiceDirectTitle: t("connectModal.profileChoiceDirectTitle"),
-            profileChoiceDirectDesc: t("connectModal.profileChoiceDirectDesc"),
-            profileChoiceManualTitle: t("connectModal.profileChoiceManualTitle"),
-            profileChoiceManualDesc: t("connectModal.profileChoiceManualDesc"),
             errorTitle: t("connectModal.errorTitle"),
             alreadyConnected: t("connectModal.alreadyConnected"),
             connectAnotherHint: t("connectModal.connectAnotherHint"),

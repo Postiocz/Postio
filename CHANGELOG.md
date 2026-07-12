@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔗 Feat — Rozcestník profilu při připojování (Prompt 026, Krok 2)
+
+- **Kontext**: Osobní profily (Instagram, Facebook) nelze publikovat přes API. Při propojování je třeba nechat uživatele zvolit typ účtu (Profesionální = automaticky / Osobní = manuálně s připomínkou) a tuto volbu zapsat do `social_accounts.publishing_type`.
+- **Změny**:
+  1. `src/components/connect-account-modal.tsx`: nový prop `showProfileChoice` + `onConnect(publishingType)`; pro IG/FB zobrazen rozcestník dvou glassmorphism karet (Profesionální / Osobní). Ostatní platformy ponechávají původní jediné tlačítko.
+  2. `src/app/[locale]/(dashboard)/accounts/page.tsx`: předání `showProfileChoice` (jen IG/FB) a připojení `&publishing_type=direct|manual` do OAuth `redirectTo`; doplněny překladové klíče.
+  3. `src/app/auth/callback/route.ts`: načtení `publishing_type` z URL (fallback `direct`) a zápis do všech upsert řádků `social_accounts`.
+  4. `src/messages/{cs,en,uk}.json`: nové klíče `connectModal.profileChoice*` (Krok 6 přebírá plnou lokalizaci).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test připojení IG/FB v prohlížeči ✅ (uživatel potvrdil; volba se propíše do `publishing_type`).
+- **Upravené soubory**: `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/app/auth/callback/route.ts`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 2 ✅).
+
 ### 🌐 Feat — DB migrace pro manuální publikování (Prompt 026, Krok 1)
 
 - **Kontext**: Osobní profily (Instagram, Facebook) nepodporují automatické odesílání přes API. Pro manuální publikování s připomínkou je třeba evidovat typ publikování na účtu a nový status příspěvku „připraveno ke zveřejnění".
@@ -88,14 +99,5 @@
   2. `src/app/[locale]/(auth)/login/page.tsx`: `pt-12` → `pt-28` na mobile (odstraněn překryv navbaru s nadpisem na mobilu).
 - **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/components/auth/login-visual.tsx`, `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 3 ✅).
-
-### 🎨 Feat — Auth navbar pro login page (Prompt 026, Krok 2)
-
-- **Kontext**: Login page postrádala konzistentní navigaci — `LocaleSwitcher` byl osamoceně v levém panelu. Chyběl jednotný glass navbar jako na marketingové stránce.
-- **Změny**:
-  1. `src/components/auth/auth-nav.tsx` (nový): plovoucí glass pill navbar (zjednodušená varianta `MarketingNav`) — `fixed top-6`, `rounded-full`, `backdrop-blur-md`, border + shadow. Logo vlevo (odkaz na `/${locale}`), `LocaleSwitcher` + `ThemeToggle` vpravo. Bez marketing odkazů a CTA.
-  2. `src/app/[locale]/(auth)/login/page.tsx`: přidán `<AuthNav />`, odebrán osamocený `<LocaleSwitcher>` z levého panelu.
-- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/components/auth/auth-nav.tsx` (nový), `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 2 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

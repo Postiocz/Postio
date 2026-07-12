@@ -69,7 +69,7 @@ nabídne „Manuální publikování" (příprava podkladů + připomínka v dan
   3. `types.ts`: přidat `publishing_type?: 'direct' | 'manual'` do `Row/Insert/Update` u `social_accounts`. (post_platforms status je string, žádná union změna nutná.)
 - **Ověření:** `npx tsc --noEmit`, spuštění migrace na Supabase.
 
-#### Krok 2 — Rozcestník při připojování (volba Profilu)
+#### ✅ Krok 2 — Rozcestník při připojování (volba Profilu)
 - **Soubory:** `src/components/connect-account-modal.tsx`, `accounts/page.tsx` (`onConnect`), OAuth routy (instagram/facebook + případně linkedin/x/youtube/tiktok).
 - **Akce:**
   1. Do `ConnectAccountModal` přidat mezikrok (pouze pro Instagram + Facebook, kde osobní profily dávají smysl): „Profesionální účet (Automaticky)" vs „Osobní účet (Manuálně s připomínkou)".

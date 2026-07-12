@@ -421,6 +421,13 @@ export async function GET(request: NextRequest) {
     ?.match(/\/(cs|en|uk)(?:\/|$)/)?.[1];
   const locale = localeFromNext ?? localeFromReferer ?? "cs";
 
+  // Publishing mode chosen in the ConnectAccountModal for Instagram/Facebook
+  // (Personal profile = "manual", Professional = "direct"). Stored on the
+  // account so the publish motor knows whether to call the API (Krok 2/4).
+  const requestedPublishingType = requestUrl.searchParams.get("publishing_type");
+  const publishingType: "direct" | "manual" =
+    requestedPublishingType === "manual" ? "manual" : "direct";
+
   const normalizeNext = (raw: string) => {
     if (!raw) return `/${locale}/accounts`;
     let path = raw;
@@ -513,6 +520,10 @@ export async function GET(request: NextRequest) {
       platform_id: string | null;
       avatar_url?: string | null;
       is_active: boolean;
+      // `publishing_type` carries the Instagram/Facebook profile choice
+      // (Professional = "direct", Personal = "manual") made in the connect
+      // modal. Drives the publish motor in Krok 4.
+      publishing_type: "direct" | "manual";
       // `metadata` is NOT NULL in the DB schema (DEFAULT '{}'::jsonb), so we
       // require every row to set it explicitly – even an empty object is
       // fine. Keeping it required in the type prevents accidental nullish
@@ -593,6 +604,7 @@ export async function GET(request: NextRequest) {
             platform_id: igUserId,
             avatar_url: igAvatarUrl,
             is_active: true,
+            publishing_type: publishingType,
             metadata: {},
           });
         } else {
@@ -658,6 +670,7 @@ export async function GET(request: NextRequest) {
                 platform_id: ig.id,
                 avatar_url: igAvatarUrlPage,
                 is_active: true,
+                publishing_type: publishingType,
                 metadata: {},
               });
             }
@@ -677,6 +690,7 @@ export async function GET(request: NextRequest) {
           platform_id: page.id,
           avatar_url: pageAvatarUrl,
           is_active: false,
+          publishing_type: publishingType,
           metadata: {
             access_token: pageAccessToken,
             category: page.category ?? null,
@@ -714,6 +728,7 @@ export async function GET(request: NextRequest) {
             platform_id: ig.id,
             avatar_url: igAvatarUrl,
             is_active: true,
+            publishing_type: publishingType,
             metadata: {},
           });
         } else {

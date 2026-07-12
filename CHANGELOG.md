@@ -3,6 +3,19 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🧹 Refactor — Odstranění manuálního publikování (Prompt 027, Krok 1)
+
+- **Kontext**: Meta API nepublikuje na osobní profily, funkce „Manuální publikování s připomínkou" byla nefunkční. Postio se stává čistě profesionálním nástrojem pro automatické publikování; rušíme celou `manual` vs `direct` logiku a připravujeme půdu pro plnou podporu více firemních účtů.
+- **Změny**:
+  1. `src/lib/actions/publish.ts`: odstraněny `getAccountPublishingType` + `markManualReady` a obě větve, které parkovaly `post_platforms` řádek jako `status='ready'` a vracely se před voláním API. Cílení přes `account_id` (Krok 4.2) zachováno.
+  2. `supabase/functions/process-scheduled-posts/index.ts`: odstraněn blok, který při cronu kontroloval `publishing_type='manual'` a přeskakoval API; nyní se publikuje vždy automaticky.
+  3. `src/app/[locale]/(dashboard)/dashboard/page.tsx`: odstraněn `ManualPublishWidget` + typy `ManualReadyRow`/`ManualReadyPost`, dotazy 8+9 (manuální účty / `ready` řádky), agregace a `Bell` import.
+  4. `src/components/edit-post-dialog.tsx`: odstraněn `PublishingTypeBadge`, stav `publishingTypeMap` (i jeho naplňování) a 4 použití, `Zap`/`Bell` importy.
+  5. `src/components/connect-account-modal.tsx`: odstraněn `showProfileChoice`, výběr Profil vs Osobní i ⚡/🔔 badge; klik na ikonu sítě rovnou volá `handleConnect("direct")`.
+  6. `src/app/[locale]/(dashboard)/accounts/page.tsx`: odebráno předávání `showProfileChoice`.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil: připojení bez výběru profilu, v editoru žádná 🔔/⚡, dashboard bez widgetu „Připraveno k ručnímu zveřejnění").
+- **Upravené soubory**: `src/lib/actions/publish.ts`, `supabase/functions/process-scheduled-posts/index.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/edit-post-dialog.tsx`, `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 1 ✅).
+
 ### 🎨 Feat — Vizuální indikátory publikování v Editoru (Prompt 026, Krok 3)
 
 - **Kontext**: Po zavedení `publishing_type` (Kroky 1-2) potřebuje uživatel v editoru příspěvku vidět, zda daný účet publikuje automaticky, či manuálně s připomínkou.
@@ -92,13 +105,5 @@
   4. `src/messages/{cs,en,uk}.json`: nový `landing.footer.*` namespace (newsletterTitle, newsletterDesc, newsletterPlaceholder, newsletterCta, copyright, 4 odkazy).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/components/marketing/site-footer.tsx` (nový), `src/components/marketing/newsletter-form.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 2 ✅).
-
-### 🎨 Feat — Typografie nadpisů sjednocena s Hero + Logo component (Prompt 026, Krok 4)
-
-- **Kontext**: Login page používala ruční `<h1><span>P</span>ostio</h1>` místo sdílené `<Logo />` komponenty a `getStarted` nadpis měl `font-semibold` namísto `font-bold` z Hero typografie.
-- **Změny**:
-  1. `src/app/[locale]/(auth)/login/page.tsx`: ruční wordmark nahrazen `<Logo />` komponentou pro 100% brand konzistenci (gradient `P` místo `text-primary`). `getStarted` nadpis sjednocen na Hero typografii: `text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl`.
-- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 4 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

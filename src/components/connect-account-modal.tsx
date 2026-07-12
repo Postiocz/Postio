@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, BarChart3, AlertTriangle, ExternalLink, X, Loader2, Zap, Bell } from "lucide-react";
+import { Check, Sparkles, BarChart3, AlertTriangle, ExternalLink, X, Loader2 } from "lucide-react";
 import type { ComponentType } from "react";
 
 interface ConnectAccountModalProps {
@@ -18,10 +18,13 @@ interface ConnectAccountModalProps {
   platformName: string;
   PlatformIcon: ComponentType<{ className?: string }>;
   onConnect: (publishingType: "direct" | "manual") => void | Promise<void>;
-  // Instagram + Facebook allow connecting a Personal profile, which cannot
-  // publish via API. When true, show the profile-type selector so the user
-  // can pick between automatic (Professional) and manual (Personal) publishing.
-  showProfileChoice?: boolean;
+  // Krok 4.3 (Prompt 026): already-connected accounts of THIS platform, so the
+  // modal can show their identity (avatar + name + direct/manual badge) and
+  // make it clear the user can connect ANOTHER account of the same platform.
+  connectedAccounts?: Array<{
+    account_name: string;
+    avatar_url?: string | null;
+  }>;
   t: {
     title: string;
     autoPublishing: string;
@@ -38,7 +41,34 @@ interface ConnectAccountModalProps {
     profileChoiceDirectDesc: string;
     profileChoiceManualTitle: string;
     profileChoiceManualDesc: string;
+    alreadyConnected?: string;
+    connectAnotherHint?: string;
   };
+}
+
+// Krok 4.3: tiny avatar with graceful fallback to the platform icon.
+function AccountThumb({
+  src,
+  alt,
+  Fallback,
+}: {
+  src?: string | null;
+  alt: string;
+  Fallback: ComponentType<{ className?: string }>;
+}) {
+  const [errored, setErrored] = useState(false);
+  if (!src || errored) {
+    return <Fallback className="h-4 w-4 text-muted-foreground" />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setErrored(true)}
+      className="h-full w-full object-cover"
+    />
+  );
 }
 
 export function ConnectAccountModal({
@@ -47,7 +77,7 @@ export function ConnectAccountModal({
   platformName,
   PlatformIcon,
   onConnect,
-  showProfileChoice = false,
+  connectedAccounts,
   t,
 }: ConnectAccountModalProps) {
   const [connecting, setConnecting] = useState(false);
@@ -161,78 +191,57 @@ export function ConnectAccountModal({
             </div>
           )}
 
-          {/* Main action area */}
-          {showProfileChoice ? (
-            // Instagram + Facebook: let the user pick how they will publish.
-            // "direct" = Professional account (auto-publish via API).
-            // "manual" = Personal profile (prepare + reminder, no API publish).
-            <div className="px-6 sm:px-8 pb-4 space-y-3">
-              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
-                {t.profileChoiceTitle}
-              </p>
-              {/* Direct (Professional) option */}
-              <button
-                type="button"
-                onClick={() => handleConnect("direct")}
-                disabled={connecting}
-                className="group w-full flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-indigo-400/40 hover:bg-indigo-500/10 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-              >
-                <div className="flex-shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/25 to-purple-500/25 border border-white/10">
-                  <Zap className="h-4 w-4 text-indigo-300" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {t.profileChoiceDirectTitle}
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mt-0.5 leading-relaxed">
-                    {t.profileChoiceDirectDesc}
-                  </p>
-                </div>
-              </button>
-              {/* Manual (Personal) option */}
-              <button
-                type="button"
-                onClick={() => handleConnect("manual")}
-                disabled={connecting}
-                className="group w-full flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-amber-400/40 hover:bg-amber-500/10 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-              >
-                <div className="flex-shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/25 to-orange-500/25 border border-white/10">
-                  <Bell className="h-4 w-4 text-amber-300" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {t.profileChoiceManualTitle}
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mt-0.5 leading-relaxed">
-                    {t.profileChoiceManualDesc}
-                  </p>
-                </div>
-              </button>
-              {connecting && (
-                <div className="flex items-center justify-center gap-2 pt-1 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Připojuji…
-                </div>
-              )}
-            </div>
-          ) : (
+          {/* Krok 4.3: already-connected accounts of THIS platform, so the user
+              can see their identity (avatar + name + direct/manual badge) and
+              understand they can connect ANOTHER account of the same platform. */}
+          {connectedAccounts && connectedAccounts.length > 0 && (
             <div className="px-6 sm:px-8 pb-4">
-              <Button
-                onClick={() => handleConnect("direct")}
-                disabled={connecting}
-                className="w-full py-4 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {connecting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Připojuji…
-                  </>
-                ) : (
-                  t.connectButton
-                )}
-              </Button>
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground/50 mb-3">
+                {t.alreadyConnected || "Již propojeno"}
+              </p>
+              <div className="space-y-2">
+                {connectedAccounts.map((acc, i) => (
+                  <div
+                    key={`${acc.account_name}-${i}`}
+                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10">
+                      <AccountThumb
+                        src={acc.avatar_url}
+                        alt={acc.account_name}
+                        Fallback={PlatformIcon}
+                      />
+                    </div>
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {acc.account_name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground/60 leading-relaxed">
+                {t.connectAnotherHint ||
+                  "Připojením dalšího účtu přidáte nový účet stejné sítě."}
+              </p>
             </div>
           )}
+
+          {/* Main action area – always connect a business account (auto-publish). */}
+          <div className="px-6 sm:px-8 pb-4">
+            <Button
+              onClick={() => handleConnect("direct")}
+              disabled={connecting}
+              className="w-full py-4 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {connecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Připojuji…
+                </>
+              ) : (
+                t.connectButton
+              )}
+            </Button>
+          </div>
 
           {/* Learn more link – only render when URL is provided */}
           {t.learnMoreUrl && (

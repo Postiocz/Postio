@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock, ListOrdered, Zap, Bell } from "lucide-react";
+import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock, ListOrdered } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,35 +58,6 @@ const PLATFORMS = [
   { id: "youtube", label: "YouTube" },
   { id: "tiktok", label: "TikTok" },
 ];
-
-/**
- * Small indicator shown next to a platform icon in the editor. Reflects the
- * account's `publishing_type` chosen at connect time (Prompt 026, Krok 3):
- *   - "direct"  → ⚡ Professional account, fully automatic publishing
- *   - "manual"  → 🔔 Personal account, prepare + reminder (no API publish)
- * Uses a native `title` tooltip so it works everywhere without nesting Radix
- * tooltips (some platform chips already live inside their own Tooltip).
- */
-function PublishingTypeBadge({ type }: { type: "direct" | "manual" }) {
-  const Icon = type === "manual" ? Bell : Zap;
-  const label =
-    type === "manual"
-      ? "Manuální publikování s připomínkou"
-      : "Automatické publikování";
-  return (
-    <span
-      title={label}
-      className={cn(
-        "inline-flex h-4 w-4 items-center justify-center rounded-full border",
-        type === "manual"
-          ? "border-amber-400/30 bg-amber-500/20 text-amber-300"
-          : "border-indigo-400/30 bg-indigo-500/20 text-indigo-300"
-      )}
-    >
-      <Icon className="h-2.5 w-2.5" />
-    </span>
-  );
-}
 
 const MAX_MEDIA_FILES = 10;
 const DEFAULT_TIKTOK_PRIVACY_LEVEL: TikTokPrivacyLevel = "PUBLIC_TO_EVERYONE";
@@ -211,7 +182,6 @@ export function EditPostDialog({
   const [youtubeProfile, setYoutubeProfile] = useState<PostPreviewProfile | null>(null);
   const [linkedinProfile, setLinkedinProfile] = useState<PostPreviewProfile | null>(null);
   const [tiktokProfile, setTiktokProfile] = useState<PostPreviewProfile | null>(null);
-  const [publishingTypeMap, setPublishingTypeMap] = useState<Record<string, "direct" | "manual">>({});
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -250,7 +220,7 @@ export function EditPostDialog({
             .maybeSingle(),
           supabase
             .from("social_accounts")
-            .select("platform, account_name, avatar_url, publishing_type")
+            .select("platform, account_name, avatar_url")
             .eq("user_id", userId)
             .eq("is_active", true)
             .in("platform", ["facebook", "instagram", "youtube", "linkedin", "tiktok"]),
@@ -263,11 +233,6 @@ export function EditPostDialog({
         const yt = accountsRes.data?.find((a) => a.platform === "youtube");
         const li = accountsRes.data?.find((a) => a.platform === "linkedin");
         const tt = accountsRes.data?.find((a) => a.platform === "tiktok");
-        setPublishingTypeMap(
-          Object.fromEntries(
-            (accountsRes.data ?? []).map((a) => [a.platform, a.publishing_type])
-          ) as Record<string, "direct" | "manual">
-        );
         setFacebookProfile({
           displayName: fb?.account_name ?? fallbackName,
           avatarUrl: fb?.avatar_url ?? fallbackAvatar,
@@ -1783,9 +1748,6 @@ export function EditPostDialog({
                         )}
                       >
                         {Icon && <Icon className={cn("h-3.5 w-3.5", isActive ? "" : accent)} />}
-                        {publishingTypeMap[platformId] && (
-                          <PublishingTypeBadge type={publishingTypeMap[platformId]} />
-                        )}
                         {platformLabel}
                       </button>
                     );
@@ -2101,9 +2063,6 @@ export function EditPostDialog({
                   >
                     {Icon && <Icon className={cn("h-3.5 w-3.5", isPublished ? "" : (isSelected ? "" : platformColor))} />}
                     {platform.label}
-                    {publishingTypeMap[platform.id] && (
-                      <PublishingTypeBadge type={publishingTypeMap[platform.id]} />
-                    )}
                     {isPublished && <Check className="h-3 w-3 text-green-500" />}
                   </button>
                 );
@@ -2370,9 +2329,6 @@ export function EditPostDialog({
                   >
                     {isPublishingAdditional && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {Icon && <Icon className="mr-2 h-4 w-4" />}
-                    {publishingTypeMap[p] && (
-                      <PublishingTypeBadge type={publishingTypeMap[p]} />
-                    )}
                     {t("publishToSelected") ?? "Publikovat"} na {platformLabel}
                   </Button>
                 );
@@ -2422,9 +2378,6 @@ export function EditPostDialog({
                       >
                         {isUpdatingThis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {Icon && <Icon className="mr-2 h-4 w-4" />}
-                        {publishingTypeMap[p] && (
-                          <PublishingTypeBadge type={publishingTypeMap[p]} />
-                        )}
                         Aktualizovat na {platformLabel}
                       </Button>
                     );

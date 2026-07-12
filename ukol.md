@@ -42,74 +42,56 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 📋 Prompt 026 (Podpora osobních profilů a manuálního publikování s připomínkou)
+### 📋 Prompt 027 (Úklid + plná podpora více firemních účtů)
 
-**Cíl:** Umožnit propojit i osobní profily (zejm. Instagram, Facebook), které nepodporují
-automatické odesílání přes API. Tyto účty dostanou `publishing_type = 'manual'` a Postio
-nabídne „Manuální publikování" (příprava podkladů + připomínka v daný čas).
+**Cíl:** Kompletně zrušit funkci „Osobní profil / Manuální publikování" (nefunguje – Meta API
+osobní profily nepublikuje). Postio se stává čistě profesionálním nástrojem pro AUTOMATICKÉ
+publikování na firemní účty (Facebook/Instagram Pages, atd.). Zároveň dobudovat plnou podporu
+více účtů téže sítě (např. 2× Facebook Page) přes existující sloupec `account_id` + FK.
 
-**Analýza existujícího kódu (Fáze 1 – hotovo):**
-- `social_accounts` (supabase/migrations/001, 011, 012, 029 + src/lib/supabase/types.ts:76): sloupce `id, user_id, platform, account_name, access_token, platform_id, avatar_url, token_expires_at, is_active, metadata`. ŽÁDNÝ `publishing_type`.
-- `post_platforms.status` CHECK (migrations/023, 031): `(...'draft','scheduled','publishing','published','failed','removed_externally','archived')`. Chybí `'ready'`.
-- Připojování účtů: `src/app/[locale]/(dashboard)/accounts/page.tsx` → `ConnectAccountModal` (`onConnect`). Instagram/Facebook jdou přes `supabase.auth.signInWithOAuth({ provider: 'facebook', ... })`, LinkedIn/X/YouTube/TikTok přes vlastní API routy.
-- Publish motor: `src/lib/actions/publish.ts` (`publishPost`, `publishAdditionalPlatforms`) + Edge fn `supabase/functions/process-scheduled-posts/index.ts`. Obě volají API podle `targetPlatform` a zapisují `status='published'`/`'failed'`. NEZNÁJÍ pojem „manuální".
-- Editor: `src/components/edit-post-dialog.tsx` → `PLATFORMS` (ř. 53), `PlatformIconMap` (ř. 44), ikony platforem vykresleny na ř. 1734, 2023, 2320.
-- Dashboard: `src/app/[locale]/(dashboard)/dashboard/page.tsx`.
+**Důležité – DB:** Sloupec `post_platforms.account_id` (UUID, FK na `social_accounts.id`) a jeho
+migrace (037) ZŮSTÁVAJÍ. Je to základ, aby jedna síť mohla mít více propojených účtů a publish
+motor cílil přesně na vybranou Stránku. Pojem `publishing_type` / stav `'ready'` už dále
+nepoužíváme (logika se odstraňuje, sloupec v DB může zůstat jako unused, nebo se později odebere).
 
 ---
 
-#### ✅ Krok 1 — DB Migrace (sloupec `publishing_type` + nový status `ready`)
-- **Soubory:** nový `supabase/migrations/036_add_publishing_type.sql`, úprava `src/lib/supabase/types.ts`.
-- **Akce:**
-  1. `ALTER TABLE public.social_accounts ADD COLUMN IF NOT EXISTS publishing_type TEXT NOT NULL DEFAULT 'direct' CHECK (publishing_type IN ('direct','manual'));`
-     - `DEFAULT 'direct'` = existující účty se nemění, zpětně kompatibilní.
-  2. Rozšířit `post_platforms_status_check` o hodnotu `'ready'` (migrace 031 mustr):
-     `DROP CONSTRAINT IF EXISTS post_platforms_status_check; ADD CONSTRAINT post_platforms_status_check CHECK (status IN (...,'ready'));`
-     - `'ready'` = „Připraveno ke zveřejnění" (manuální post čeká na akci uživatele).
-  3. `types.ts`: přidat `publishing_type?: 'direct' | 'manual'` do `Row/Insert/Update` u `social_accounts`. (post_platforms status je string, žádná union změna nutná.)
-- **Ověření:** `npx tsc --noEmit`, spuštění migrace na Supabase.
+#### [x] Krok 1 — Odstranění manuální logiky
+- **Soubory:** `src/lib/actions/publish.ts`, `supabase/functions/process-scheduled-posts/index.ts`,
+  `src/app/[locale]/(dashboard)/dashboard/page.tsx` (ManualPublishWidget + dotazy na `status='ready'`
+  a `publishing_type='manual'`), `src/components/edit-post-dialog.tsx` (`publishingTypeMap` /
+  `PublishingTypeBadge`), `src/components/connect-account-modal.tsx` (`showProfileChoice`).
+- **Akce:** Ze všech souborů odstraň logiku `manual` vs `direct` – proměnné, větve, helpery
+  `getAccountPublishingType` / `markManualReady`, stav `'ready'`, 🔔 badge, „Připraveno k ručnímu
+  zveřejnění" widget. Vše je nyní vždy `'direct'` (automatické publikování).
+- **Ověření:** `npx tsc --noEmit`.
 
-#### ✅ Krok 2 — Rozcestník při připojování (volba Profilu)
-- **Soubory:** `src/components/connect-account-modal.tsx`, `accounts/page.tsx` (`onConnect`), OAuth routy (instagram/facebook + případně linkedin/x/youtube/tiktok).
-- **Akce:**
-  1. Do `ConnectAccountModal` přidat mezikrok (pouze pro Instagram + Facebook, kde osobní profily dávají smysl): „Profesionální účet (Automaticky)" vs „Osobní účet (Manuálně s připomínkou)".
-  2. Volba se uloží do stavu a předá do OAuth redirectu (query param `publishing_type=direct|manual`, nebo uložení do cookie/pending stavu před redirectem).
-  3. V OAuth callbacku (upsert do `social_accounts`) zapsat `publishing_type` z volby.
-- **Poznámka:** Instagram osobní profil přes Basic Display nedostane `instagram_content_publish` scope → publish motor ho musí detekovat jako `manual` a API nevolat (viz Krok 4).
+#### [ ] Krok 2 — Zjednodušení připojování (žádný výběr profilu)
+- **Soubory:** `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`.
+- **Akce:** Zruš modál výběru „Professional vs Personal". Kliknutí na ikonu sítě v sekci Účty rovnou
+  spouští OAuth proces pro firemní účet (stávající `onConnect('direct')` cesta, bez `showProfileChoice`
+  a bez předání `publishing_type`).
 - **Ověření:** `npx tsc --noEmit`, manuální test připojení v prohlížeči.
 
-#### ✅ Krok 3 — Vizuální indikátory v Editoru (⚡ / 🔔)
-- **Soubory:** `src/components/edit-post-dialog.tsx` (+ načtení `publishing_type` u účtů).
-- **Akce:**
-  1. Editor si vytáhne seznam účtů s `publishing_type` (existující fetch v dialogu + doplnit pole).
-  2. Ke každé ikoně platformy (ř. 1734, 2023, 2320) přidat malý odznáček: ⚡ pro `direct`, 🔔 pro `manual`.
-  3. Tooltip s vysvětlivkou („Automatické publikování" / „Manuální – s připomínkou").
-- **Design:** dodržet Premium Glassmorphism (načíst `.agents/skills/design-taste-frontend/SKILL.md` + `high-end-visual-design/SKILL.md` dle Pravidla 8).
-- **Ověření:** `npx tsc --noEmit`, vizuální test v prohlížeči.
+#### [ ] Krok 3 — Plná podpora více účtů v Editoru (hlavní cíl)
+- **Soubory:** `src/components/edit-post-dialog.tsx` (+ načtení účtů z `social_accounts` s `account_id`,
+  `account_name`, `avatar_url`).
+- **Akce:** Přepiš výběr platforem tak, aby editor zobrazoval VŠECHNY připojené účty seskupené dle
+  sítě. Má-li uživatel 2 Facebook Pages, uvidí 2 ikony Facebooku (každou s vlastním avatarem a jménem)
+  a může vybrat jednu, obě, nebo žádnou. Výběr se uloží do `post_platforms.account_id` (jeden řádek
+  `post_platforms` na každý zvolený účet).
+- **Ověření:** `npx tsc --noEmit`, vizuální + funkční test (2× FB, výběr/odškrtnutí).
 
-#### Krok 4 — Logika „Odesílání" (manuální = neodesílat na API)
-- **Soubory:** `src/lib/actions/publish.ts` (`publishPost`, `publishAdditionalPlatforms`), `supabase/functions/process-scheduled-posts/index.ts`.
-- **Akce:**
-  1. Před voláním API pro `targetPlatform` načíst `publishing_type` příslušného aktivního účtu (alias `ilike platform`).
-  2. Je-li `publishing_type = 'manual'`:
-     - NENÍ voláno žádné API.
-     - `post_platforms` řádek dané platformy → `status='ready'`, `scheduled_at` zůstává (slouží jako čas připomínky), `published_at=null`, `external_id=null`, `publish_error=null`.
-     - `posts.status` zůstává `'scheduled'` (připomínka platí dál).
-  3. Edge fn musí manuální platformy přeskočit (jinak by je v cronu poslala na API a selhala). Stejná větev: místo publish → `status='ready'`.
-  4. Dashboard widget (viz níž) agreguje posty s ≥1 `manual` platformou v `status='ready'`.
-- **Ověření:** `npx tsc --noEmit`, manuální test (manuální příspěvek se nepošle, objeví se v widgetu).
+#### [ ] Krok 4 — Oprava odesílacího motoru (target `account_id`)
+- **Soubory:** `src/lib/actions/publish.ts`, `supabase/functions/process-scheduled-posts/index.ts`.
+- **Akce:** Ujisti se, že publish motor používá `account_id` k přesnému zacílení na vybranou Stránku
+  (helpery `resolveTargetAccount` atd. už `account_id` berou). Odstraň zbylé
+  `.ilike("platform", X).limit(1)` fallbacky, kde to dává smysl, a zajisti, že počet publikací
+  odpovídá počtu zvolených účtů (ne jen jedna platforma).
+- **Ověření:** `npx tsc --noEmit`, manuální test publikování na konkrétní účet (i na 2× FB).
 
-#### Krok 5 — Akční modál „Zveřejnit nyní"
-- **Soubory:** nová komponenta (např. `src/components/manual-publish-dialog.tsx`), dashboard widget z Kroku 4, případně PostCard.
-- **Akce (po kliku na manuální post):**
-  - (a) Stažení médií (odkaz na `media_urls`).
-  - (b) Kopírování textu do schránky (`navigator.clipboard.writeText(finalCaption)`).
-  - (c) Tlačítko „Otevřít [síť]" → deep link / web URL dané platformy.
-  - Po dokončení uživatelem: možnost označit řádek jako „publikováno ručně" (`status='published'`, `published_at=now`) pro evidenci.
-- **Design:** Premium Glassmorphism (Pravidlo 8).
-- **Ověření:** vizuální + funkční test v prohlížeči (clipboard, stažení, otevření URL).
-
-#### Krok 6 — Lokalizace (cs / en / uk)
-- **Soubory:** `src/messages/{cs,en,uk}.json` (namespace dle kontextu, např. `accounts`, `editor`, `manualPublish`).
-- **Klíče:** výběr profilu (Krok 2), popisky odznáčků (Krok 3), stav „Připraveno ke zveřejnění" + widget (Krok 4), texty modálu „Zveřejnit nyní" – stáhnout/kopírovat/otevřít (Krok 5).
+#### [ ] Krok 5 — Lokalizace a finální cleanup
+- **Soubory:** `src/messages/{cs,en,uk}.json`.
+- **Akce:** Odstranit nepoužívané klíče (profileChoice*, manualPublish*, connectModal.manual* a
+  další z Kroku 1). Zachovat klíče pro výběr účtů (Krok 3) a případně přidat nové pro více účtů.
 - **Ověření:** `npx tsc --noEmit`, kontrola překladů ve všech 3 jazycích.

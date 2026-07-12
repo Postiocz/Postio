@@ -122,6 +122,7 @@ type SocialAccount = {
   avatar_url?: string | null;
   platform_id?: string | null;
   token_expires_at?: string | null;
+  publishing_type?: "direct" | "manual" | null;
   /**
    * Per-platform JSON blob. Shape varies by platform:
    *
@@ -800,10 +801,9 @@ export default function AccountsPage() {
           }}
           platformName={connectModalPlatform.name}
           PlatformIcon={connectModalPlatform.icon}
-          showProfileChoice={
-            connectModalPlatform.id === "instagram" ||
-            connectModalPlatform.id === "facebook"
-          }
+          connectedAccounts={accounts.filter(
+            (a) => a.platform === connectModalPlatform.id && a.is_active
+          )}
           onConnect={async (publishingType) => {
             setShowConnectModal(false);
             const next = window.location.pathname || "/accounts";
@@ -911,6 +911,8 @@ export default function AccountsPage() {
             profileChoiceManualTitle: t("connectModal.profileChoiceManualTitle"),
             profileChoiceManualDesc: t("connectModal.profileChoiceManualDesc"),
             errorTitle: t("connectModal.errorTitle"),
+            alreadyConnected: t("connectModal.alreadyConnected"),
+            connectAnotherHint: t("connectModal.connectAnotherHint"),
             learnMoreUrl:
               connectModalPlatform.id === "instagram"
                 ? "https://help.instagram.com/601258076737249"

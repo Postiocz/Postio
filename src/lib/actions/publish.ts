@@ -30,6 +30,7 @@ type FacebookPublishMediaType = "text" | "photo" | "video";
 
 type PostPlatformRow = {
   id?: string;
+  account_id?: string | null;
   platform: string;
   status: string;
   scheduled_at: string | null;
@@ -67,6 +68,21 @@ type OAuthAccountRow = {
   token_expires_at: string | null;
   metadata: Record<string, unknown> | null;
   platform_id: string | null;
+};
+
+/** Full social_accounts row (select "*"). Superset of every per-platform cast. */
+type FullSocialAccountRow = {
+  id: string;
+  user_id: string;
+  platform: string;
+  account_name: string | null;
+  access_token: string | null;
+  token_expires_at: string | null;
+  metadata: Record<string, unknown> | null;
+  platform_id: string | null;
+  publishing_type?: string | null;
+  avatar_url?: string | null;
+  [key: string]: unknown;
 };
 
 function getPostPlatforms(post: { post_platforms?: PostPlatformRow[] | null }): PostPlatformRow[] {
@@ -526,13 +542,14 @@ export async function publishPost(input: { postId: string }): Promise<{
 
   const typedPost = post as PublishablePostRow;
   const postPlatforms = getPostPlatforms(typedPost);
-  const unpublishedPlatforms = postPlatforms
-    .filter((platformRow) => platformRow.status !== "published")
-    .map((platformRow) => platformRow.platform);
-  const platforms =
-    unpublishedPlatforms.length > 0
-      ? unpublishedPlatforms
-      : postPlatforms.map((platformRow) => platformRow.platform);
+  // Prompt 027: every account publishes automatically, so we target the
+  // first row that is not already `published`. Keep the concrete target row
+  // (with account_id) so we publish to the exact linked account, not just
+  // "the platform".
+  const nextTargetRow =
+    postPlatforms.find((r) => r.status !== "published") ?? postPlatforms[0];
+  const targetPlatform = nextTargetRow?.platform ?? "facebook";
+  const targetAccountId = nextTargetRow?.account_id ?? null;
 
   const rawContent = String(post.content ?? "");
   const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
@@ -547,7 +564,6 @@ export async function publishPost(input: { postId: string }): Promise<{
   });
 
   // Publish to the first unpublished platform in the list
-  const targetPlatform = platforms[0] ?? "facebook";
 
   // CRITICAL – Guard against duplicate uploads.
   // If a `post_platforms` row for this post + target platform is already
@@ -586,16 +602,7 @@ export async function publishPost(input: { postId: string }): Promise<{
 
   // --- Instagram ---
   if (targetPlatform === "instagram") {
-    const { data: igAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("*")
-      .eq("user_id", user.id)
-      .ilike("platform", "instagram")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const igAccount = igAccounts?.[0] as SocialAccountLookupRow | undefined;
+    const igAccount = await resolveTargetAccount(supabaseAdmin, user.id, "instagram", targetAccountId);
     let platformId = igAccount?.platform_id;
     let accessToken = igAccount?.access_token;
 
@@ -639,11 +646,11 @@ export async function publishPost(input: { postId: string }): Promise<{
     });
 
     if (!result.success) {
-      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram");
+      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram", targetAccountId);
       return { success: false, error: result.error };
     }
 
-    await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram");
+    await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram", targetAccountId);
     return { success: true, data: { externalId: result.externalId, platform: "instagram" } };
   }
 
@@ -654,25 +661,7 @@ export async function publishPost(input: { postId: string }): Promise<{
   //   2) the resumable upload protocol to YouTube Data API v3,
   //   3) writing the returned video ID back via handlePublishSuccess.
   if (targetPlatform === "youtube") {
-    const { data: ytAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata")
-      .eq("user_id", user.id)
-      .ilike("platform", "youtube")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const ytAccount = ytAccounts?.[0] as
-      | {
-          id: string;
-          user_id: string;
-          platform: string;
-          access_token: string | null;
-          token_expires_at: string | null;
-          metadata: Record<string, unknown> | null;
-        }
-      | undefined;
+    const ytAccount = await resolveTargetAccount(supabaseAdmin, user.id, "youtube", targetAccountId);
 
     if (!ytAccount?.access_token) {
       return {
@@ -702,6 +691,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         post.id,
         result.error ?? "YouTube publish failed",
         "youtube",
+        targetAccountId,
       );
       return { success: false, error: result.error };
     }
@@ -712,6 +702,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       post.id,
       result.externalId ?? "",
       "youtube",
+      targetAccountId,
     );
     return {
       success: true,
@@ -735,26 +726,7 @@ export async function publishPost(input: { postId: string }): Promise<{
   //      (`urn:li:person:{openIdSub}`) and writing the post URN back via
   //      handlePublishSuccess.
   if (targetPlatform === "linkedin") {
-    const { data: liAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
-      .eq("user_id", user.id)
-      .ilike("platform", "linkedin")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const liAccount = liAccounts?.[0] as
-      | {
-          id: string;
-          user_id: string;
-          platform: string;
-          access_token: string | null;
-          token_expires_at: string | null;
-          metadata: Record<string, unknown> | null;
-          platform_id: string | null;
-        }
-      | undefined;
+    const liAccount = await resolveTargetAccount(supabaseAdmin, user.id, "linkedin", targetAccountId);
 
     if (!liAccount?.access_token) {
       return {
@@ -784,6 +756,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         post.id,
         result.error ?? "LinkedIn publish failed",
         "linkedin",
+        targetAccountId,
       );
       return { success: false, error: result.error };
     }
@@ -794,6 +767,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       post.id,
       result.externalId ?? "",
       "linkedin",
+      targetAccountId,
     );
     return {
       success: true,
@@ -803,16 +777,7 @@ export async function publishPost(input: { postId: string }): Promise<{
 
   // --- TikTok ---
   if (targetPlatform === "tiktok") {
-    const { data: ttAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
-      .eq("user_id", user.id)
-      .ilike("platform", "tiktok")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const ttAccount = ttAccounts?.[0] as OAuthAccountRow | undefined;
+    const ttAccount = await resolveTargetAccount(supabaseAdmin, user.id, "tiktok", targetAccountId);
 
     if (!ttAccount?.access_token) {
       return {
@@ -847,6 +812,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         post.id,
         result.error ?? "TikTok publish failed",
         "tiktok",
+        targetAccountId,
       );
       return { success: false, error: result.error, errorCode };
     }
@@ -862,6 +828,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       post.id,
       tiktokExternalId,
       "tiktok",
+      targetAccountId,
     );
     return {
       success: true,
@@ -880,26 +847,7 @@ export async function publishPost(input: { postId: string }): Promise<{
   //   2) Create tweet via API v2 with media_ids attached
   //   3) Store tweet ID as external_id
   if (targetPlatform === "twitter") {
-    const { data: twAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
-      .eq("user_id", user.id)
-      .ilike("platform", "twitter")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const twAccount = twAccounts?.[0] as
-      | {
-          id: string;
-          user_id: string;
-          platform: string;
-          access_token: string | null;
-          token_expires_at: string | null;
-          metadata: Record<string, unknown> | null;
-          platform_id: string | null;
-        }
-      | undefined;
+    const twAccount = await resolveTargetAccount(supabaseAdmin, user.id, "twitter", targetAccountId);
 
     if (!twAccount?.access_token) {
       return {
@@ -926,6 +874,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         post.id,
         result.error ?? "Twitter publish failed",
         "twitter",
+        targetAccountId,
       );
       return { success: false, error: result.error };
     }
@@ -936,6 +885,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       post.id,
       result.externalId ?? "",
       "twitter",
+      targetAccountId,
     );
     return {
       success: true,
@@ -944,16 +894,8 @@ export async function publishPost(input: { postId: string }): Promise<{
   }
 
   // --- Facebook (default) ---
-  const { data: fbAccounts } = await supabaseAdmin
-    .from("social_accounts")
-    .select("access_token, platform_id")
-    .eq("user_id", user.id)
-    .ilike("platform", "facebook")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const fbAccount = await resolveTargetAccount(supabaseAdmin, user.id, "facebook", targetAccountId);
 
-  const fbAccount = fbAccounts?.[0];
   if (!fbAccount?.access_token || !fbAccount?.platform_id) {
     return {
       success: false,
@@ -1067,30 +1009,70 @@ export async function publishPost(input: { postId: string }): Promise<{
       throw new Error("Meta Graph API returned no post ID.");
     }
 
-    await handlePublishSuccess(supabase, user.id, post.id, facebookPostId, "facebook");
+    await handlePublishSuccess(supabase, user.id, post.id, facebookPostId, "facebook", targetAccountId);
     return { success: true, data: { externalId: facebookPostId, platform: "facebook" } };
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing to Facebook.";
     console.error("FACEBOOK PUBLISH ERROR:", errorMessage);
 
-    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook");
+    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook", targetAccountId);
     return { success: false, error: errorMessage };
   }
 }
 
 // Shared helpers for DB updates and revalidation
+
+/**
+ * Resolve the concrete social_accounts row used to publish a platform.
+ *
+ * Prompt 026 (Krok 4.2): when `accountId` is present (a post_platforms row
+ * already linked to a specific account) we target that exact account —
+ * this is what enables publishing to e.g. a 2nd Facebook account. Otherwise
+ * we fall back to the previous "first active account for the platform"
+ * behavior so legacy rows (account_id IS NULL) keep working.
+ */
+async function resolveTargetAccount(
+  supabaseAdmin: Awaited<ReturnType<typeof createAdminClient>>,
+  userId: string,
+  platform: string,
+  accountId?: string | null,
+): Promise<FullSocialAccountRow | undefined> {
+  if (accountId) {
+    const { data } = await supabaseAdmin
+      .from("social_accounts")
+      .select("*")
+      .eq("id", accountId)
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .limit(1);
+    return data?.[0] as FullSocialAccountRow | undefined;
+  }
+
+  const { data } = await supabaseAdmin
+    .from("social_accounts")
+    .select("*")
+    .eq("user_id", userId)
+    .ilike("platform", platform)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  return data?.[0] as FullSocialAccountRow | undefined;
+}
+
 async function handlePublishSuccess(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   postId: string,
   externalId: string,
-  platform: string
+  platform: string,
+  accountId?: string | null,
 ) {
   const publishedAt = new Date().toISOString();
 
   console.log(`✅ ZAPISUJI ÚSPĚCH DO DB: ${platform} pro post ${postId}`);
   console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> published`);
-  const { error: ppError } = await supabase
+
+  let ppQuery = supabase
     .from("post_platforms")
     .update({
       status: "published",
@@ -1100,6 +1082,9 @@ async function handlePublishSuccess(
     })
     .eq("post_id", postId)
     .eq("platform", platform);
+  if (accountId) ppQuery = ppQuery.eq("account_id", accountId);
+
+  const { error: ppError } = await ppQuery;
 
   if (ppError) {
     console.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
@@ -1146,11 +1131,12 @@ async function handlePublishError(
   userId: string,
   postId: string,
   errorMessage: string,
-  platform?: string
+  platform?: string,
+  accountId?: string | null,
 ) {
   if (platform) {
     console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> failed`);
-    const { error: ppError } = await supabase
+    let ppQuery = supabase
       .from("post_platforms")
       .update({
         status: "failed",
@@ -1158,6 +1144,9 @@ async function handlePublishError(
       })
       .eq("post_id", postId)
       .eq("platform", platform);
+    if (accountId) ppQuery = ppQuery.eq("account_id", accountId);
+
+    const { error: ppError } = await ppQuery;
 
     if (ppError) {
       console.error("handlePublishError: Failed to update post_platforms:", ppError.message);
@@ -2051,6 +2040,8 @@ export async function publishAdditionalPlatforms(input: {
   postId: string;
   platform: string;
   platformMetadata?: Record<string, unknown> | null;
+  /** Prompt 026 (Krok 4.2): specific social_accounts row to publish to. */
+  accountId?: string | null;
 }): Promise<{
   success: boolean;
   data?: { externalId?: string; platform?: string; warningCode?: string };
@@ -2095,9 +2086,13 @@ export async function publishAdditionalPlatforms(input: {
   // duplicate (e.g. a second copy of the same YouTube video on the
   // channel). This is the same defense-in-depth guard we have in
   // `publishPost()`; see the comment there for the full rationale.
+  // Prompt 026 (Krok 4.2): when a specific accountId is given, only treat
+  // a row for THAT account as "already published". This lets the user
+  // publish the same post to a 2nd account of the same platform.
   const alreadyPublishedRow = postPlatforms.find(
     (platformRow) =>
       platformRow.platform === input.platform &&
+      (input.accountId ? platformRow.account_id === input.accountId : true) &&
       platformRow.status === "published" &&
       typeof platformRow.external_id === "string" &&
       platformRow.external_id.trim(),
@@ -2125,18 +2120,23 @@ export async function publishAdditionalPlatforms(input: {
 
   // CRITICAL: If the platform does not exist in post_platforms at all,
   // create a draft entry first so handlePublishSuccess can UPDATE it.
+  // Prompt 026 (Krok 4.2): also store the specific account_id so the row
+  // is linked to the chosen account (enables 2+ accounts of one platform).
   if (!allPlatformNames.includes(input.platform)) {
     console.log(`⚠️ Platform ${input.platform} not in post_platforms – creating entry first`);
     await supabase
       .from("post_platforms")
       .insert({
         post_id: post.id,
+        account_id: input.accountId ?? null,
         platform: input.platform,
         status: "draft",
       });
   }
 
   const targetPlatform = input.platform;
+  const targetAccountId = input.accountId ?? null;
+
   const rawContent = String(post.content ?? "");
   const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
   const rawLocation = (post as { location?: string | null }).location ?? null;
@@ -2150,16 +2150,7 @@ export async function publishAdditionalPlatforms(input: {
 
   // --- Instagram ---
   if (targetPlatform === "instagram") {
-    const { data: igAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("access_token, platform_id")
-      .eq("user_id", user.id)
-      .ilike("platform", "instagram")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const igAccount = igAccounts?.[0];
+    const igAccount = await resolveTargetAccount(supabaseAdmin, user.id, "instagram", targetAccountId);
     if (!igAccount?.access_token || !igAccount?.platform_id) {
       return {
         success: false,
@@ -2175,35 +2166,17 @@ export async function publishAdditionalPlatforms(input: {
     });
 
     if (!result.success) {
-      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram");
+      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram", targetAccountId);
       return { success: false, error: result.error };
     }
 
-    await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram");
+    await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram", targetAccountId);
     return { success: true, data: { externalId: result.externalId, platform: "instagram" } };
   }
 
   // --- YouTube ---
   if (targetPlatform === "youtube") {
-    const { data: ytAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata")
-      .eq("user_id", user.id)
-      .ilike("platform", "youtube")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const ytAccount = ytAccounts?.[0] as
-      | {
-          id: string;
-          user_id: string;
-          platform: string;
-          access_token: string | null;
-          token_expires_at: string | null;
-          metadata: Record<string, unknown> | null;
-        }
-      | undefined;
+    const ytAccount = await resolveTargetAccount(supabaseAdmin, user.id, "youtube", targetAccountId);
 
     if (!ytAccount?.access_token) {
       return {
@@ -2233,6 +2206,7 @@ export async function publishAdditionalPlatforms(input: {
         post.id,
         result.error ?? "YouTube publish failed",
         "youtube",
+        targetAccountId,
       );
       return { success: false, error: result.error };
     }
@@ -2243,6 +2217,7 @@ export async function publishAdditionalPlatforms(input: {
       post.id,
       result.externalId ?? "",
       "youtube",
+      targetAccountId,
     );
     return {
       success: true,
@@ -2258,26 +2233,7 @@ export async function publishAdditionalPlatforms(input: {
   // pass an `existingExternalId` guard beyond the duplicate-upload
   // check at the top of this function.
   if (targetPlatform === "linkedin") {
-    const { data: liAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
-      .eq("user_id", user.id)
-      .ilike("platform", "linkedin")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const liAccount = liAccounts?.[0] as
-      | {
-          id: string;
-          user_id: string;
-          platform: string;
-          access_token: string | null;
-          token_expires_at: string | null;
-          metadata: Record<string, unknown> | null;
-          platform_id: string | null;
-        }
-      | undefined;
+    const liAccount = await resolveTargetAccount(supabaseAdmin, user.id, "linkedin", targetAccountId);
 
     if (!liAccount?.access_token) {
       return {
@@ -2304,6 +2260,7 @@ export async function publishAdditionalPlatforms(input: {
         post.id,
         result.error ?? "LinkedIn publish failed",
         "linkedin",
+        targetAccountId,
       );
       return { success: false, error: result.error };
     }
@@ -2314,6 +2271,7 @@ export async function publishAdditionalPlatforms(input: {
       post.id,
       result.externalId ?? "",
       "linkedin",
+      targetAccountId,
     );
     return {
       success: true,
@@ -2323,26 +2281,7 @@ export async function publishAdditionalPlatforms(input: {
 
   // --- TikTok ---
   if (targetPlatform === "tiktok") {
-    const { data: ttAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
-      .eq("user_id", user.id)
-      .ilike("platform", "tiktok")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const ttAccount = ttAccounts?.[0] as
-      | {
-          id: string;
-          user_id: string;
-          platform: string;
-          access_token: string | null;
-          token_expires_at: string | null;
-          metadata: Record<string, unknown> | null;
-          platform_id: string | null;
-        }
-      | undefined;
+    const ttAccount = await resolveTargetAccount(supabaseAdmin, user.id, "tiktok", targetAccountId);
 
     if (!ttAccount?.access_token) {
       return {
@@ -2376,6 +2315,7 @@ export async function publishAdditionalPlatforms(input: {
         post.id,
         result.error ?? "TikTok publish failed",
         "tiktok",
+        targetAccountId,
       );
       return { success: false, error: result.error, errorCode };
     }
@@ -2391,6 +2331,7 @@ export async function publishAdditionalPlatforms(input: {
       post.id,
       tiktokExternalId,
       "tiktok",
+      targetAccountId,
     );
     return {
       success: true,
@@ -2404,26 +2345,7 @@ export async function publishAdditionalPlatforms(input: {
 
   // --- Twitter (X) ---
   if (targetPlatform === "twitter") {
-    const { data: twAccounts } = await supabaseAdmin
-      .from("social_accounts")
-      .select("id, user_id, platform, access_token, token_expires_at, metadata, platform_id")
-      .eq("user_id", user.id)
-      .ilike("platform", "twitter")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const twAccount = twAccounts?.[0] as
-      | {
-          id: string;
-          user_id: string;
-          platform: string;
-          access_token: string | null;
-          token_expires_at: string | null;
-          metadata: Record<string, unknown> | null;
-          platform_id: string | null;
-        }
-      | undefined;
+    const twAccount = await resolveTargetAccount(supabaseAdmin, user.id, "twitter", targetAccountId);
 
     if (!twAccount?.access_token) {
       return {
@@ -2450,6 +2372,7 @@ export async function publishAdditionalPlatforms(input: {
         post.id,
         result.error ?? "Twitter publish failed",
         "twitter",
+        targetAccountId,
       );
       return { success: false, error: result.error };
     }
@@ -2460,6 +2383,7 @@ export async function publishAdditionalPlatforms(input: {
       post.id,
       result.externalId ?? "",
       "twitter",
+      targetAccountId,
     );
     return {
       success: true,
@@ -2468,16 +2392,8 @@ export async function publishAdditionalPlatforms(input: {
   }
 
   // --- Facebook (default) ---
-  const { data: fbAccounts } = await supabaseAdmin
-    .from("social_accounts")
-    .select("access_token, platform_id")
-    .eq("user_id", user.id)
-    .ilike("platform", "facebook")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const fbAccount = await resolveTargetAccount(supabaseAdmin, user.id, "facebook", targetAccountId);
 
-  const fbAccount = fbAccounts?.[0];
   if (!fbAccount?.access_token || !fbAccount?.platform_id) {
     return {
       success: false,
@@ -2577,11 +2493,11 @@ export async function publishAdditionalPlatforms(input: {
       throw new Error("Meta Graph API returned no post ID.");
     }
 
-    await handlePublishSuccess(supabase, user.id, post.id, facebookPostId, "facebook");
+    await handlePublishSuccess(supabase, user.id, post.id, facebookPostId, "facebook", targetAccountId);
     return { success: true, data: { externalId: facebookPostId, platform: "facebook" } };
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing.";
-    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook");
+    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook", targetAccountId);
     return { success: false, error: errorMessage };
   }
 }

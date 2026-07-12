@@ -869,20 +869,27 @@ async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
 async function getValidTikTokAccessToken(params: {
   supabaseAdmin: DenoSupabaseClient;
   userId: string;
+  accountId?: string | null;
 }): Promise<
   | { success: true; accessToken: string; account: TikTokAccountRow }
   | { success: false; error: string }
 > {
-  const { supabaseAdmin, userId } = params;
+  const { supabaseAdmin, userId, accountId } = params;
 
-  const { data: accounts } = await getUntypedTableBuilder(
+  const tkQuery = getUntypedTableBuilder(
     supabaseAdmin,
     "social_accounts",
   )
     .select("id, access_token, token_expires_at, metadata")
     .eq("user_id", userId)
-    .ilike("platform", "tiktok")
-    .eq("is_active", true)
+    .eq("is_active", true);
+  // Krok 4.2: prefer the exact account linked to this row.
+  if (accountId) {
+    tkQuery.eq("id", accountId);
+  } else {
+    tkQuery.ilike("platform", "tiktok");
+  }
+  const { data: accounts } = await tkQuery
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -1032,6 +1039,7 @@ async function publishToTikTok(params: {
 async function getValidYouTubeAccessToken(params: {
   supabaseAdmin: DenoSupabaseClient;
   userId: string;
+  accountId?: string | null;
 }): Promise<
   | {
       success: true;
@@ -1045,16 +1053,22 @@ async function getValidYouTubeAccessToken(params: {
     }
   | { success: false; error: string }
 > {
-  const { supabaseAdmin, userId } = params;
+  const { supabaseAdmin, userId, accountId } = params;
 
-  const { data: accountsRaw, error: lookupError } = await getUntypedTableBuilder(
+  const ytQuery = getUntypedTableBuilder(
     supabaseAdmin,
     "social_accounts",
   )
     .select("id, access_token, token_expires_at, metadata")
     .eq("user_id", userId)
-    .ilike("platform", "youtube")
-    .eq("is_active", true)
+    .eq("is_active", true);
+  // Krok 4.2: prefer the exact account linked to this row.
+  if (accountId) {
+    ytQuery.eq("id", accountId);
+  } else {
+    ytQuery.ilike("platform", "youtube");
+  }
+  const { data: accountsRaw, error: lookupError } = await ytQuery
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -1343,6 +1357,7 @@ async function refreshLinkedInAccessToken(
 async function getValidLinkedInAccessToken(params: {
   supabaseAdmin: DenoSupabaseClient;
   userId: string;
+  accountId?: string | null;
 }): Promise<
   | {
       success: true;
@@ -1357,16 +1372,22 @@ async function getValidLinkedInAccessToken(params: {
     }
   | { success: false; error: string }
 > {
-  const { supabaseAdmin, userId } = params;
+  const { supabaseAdmin, userId, accountId } = params;
 
-  const { data: accountsRaw, error: lookupError } = await getUntypedTableBuilder(
+  const liQuery = getUntypedTableBuilder(
     supabaseAdmin,
     "social_accounts",
   )
     .select("id, access_token, token_expires_at, metadata, platform_id")
     .eq("user_id", userId)
-    .ilike("platform", "linkedin")
-    .eq("is_active", true)
+    .eq("is_active", true);
+  // Krok 4.2: prefer the exact account linked to this row.
+  if (accountId) {
+    liQuery.eq("id", accountId);
+  } else {
+    liQuery.ilike("platform", "linkedin");
+  }
+  const { data: accountsRaw, error: lookupError } = await liQuery
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -1848,7 +1869,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: platformsToPublish, error: platformsError } = await supabaseAdmin
     .from("post_platforms")
-    .select("id, post_id, platform, status, scheduled_at, metadata, posts(id, user_id, content, media_urls, location, tags)")
+    .select("id, post_id, account_id, platform, status, scheduled_at, metadata, posts(id, user_id, content, media_urls, location, tags)")
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", nowIso)
@@ -1937,16 +1958,27 @@ Deno.serve(async (request: Request) => {
 
       const targetPlatform = pp.platform;
 
+      // Krok 4.2 (Prompt 027): every account publishes automatically. We
+      // target the exact account linked to this post_platforms row
+      // (pp.account_id), falling back to a platform-based lookup only for
+      // legacy rows where account_id is NULL.
+
       if (targetPlatform === "instagram") {
         // --- Instagram publish ---
         console.log(`>>> Hledám Instagram účet pro user_id: ${post.user_id}`);
 
-        const { data: igAccounts, error: igAccountError } = await supabaseAdmin
+        // Krok 4.2: prefer the exact account linked to this row.
+        const igQuery = supabaseAdmin
           .from("social_accounts")
           .select("access_token, platform_id")
           .eq('user_id', post.user_id)
-          .ilike('platform', 'instagram')
-          .eq("is_active", true)
+          .eq("is_active", true);
+        if (pp.account_id) {
+          igQuery.eq("id", pp.account_id);
+        } else {
+          igQuery.ilike('platform', 'instagram');
+        }
+        const { data: igAccounts, error: igAccountError } = await igQuery
           .order("created_at", { ascending: false })
           .limit(1);
 
@@ -1979,12 +2011,18 @@ Deno.serve(async (request: Request) => {
         // --- Facebook publish ---
         console.log(`Hledám účet pro user_id: ${post.user_id} (type: ${typeof post.user_id}) a platformu: facebook (target: ${targetPlatform})`);
 
-        const { data: accounts, error: accountError } = await supabaseAdmin
+        // Krok 4.2: prefer the exact account linked to this row.
+        const fbQuery = supabaseAdmin
           .from("social_accounts")
           .select("access_token, platform_id")
           .eq('user_id', post.user_id)
-          .ilike('platform', 'facebook')
-          .eq("is_active", true)
+          .eq("is_active", true);
+        if (pp.account_id) {
+          fbQuery.eq("id", pp.account_id);
+        } else {
+          fbQuery.ilike('platform', 'facebook');
+        }
+        const { data: accounts, error: accountError } = await fbQuery
           .order("created_at", { ascending: false })
           .limit(1);
 
@@ -2038,6 +2076,7 @@ Deno.serve(async (request: Request) => {
           const ytToken = await getValidYouTubeAccessToken({
             supabaseAdmin,
             userId: post.user_id,
+            accountId: pp.account_id,
           });
 
           if (!ytToken.success) {
@@ -2088,6 +2127,7 @@ Deno.serve(async (request: Request) => {
         const liToken = await getValidLinkedInAccessToken({
           supabaseAdmin,
           userId: post.user_id,
+          accountId: pp.account_id,
         });
 
         if (!liToken.success) {
@@ -2127,6 +2167,7 @@ Deno.serve(async (request: Request) => {
           const ttToken = await getValidTikTokAccessToken({
             supabaseAdmin,
             userId: post.user_id,
+            accountId: pp.account_id,
           });
 
           if (!ttToken.success) {

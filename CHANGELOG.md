@@ -3,6 +3,26 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✨ Feature — Plná podpora více účtů v Editoru (Prompt 027, Krok 3)
+
+- **Kontext**: Uživatel může mít připojeno více účtů stejné sítě (např. 2× Facebook Page). Editor umožňoval výběr jen 6 statických platforem bez vazby na konkrétní účet. Cílem bylo přepracovat výběr na seznam všech připojených účtů seskupených dle sítě.
+- **Změny**:
+  1. `src/components/edit-post-dialog.tsx`: Přidáno načítání účtů z `/api/accounts`; stav `platforms: string[]` nahrazen `selectedAccountIds: string[]`; UI přepracováno na grid 3 (desktop) / 2 (mobil) platformových karet s kompaktními chipy uvnitř.
+  2. `src/lib/actions/posts.ts`: `createPostAction` a `updatePost` přijímají `accountIds`; ukládá se `account_id` do `post_platforms`; legacy fallback pro NULL `account_id`.
+  3. `src/lib/supabase/types.ts`: Typy již obsahují `account_id`.
+  4. `src/messages/{cs,en,uk}.json`: Přidány klíče `posts.connectAccount` a `posts.noConnectedAccounts`.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/lib/actions/posts.ts`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
+### 🔧 Refactor — Zjednodušení připojování účtů (Prompt 027, Krok 2)
+
+- **Kontext**: Po odstranění manuální logiky (Krok 1) je potřeba dokončit zjednodušení připojování — odstranit `publishing_type` z OAuth redirect URL a `profileChoice*` překlady. Připojení nového účtu vždy rovnou spouští OAuth bez výběru typu profilu.
+- **Změny**:
+  1. `src/components/connect-account-modal.tsx`: `onConnect` i `handleConnect` již nepřijímají `publishingType` parametr; odstraněny `profileChoice*` klíče z typové definice `t`.
+  2. `src/app/[locale]/(dashboard)/accounts/page.tsx`: odstraněno předávání `publishing_type` z OAuth redirect URL pro Instagram i Facebook; odstraněny `profileChoice*` překladové mapování; `onConnect` handler bez parametru.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test připojení v prohlížeči ✅ (uživatel potvrdil).
+- **Upravené soubory**: `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 2 ✅).
+
 ### 🧹 Refactor — Odstranění manuálního publikování (Prompt 027, Krok 1)
 
 - **Kontext**: Meta API nepublikuje na osobní profily, funkce „Manuální publikování s připomínkou" byla nefunkční. Postio se stává čistě profesionálním nástrojem pro automatické publikování; rušíme celou `manual` vs `direct` logiku a připravujeme půdu pro plnou podporu více firemních účtů.
@@ -94,16 +114,5 @@
   2. `src/lib/supabase/types.ts`: doplněny nové sloupce do `Row`, `Insert` a `Update` typů tabulky `users`.
 - **Ověření**: `npx tsc --noEmit` ✅, uživatel potvrdil test migrace.
 - **Upravené soubory**: `supabase/migrations/035_add_stripe_fields.sql` (nový), `src/lib/supabase/types.ts`, `ukol.md` (Krok 1 ✅).
-
-### 🎨 Newsletter Footer na Landing Page (Prompt 025, Krok 2)
-
-- **Kontext**: Landing page neměla žádnou patičku ani email capture prvek. Cíl byl přidat newsletter formulář a základní footer s navigací.
-- **Změny**:
-  1. `src/components/marketing/site-footer.tsx` (nový): server komponenta s newsletter glassmorphism kartou (`rounded-[20px] bg-card/60 backdrop-blur-md`), spodním řádkem (copyright + navigační odkazy).
-  2. `src/components/marketing/newsletter-form.tsx` (nový): client komponenta s email inputem a CTA tlačítkem (arrow-in-button pattern). UI-only, bez backend logiky.
-  3. `src/app/[locale]/(marketing)/page.tsx`: `<SiteFooter locale={locale} />` přidán za `<FaqSection />`.
-  4. `src/messages/{cs,en,uk}.json`: nový `landing.footer.*` namespace (newsletterTitle, newsletterDesc, newsletterPlaceholder, newsletterCta, copyright, 4 odkazy).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/components/marketing/site-footer.tsx` (nový), `src/components/marketing/newsletter-form.tsx` (nový), `src/app/[locale]/(marketing)/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 2 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

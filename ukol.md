@@ -66,14 +66,14 @@ nepoužíváme (logika se odstraňuje, sloupec v DB může zůstat jako unused, 
   zveřejnění" widget. Vše je nyní vždy `'direct'` (automatické publikování).
 - **Ověření:** `npx tsc --noEmit`.
 
-#### [ ] Krok 2 — Zjednodušení připojování (žádný výběr profilu)
+#### [x] Krok 2 — Zjednodušení připojování (žádný výběr profilu)
 - **Soubory:** `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`.
 - **Akce:** Zruš modál výběru „Professional vs Personal". Kliknutí na ikonu sítě v sekci Účty rovnou
   spouští OAuth proces pro firemní účet (stávající `onConnect('direct')` cesta, bez `showProfileChoice`
   a bez předání `publishing_type`).
 - **Ověření:** `npx tsc --noEmit`, manuální test připojení v prohlížeči.
 
-#### [ ] Krok 3 — Plná podpora více účtů v Editoru (hlavní cíl)
+#### [x] Krok 3 — Plná podpora více účtů v Editoru (hlavní cíl)
 - **Soubory:** `src/components/edit-post-dialog.tsx` (+ načtení účtů z `social_accounts` s `account_id`,
   `account_name`, `avatar_url`).
 - **Akce:** Přepiš výběr platforem tak, aby editor zobrazoval VŠECHNY připojené účty seskupené dle

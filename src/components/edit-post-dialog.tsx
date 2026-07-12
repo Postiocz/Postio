@@ -106,6 +106,7 @@ export type PostPlatform = {
   id: string;
   post_id: string;
   platform: string;
+  account_id?: string | null;
   status: string;
   scheduled_at: string | null;
   published_at: string | null;
@@ -139,6 +140,14 @@ interface EditPostDialogProps {
   locale: string;
 }
 
+/** A connected social account loaded for the account-picker UI. */
+type AccountInfo = {
+  id: string;
+  platform: string;
+  account_name: string;
+  avatar_url: string | null;
+};
+
 export function EditPostDialog({
   open,
   onOpenChange,
@@ -152,7 +161,8 @@ export function EditPostDialog({
   const previewPlaceholderName = t("previewPlaceholderName") ?? "Postio";
 
   const [content, setContent] = useState("");
-  const [platforms, setPlatforms] = useState<string[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [allAccounts, setAllAccounts] = useState<AccountInfo[]>([]);
   const [scheduledAt, setScheduledAt] = useState("");
   const [status, setStatus] = useState<string>("draft");
   const [location, setLocation] = useState("");
@@ -263,6 +273,27 @@ export function EditPostDialog({
     };
   }, [open, previewPlaceholderName, supabase, userId]);
 
+  // Load all connected accounts for the account-based platform picker (Krok 3).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const loadAccounts = async () => {
+      try {
+        const res = await fetch("/api/accounts");
+        if (res.ok) {
+          const data = (await res.json()) as { accounts?: AccountInfo[] };
+          if (!cancelled) setAllAccounts(data.accounts ?? []);
+        }
+      } catch {
+        // non-fatal – account picker shows empty state
+      }
+    };
+    loadAccounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   const uploadLabels = {
     tooManyFiles: t("maxFilesReached"),
     uploadSuccess: t("uploadSuccess"),
@@ -317,6 +348,20 @@ export function EditPostDialog({
     [mediaItems],
   );
 
+  // Krok 3 – Derive platform IDs from selected accounts for backward
+  // compatibility with code that expects platform-level info (preview,
+  // media requirements, button disabling).
+  const selectedPlatforms = useMemo(() => {
+    const fromAccounts = selectedAccountIds
+      .map((id) => allAccounts.find((a) => a.id === id)?.platform)
+      .filter((p): p is string => !!p);
+    // Also consider post.post_platforms rows (for initial load before accounts arrive)
+    const fromPost = (post?.post_platforms ?? [])
+      .filter((pp) => selectedAccountIds.includes(pp.account_id ?? ""))
+      .map((pp) => pp.platform);
+    return [...new Set([...fromAccounts, ...fromPost])];
+  }, [selectedAccountIds, allAccounts, post?.post_platforms]);
+
   // Prompt 023 (Krok 1) – Media presence flags that gate platform selection.
   // TikTok/YouTube require a video; Instagram requires any media. Derived
   // once from `mediaItems`, excluding failed uploads so an erroring file
@@ -353,10 +398,12 @@ export function EditPostDialog({
     const nextHasVideo = nextMedia.some((i) => i.kind === "video" && i.status !== "error");
     const nextHasAnyMedia = nextMedia.some((i) => i.status !== "error");
     removeMediaItem(id);
-    setPlatforms((prev) =>
-      prev.filter((p) => {
-        if (p === "tiktok" || p === "youtube") return nextHasVideo;
-        if (p === "instagram") return nextHasAnyMedia;
+    setSelectedAccountIds((prev) =>
+      prev.filter((accountId) => {
+        const account = allAccounts.find((a) => a.id === accountId);
+        if (!account) return true;
+        if (account.platform === "tiktok" || account.platform === "youtube") return nextHasVideo;
+        if (account.platform === "instagram") return nextHasAnyMedia;
         return true;
       }),
     );
@@ -393,7 +440,7 @@ export function EditPostDialog({
   // Decide which preview tabs should be visible. A tab is shown only when
   // the post actually targets that platform – we union three sources so the
   // preview stays accurate across all editor states:
-  //  1. `platforms`   – form state (chips toggled in this session)
+  //  1. `selectedPlatforms` – derived form state (from selected accounts)
   //  2. `post.platforms` – platforms persisted on the post row
   //  3. `post.post_platforms` – platform rows already created (incl. published)
   // The list is then mapped to the subset of platforms that PostPreview
@@ -403,7 +450,7 @@ export function EditPostDialog({
     Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok">
   >(() => {
     const all = new Set<string>([
-      ...platforms,
+      ...selectedPlatforms,
       ...(post?.platforms ?? []),
       ...(post?.post_platforms ?? []).map((p) => p.platform),
     ]);
@@ -415,7 +462,7 @@ export function EditPostDialog({
       "tiktok",
     ];
     return order.filter((id) => all.has(id));
-  }, [platforms, post?.platforms, post?.post_platforms]);
+  }, [selectedPlatforms, post?.platforms, post?.post_platforms]);
 
   // Prompt 003 – Published platforms for preview tabs (only platforms with status 'published')
   const publishedPlatforms = !isEdit || !post?.post_platforms
@@ -516,12 +563,12 @@ export function EditPostDialog({
 
   const hasTikTokIntent = useMemo(() => {
     const all = new Set<string>([
-      ...platforms,
+      ...selectedPlatforms,
       ...(post?.platforms ?? []),
       ...(post?.post_platforms ?? []).map((row) => row.platform),
     ]);
     return all.has("tiktok");
-  }, [platforms, post?.platforms, post?.post_platforms]);
+  }, [selectedPlatforms, post?.platforms, post?.post_platforms]);
 
   const allowedTikTokPrivacyLevels = useMemo(() => {
     const options = tiktokCreatorInfo?.privacyLevelOptions?.filter((level) =>
@@ -549,17 +596,17 @@ export function EditPostDialog({
   // Determine which selected platforms are not yet published
   const unpublishedSelectedPlatforms = useMemo(() => {
     const published = (post?.post_platforms || []).filter(p => p.status === 'published').map(p => p.platform);
-    
-    // Zahrneme všechny vybrané sítě z post.platforms i ze stavu formuláře (platforms)
+
+    // Zahrneme všechny vybrané sítě z post.platforms i ze stavu formuláře (selectedPlatforms)
     const allIntended = post?.platforms || [];
     const fromPostPlatforms = (post?.post_platforms || []).map(p => p.platform);
-    
+
     // Vytvoříme unikátní seznam všech zamýšlených platforem
-    const allPlatforms = Array.from(new Set([...allIntended, ...fromPostPlatforms, ...platforms]));
-    
+    const allPlatforms = Array.from(new Set([...allIntended, ...fromPostPlatforms, ...selectedPlatforms]));
+
     // Vrátíme ty, které ještě nebyly publikovány
     return allPlatforms.filter(p => !published.includes(p));
-  }, [platforms, post?.platforms, post?.post_platforms]);
+  }, [selectedPlatforms, post?.platforms, post?.post_platforms]);
 
   // If any platform is intended but not published → show "Publish to selected" button
   const canPublishAdditional = unpublishedSelectedPlatforms.length > 0;
@@ -584,14 +631,14 @@ export function EditPostDialog({
       .map((p) => p.platform)
       .sort();
     // Current intended platforms = form selection union published (locked) platforms
-    const currentPlatforms = [...new Set([...platforms, ...publishedPlatforms])].sort().join(",");
+    const currentPlatforms = [...new Set([...selectedPlatforms, ...publishedPlatforms])].sort().join(",");
     return (
       originalTagIds !== currentTagIds ||
       originalLocation !== currentLocation ||
       originalTags !== currentTags ||
       originalPlatforms !== currentPlatforms
     );
-  }, [isEdit, post, selectedTagIds, location, tags, platforms]);
+  }, [isEdit, post, selectedTagIds, location, tags, selectedPlatforms]);
 
   // ---------------------------------------------------------------------
   // Instagram hard-block: if the post is destined for Instagram AND it has
@@ -602,9 +649,9 @@ export function EditPostDialog({
   // app limitation – the user must regenerate the file, we cannot help.
   // ---------------------------------------------------------------------
   const instagramIncompatibleVideos = useMemo(() => {
-    if (!platforms.includes("instagram")) return [];
+    if (!selectedPlatforms.includes("instagram")) return [];
     return getInstagramIncompatibleVideos();
-  }, [platforms, getInstagramIncompatibleVideos]);
+  }, [selectedPlatforms, getInstagramIncompatibleVideos]);
 
   const isInstagramVideoIncompatible = instagramIncompatibleVideos.length > 0;
 
@@ -632,11 +679,11 @@ export function EditPostDialog({
     Promise.resolve().then(() => {
       if (isEdit && post) {
         setContent(post.content);
-        // Auto-remove already published platforms from selection state
-        // Published platforms are visually locked and should not be in the active selection
-        const published = (post.post_platforms || []).filter(p => p.status === 'published').map(p => p.platform);
-        const cleanPlatforms = (post.platforms ?? []).filter((p) => !published.includes(p));
-        setPlatforms(cleanPlatforms);
+        // Initialize account selection from post_platforms, excluding published ones
+        const publishedAccountIds = (post.post_platforms || []).filter(p => p.status === 'published').map(p => p.account_id ?? "");
+        const allAccountIds = (post.post_platforms || []).map(p => p.account_id ?? "").filter(Boolean);
+        // Pre-select non-published accounts; published ones are locked in the UI
+        setSelectedAccountIds(allAccountIds.filter(id => !publishedAccountIds.includes(id)));
         setStatus(post.status);
         setLocation(post.location ?? "");
         setTags(post.tags ?? []);
@@ -654,7 +701,7 @@ export function EditPostDialog({
         setViewMode("edit");
       } else {
         setContent("");
-        setPlatforms([]);
+        setSelectedAccountIds([]);
         setStatus("draft");
         setLocation("");
         setTags([]);
@@ -715,9 +762,9 @@ export function EditPostDialog({
     };
   }, [hasTikTokIntent, open]);
 
-  const togglePlatform = useCallback((id: string) => {
-    setPlatforms((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+  const toggleAccount = useCallback((id: string) => {
+    setSelectedAccountIds((prev) =>
+      prev.includes(id) ? prev.filter((aid) => aid !== id) : [...prev, id]
     );
   }, []);
 
@@ -776,7 +823,7 @@ export function EditPostDialog({
       // incompatible video, even saving a draft is meaningless because it
       // can never be published).
       // -------------------------------------------------------------------
-      if (isInstagramVideoIncompatible && platforms.includes("instagram") && newStatus === "scheduled") {
+      if (isInstagramVideoIncompatible && selectedPlatforms.includes("instagram") && newStatus === "scheduled") {
         const msg =
           t("instagramVideoTooSmall") ??
           "Toto video nelze na Instagramu publikovat.";
@@ -846,7 +893,7 @@ export function EditPostDialog({
         if (isEdit && post?.id) {
           result = await updatePost(post.id, {
             content: content.trim(),
-            platforms,
+            accountIds: selectedAccountIds,
             scheduledAt: normalizedScheduledAt,
             status: newStatus,
             location: location.trim() || "",
@@ -858,7 +905,7 @@ export function EditPostDialog({
         } else {
           result = await createPostAction({
             content: content.trim(),
-            platforms,
+            accountIds: selectedAccountIds,
             scheduledAt: normalizedScheduledAt,
             status: newStatus,
             location: location.trim() || undefined,
@@ -898,7 +945,8 @@ export function EditPostDialog({
       normalizeScheduledAt,
       onOpenChange,
       platformMetadata,
-      platforms,
+      selectedAccountIds,
+      selectedPlatforms,
       post,
       router,
       scheduledAt,
@@ -927,16 +975,18 @@ export function EditPostDialog({
     setLoading(true);
     setError(null);
     try {
-      // #18b — Include platforms in metadata save.
-      // `platforms` state contains only non-published platforms (published ones
-      // are filtered out on dialog open). union with published for the full list.
-      const publishedPlatforms = (post.post_platforms ?? [])
+      // #18b — Include account selection in metadata save.
+      // selectedAccountIds contains only non-published accounts (published ones
+      // are filtered out on dialog open). Union with published accounts from
+      // post_platforms for the full list.
+      const publishedAccountIds = (post.post_platforms ?? [])
         .filter((p) => p.status === "published")
-        .map((p) => p.platform);
-      const allPlatforms = [...new Set([...platforms, ...publishedPlatforms])];
+        .map((p) => p.account_id ?? "")
+        .filter(Boolean);
+      const allAccountIds = [...new Set([...selectedAccountIds, ...publishedAccountIds])];
 
       const result = await updatePost(post.id, {
-        platforms: allPlatforms,
+        accountIds: allAccountIds,
         location: location.trim() || "",
         tags,
         tagIds: selectedTagIds,
@@ -956,7 +1006,7 @@ export function EditPostDialog({
     } finally {
       setLoading(false);
     }
-  }, [hasUploading, isEdit, location, onOpenChange, platformMetadata, platforms, post, router, selectedTagIds, t, tags]);
+  }, [hasUploading, isEdit, location, onOpenChange, platformMetadata, selectedAccountIds, post, router, selectedTagIds, t, tags]);
 
   /**
    * Per-platform update handler – calls updateOnPlatformAction for a specific platform.
@@ -1102,7 +1152,7 @@ export function EditPostDialog({
         if (isEdit && post?.id) {
           const saveResult = await updatePost(post.id, {
             content: content.trim(),
-            platforms,
+            accountIds: selectedAccountIds,
             scheduledAt: null,
             location: location.trim() || "",
             tags: finalTags,
@@ -1122,7 +1172,7 @@ export function EditPostDialog({
           // NEW POST FLOW: Create draft, then publish.
           const createResult = await createPostAction({
             content: content.trim(),
-            platforms,
+            accountIds: selectedAccountIds,
             scheduledAt: null,
             status: "draft",
             location: location.trim() || undefined,
@@ -1223,7 +1273,7 @@ export function EditPostDialog({
       const result = isEdit && post?.id
         ? await updatePost(post.id, {
             content: content.trim(),
-            platforms,
+            accountIds: selectedAccountIds,
             scheduledAt: slotResult.scheduledAt,
             status: "scheduled",
             location: location.trim() || "",
@@ -1234,7 +1284,7 @@ export function EditPostDialog({
           })
         : await createPostAction({
             content: content.trim(),
-            platforms,
+            accountIds: selectedAccountIds,
             scheduledAt: slotResult.scheduledAt,
             status: "scheduled",
             location: location.trim() || undefined,
@@ -2013,77 +2063,152 @@ export function EditPostDialog({
             </div>
           )}
 
-          {/* Platforms */}
-          <div className="space-y-2">
+          {/* Platforms / Accounts */}
+          <div className="space-y-3">
             <Label className="text-sm font-medium text-muted-foreground/80">
               {t("selectPlatforms")}
             </Label>
-            <TooltipProvider delayDuration={150}>
-            <div className="flex flex-wrap gap-2">
-              {PLATFORMS.map((platform) => {
-                const isSelected = platforms.includes(platform.id);
-                const isPublished = (post?.post_platforms || []).some(p => p.platform === platform.id && p.status === 'published');
-                // Prompt 023 (Krok 1) – disable the chip when the current media
-                // does not meet the platform's attachment requirement. Published
-                // platforms are locked separately (handled below).
-                const requirementMet = isPlatformMediaRequirementMet(platform.id);
-                const isPlatformDisabled = !isPublished && !requirementMet;
-                // Prompt 023 (Krok 2) – tooltip explaining the requirement when
-                // the chip is disabled; null for always-enabled platforms.
-                const tooltipMessage = isPlatformDisabled
-                  ? getPlatformRequirementTooltip(platform.id)
-                  : null;
-                const Icon = PlatformIconMap[platform.id];
-                const platformColor = {
-                  instagram: "text-[#E1306C]",
-                  facebook: "text-[#1877F2]",
-                  twitter: "text-[#1DA1F2]",
-                  linkedin: "text-[#0A66C2]",
-                  youtube: "text-[#FF0000]",
-                  tiktok: "text-[#010101]",
-                }[platform.id] ?? "text-muted-foreground";
-                const platformButton = (
-                  <button
-                    key={platform.id}
-                    type="button"
-                    disabled={isPlatformDisabled}
-                    onClick={() => !isPublished && togglePlatform(platform.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                      isPublished
-                        ? "border-green-500/30 bg-green-500/10 text-green-400 opacity-60 pointer-events-none"
-                        : isSelected
-                          ? "border-indigo-500/30 dark:border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
-                          : cn(
-                              "border-black/5 dark:border-white/5 bg-white/60 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground hover:bg-white dark:hover:bg-white/[0.06]",
-                              "dark:text-muted-foreground",
-                            ),
-                      isPlatformDisabled && "opacity-50 cursor-not-allowed",
-                    )}
-                  >
-                    {Icon && <Icon className={cn("h-3.5 w-3.5", isPublished ? "" : (isSelected ? "" : platformColor))} />}
-                    {platform.label}
-                    {isPublished && <Check className="h-3 w-3 text-green-500" />}
-                  </button>
-                );
-                // Prompt 023 (Krok 2) – wrap a disabled chip in a Tooltip so the
-                // user learns why it cannot be selected. The disabled <button> is
-                // wrapped in an always-interactive <span> because a disabled
-                // button does not emit the hover events a Tooltip needs.
-                if (tooltipMessage) {
-                  return (
-                    <Tooltip key={platform.id}>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex">{platformButton}</span>
-                      </TooltipTrigger>
-                      <TooltipContent>{tooltipMessage}</TooltipContent>
-                    </Tooltip>
+            {allAccounts.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
+                <p className="mb-3 text-sm text-muted-foreground/60">
+                  {t("noConnectedAccounts") ?? "Nemáte připojený žádný účet. Nejprve připojte účet sociální sítě."}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push(`/${locale}/accounts`)}
+                  className="rounded-xl"
+                >
+                  {t("connectAccount") ?? "Připojit účet"}
+                </Button>
+              </div>
+            ) : (
+              <TooltipProvider delayDuration={150}>
+                {(() => {
+                  // Pre-compute published account IDs with legacy NULL-account_id fallback
+                  const publishedAccountIds = new Set<string>();
+                  const pp = post?.post_platforms ?? [];
+                  for (const row of pp) {
+                    if (row.status !== "published") continue;
+                    if (row.account_id) {
+                      publishedAccountIds.add(row.account_id);
+                    } else {
+                      const firstOfPlatform = allAccounts.find(
+                        (a) => a.platform === row.platform
+                      );
+                      if (firstOfPlatform) publishedAccountIds.add(firstOfPlatform.id);
+                    }
+                  }
+                  // Group accounts by platform
+                  const groups = allAccounts.reduce<Record<string, AccountInfo[]>>(
+                    (acc, a) => {
+                      if (!acc[a.platform]) acc[a.platform] = [];
+                      acc[a.platform].push(a);
+                      return acc;
+                    },
+                    {},
                   );
-                }
-                return platformButton;
-              })}
-            </div>
-            </TooltipProvider>
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {Object.entries(groups).map(([platformId, accounts]) => {
+                        const Icon = PlatformIconMap[platformId];
+                        const platformColor = {
+                          instagram: "text-[#E1306C]",
+                          facebook: "text-[#1877F2]",
+                          twitter: "text-[#1DA1F2]",
+                          linkedin: "text-[#0A66C2]",
+                          youtube: "text-[#FF0000]",
+                          tiktok: "text-[#010101]",
+                        }[platformId] ?? "text-muted-foreground";
+                        const platformLabel = PLATFORMS.find((p) => p.id === platformId)?.label ?? platformId;
+
+                        return (
+                          <div
+                            key={platformId}
+                            className={cn(
+                              "rounded-[20px] border bg-white/[0.04] p-3 backdrop-blur-sm transition-all duration-200",
+                              accounts.some((a) => selectedAccountIds.includes(a.id))
+                                ? "border-indigo-500/30"
+                                : "border-white/10",
+                            )}
+                          >
+                            {/* Platform header */}
+                            <div className="flex items-center gap-2 pb-2">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06]">
+                                {Icon && <Icon className={cn("h-4 w-4", platformColor)} />}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-xs font-medium text-muted-foreground/80">
+                                  {platformLabel}
+                                </span>
+                              </div>
+                            </div>
+                            {/* Account chips */}
+                            <div className="flex flex-row flex-wrap gap-1.5">
+                              {accounts.map((account) => {
+                                const isSelected = selectedAccountIds.includes(account.id);
+                                const isPublished = publishedAccountIds.has(account.id);
+                                const requirementMet = isPlatformMediaRequirementMet(platformId);
+                                const isPlatformDisabled = !isPublished && !requirementMet;
+                                const tooltipMessage = isPlatformDisabled
+                                  ? getPlatformRequirementTooltip(platformId)
+                                  : null;
+
+                                const chip = (
+                                  <button
+                                    key={account.id}
+                                    type="button"
+                                    disabled={isPlatformDisabled}
+                                    onClick={() => !isPublished && toggleAccount(account.id)}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all duration-200",
+                                      isPublished
+                                        ? "border-green-500/30 bg-green-500/10 text-green-400/80 opacity-60 pointer-events-none"
+                                        : isSelected
+                                          ? "border-indigo-500/40 dark:border-indigo-500/60 bg-indigo-500/15 dark:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300"
+                                          : "border-white/10 bg-white/[0.04] text-slate-700 dark:text-muted-foreground hover:bg-white/[0.08] hover:border-white/20",
+                                      isPlatformDisabled && "opacity-40 cursor-not-allowed",
+                                    )}
+                                  >
+                                    {account.avatar_url ? (
+                                      <img
+                                        src={account.avatar_url}
+                                        alt={account.account_name}
+                                        className="h-4 w-4 shrink-0 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-[8px] font-semibold text-white">
+                                        {(account.account_name?.trim()?.[0] ?? "?").toUpperCase()}
+                                      </div>
+                                    )}
+                                    <span className="max-w-[90px] truncate">
+                                      {account.account_name}
+                                    </span>
+                                    {isPublished && <Check className="h-3 w-3 shrink-0 text-green-500" />}
+                                  </button>
+                                );
+
+                                if (tooltipMessage) {
+                                  return (
+                                    <Tooltip key={account.id}>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex">{chip}</span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{tooltipMessage}</TooltipContent>
+                                    </Tooltip>
+                                  );
+                                }
+                                return chip;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </TooltipProvider>
+            )}
           </div>
 
           {hasTikTokIntent && (
@@ -2433,7 +2558,7 @@ export function EditPostDialog({
                 onClick={handleQueueToSchedule}
                 disabled={
                   !content.trim() ||
-                  platforms.length === 0 ||
+                  selectedAccountIds.length === 0 ||
                   loading ||
                   queuing ||
                   publishing ||
@@ -2453,7 +2578,7 @@ export function EditPostDialog({
                 disabled={
                   !content.trim() ||
                   !scheduledAt ||
-                  platforms.length === 0 ||
+                  selectedAccountIds.length === 0 ||
                   loading ||
                   publishing ||
                   isInstagramVideoIncompatible
@@ -2469,7 +2594,7 @@ export function EditPostDialog({
                 onClick={handlePublishNow}
                 disabled={
                   !content.trim() ||
-                  platforms.length === 0 ||
+                  selectedAccountIds.length === 0 ||
                   loading ||
                   publishing ||
                   isInstagramVideoIncompatible

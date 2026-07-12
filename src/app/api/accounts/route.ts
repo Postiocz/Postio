@@ -15,6 +15,7 @@ type SocialAccountRow = {
   avatar_url: string | null;
   platform_id: string | null;
   token_expires_at: string | null;
+  publishing_type: "direct" | "manual" | null;
   created_at: string;
   metadata: SocialAccountMetadata | null;
 };
@@ -28,6 +29,7 @@ function sanitizeSocialAccount(row: SocialAccountRow) {
     avatar_url: row.avatar_url,
     platform_id: row.platform_id,
     token_expires_at: row.token_expires_at,
+    publishing_type: row.publishing_type,
     metadata: row.metadata
       ? {
           category: row.metadata.category ?? null,
@@ -52,7 +54,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("social_accounts")
       .select(
-        "id, platform, account_name, is_active, avatar_url, platform_id, token_expires_at, created_at, metadata"
+        "id, platform, account_name, is_active, avatar_url, platform_id, token_expires_at, publishing_type, created_at, metadata"
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });

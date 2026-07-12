@@ -153,8 +153,9 @@ export interface Database {
         Row: {
           id: string
           post_id: string
+          account_id: string | null
           platform: string
-          status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived'
+          status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived' | 'ready'
           scheduled_at: string | null
           published_at: string | null
           external_id: string | null
@@ -166,8 +167,9 @@ export interface Database {
         Insert: {
           id?: string
           post_id: string
+          account_id?: string | null
           platform: string
-          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived' | 'ready'
           scheduled_at?: string | null
           published_at?: string | null
           external_id?: string | null
@@ -179,8 +181,9 @@ export interface Database {
         Update: {
           id?: string
           post_id?: string
+          account_id?: string | null
           platform?: string
-          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'removed_externally' | 'archived' | 'ready'
           scheduled_at?: string | null
           published_at?: string | null
           external_id?: string | null

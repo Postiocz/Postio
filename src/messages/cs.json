@@ -340,6 +340,8 @@
     "content": "Obsah",
     "contentPlaceholder": "Co chcete sdílet?",
     "selectPlatforms": "Vybrat platformy",
+    "noConnectedAccounts": "Nemáte připojený žádný účet. Nejprve připojte účet sociální sítě.",
+    "connectAccount": "Propojit účet",
     "schedule": "Naplánovat",
     "publishNow": "Publikovat nyní",
     "saveDraft": "Uložit koncept",
@@ -577,7 +579,9 @@
       "learnMoreUrlLinkedIn": "https://www.linkedin.com/help/linkedin/ascii/a/0/0/1349",
       "learnMoreUrlYouTube": "https://support.google.com/youtube/answer/3170027",
       "learnMoreUrlX": "https://help.twitter.com/en/using-twitter/twitter-roles-on-twitter",
-      "errorTitle": "Připojení se nezdařilo"
+      "errorTitle": "Připojení se nezdařilo",
+      "alreadyConnected": "Již propojeno",
+      "connectAnotherHint": "Připojením dalšího účtu přidáte nový účet stejné sítě."
     },
     "pendingPagesTitle": "Nalezené stránky k připojení",
     "pendingPagesSubtitle": "Při posledním přihlášení přes Facebook jsme našli stránky, které jste dosud nepřipojili. Vyberte ty, na které chcete přes Postio publikovat.",

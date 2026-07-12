@@ -25,7 +25,11 @@ type PostPlatformStatusRow = {
 
 export async function createPostAction(inputData: {
   content: string;
-  platforms: string[];
+  platforms?: string[];
+  /** Account-level selection – when present, post_platforms rows get
+   *  account_id from social_accounts instead of just a platform string.
+   *  Enables multi-account publishing (Krok 3, Prompt 027). */
+  accountIds?: string[];
   scheduledAt?: string | null;
   status: "draft" | "scheduled" | "published";
   mediaUrls?: string[];
@@ -81,23 +85,46 @@ export async function createPostAction(inputData: {
     return { success: false, error: error.message };
   }
 
-  // --- DUAL WRITE: Sync platforms to post_platforms ---
-  if (post && cleanData.platforms.length > 0) {
-    console.log("🔥 DUAL-WRITE START: vytvářím instance pro", cleanData.platforms);
-    const platformRows = cleanData.platforms.map(p => ({
-      post_id: post.id,
-      platform: p,
-      status: cleanData.status === 'scheduled' ? 'scheduled' : 'draft',
-      scheduled_at: cleanData.scheduledAt,
-      metadata: cleanData.platformMetadata?.[p] ?? {},
-    }));
+  // --- DUAL WRITE: Sync platforms/accounts to post_platforms ---
+  if (post && ((cleanData.platforms?.length ?? 0) > 0 || (cleanData.accountIds?.length ?? 0) > 0)) {
+    const activePlatforms = cleanData.platforms ?? [];
+    console.log("🔥 DUAL-WRITE START: vytvářím instance pro", activePlatforms);
 
-    const { error: ppError } = await supabase.from('post_platforms').insert(platformRows);
+    let platformRows;
+
+    if (cleanData.accountIds && cleanData.accountIds.length > 0) {
+      // Account-based selection (Krok 3) – look up platform per account
+      const { data: accounts } = await supabase
+        .from("social_accounts")
+        .select("id, platform")
+        .in("id", cleanData.accountIds);
+      const accountMap = new Map(accounts?.map((a) => [a.id, a.platform]) ?? []);
+
+      platformRows = cleanData.accountIds.map((accountId) => ({
+        post_id: post.id,
+        platform: accountMap.get(accountId) ?? "facebook",
+        account_id: accountId,
+        status: cleanData.status === "scheduled" ? "scheduled" : "draft",
+        scheduled_at: cleanData.scheduledAt,
+        metadata: cleanData.platformMetadata?.[accountMap.get(accountId) ?? ""] ?? {},
+      }));
+    } else {
+      // Legacy platform-based selection
+      platformRows = (cleanData.platforms ?? []).map((p) => ({
+        post_id: post.id,
+        platform: p,
+        status: cleanData.status === "scheduled" ? "scheduled" : "draft",
+        scheduled_at: cleanData.scheduledAt,
+        metadata: cleanData.platformMetadata?.[p] ?? {},
+      }));
+    }
+
+    const { error: ppError } = await supabase.from("post_platforms").insert(platformRows);
 
     if (ppError) {
       console.error("❌ DUAL-WRITE ERROR:", ppError.message);
     } else {
-      console.log("✅ DUAL-WRITE SUCCESS: instance zapsány.");
+      console.log("✅ DUAL-WRITE SUCCESS:", platformRows.length, "instancí zapsáno.");
     }
   }
 
@@ -125,6 +152,10 @@ export async function createPostAction(inputData: {
 export async function updatePost(id: string, inputData: {
   content?: string;
   platforms?: string[];
+  /** Account-level selection – when present, post_platforms rows are
+   *  diffed by account_id instead of platform string. Supports
+   *  multiple accounts of the same platform (Krok 3, Prompt 027). */
+  accountIds?: string[];
   scheduledAt?: string | null;
   status?: PostStatus;
   mediaUrls?: string[];
@@ -183,49 +214,99 @@ export async function updatePost(id: string, inputData: {
     return { success: false, error: error.message };
   }
 
-  // --- DUAL WRITE: Sync platforms to post_platforms ---
-  if (post && cleanData.platforms !== undefined) {
+  // --- DUAL WRITE: Sync platforms/accounts to post_platforms ---
+  if (post && (cleanData.accountIds !== undefined || cleanData.platforms !== undefined)) {
     const { data: existingInstances } = await supabase
       .from("post_platforms")
-      .select("platform, status, metadata")
+      .select("id, platform, account_id, status, metadata")
       .eq("post_id", id);
 
-    const existingPlatforms = (existingInstances || []).map((i) => i.platform);
-    const newPlatforms = cleanData.platforms;
-
-    const toAdd = newPlatforms.filter((p) => !existingPlatforms.includes(p));
-    if (toAdd.length > 0) {
-      await supabase.from("post_platforms").insert(
-        toAdd.map((p) => ({
-          post_id: id,
-          platform: p,
-          status: safeStatus === "scheduled" ? "scheduled" : "draft",
-          scheduled_at: safeStatus === "scheduled" ? (cleanData.scheduledAt ?? post.scheduled_at) : null,
-          metadata: cleanData.platformMetadata?.[p] ?? {},
-        }))
+    if (cleanData.accountIds !== undefined) {
+      // Account-based diff (Krok 3) – compare by account_id
+      const existingNonPublished = (existingInstances || []).filter(
+        (i) => i.status !== "published" && i.status !== "publishing",
       );
-    }
+      const existingAccountIds = existingNonPublished.map((i) => i.account_id);
+      const newAccountIds = cleanData.accountIds;
 
-    const toRemove = existingPlatforms.filter((p) => !newPlatforms.includes(p));
-    if (toRemove.length > 0) {
-      const safeToRemove = (existingInstances || [])
-        .filter(
-          (i) =>
-            toRemove.includes(i.platform) &&
-            i.status !== "published" &&
-            i.status !== "publishing"
-        )
-        .map((i) => i.platform);
+      // To add: accounts selected but not yet in DB
+      const toAdd = newAccountIds.filter((id) => !existingAccountIds.includes(id));
+      if (toAdd.length > 0) {
+        const { data: accounts } = await supabase
+          .from("social_accounts")
+          .select("id, platform")
+          .in("id", toAdd);
+        const accountMap = new Map(accounts?.map((a) => [a.id, a.platform]) ?? []);
 
-      if (safeToRemove.length > 0) {
+        await supabase.from("post_platforms").insert(
+          toAdd.map((accountId) => ({
+            post_id: id,
+            platform: accountMap.get(accountId) ?? "facebook",
+            account_id: accountId,
+            status: safeStatus === "scheduled" ? "scheduled" : "draft",
+            scheduled_at:
+              safeStatus === "scheduled"
+                ? (cleanData.scheduledAt ?? post.scheduled_at)
+                : null,
+            metadata:
+              cleanData.platformMetadata?.[accountMap.get(accountId) ?? ""] ?? {},
+          })),
+        );
+      }
+
+      // To remove: accounts deselected (skip published/publishing)
+      const toRemove = existingNonPublished.filter(
+        (i) => !newAccountIds.includes(i.account_id ?? ""),
+      );
+      if (toRemove.length > 0) {
         await supabase
           .from("post_platforms")
           .delete()
-          .eq("post_id", id)
-          .in("platform", safeToRemove);
+          .in("id", toRemove.map((i) => i.id));
+      }
+    } else if (cleanData.platforms !== undefined) {
+      // Legacy platform-based diff
+      const existingPlatforms = (existingInstances || []).map((i) => i.platform);
+      const newPlatforms = cleanData.platforms;
+
+      const toAdd = newPlatforms.filter((p) => !existingPlatforms.includes(p));
+      if (toAdd.length > 0) {
+        await supabase.from("post_platforms").insert(
+          toAdd.map((p) => ({
+            post_id: id,
+            platform: p,
+            status: safeStatus === "scheduled" ? "scheduled" : "draft",
+            scheduled_at:
+              safeStatus === "scheduled"
+                ? (cleanData.scheduledAt ?? post.scheduled_at)
+                : null,
+            metadata: cleanData.platformMetadata?.[p] ?? {},
+          })),
+        );
+      }
+
+      const toRemove = existingPlatforms.filter((p) => !newPlatforms.includes(p));
+      if (toRemove.length > 0) {
+        const safeToRemove = (existingInstances || [])
+          .filter(
+            (i) =>
+              toRemove.includes(i.platform) &&
+              i.status !== "published" &&
+              i.status !== "publishing",
+          )
+          .map((i) => i.platform);
+
+        if (safeToRemove.length > 0) {
+          await supabase
+            .from("post_platforms")
+            .delete()
+            .eq("post_id", id)
+            .in("platform", safeToRemove);
+        }
       }
     }
 
+    // Metadata update (shared – works with both account and platform paths)
     if (cleanData.platformMetadata) {
       for (const [platform, metadataPatch] of Object.entries(cleanData.platformMetadata)) {
         const existingMetadata = (existingInstances || []).find((row) => row.platform === platform)?.metadata;

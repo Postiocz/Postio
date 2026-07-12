@@ -340,6 +340,8 @@
     "content": "Content",
     "contentPlaceholder": "What do you want to share?",
     "selectPlatforms": "Select Platforms",
+    "noConnectedAccounts": "You don't have any connected accounts yet. Please connect a social media account first.",
+    "connectAccount": "Connect account",
     "schedule": "Schedule",
     "publishNow": "Publish Now",
     "saveDraft": "Save Draft",
@@ -577,7 +579,9 @@
       "learnMoreUrlLinkedIn": "https://www.linkedin.com/help/linkedin/ascii/a/0/0/1349",
       "learnMoreUrlYouTube": "https://support.google.com/youtube/answer/3170027",
       "learnMoreUrlX": "https://help.twitter.com/en/using-twitter/twitter-roles-on-twitter",
-      "errorTitle": "Connection failed"
+      "errorTitle": "Connection failed",
+      "alreadyConnected": "Already connected",
+      "connectAnotherHint": "Connect another account to add a new profile of the same network."
     },
     "pendingPagesTitle": "Facebook Pages to connect",
     "pendingPagesSubtitle": "When you last signed in with Facebook, we found some pages you haven't connected yet. Pick the ones you want to publish to through Postio.",

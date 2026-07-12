@@ -340,6 +340,8 @@
     "content": "Зміст",
     "contentPlaceholder": "Чим ви хочете поділитися?",
     "selectPlatforms": "Обрати платформи",
+    "noConnectedAccounts": "У вас ще немає підключених облікових записів. Спочатку підключіть обліковий запис соціальної мережі.",
+    "connectAccount": "Підключити акаунт",
     "schedule": "Запланувати",
     "publishNow": "Опублікувати зараз",
     "saveDraft": "Зберегти чернетку",
@@ -577,7 +579,9 @@
       "learnMoreUrlLinkedIn": "https://www.linkedin.com/help/linkedin/ascii/a/0/0/1349",
       "learnMoreUrlYouTube": "https://support.google.com/youtube/answer/3170027",
       "learnMoreUrlX": "https://help.twitter.com/en/using-twitter/twitter-roles-on-twitter",
-      "errorTitle": "Підключення не вдалося"
+      "errorTitle": "Підключення не вдалося",
+      "alreadyConnected": "Вже підключено",
+      "connectAnotherHint": "Підключіть ще один обліковий запис, щоб додати новий профіль тієї ж мережі."
     },
     "pendingPagesTitle": "Знайдені сторінки для підключення",
     "pendingPagesSubtitle": "Під час останнього входу через Facebook ми знайшли сторінки, які ви ще не підключили. Виберіть ті, на які хочете публікувати через Postio.",

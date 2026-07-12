@@ -78,7 +78,7 @@ nabídne „Manuální publikování" (příprava podkladů + připomínka v dan
 - **Poznámka:** Instagram osobní profil přes Basic Display nedostane `instagram_content_publish` scope → publish motor ho musí detekovat jako `manual` a API nevolat (viz Krok 4).
 - **Ověření:** `npx tsc --noEmit`, manuální test připojení v prohlížeči.
 
-#### Krok 3 — Vizuální indikátory v Editoru (⚡ / 🔔)
+#### ✅ Krok 3 — Vizuální indikátory v Editoru (⚡ / 🔔)
 - **Soubory:** `src/components/edit-post-dialog.tsx` (+ načtení `publishing_type` u účtů).
 - **Akce:**
   1. Editor si vytáhne seznam účtů s `publishing_type` (existující fetch v dialogu + doplnit pole).

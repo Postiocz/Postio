@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Feat — Vizuální indikátory publikování v Editoru (Prompt 026, Krok 3)
+
+- **Kontext**: Po zavedení `publishing_type` (Kroky 1-2) potřebuje uživatel v editoru příspěvku vidět, zda daný účet publikuje automaticky, či manuálně s připomínkou.
+- **Změny**:
+  1. `src/components/edit-post-dialog.tsx`: fetch účtů nově tahá `publishing_type`, sestaven stav `publishingTypeMap` (`platform -> direct|manual`).
+  2. Nový `PublishingTypeBadge` (16px glassmorphism odznáček): `Zap` (indigo) pro `direct` = Automatické publikování, `Bell` (amber) pro `manual` = Manuální publikování s připomínkou; tooltip přes nativní `title`.
+  3. Odznáček přidán ke všem ikonám platforem v editoru: výběr platforem, preview tabs, dodatečná tlačítka „Publikovat na…" a „Aktualizovat na…". Zobrazuje se jen u propojených účtů s známým `publishing_type`.
+- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil ⚡/🔔 s tooltipem).
+- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `ukol.md` (Krok 3 ✅).
+
 ### 🔗 Feat — Rozcestník profilu při připojování (Prompt 026, Krok 2)
 
 - **Kontext**: Osobní profily (Instagram, Facebook) nelze publikovat přes API. Při propojování je třeba nechat uživatele zvolit typ účtu (Profesionální = automaticky / Osobní = manuálně s připomínkou) a tuto volbu zapsat do `social_accounts.publishing_type`.
@@ -90,14 +100,5 @@
   1. `src/app/[locale]/(auth)/login/page.tsx`: ruční wordmark nahrazen `<Logo />` komponentou pro 100% brand konzistenci (gradient `P` místo `text-primary`). `getStarted` nadpis sjednocen na Hero typografii: `text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl`.
 - **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 4 ✅).
-
-### 🎨 Feat — LoginVisual: sjednocený shell s Hero + fix překrývajících se badge (Prompt 026, Krok 3)
-
-- **Kontext**: Pravý panel login page (`LoginVisual`) měl vlastní SVG gridy, `scale-125` (příčina oříznutí) a floating badge překrývající metriky. Vizuálně neseděl s HeroDashboardPreview.
-- **Změny**:
-  1. `src/components/auth/login-visual.tsx`: kompletní refaktor — sjednocen shell s `HeroDashboardPreview` (`rounded-[20px] border border-border bg-gradient-hero shadow[...]`, grid overlay, glow bloby). Odstraněn `scale-125` (příčina uříznutí). Badge přesunuty do `absolute -top-4 left-4` (scheduled) a `-bottom-4 right-4` (engagement) mimo card shell. Wrapper `overflow-visible`, card shell `overflow-hidden`. Zachováno i18n.
-  2. `src/app/[locale]/(auth)/login/page.tsx`: `pt-12` → `pt-28` na mobile (odstraněn překryv navbaru s nadpisem na mobilu).
-- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/components/auth/login-visual.tsx`, `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 3 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

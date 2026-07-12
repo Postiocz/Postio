@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 Feat — DB migrace pro manuální publikování (Prompt 026, Krok 1)
+
+- **Kontext**: Osobní profily (Instagram, Facebook) nepodporují automatické odesílání přes API. Pro manuální publikování s připomínkou je třeba evidovat typ publikování na účtu a nový status příspěvku „připraveno ke zveřejnění".
+- **Změny**:
+  1. `supabase/migrations/036_add_publishing_type.sql` (nový): `ALTER TABLE social_accounts ADD COLUMN publishing_type TEXT NOT NULL DEFAULT 'direct' CHECK (publishing_type IN ('direct','manual'))`; rozšířen `post_platforms_status_check` o hodnotu `'ready'`.
+  2. `src/lib/supabase/types.ts`: `publishing_type?: 'direct' | 'manual'` přidáno do `Row`/`Insert`/`Update` u `social_accounts`.
+- **Ověření**: `npx tsc --noEmit` ✅, migrace spuštěna na Supabase ✅ (uživatel potvrdil).
+- **Upravené soubory**: `supabase/migrations/036_add_publishing_type.sql` (nový), `src/lib/supabase/types.ts`, `ukol.md` (Krok 1 ✅).
+
 ### 💳 Feat — UI propojení BillingCard se Stripe Checkout (Prompt 024, Krok 5)
 
 - **Kontext**: Potřeba napojit tlačítka v ceníku na reálné Stripe Checkout API s loading stavy.
@@ -88,15 +97,5 @@
   2. `src/app/[locale]/(auth)/login/page.tsx`: přidán `<AuthNav />`, odebrán osamocený `<LocaleSwitcher>` z levého panelu.
 - **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/components/auth/auth-nav.tsx` (nový), `src/app/[locale]/(auth)/login/page.tsx`, `ukol.md` (Krok 2 ✅).
-
-### 🌐 Feat — Dokončení lokalizace Landing Page + server locale fix (Prompt 021, Krok 5)
-
-- **Kontext**: Landing page byla přeložená jen částečně. Client části (např. navigace / preview) se přepínaly správně, ale server-renderované sekce Hero, Ceník a FAQ v `en`/`uk` zůstávaly v češtině, protože používaly `getTranslations("landing")` bez explicitního `locale`.
-- **Změny**:
-  1. `src/app/[locale]/(marketing)/page.tsx`: locale se nově bere přímo z route params a `getTranslations` se volá jako `getTranslations({ locale, namespace: "landing" })`.
-  2. `src/components/marketing/pricing-section.tsx` + `src/components/marketing/faq-section.tsx`: odstraněno implicitní čtení locale; obě server komponenty přijímají `locale` z parentu a používají explicitní `getTranslations({ locale, namespace: "landing" })`.
-  3. `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json` + `src/components/marketing/marketing-nav.tsx`: doplněny/učesány zbývající texty v `landing` namespace, včetně mobile-menu aria labelů a finálního EN/UK copy.
-- **Ověření**: `npx tsc --noEmit` ✅, `npx eslint src/app/[locale]/(marketing)/page.tsx src/components/marketing/pricing-section.tsx src/components/marketing/faq-section.tsx` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil, že vše je v pořádku).
-- **Upravené soubory**: `src/app/[locale]/(marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md`.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

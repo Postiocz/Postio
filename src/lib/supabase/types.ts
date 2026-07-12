@@ -83,6 +83,7 @@ export interface Database {
           platform_id: string | null
           avatar_url: string | null
           token_expires_at: string | null
+          publishing_type: 'direct' | 'manual'
           is_active: boolean
           created_at: string
         }
@@ -95,6 +96,7 @@ export interface Database {
           platform_id?: string | null
           avatar_url?: string | null
           token_expires_at?: string | null
+          publishing_type?: 'direct' | 'manual'
           is_active?: boolean
           created_at?: string
         }
@@ -107,6 +109,7 @@ export interface Database {
           platform_id?: string | null
           avatar_url?: string | null
           token_expires_at?: string | null
+          publishing_type?: 'direct' | 'manual'
           is_active?: boolean
           created_at?: string
         }

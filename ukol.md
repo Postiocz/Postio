@@ -81,7 +81,7 @@ zápisu do CHANGELOGu po dokončení zvážit přejmenování (např. Prompt 029
   5. Ponechat `PLATFORMS` (labely + media-gating); přidat `PlatformIconMap` (import ze sdíleného `post-calendar-chip.tsx` nebo lokální kopie dle edit-post-dialog).
 - **Ověření:** `npx tsc --noEmit`.
 
-#### [ ] Krok 2 — Přenesení UI (account-picker čipy)
+#### [x] Krok 2 — Přenesení UI (account-picker čipy)
 - **Soubory:** `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
 - **Akce:** Nahradit blok „Platform selection" (řádky ~706-767) za account-picker ze `EditPostDialog` (řádky ~2077-2215):
   - Empty state (`allAccounts.length === 0`): info + tlačítko „Připojit účet" (`t("noConnectedAccounts")`, `t("connectAccount")`).

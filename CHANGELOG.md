@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Refactor — Sjednocení výběru účtů: UI (Prompt 029, Krok 2)
+
+- **Kontext**: Stránka „Nový příspěvek" (`posts/new/page.tsx`) po Krok 1 měla logiku na účty, ale UI stále renderovala textové chips obecných platforem. Cílem bylo sjednotit UI s `EditPostDialog` (výběr konkrétních účtů, i 2× Facebook Page).
+- **Změny**: Blok „Platform selection" nahrazen account-pickerem ze `EditPostDialog` (grid skupin dle sítě, čipy s ikonou sítě + avatarem/jménem, selected = indigo, disabled = opacity-40 + Tooltip při nesplněném media-gatingu). Empty state (`allAccounts.length === 0`) s tlačítkem „Připojit účet" (`noConnectedAccounts`/`connectAccount`) → `/accounts`. Přidán import sdíleného `PlatformIconMap` z `post-calendar-chip.tsx`. Čipy volají `toggleAccount(id)`. Názvy skupin lokalizovány dle `locale` z `PLATFORMS` (labelCs/labelEn/labelUk).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (shoda s EditPostDialog, výběr konkrétního účtu).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
+
 ### 🔧 Refactor — Sjednocení výběru účtů: logika (Prompt 029, Krok 1)
 
 - **Kontext**: Stránka „Nový příspěvek" (`posts/new/page.tsx`) stále používala starý výběr obecných platforem (stav `selectedPlatforms`), zatímco `EditPostDialog` už volí konkrétní účty. Cílem je sjednotit obě UI (viz též Prompt 027 Krok 3).
@@ -88,24 +95,4 @@
 - **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil ⚡/🔔 s tooltipem).
 - **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `ukol.md` (Krok 3 ✅).
 
-### 🔗 Feat — Rozcestník profilu při připojování (Prompt 026, Krok 2)
-
-- **Kontext**: Osobní profily (Instagram, Facebook) nelze publikovat přes API. Při propojování je třeba nechat uživatele zvolit typ účtu (Profesionální = automaticky / Osobní = manuálně s připomínkou) a tuto volbu zapsat do `social_accounts.publishing_type`.
-- **Změny**:
-  1. `src/components/connect-account-modal.tsx`: nový prop `showProfileChoice` + `onConnect(publishingType)`; pro IG/FB zobrazen rozcestník dvou glassmorphism karet (Profesionální / Osobní). Ostatní platformy ponechávají původní jediné tlačítko.
-  2. `src/app/[locale]/(dashboard)/accounts/page.tsx`: předání `showProfileChoice` (jen IG/FB) a připojení `&publishing_type=direct|manual` do OAuth `redirectTo`; doplněny překladové klíče.
-  3. `src/app/auth/callback/route.ts`: načtení `publishing_type` z URL (fallback `direct`) a zápis do všech upsert řádků `social_accounts`.
-  4. `src/messages/{cs,en,uk}.json`: nové klíče `connectModal.profileChoice*` (Krok 6 přebírá plnou lokalizaci).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test připojení IG/FB v prohlížeči ✅ (uživatel potvrdil; volba se propíše do `publishing_type`).
-- **Upravené soubory**: `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/app/auth/callback/route.ts`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `ukol.md` (Krok 2 ✅).
-
-### 🌐 Feat — DB migrace pro manuální publikování (Prompt 026, Krok 1)
-
-- **Kontext**: Osobní profily (Instagram, Facebook) nepodporují automatické odesílání přes API. Pro manuální publikování s připomínkou je třeba evidovat typ publikování na účtu a nový status příspěvku „připraveno ke zveřejnění".
-- **Změny**:
-  1. `supabase/migrations/036_add_publishing_type.sql` (nový): `ALTER TABLE social_accounts ADD COLUMN publishing_type TEXT NOT NULL DEFAULT 'direct' CHECK (publishing_type IN ('direct','manual'))`; rozšířen `post_platforms_status_check` o hodnotu `'ready'`.
-  2. `src/lib/supabase/types.ts`: `publishing_type?: 'direct' | 'manual'` přidáno do `Row`/`Insert`/`Update` u `social_accounts`.
-- **Ověření**: `npx tsc --noEmit` ✅, migrace spuštěna na Supabase ✅ (uživatel potvrdil).
-- **Upravené soubory**: `supabase/migrations/036_add_publishing_type.sql` (nový), `src/lib/supabase/types.ts`, `ukol.md` (Krok 1 ✅).
-
-*Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*
+*Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.

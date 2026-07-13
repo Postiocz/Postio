@@ -16,6 +16,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PlatformIconMap } from "@/components/calendar/post-calendar-chip";
 import {
   DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS,
   isTikTokSandboxPrivateOnlyError,
@@ -765,69 +766,131 @@ export default function NewPostPage() {
             )}
           </div>
 
-          {/* Platform selection */}
+          {/* Platform selection - account picker (mirrors EditPostDialog) */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
               {t("selectPlatforms")}
             </Label>
-            <TooltipProvider delayDuration={150}>
-            <div className="flex flex-wrap gap-2">
-              {PLATFORMS.map((platform) => {
-                const isSelected = selectedPlatforms.includes(platform.id);
-                const isPlatformDisabled = !isPlatformMediaRequirementMet(platform.id);
-                // Prompt 023 (Krok 2) – tooltip explaining the requirement when
-                // the chip is disabled; null for always-enabled platforms.
-                const tooltipMessage = isPlatformDisabled
-                  ? getPlatformRequirementTooltip(platform.id)
-                  : null;
-                const label =
-                  platform.id === "twitter"
-                    ? t("twitter")
-                    : platform.id === "linkedin"
-                      ? t("linkedin")
-                      : platform.id === "instagram"
-                        ? t("instagram")
-                      : platform.id === "youtube"
-                        ? t("youtube")
-                      : platform.id === "tiktok"
-                        ? t("tiktok")
-                        : t("facebook");
-                const platformButton = (
-                  <button
-                    key={platform.id}
-                    type="button"
-                    disabled={isPlatformDisabled}
-                    onClick={() => togglePlatform(platform.id)}
-                    className={
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all" +
-                      (isSelected
-                        ? " border-indigo-500/50 bg-indigo-500/20 text-indigo-300"
-                        : " border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:border-white/10") +
-                      (isPlatformDisabled ? " opacity-50 cursor-not-allowed" : "")
-                    }
-                  >
-                    {label}
-                  </button>
-                );
-                // Prompt 023 (Krok 2) – wrap a disabled chip in a Tooltip. The
-                // disabled <button> is wrapped in an always-interactive <span>
-                // because a disabled button does not emit hover events.
-                if (tooltipMessage) {
-                  return (
-                    <Tooltip key={platform.id}>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex">{platformButton}</span>
-                      </TooltipTrigger>
-                      <TooltipContent>{tooltipMessage}</TooltipContent>
-                    </Tooltip>
+            {allAccounts.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
+                <p className="pb-3 text-sm text-muted-foreground">{t("noConnectedAccounts")}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/${locale}/accounts`)}
+                >
+                  {t("connectAccount")}
+                </Button>
+              </div>
+            ) : (
+              <TooltipProvider delayDuration={150}>
+                {(() => {
+                  const groups = allAccounts.reduce<Record<string, AccountInfo[]>>(
+                    (acc, a) => {
+                      if (!acc[a.platform]) acc[a.platform] = [];
+                      acc[a.platform].push(a);
+                      return acc;
+                    },
+                    {},
                   );
-                }
-                return platformButton;
-              })}
-            </div>
-            </TooltipProvider>
+                  const loc = typeof locale === "string" ? locale : "cs";
+                  const labelFor = (id: string) =>
+                    (PLATFORMS.find((p) => p.id === id)?.[
+                      loc === "en" ? "labelEn" : loc === "uk" ? "labelUk" : "labelCs"
+                    ] as string | undefined) ?? id;
+                  return (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {Object.entries(groups).map(([platformId, accounts]) => {
+                        const Icon = PlatformIconMap[platformId];
+                        const platformColor =
+                          {
+                            instagram: "text-[#E1306C]",
+                            facebook: "text-[#1877F2]",
+                            twitter: "text-[#1DA1F2]",
+                            linkedin: "text-[#0A66C2]",
+                            youtube: "text-[#FF0000]",
+                            tiktok: "text-[#010101]",
+                          }[platformId] ?? "text-muted-foreground";
+                        const platformLabel = labelFor(platformId);
+                        return (
+                          <div
+                            key={platformId}
+                            className={cn(
+                              "rounded-[20px] border bg-white/[0.04] p-3 backdrop-blur-sm transition-all duration-200",
+                              accounts.some((a) => selectedAccountIds.includes(a.id))
+                                ? "border-indigo-500/30"
+                                : "border-white/10",
+                            )}
+                          >
+                            <div className="flex items-center gap-2 pb-2">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06]">
+                                {Icon && <Icon className={cn("h-4 w-4", platformColor)} />}
+                              </div>
+                              <span className="text-xs font-medium text-muted-foreground/80">
+                                {platformLabel}
+                              </span>
+                            </div>
+                            <div className="flex flex-row flex-wrap gap-1.5">
+                              {accounts.map((account) => {
+                                const isSelected = selectedAccountIds.includes(account.id);
+                                const requirementMet = isPlatformMediaRequirementMet(platformId);
+                                const isPlatformDisabled = !requirementMet;
+                                const tooltipMessage = isPlatformDisabled
+                                  ? getPlatformRequirementTooltip(platformId)
+                                  : null;
+                                const chip = (
+                                  <button
+                                    key={account.id}
+                                    type="button"
+                                    disabled={isPlatformDisabled}
+                                    onClick={() => toggleAccount(account.id)}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all duration-200",
+                                      isSelected
+                                        ? "border-indigo-500/40 dark:border-indigo-500/60 bg-indigo-500/15 dark:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300"
+                                        : "border-white/10 bg-white/[0.04] text-slate-700 dark:text-muted-foreground hover:bg-white/[0.08] hover:border-white/20",
+                                      isPlatformDisabled && "opacity-40 cursor-not-allowed",
+                                    )}
+                                  >
+                                    {account.avatar_url ? (
+                                      <img
+                                        src={account.avatar_url}
+                                        alt={account.account_name}
+                                        className="h-4 w-4 shrink-0 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-[8px] font-semibold text-white">
+                                        {(account.account_name?.trim()?.[0] ?? "?").toUpperCase()}
+                                      </div>
+                                    )}
+                                    <span className="max-w-[90px] truncate">
+                                      {account.account_name}
+                                    </span>
+                                  </button>
+                                );
+                                if (tooltipMessage) {
+                                  return (
+                                    <Tooltip key={account.id}>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex">{chip}</span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{tooltipMessage}</TooltipContent>
+                                    </Tooltip>
+                                  );
+                                }
+                                return chip;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </TooltipProvider>
+            )}
           </div>
-
           {/* Location */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">Lokace</Label>

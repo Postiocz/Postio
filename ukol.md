@@ -52,5 +52,5 @@ Zvolená architektura: **Soft Delete** (status 'archived' + sloupec `deleted_at`
 - [x] **Krok 2: Úprava logiky smazání (`deletePost`)**. Místo hard-delete: archivace `post_platforms` → `status='archived'`, nastavení `posts.deleted_at`, vymazání `media_urls`. Meta API část zachována.
 - [x] **Krok 3: Status architektura + Calendar fetching**. Přidání 'archived' do status computation v `getPost` a `calendar/page.tsx`. Doplnění `archived` do `STATUS_STYLES` v `post-calendar-chip.tsx` (zašedlý vzhled). `getPosts` a `normalize-post.ts` již měly hotovo.
 - [x] **Krok 4: Vizuální odlišení (UI)**. Archivované posty: kalendářní chip s Lock ikonou a zašedlým stylem. Detail postu read-only (banner + disabled inputs + hidden action buttons). Seznam příspěvků: opacity-50, skrytá Edit/Delete tlačítka (jen Preview). Náhled (PreviewDialog): banner "Historický záznam — tento příspěvek byl smazán". `media_urls` zachovány (vizuální hodnota otisku).
-- [ ] **Krok 5: i18n a Lokalizace**. Přidání klíčů pro "Historický otisk", banner "Tento příspěvek byl smazán a slouží pouze jako záznam" do `messages/{cs,en,uk}.json`.
+- [x] **Krok 5: i18n a Lokalizace**. Přidání klíčů `archivedBannerTitle`, `archivedBannerDesc` do `messages/{cs,en,uk}.json`. (Klíč `statusArchived` již existoval.)
 

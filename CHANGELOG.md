@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 i18n — Překlady pro archivované příspěvky (Prompt 030, Krok 5)
+
+- **Kontext**: Chybějící překladové klíče `archivedBannerTitle` a `archivedBannerDesc` pro read-only banner v detailu archivovaného postu. Klíč `statusArchived` již existoval.
+- **Změny**: Přidány 2 nové klíče do `messages/cs.json`, `en.json`, `uk.json`. Čeština: "Historický záznam" / "Tento příspěvek byl smazán...". Angličtina: "Historical Record" / "This post was deleted...". Ukrajinština: "Історичний запис" / "Цей допис було видалено...".
+- **Ověření**: `npx tsc --noEmit` ✅, JSON validní ✅.
+- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
 ### 👁️ Vizuální odlišení — read-only režim pro archivované příspěvky (Prompt 030, Krok 4)
 
 - **Kontext**: Archivované (soft-deleted) příspěvky potřebují vizuálně odlišit od aktivních — zašedlý vzhled, zámek v kalendáři, read-only režim v detailu, skrytí editačních tlačítek.
@@ -64,11 +71,4 @@
 - **Kontext**: Po Krocích 1–3 je výběr účtů na stránce „Nový příspěvek" plně sjednocen s `EditPostDialog`. Zbývalo vyčistit mrtvý kód a ověřit design (Pravidlo 8).
 - **Změny**: Odstraněn nepoužitý `togglePlatform` (UI od Krok 2 volá `toggleAccount`). `selectedPlatforms` ponechán (používá ho `isInstagramVideoIncompatible`), `PLATFORMS` ponechán (lokalizované názvy skupin). Ověřeny překlady `noConnectedAccounts`/`connectAccount` (cs/en/uk). Account-picker dodržuje design manuály: radius 20px, glassmorphism, indigo akcenty, grid `grid-cols-2 md:grid-cols-3 gap-3` shodný s Editorem.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (shoda s EditPostDialog, publikování/naplánování).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
-
-### 🔧 Refactor — Sjednocení výběru účtů: ukládání (Prompt 029, Krok 3)
-
-- **Kontext**: Po Krocích 1–2 volí UI konkrétní účty (`selectedAccountIds`), ale submit handlery stále posílaly `platforms: selectedPlatforms`. Výběr konkrétního účtu (i 2× Facebook Page) by se tak neuložil.
-- **Změny**: Ve všech 3 submit handlerech (`handleSubmit`, `handlePublishNow`, `handleQueueToSchedule`) změněno `platforms: selectedPlatforms` → `accountIds: selectedAccountIds`; backend `createPostAction` už `accountIds` zpracovává (lookup platformy dle `account_id`, zápis do `post_platforms`). Kontroly `selectedPlatforms.length === 0` → `selectedAccountIds.length === 0` na guardu handleru, disabled tlačítkách i `newPostHint`. `handleRemoveMedia` (účty dle platformy) již hotovo v Krok 1. `selectedPlatforms` zůstalo jen jako odvozený `useMemo` (instagram-block).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (vytvoření s konkrétním účtem i 2× FB, publikování/naplánování, media-gating auto-odebírání).
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.

@@ -433,6 +433,8 @@
     "statusFailed": "Failed",
     "statusRemovedExternally": "Removed Externally",
     "statusArchived": "Archived",
+    "archivedBannerTitle": "Historical Record",
+    "archivedBannerDesc": "This post was deleted and serves only as a historical record. Editing is not available.",
     "republish": "Republish",
     "removedExternallyMsg": "Removed directly from __platform__",
     "filterByTag": "Filter by tag",

@@ -433,6 +433,7 @@
     "statusFailed": "Neúspěšné",
     "statusRemovedExternally": "Odstraněno externě",
     "statusArchived": "Archivováno",
+    "deletedOn": "smazáno",
     "archivedBannerTitle": "Historický záznam",
     "archivedBannerDesc": "Tento příspěvek byl smazán a slouží pouze jako historický záznam. Editace není dostupná.",
     "republish": "Publikovat znovu",

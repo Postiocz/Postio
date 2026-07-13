@@ -83,6 +83,7 @@ export type PostListItem = {
   /** Internal organization tags attached via post_tags. */
   post_tags?: { id: string; name: string; color: string }[];
   media_urls: string[];
+  deleted_at: string | null;
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
 };
@@ -405,7 +406,10 @@ export function PostCard({
         {hasMedia && primaryMedia && (
           <div className="relative sm:w-48 sm:min-w-48 sm:max-w-48 w-full shrink-0">
             <div
-              className="relative overflow-hidden rounded-xl border border-white/10 dark:border-white/10 aspect-video sm:aspect-square sm:sticky sm:top-0 cursor-pointer hover:ring-2 hover:ring-indigo-500/30 transition-all"
+              className={cn(
+                "relative overflow-hidden rounded-xl border border-white/10 dark:border-white/10 aspect-video sm:aspect-square sm:sticky sm:top-0 cursor-pointer hover:ring-2 hover:ring-indigo-500/30 transition-all duration-500",
+                post.status === "archived" && "filter grayscale-[100%] group-hover:grayscale-0"
+              )}
               onClick={() => setMediaPreviewOpen(true)}
             >
               {isVideo ? (
@@ -485,6 +489,11 @@ export function PostCard({
             <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs ${statusStyle}`}>
               {statusLabel}
             </Badge>
+            {post.status === "archived" && post.deleted_at && (
+              <span className="text-[10px] text-muted-foreground/50 ml-1">
+                {tv("deletedOn", {}, "deleted")} {new Date(post.deleted_at).toLocaleDateString(localeTag, { day: "numeric", month: "short" })}
+              </span>
+            )}
           </div>
 
           {/* Post content – text with line clamp and expand/collapse (#13) */}

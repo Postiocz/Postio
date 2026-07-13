@@ -433,6 +433,7 @@
     "statusFailed": "Невдача",
     "statusRemovedExternally": "Видалено зовні",
     "statusArchived": "Архівовано",
+    "deletedOn": "видалено",
     "archivedBannerTitle": "Історичний запис",
     "archivedBannerDesc": "Цей допис було видалено, і він служить лише історичним записом. Редагування недоступне.",
     "republish": "Опублікувати знову",

@@ -14,6 +14,7 @@ export type NormalizedPost = {
   tags: string[];
   post_tags: { id: string; name: string; color: string }[];
   media_urls: string[];
+  deleted_at: string | null;
   published_platforms: string[];
   external_ids: Record<string, string> | null;
 };
@@ -54,6 +55,7 @@ export function normalizePost(post: Record<string, unknown>): NormalizedPost {
     tags: (post.tags as string[]) ?? [],
     post_tags: normalizedPostTags,
     media_urls: (post.media_urls as string[]) ?? [],
+    deleted_at: (post.deleted_at as string | null) ?? null,
     published_platforms: (post.published_platforms as string[]) ?? [],
     external_ids: (post.external_ids as Record<string, string> | null) ?? null,
   };

@@ -19,6 +19,7 @@ export type Post = {
   platforms: string[];
   post_platforms?: PostPlatform[];
   scheduled_at: string | null;
+  deleted_at: string | null;
   status: string;
   location: string | null;
   tags: string[];

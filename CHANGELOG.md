@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 👁️ Vizuální vylepšení — Grayscale, datum smazání, archivovaný preview (Prompt 030, Krok 6)
+
+- **Kontext**: Dokončení vizuálního zážitku pro archivované (soft-deleted) příspěvky. 5 refinements: černobílý filtr, datum smazání, oprava preview dialogu, lokalizace. Tlačítka Edit/Delete již byla skryta v Kroku 4.
+- **Změny**: `_post-card.tsx` — grayscale(100%) filtr s group-hover grayscale-0 + transition; přidán `deleted_at` do typu a zobrazení data smazání vedle chipu "Archivováno". `preview-dialog.tsx` — pro archivované posty se filtrují platformy se statusem 'archived' místo 'published', takže se vykreslí high-fidelity náhled. Typy — `deleted_at` doplněn do `PostListItem`, `NormalizedPost` a `Post` (calendar). Lokalizace — nový klíč `deletedOn` (cs: "smazáno", en: "deleted", uk: "видалено").
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/preview-dialog.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `src/types/calendar.ts`, `src/app/[locale]/(dashboard)/posts/normalize-post.ts`.
+
 ### 🌐 i18n — Překlady pro archivované příspěvky (Prompt 030, Krok 5)
 
 - **Kontext**: Chybějící překladové klíče `archivedBannerTitle` a `archivedBannerDesc` pro read-only banner v detailu archivovaného postu. Klíč `statusArchived` již existoval.
@@ -65,10 +72,3 @@
 - **Změny**: `src/lib/actions/publish.ts` — signatura `deleteFromMeta` rozšířena na `{ postId; platform?; accountId? }`; centrální lookup řádku `post_platforms` (pokud `accountId` → `r.account_id === accountId && status==="published"`, jinak `platform` fallback pro zpětnou kompatibilitu); odvozená `platform` z nalezeného řádku; všechny větve (linkedin/tiktok/twitter/instagram/facebook) používají sdílený `targetRow` a cílí přes `.eq("id", targetRow.id)`; token lookup account-scoped (`.eq("id", accountId)` přednostně).
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `src/lib/actions/publish.ts`.
-
-### 🔧 Refactor — Sjednocení výběru účtů: cleanup & design (Prompt 029, Krok 4)
-
-- **Kontext**: Po Krocích 1–3 je výběr účtů na stránce „Nový příspěvek" plně sjednocen s `EditPostDialog`. Zbývalo vyčistit mrtvý kód a ověřit design (Pravidlo 8).
-- **Změny**: Odstraněn nepoužitý `togglePlatform` (UI od Krok 2 volá `toggleAccount`). `selectedPlatforms` ponechán (používá ho `isInstagramVideoIncompatible`), `PLATFORMS` ponechán (lokalizované názvy skupin). Ověřeny překlady `noConnectedAccounts`/`connectAccount` (cs/en/uk). Account-picker dodržuje design manuály: radius 20px, glassmorphism, indigo akcenty, grid `grid-cols-2 md:grid-cols-3 gap-3` shodný s Editorem.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (shoda s EditPostDialog, publikování/naplánování).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.

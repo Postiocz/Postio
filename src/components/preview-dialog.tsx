@@ -177,9 +177,15 @@ export function PreviewDialog({
 
   // Determine which platforms have this post published
   const publishedPlatforms = useMemo<PreviewPostPlatform[]>(() => {
+    // For archived (soft-deleted) posts, treat 'archived' platforms as
+    // published so the high-fidelity preview renders instead of the
+    // "not published" fallback message.
     if (!post?.post_platforms) return [];
+    if (post.status === "archived") {
+      return post.post_platforms.filter((p) => p.status === "archived");
+    }
     return post.post_platforms.filter((p) => p.status === "published");
-  }, [post?.post_platforms]);
+  }, [post?.post_platforms, post?.status]);
 
   // Filter to only previewable platforms that are actually published
   const availableTabs = useMemo<PreviewPlatform[]>(() => {

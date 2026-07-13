@@ -58,7 +58,7 @@ interface DeletePostDialogProps {
    *   are reset to `draft`. LinkedIn (and Instagram) keep showing as
    *   `published` so the rest of the post keeps syncing normally.
    */
-  onConfirm: (selectedPlatforms: string[], deleteFromApp: boolean) => Promise<void>;
+  onConfirm: (selectedAccountIds: string[], deleteFromApp: boolean) => Promise<void>;
   isDeleting: boolean;
 }
 
@@ -154,7 +154,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
     }
 
     if (showSelectiveDelete) {
-      onConfirm(selectedPlatforms, deleteFromApp);
+      onConfirm(selectedAccountIds, deleteFromApp);
     } else {
       onConfirm([], true);
     }
@@ -162,7 +162,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
 
   const handleWarningConfirm = () => {
     setShowApiWarning(false);
-    onConfirm(selectedPlatforms, deleteFromApp);
+    onConfirm(selectedAccountIds, deleteFromApp);
   };
 
   // Description copy is account-aware so the user always knows what

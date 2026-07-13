@@ -136,7 +136,7 @@ export function PostCard({
   const statusLabel = statusLabels[post.status] ?? post.status;
   const statusStyle = STATUS_STYLES[post.status] ?? STATUS_STYLES.draft;
 
-  const handleDeleteConfirm = async (selectedPlatforms: string[], deleteFromApp: boolean) => {
+  const handleDeleteConfirm = async (selectedAccountIds: string[], deleteFromApp: boolean) => {
     setIsDeleting(true);
     try {
       const isPublished = (post.post_platforms || []).some(p => p.status === 'published');
@@ -145,18 +145,21 @@ export function PostCard({
         let deletedCount = 0;
         let cannotDeletePlatforms: string[] = [];
 
-        // Delete from selected platforms. Per-platform behaviour:
+        // Delete from each selected account. Per-platform behaviour:
         // - Facebook / YouTube – real API DELETE (or "object not found"
         //   treated as success) + reset the row to `status="draft"` in Postio.
         // - Instagram – NO API DELETE (Graph API doesn't support it).
         //   `deleteFromMeta` archives the Instagram row to `status="archived"`
         //   and returns `success: true, cannotDeleteViaApi: true`. The user
         //   gets a "smazat ručně" reminder toast.
-        // - LinkedIn – NO API call. `deleteFromMeta` updates the LinkedIn row
+        // - LinkedIn – NO API call. `deleteFromMeta` archives the LinkedIn row
         //   to `status="archived"` (with `external_id` cleared) and returns
         //   `success: true, cannotDeleteViaApi: true`.
-        for (const platform of selectedPlatforms) {
-          const result = await deleteFromMeta({ postId: post.id, platform });
+        // Targeting uses `accountId` so two accounts of the same platform
+        // (e.g. 2× Facebook Page) are resolved to the correct row.
+        for (const accountId of selectedAccountIds) {
+          const platform = (post.post_platforms || []).find(p => p.account_id === accountId)?.platform ?? "";
+          const result = await deleteFromMeta({ postId: post.id, accountId });
           if (result.success && result.cannotDeleteViaApi) {
             // Platform was archived in Postio but NOT deleted via API
             // (Instagram / LinkedIn flow). Count it AND show reminder toast.
@@ -181,13 +184,16 @@ export function PostCard({
 
         // Delete from Postio app if requested.
         //
-        // Special case: if LinkedIn or Instagram is in `selectedPlatforms`,
-        // the post must NOT be hard-deleted from Postio. The whole point of
-        // this flow is to keep the PostCard visible with a greyed-out icon –
-        // a permanent reminder that the post was once published on that
+        // Special case: if LinkedIn or Instagram is among the selected
+        // accounts, the post must NOT be hard-deleted from Postio. The whole
+        // point of this flow is to keep the PostCard visible with a greyed-out
+        // icon – a permanent reminder that the post was once published on that
         // platform. `deleteFromMeta` has already flipped those rows to
         // `status="archived"` and cleared `external_id`, so the icons will
         // render grey (no green check, no orange triangle, no red X).
+        const selectedPlatforms = selectedAccountIds
+          .map(id => (post.post_platforms || []).find(p => p.account_id === id)?.platform)
+          .filter((p): p is string => Boolean(p));
         const hasArchivedPlatform = selectedPlatforms.includes("linkedin") || selectedPlatforms.includes("instagram");
         if (deleteFromApp && hasArchivedPlatform) {
           setDeleteOpen(false);

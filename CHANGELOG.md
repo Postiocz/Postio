@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Refactor — Account-aware mazání: Propojení (Prompt 031, Krok 4)
+
+- **Kontext**: Po Krocích 1–3 dialog cílí na konkrétní účty v UI, ale `onConfirm` stále posílal odvozené platformy (`selectedPlatforms`), takže 2× Facebook Page pořád trefil první řádek. Krok 4 propojuje výběr účtů až do backendu.
+- **Změny**: `delete-post-dialog.tsx` — typ prop `onConfirm` změněn na `(selectedAccountIds: string[], deleteFromApp: boolean)`; `handleConfirm` i `handleWarningConfirm` volají `onConfirm(selectedAccountIds, deleteFromApp)`. `_post-card.tsx` — `handleDeleteConfirm(selectedAccountIds, deleteFromApp)` iteruje `for (const accountId of selectedAccountIds) await deleteFromMeta({ postId, accountId })`; `hasArchivedPlatform` odvozen z platforem vybraných účtů přes `post.post_platforms.find(p => p.account_id === accountId)?.platform` (linkedin/instagram). 2× FB nyní maže přesně jeden účet.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (2× FB selektivní mazání z jednoho účtu, LinkedIn ruční, trvalé smazání z aplikace).
+- **Upravené soubory**: `src/components/dashboard/delete-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/_post-card.tsx`.
+
 ### 🔧 Refactor — Account-aware mazání: UI dialogu (Prompt 031, Krok 3)
 
 - **Kontext**: Modál `DeletePostDialog` stále volil cíl mazání dle PLATFORMY („Smazat z Facebook"), takže u více účtů téže sítě (2× Facebook Page) byl nepoužitelný. Krok 1–2 připravily backend + data; Krok 3 přepisuje UI na výběr konkrétních účtů.
@@ -68,12 +75,5 @@
   Zachovány klíče pro výběr účtů (Krok 3: `posts.connectAccount`, `posts.noConnectedAccounts`).
 - **Ověření**: JSON validní ve všech 3 jazycích, `npx tsc --noEmit` ✅, kontrola překladů ✅.
 - **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-### 🔧 Fix — Oprava odesílacího motoru (target `account_id`) (Prompt 027, Krok 4)
-
-- **Kontext**: `publishPost` publikoval jen první `post_platforms` řádek, takže výběr více účtů téže sítě (např. 2× Facebook Page) vedl k publikaci na jediný účet.
-- **Změny**: `src/lib/actions/publish.ts` — `publishPost` nyní iteruje přes VŠECHNY pending `post_platforms` řádky a každý cílí přes vlastní `account_id` (`resolveTargetAccount`). Odstraněn legacy IG→FB fallback (čtení `instagram_id` z FB metadat); TikTok používá `row.metadata`; duplicitní guard přepsán z platform-only na `account_id` scope (již publikovaný řádek = no-op success). Cron edge function (`process-scheduled-posts`) již `account_id` používá, žádná změna.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test publikování na konkrétní účet i na 2× FB ✅.
-- **Upravené soubory**: `src/lib/actions/publish.ts`.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.

@@ -53,6 +53,10 @@ export type PostPlatform = {
   post_id: string;
   platform: string;
   status: PlatformStatus;
+  /** The specific social_accounts row this platform row belongs to.
+   *  Enables targeting a single account when a post is published to
+   *  multiple accounts of the same platform (e.g. 2× Facebook Page). */
+  account_id: string | null;
   scheduled_at: string | null;
   published_at: string | null;
   external_id: string | null;

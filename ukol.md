@@ -78,7 +78,7 @@ použít **Prompt 031** (029 i 030 jsou obsazené), aby nedošlo ke kolizi.
   3. `platform` pro větve instagram/linkedin/tiktok odvodit z nalezeného řádku (`row.platform`), ne z `input.platform`.
 - **Ověření:** `npx tsc --noEmit`.
 
-#### [ ] Krok 2 — Typy + načítání účtů v dialogu
+#### [x] Krok 2 — Typy + načítání účtů v dialogu
 - **Soubory:** `src/app/[locale]/(dashboard)/posts/_post-card.tsx` (`PostPlatform` type), `src/components/dashboard/delete-post-dialog.tsx` (refresh dotaz).
 - **Akce:**
   1. `PostPlatform` přidat `account_id: string | null`.

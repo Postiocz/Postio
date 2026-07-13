@@ -28,6 +28,16 @@ const PlatformIcon: Record<string, React.ComponentType<{ className?: string }>> 
   tiktok: TikTok,
 };
 
+/** A single published account for this post, resolved from a joined query. */
+type PublishedAccount = {
+  /** social_accounts.id — the concrete account to target (Krok 3+). */
+  id: string;
+  platform: string;
+  /** Display name from social_accounts (falls back to platform key). */
+  name: string;
+  avatar: string | null;
+};
+
 interface DeletePostDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,11 +67,18 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
   const [deleteFromApp, setDeleteFromApp] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [livePlatforms, setLivePlatforms] = useState<string[]>([]);
+  // Concrete published accounts (joined social_accounts) for this post.
+  // Drives per-account selection in Krok 3.
+  const [publishedAccounts, setPublishedAccounts] = useState<PublishedAccount[]>([]);
   // Confirmation overlay for platforms that can't be deleted via API
   const [showApiWarning, setShowApiWarning] = useState(false);
   const t = useTranslations("posts");
 
   // Derived initial platforms
+  const initialPublishedAccounts: PublishedAccount[] = (post.post_platforms || [])
+    .filter(p => p.status === "published" && p.external_id)
+    .map(p => ({ id: p.account_id ?? "", platform: p.platform, name: p.platform, avatar: null }));
+
   const initialPublishedPlatforms = (post.post_platforms || [])
     .filter(p => p.status === "published" && p.external_id)
     .map(p => p.platform);
@@ -74,29 +91,43 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
       const supabase = createClient();
       const { data, error } = await supabase
         .from("posts")
-        .select("id, post_platforms(platform, status, external_id)")
+        .select("id, post_platforms(account_id, platform, status, external_id, social_accounts(account_name, avatar_url))")
         .eq("id", postId)
         .single();
 
       if (!error && data) {
-        const platforms = (data.post_platforms || [])
+        const accounts: PublishedAccount[] = (data.post_platforms || [])
           .filter((p: any) => p.status === "published" && p.external_id)
-          .map((p: any) => p.platform);
+          .map((p: any) => {
+            const acc = Array.isArray(p.social_accounts)
+              ? p.social_accounts[0]
+              : p.social_accounts;
+            return {
+              id: (p.account_id as string) ?? "",
+              platform: p.platform as string,
+              name: (acc?.account_name as string) ?? (p.platform as string),
+              avatar: (acc?.avatar_url as string | null) ?? null,
+            };
+          });
+        setPublishedAccounts(accounts);
+        const platforms = accounts.map(a => a.platform);
         setLivePlatforms(platforms);
         setSelectedPlatforms(platforms);
       }
     } catch {
       // Silently fall back to props data
+      setPublishedAccounts(initialPublishedAccounts);
       setLivePlatforms(initialPublishedPlatforms);
       setSelectedPlatforms(initialPublishedPlatforms);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshing, initialPublishedPlatforms]);
+  }, [refreshing, initialPublishedAccounts, initialPublishedPlatforms]);
 
   // Initialize state when dialog opens
   useEffect(() => {
     if (open) {
+      setPublishedAccounts(initialPublishedAccounts);
       setLivePlatforms(initialPublishedPlatforms);
       setSelectedPlatforms(initialPublishedPlatforms);
       setDeleteFromApp(true);

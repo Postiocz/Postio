@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Refactor — Account-aware mazání: Typy + načítání (Prompt 031, Krok 2)
+
+- **Kontext**: Po Krok 1 (backend cílí na `account_id`) potřebuje dialog data o konkrétních účtech (jméno + avatar), aby v Krok 3 mohl nabídnout výběr per-účet místo per-platforma.
+- **Změny**: `PostPlatform` typ rozšířen o `account_id: string | null`. Refresh dotaz v `delete-post-dialog.tsx` rozšířen na `post_platforms(account_id, platform, status, external_id, social_accounts(account_name, avatar_url))`; přidán stav `publishedAccounts` (`{ id, platform, name, avatar }`) sestavený z publikovaných řádků (+ fallback z props). Hlavní seznam (`post_platforms(*)`) vrací `account_id` automaticky.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (modál otevřen, žádná regrese mazání).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/dashboard/delete-post-dialog.tsx`.
+
 ### 🔧 Refactor — Account-aware mazání: Backend (Prompt 031, Krok 1)
 
 - **Kontext**: `DeletePostDialog` volí cíl mazání dle `platform` (`.find(r => r.platform === input.platform)`), což je nejednoznačné u více účtů téže sítě (2× Facebook Page) – vždy trefí první řádek. Krok 1 přepisuje backend `deleteFromMeta` na cílení přes `account_id`.
@@ -73,22 +80,4 @@
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/delete-post-dialog.tsx`, `src/lib/actions/publish.ts`, `src/components/edit-post-dialog.tsx`.
 
-### ✨ Feature — Plná podpora více účtů v Editoru (Prompt 027, Krok 3)
-
-- **Kontext**: Uživatel může mít připojeno více účtů stejné sítě (např. 2× Facebook Page). Editor umožňoval výběr jen 6 statických platforem bez vazby na konkrétní účet. Cílem bylo přepracovat výběr na seznam všech připojených účtů seskupených dle sítě.
-- **Změny**:
-  1. `src/components/edit-post-dialog.tsx`: Přidáno načítání účtů z `/api/accounts`; stav `platforms: string[]` nahrazen `selectedAccountIds: string[]`; UI přepracováno na grid 3 (desktop) / 2 (mobil) platformových karet s kompaktními chipy uvnitř.
-  2. `src/lib/actions/posts.ts`: `createPostAction` a `updatePost` přijímají `accountIds`; ukládá se `account_id` do `post_platforms`; legacy fallback pro NULL `account_id`.
-  3. `src/lib/supabase/types.ts`: Typy již obsahují `account_id`.
-  4. `src/messages/{cs,en,uk}.json`: Přidány klíče `posts.connectAccount` a `posts.noConnectedAccounts`.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil).
-- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `src/lib/actions/posts.ts`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-### 🔧 Refactor — Zjednodušení připojování účtů (Prompt 027, Krok 2)
-
-- **Kontext**: Po odstranění manuální logiky (Krok 1) je potřeba dokončit zjednodušení připojování — odstranit `publishing_type` z OAuth redirect URL a `profileChoice*` překlady. Připojení nového účtu vždy rovnou spouští OAuth bez výběru typu profilu.
-- **Změny**:
-  1. `src/components/connect-account-modal.tsx`: `onConnect` i `handleConnect` již nepřijímají `publishingType` parametr; odstraněny `profileChoice*` klíče z typové definice `t`.
-  2. `src/app/[locale]/(dashboard)/accounts/page.tsx`: odstraněno předávání `publishing_type` z OAuth redirect URL pro Instagram i Facebook; odstraněny `profileChoice*` překladové mapování; `onConnect` handler bez parametru.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test připojení v prohlížeči ✅ (uživatel potvrdil).
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.

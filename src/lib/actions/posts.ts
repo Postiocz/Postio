@@ -886,6 +886,9 @@ export async function getPost(id: string) {
     else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+    else if (statuses.length > 0 && statuses.every((s) => s === "archived")) {
+      computedStatus = "archived";
+    }
 
     data.status = computedStatus;
     data.platforms = postPlatforms.map((p) => p.platform);

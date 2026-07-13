@@ -28,6 +28,8 @@ export const STATUS_STYLES: Record<string, string> = {
     "bg-gray-50 text-muted-foreground border-gray-200 opacity-70 dark:bg-white/[0.02] dark:text-muted-foreground/50 dark:border-white/5 dark:opacity-60",
   removed_externally:
     "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/20",
+  archived:
+    "bg-gray-100 text-gray-500 border-gray-300 opacity-50 dark:bg-white/5 dark:text-gray-500 dark:border-white/5 dark:opacity-40",
 };
 
 export const FALLBACK_STATUS =

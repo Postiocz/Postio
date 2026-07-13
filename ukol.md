@@ -50,7 +50,7 @@ Zvolená architektura: **Soft Delete** (status 'archived' + sloupec `deleted_at`
 
 - [x] **Krok 1: SQL Migrace**. Přidání sloupce `deleted_at` do tabulky `posts`. (posts.status sloupec neexistuje — smazán v migraci 025; post_platforms již 'archived' v CHECK constraintu má z migrace 031.)
 - [x] **Krok 2: Úprava logiky smazání (`deletePost`)**. Místo hard-delete: archivace `post_platforms` → `status='archived'`, nastavení `posts.deleted_at`, vymazání `media_urls`. Meta API část zachována.
-- [ ] **Krok 3: Status architektura + Calendar fetching**. Přidání 'archived' do status computation v `calendar/page.tsx` a `getPosts`/`getPost`. Status computation: `archived` when ALL `post_platforms` statuses are 'archived' (již částečně implementováno v `getPosts`). Doplnění `archived` do `STATUS_STYLES` v `post-calendar-chip.tsx`.
+- [x] **Krok 3: Status architektura + Calendar fetching**. Přidání 'archived' do status computation v `getPost` a `calendar/page.tsx`. Doplnění `archived` do `STATUS_STYLES` v `post-calendar-chip.tsx` (zašedlý vzhled). `getPosts` a `normalize-post.ts` již měly hotovo.
 - [ ] **Krok 4: Vizuální odlišení (UI)**. Archivované posty v kalendáři: zašedlé (`opacity-40`), bez náhledů médií, s ikonou zámku/přeškrtnutého oka. Detail postu v režimu "pouze pro čtení" (zamknutí editace). Vyřešit v `PostCalendarChip` a v edit post dialogu / post detail stránce.
 - [ ] **Krok 5: i18n a Lokalizace**. Přidání klíčů pro "Historický otisk", banner "Tento příspěvek byl smazán a slouží pouze jako záznam" do `messages/{cs,en,uk}.json`.
 

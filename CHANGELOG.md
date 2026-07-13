@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Status architektura — `archived` status v kalendáři a detailech (Prompt 030, Krok 3)
+
+- **Kontext**: Po Kroku 2 se data archivují v DB, ale kalendář neznal `archived` status — chyběl v status computation i ve vizuálních stylech.
+- **Změny**: `getPost` (`posts.ts`) a `calendar/page.tsx` — přidán `archived` do status computation (všechny platformy 'archived' → computed 'archived'). `post-calendar-chip.tsx` — přidán `archived` do `STATUS_STYLES` (gray/opacity). `getPosts` a `normalize-post.ts` již měly hotovo.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v kalendáři ✅.
+- **Upravené soubory**: `src/lib/actions/posts.ts`, `src/app/[locale]/(dashboard)/calendar/page.tsx`, `src/components/calendar/post-calendar-chip.tsx`.
+
 ### 💿 Soft delete — `deletePost` převeden na archivační režim (Prompt 030, Krok 2)
 
 - **Kontext**: Místo hard-delete z DB nyní `deletePost` archivuje příspěvek — nastaví `deleted_at`, vymaže `media_urls` a přepne všechny `post_platforms` na `status='archived'`. Meta API část (volání Graph API) zůstává zachována.
@@ -64,11 +71,4 @@
 - **Kontext**: Stránka „Nový příspěvek" (`posts/new/page.tsx`) po Krok 1 měla logiku na účty, ale UI stále renderovala textové chips obecných platforem. Cílem bylo sjednotit UI s `EditPostDialog` (výběr konkrétních účtů, i 2× Facebook Page).
 - **Změny**: Blok „Platform selection" nahrazen account-pickerem ze `EditPostDialog` (grid skupin dle sítě, čipy s ikonou sítě + avatarem/jménem, selected = indigo, disabled = opacity-40 + Tooltip při nesplněném media-gatingu). Empty state (`allAccounts.length === 0`) s tlačítkem „Připojit účet" (`noConnectedAccounts`/`connectAccount`) → `/accounts`. Přidán import sdíleného `PlatformIconMap` z `post-calendar-chip.tsx`. Čipy volají `toggleAccount(id)`. Názvy skupin lokalizovány dle `locale` z `PLATFORMS` (labelCs/labelEn/labelUk).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (shoda s EditPostDialog, výběr konkrétního účtu).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
-
-### 🔧 Refactor — Sjednocení výběru účtů: logika (Prompt 029, Krok 1)
-
-- **Kontext**: Stránka „Nový příspěvek" (`posts/new/page.tsx`) stále používala starý výběr obecných platforem (stav `selectedPlatforms`), zatímco `EditPostDialog` už volí konkrétní účty. Cílem je sjednotit obě UI (viz též Prompt 027 Krok 3).
-- **Změny**: `selectedPlatforms` převeden z `useState` na odvozený `useMemo` z `selectedAccountIds` + `allAccounts`; přidány stavy `selectedAccountIds`/`allAccounts`; načítání účtů z `GET /api/accounts` (efekt po `userId`); přidán `toggleAccount`; `togglePlatform` nyní vybírá všechny účty dané sítě; `handleRemoveMedia` odebírá účty dle platformy (zrcadlo `EditPostDialog`).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (výběr platformy funkční, edit OK).
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.

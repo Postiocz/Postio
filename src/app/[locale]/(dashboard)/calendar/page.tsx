@@ -49,6 +49,9 @@ export default async function CalendarPage({
     else if (statuses.includes("removed_externally")) computedStatus = "removed_externally";
     else if (statuses.includes("published")) computedStatus = "published";
     else if (statuses.includes("scheduled")) computedStatus = "scheduled";
+    else if (statuses.length > 0 && statuses.every((s: string) => s === "archived")) {
+      computedStatus = "archived";
+    }
 
     // Get the earliest scheduled_at from platforms, or fallback to post.created_at
     const scheduledAt = postPlatforms.find((p: any) => p.scheduled_at)?.scheduled_at || post.created_at;

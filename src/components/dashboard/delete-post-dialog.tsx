@@ -123,7 +123,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
   };
 
   // Platforms that cannot be deleted via API – need user confirmation first
-  const noApiPlatforms = ["instagram", "linkedin"] as const;
+  const noApiPlatforms = ["instagram", "linkedin", "tiktok"] as const;
   const selectedNoApiPlatforms = selectedPlatforms.filter(p => noApiPlatforms.includes(p as typeof noApiPlatforms[number]));
 
   const handleConfirm = () => {

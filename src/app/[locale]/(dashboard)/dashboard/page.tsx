@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { use } from "react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
@@ -51,6 +51,11 @@ import {
   calculateTrend,
 } from "@/lib/dashboard-stats";
 import { normalizePost } from "../posts/normalize-post";
+import {
+  PreviewDialog,
+  type PreviewPostData,
+  type PreviewPostPlatform,
+} from "@/components/preview-dialog";
 
 type RecentPostItem = {
   id: string;
@@ -61,6 +66,7 @@ type RecentPostItem = {
   platforms: string[];
   media_urls: string[];
   post_tags: { id: string; name: string; color: string }[];
+  post_platforms_raw: PreviewPostPlatform[];
 };
 
 type RecentPostRow = {
@@ -69,7 +75,18 @@ type RecentPostRow = {
   created_at: string;
   media_urls: string[] | null;
   post_platforms:
-    | Array<{ platform: string; status: PostStatus; scheduled_at: string | null }>
+    | Array<{
+        id: string;
+        platform: string;
+        status: PostStatus;
+        scheduled_at: string | null;
+        published_at: string | null;
+        external_id: string | null;
+        publish_error: string | null;
+        post_id: string;
+        created_at: string;
+        updated_at: string;
+      }>
     | null;
   post_tags: PostTagJoinRow[] | null;
 };
@@ -156,6 +173,7 @@ export default function DashboardPage({
     platformData: [],
     publishedTotal: 0,
     weeklyTrend: 0,
+    userId: null,
   });
 
   useEffect(() => {
@@ -185,6 +203,7 @@ export default function DashboardPage({
             platformData: [],
             publishedTotal: 0,
             weeklyTrend: 0,
+            userId: null,
           });
           return;
         }
@@ -249,7 +268,7 @@ export default function DashboardPage({
           supabase
             .from("posts")
             .select(
-              "id, content, created_at, media_urls, post_platforms(platform, status, scheduled_at), post_tags(tags(id, name, color))",
+              "id, content, created_at, media_urls, post_platforms(id, platform, status, scheduled_at, published_at, external_id, publish_error, post_id, created_at, updated_at), post_tags(tags(id, name, color))",
             )
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
@@ -302,6 +321,7 @@ export default function DashboardPage({
               platforms: normalized.platforms,
               media_urls: normalized.media_urls,
               post_tags: normalized.post_tags,
+              post_platforms_raw: platformRows as PreviewPostPlatform[],
             };
           },
         );
@@ -382,6 +402,7 @@ export default function DashboardPage({
           platformData,
           publishedTotal,
           weeklyTrend,
+          userId: user.id,
         });
       } catch (error) {
         console.error("Dashboard data fetch error:", error);
@@ -432,6 +453,7 @@ interface DashboardData {
   platformData: PlatformDatum[];
   publishedTotal: number;
   weeklyTrend: number;
+  userId: string | null;
 }
 
 function DashboardContent({
@@ -448,6 +470,24 @@ function DashboardContent({
   const settingsT = useTranslations("settings");
   // Timestamp captured once on mount — keeps relative-time rendering pure.
   const [nowTs] = useState(() => Date.now());
+  // Preview dialog state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPost, setPreviewPost] = useState<PreviewPostData | null>(null);
+
+  const openPreview = useCallback((post: RecentPostItem) => {
+    setPreviewPost({
+      id: post.id,
+      content: post.content,
+      platforms: post.platforms,
+      post_platforms: post.post_platforms_raw,
+      scheduled_at: post.scheduled_at,
+      status: post.status,
+      location: null,
+      tags: post.post_tags.map((t) => t.name),
+      media_urls: post.media_urls,
+    });
+    setPreviewOpen(true);
+  }, []);
   const recentPostStatusLabels: Partial<Record<PostStatus, string>> = {
     draft: postsT("statusDraft"),
     scheduled: postsT("statusScheduled"),
@@ -620,10 +660,18 @@ function DashboardContent({
                   : formatRelativeTime(post.created_at, locale, nowTs);
 
               return (
-                <Link
+                <div
                   key={post.id}
-                  href={`/${locale}/posts/${post.id}`}
-                  className="group block"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openPreview(post)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openPreview(post);
+                    }
+                  }}
+                  className="group block cursor-pointer"
                 >
                   <Card className="h-full bg-card/40 backdrop-blur-md border-white/5 group-hover:bg-accent transition-all">
                     <CardContent className="flex h-full flex-col gap-3 p-3.5">
@@ -724,7 +772,7 @@ function DashboardContent({
                       </div>
                     </CardContent>
                   </Card>
-                </Link>
+                </div>
               );
             })}
           </div>
@@ -736,6 +784,16 @@ function DashboardContent({
         currentPlan={data.currentPlan}
         t={t}
         settingsT={settingsT}
+      />
+
+      <PreviewDialog
+        open={previewOpen}
+        onOpenChange={(isOpen) => {
+          setPreviewOpen(isOpen);
+          if (!isOpen) setPreviewPost(null);
+        }}
+        post={previewPost}
+        userId={data.userId ?? undefined}
       />
         </>
       )}

@@ -53,13 +53,6 @@ type PublishablePostRow = {
   tags?: string[] | null;
 };
 
-type SocialAccountLookupRow = {
-  access_token: string | null;
-  platform_id: string | null;
-  metadata?: Record<string, unknown> | null;
-  account_name?: string | null;
-};
-
 type OAuthAccountRow = {
   id: string;
   user_id: string;
@@ -542,14 +535,21 @@ export async function publishPost(input: { postId: string }): Promise<{
 
   const typedPost = post as PublishablePostRow;
   const postPlatforms = getPostPlatforms(typedPost);
-  // Prompt 027: every account publishes automatically, so we target the
-  // first row that is not already `published`. Keep the concrete target row
-  // (with account_id) so we publish to the exact linked account, not just
-  // "the platform".
-  const nextTargetRow =
-    postPlatforms.find((r) => r.status !== "published") ?? postPlatforms[0];
-  const targetPlatform = nextTargetRow?.platform ?? "facebook";
-  const targetAccountId = nextTargetRow?.account_id ?? null;
+
+  // Prompt 027 – Krok 4: a post may have MANY post_platforms rows, one per
+  // selected social account (e.g. two Facebook Pages, or FB + IG + LinkedIn).
+  // Publish to EVERY pending account, not just the first row. Each row is
+  // routed to its own publisher using its `account_id`, so the exact linked
+  // Page/Channel is targeted and the publish count matches the selected
+  // account count.
+  const pendingRows = postPlatforms.filter(
+    (r) => r.status !== "published" && r.status !== "publishing",
+  );
+
+  // Everything already live (or in flight) – nothing to do.
+  if (pendingRows.length === 0) {
+    return { success: true, data: { platform: undefined } };
+  }
 
   const rawContent = String(post.content ?? "");
   const rawUrls = ((post as { media_urls?: unknown }).media_urls as string[] | undefined) ?? [];
@@ -563,36 +563,44 @@ export async function publishPost(input: { postId: string }): Promise<{
     tags: rawTags,
   });
 
-  // Publish to the first unpublished platform in the list
+  type SingleResult = {
+    success: boolean;
+    data?: { externalId?: string; platform?: string; warningCode?: string };
+    errorCode?: string;
+    error?: string;
+  };
 
-  // CRITICAL – Guard against duplicate uploads.
-  // If a `post_platforms` row for this post + target platform is already
-  // in `status="published"` with a non-empty `external_id`, the post has
-  // ALREADY been uploaded to that platform. Re-running the upload would
-  // create a duplicate (e.g. a second copy of the same YouTube video).
-  // This can happen when:
-  //   - The sync routine falsely flipped the row to `removed_externally`
-  //     (it has been fixed in syncPostStatus / syncPublishedPosts to use
-  //     the right platform API, but we keep the guard here as defense
-  //     in depth).
-  //   - The user double-clicks "Publikovat" before the first call finishes.
-  // In both cases we MUST refuse to upload again. Returning a clear error
-  // surfaces the situation to the UI rather than silently creating a
-  // duplicate on the external channel.
+  /**
+   * Publish ONE post_platforms row to its exact target account.
+   * `row.account_id` selects the precise linked Page/Channel so a post with
+   * two Facebook Pages reaches both, not just one.
+   */
+  // Capture the (already null-checked) ids as non-null consts. Inside the
+  // async closure below, TS would otherwise widen `user`/`post` back to
+  // their nullable declared types.
+  const userId = user.id;
+  const postId = post.id;
+
+  async function publishTargetRow(row: PostPlatformRow): Promise<SingleResult> {
+    const targetPlatform = row.platform;
+    const targetAccountId = row.account_id ?? null;
+
+  // CRITICAL – Guard against duplicate uploads, scoped to THIS account.
+  // The old guard only checked `platform`, which wrongly blocked a 2nd
+  // account of the same platform. We now scope to `account_id` and treat an
+  // already-published row as a no-op (success) rather than an error, so a
+  // multi-account post never aborts just because one of its rows is done.
   const alreadyPublishedRow = postPlatforms.find(
     (platformRow) =>
       platformRow.platform === targetPlatform &&
+      platformRow.account_id === targetAccountId &&
       platformRow.status === "published" &&
       typeof platformRow.external_id === "string" &&
       platformRow.external_id.trim(),
   );
   if (alreadyPublishedRow) {
-    console.warn(
-      `[publishPost] Refusing duplicate upload – post ${input.postId} already published on ${targetPlatform} with external_id=${alreadyPublishedRow.external_id}`,
-    );
     return {
-      success: false,
-      error: `Příspěvek je již publikován na ${targetPlatform}. Duplicitní nahrávání je blokováno.`,
+      success: true,
       data: {
         externalId: alreadyPublishedRow.external_id ?? undefined,
         platform: targetPlatform,
@@ -602,36 +610,13 @@ export async function publishPost(input: { postId: string }): Promise<{
 
   // --- Instagram ---
   if (targetPlatform === "instagram") {
-    const igAccount = await resolveTargetAccount(supabaseAdmin, user.id, "instagram", targetAccountId);
-    let platformId = igAccount?.platform_id;
-    let accessToken = igAccount?.access_token;
+    // Krok 4: target the exact Instagram account via its account_id. The
+    // legacy fallback to a Facebook row's `instagram_id` metadata is gone –
+    // the editor now selects concrete IG accounts that carry their own
+    // platform_id + access_token.
+    const igAccount = await resolveTargetAccount(supabaseAdmin, userId, "instagram", targetAccountId);
 
-    if (!platformId || !accessToken) {
-      // Fallback na Facebook ucet
-      const { data: fbAccounts } = await supabaseAdmin
-        .from("social_accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .ilike("platform", "facebook")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      const fbAccount = fbAccounts?.[0] as SocialAccountLookupRow | undefined;
-      if (fbAccount) {
-        if (!platformId) {
-          platformId =
-            getMetadataString(fbAccount.metadata, "instagram_id") ??
-            getMetadataString(fbAccount.metadata, "instagram_business_account_id") ??
-            fbAccount.platform_id;
-        }
-        if (!accessToken) {
-          accessToken = fbAccount.access_token;
-        }
-      }
-    }
-
-    if (!accessToken || !platformId) {
+    if (!igAccount?.access_token || !igAccount?.platform_id) {
       return {
         success: false,
         error: "Chybí propojený Instagram účet (platform_id / access_token).",
@@ -639,18 +624,18 @@ export async function publishPost(input: { postId: string }): Promise<{
     }
 
     const result = await publishToInstagram({
-      igUserId: platformId,
-      accessToken: accessToken,
+      igUserId: igAccount.platform_id,
+      accessToken: igAccount.access_token,
       content: finalCaption,
       mediaUrls: rawUrls,
     });
 
     if (!result.success) {
-      await handlePublishError(supabase, user.id, post.id, result.error ?? "Instagram publish failed", "instagram", targetAccountId);
+      await handlePublishError(supabase, userId, postId, result.error ?? "Instagram publish failed", "instagram", targetAccountId);
       return { success: false, error: result.error };
     }
 
-    await handlePublishSuccess(supabase, user.id, post.id, result.externalId ?? "", "instagram", targetAccountId);
+    await handlePublishSuccess(supabase, userId, postId, result.externalId ?? "", "instagram", targetAccountId);
     return { success: true, data: { externalId: result.externalId, platform: "instagram" } };
   }
 
@@ -661,7 +646,7 @@ export async function publishPost(input: { postId: string }): Promise<{
   //   2) the resumable upload protocol to YouTube Data API v3,
   //   3) writing the returned video ID back via handlePublishSuccess.
   if (targetPlatform === "youtube") {
-    const ytAccount = await resolveTargetAccount(supabaseAdmin, user.id, "youtube", targetAccountId);
+    const ytAccount = await resolveTargetAccount(supabaseAdmin, userId, "youtube", targetAccountId);
 
     if (!ytAccount?.access_token) {
       return {
@@ -687,8 +672,8 @@ export async function publishPost(input: { postId: string }): Promise<{
     if (!result.success) {
       await handlePublishError(
         supabase,
-        user.id,
-        post.id,
+        userId,
+        postId,
         result.error ?? "YouTube publish failed",
         "youtube",
         targetAccountId,
@@ -698,8 +683,8 @@ export async function publishPost(input: { postId: string }): Promise<{
 
     await handlePublishSuccess(
       supabase,
-      user.id,
-      post.id,
+      userId,
+      postId,
       result.externalId ?? "",
       "youtube",
       targetAccountId,
@@ -726,7 +711,7 @@ export async function publishPost(input: { postId: string }): Promise<{
   //      (`urn:li:person:{openIdSub}`) and writing the post URN back via
   //      handlePublishSuccess.
   if (targetPlatform === "linkedin") {
-    const liAccount = await resolveTargetAccount(supabaseAdmin, user.id, "linkedin", targetAccountId);
+    const liAccount = await resolveTargetAccount(supabaseAdmin, userId, "linkedin", targetAccountId);
 
     if (!liAccount?.access_token) {
       return {
@@ -752,8 +737,8 @@ export async function publishPost(input: { postId: string }): Promise<{
     if (!result.success) {
       await handlePublishError(
         supabase,
-        user.id,
-        post.id,
+        userId,
+        postId,
         result.error ?? "LinkedIn publish failed",
         "linkedin",
         targetAccountId,
@@ -763,8 +748,8 @@ export async function publishPost(input: { postId: string }): Promise<{
 
     await handlePublishSuccess(
       supabase,
-      user.id,
-      post.id,
+      userId,
+      postId,
       result.externalId ?? "",
       "linkedin",
       targetAccountId,
@@ -777,7 +762,7 @@ export async function publishPost(input: { postId: string }): Promise<{
 
   // --- TikTok ---
   if (targetPlatform === "tiktok") {
-    const ttAccount = await resolveTargetAccount(supabaseAdmin, user.id, "tiktok", targetAccountId);
+    const ttAccount = await resolveTargetAccount(supabaseAdmin, userId, "tiktok", targetAccountId);
 
     if (!ttAccount?.access_token) {
       return {
@@ -787,14 +772,13 @@ export async function publishPost(input: { postId: string }): Promise<{
     }
 
     const existingTtExternalId = null;
-    const targetTikTokRow = postPlatforms.find((platformRow) => platformRow.platform === "tiktok");
 
     const result = await publishToTikTokAction({
       account: ttAccount,
       content: rawContent,
       mediaUrls: rawUrls,
       existingExternalId: existingTtExternalId,
-      platformMetadata: targetTikTokRow?.metadata ?? null,
+      platformMetadata: row.metadata ?? null,
     });
 
     if (!result.success) {
@@ -808,8 +792,8 @@ export async function publishPost(input: { postId: string }): Promise<{
 
       await handlePublishError(
         supabase,
-        user.id,
-        post.id,
+        userId,
+        postId,
         result.error ?? "TikTok publish failed",
         "tiktok",
         targetAccountId,
@@ -824,8 +808,8 @@ export async function publishPost(input: { postId: string }): Promise<{
 
     await handlePublishSuccess(
       supabase,
-      user.id,
-      post.id,
+      userId,
+      postId,
       tiktokExternalId,
       "tiktok",
       targetAccountId,
@@ -847,7 +831,7 @@ export async function publishPost(input: { postId: string }): Promise<{
   //   2) Create tweet via API v2 with media_ids attached
   //   3) Store tweet ID as external_id
   if (targetPlatform === "twitter") {
-    const twAccount = await resolveTargetAccount(supabaseAdmin, user.id, "twitter", targetAccountId);
+    const twAccount = await resolveTargetAccount(supabaseAdmin, userId, "twitter", targetAccountId);
 
     if (!twAccount?.access_token) {
       return {
@@ -870,8 +854,8 @@ export async function publishPost(input: { postId: string }): Promise<{
     if (!result.success) {
       await handlePublishError(
         supabase,
-        user.id,
-        post.id,
+        userId,
+        postId,
         result.error ?? "Twitter publish failed",
         "twitter",
         targetAccountId,
@@ -881,8 +865,8 @@ export async function publishPost(input: { postId: string }): Promise<{
 
     await handlePublishSuccess(
       supabase,
-      user.id,
-      post.id,
+      userId,
+      postId,
       result.externalId ?? "",
       "twitter",
       targetAccountId,
@@ -894,7 +878,7 @@ export async function publishPost(input: { postId: string }): Promise<{
   }
 
   // --- Facebook (default) ---
-  const fbAccount = await resolveTargetAccount(supabaseAdmin, user.id, "facebook", targetAccountId);
+  const fbAccount = await resolveTargetAccount(supabaseAdmin, userId, "facebook", targetAccountId);
 
   if (!fbAccount?.access_token || !fbAccount?.platform_id) {
     return {
@@ -1009,15 +993,46 @@ export async function publishPost(input: { postId: string }): Promise<{
       throw new Error("Meta Graph API returned no post ID.");
     }
 
-    await handlePublishSuccess(supabase, user.id, post.id, facebookPostId, "facebook", targetAccountId);
+    await handlePublishSuccess(supabase, userId, postId, facebookPostId, "facebook", targetAccountId);
     return { success: true, data: { externalId: facebookPostId, platform: "facebook" } };
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing to Facebook.";
     console.error("FACEBOOK PUBLISH ERROR:", errorMessage);
 
-    await handlePublishError(supabase, user.id, post.id, errorMessage, "facebook", targetAccountId);
+    await handlePublishError(supabase, userId, postId, errorMessage, "facebook", targetAccountId);
     return { success: false, error: errorMessage };
   }
+  }
+
+  // Publish every pending account row, then aggregate the results into a
+  // single response that keeps the existing UI contract
+  // ({ success, data.warningCode, error, errorCode }).
+  const results: SingleResult[] = [];
+  for (const row of pendingRows) {
+    results.push(await publishTargetRow(row));
+  }
+
+  const succeeded = results.filter((r) => r.success);
+  const failed = results.filter((r) => !r.success);
+  const warningCode = succeeded.find(
+    (r) => r.data?.warningCode === "tiktok_private_only",
+  )?.data?.warningCode;
+
+  return {
+    success: failed.length === 0,
+    data: succeeded[0]?.data
+      ? {
+          externalId: succeeded[0].data.externalId,
+          platform: succeeded[0].data.platform,
+          warningCode,
+        }
+      : undefined,
+    // Surface every failure so the UI toast is actionable.
+    error: failed.length
+      ? failed.map((f) => f.error ?? "Unknown error").join(" | ")
+      : undefined,
+    errorCode: failed.find((f) => f.errorCode)?.errorCode,
+  };
 }
 
 // Shared helpers for DB updates and revalidation
@@ -1090,36 +1105,6 @@ async function handlePublishSuccess(
     console.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
   }
 
-  // ---------------------------------------------------------------
-  // Keep `posts.status` in sync with reality.
-  //
-  // Without this update, a post that was previously archived
-  // (LinkedIn soft-archive from `deleteFromMeta` flips
-  // `posts.status` to "draft") would keep `posts.status="draft"`
-  // even after a successful re-publish. The PostCard then renders a
-  // "Koncept" badge with a freshly-green LinkedIn icon – a confusing
-  // mixed state. We deliberately set `status="published"` here so
-  // the parent row is the single source of truth, in addition to
-  // the dynamic per-post computation in `getPosts` / `getPost`
-  // (which derives the same value from `post_platforms.status`).
-  // ---------------------------------------------------------------
-  const { error: parentStatusError } = await supabase
-    .from("posts")
-    .update({ status: "published" })
-    .eq("id", postId)
-    .eq("user_id", userId);
-
-  if (parentStatusError) {
-    // Non-fatal: the per-post computation in `getPosts` will still
-    // report "published" via the platform rows. We just log so the
-    // inconsistency is visible in production logs.
-    console.error(
-      `handlePublishSuccess: Failed to update parent post ${postId} to status="published":`,
-      parentStatusError.message,
-    );
-  }
-
-  // Hard revalidate – clear all Next.js cache
   revalidatePath("/", "layout");
   revalidateAllLocales("/calendar");
   revalidateAllLocales("/posts");
@@ -1673,39 +1658,58 @@ export async function deleteFromMeta(input: {
       return { success: false, cannotDeleteViaApi: true, error: archiveError.message };
     }
 
-    // Keep `posts.status` in sync with reality so the PostCard badge
-    // doesn't say "Publikované" while every platform icon is grey.
-    // If no other platform row is still in `status="published"`, the
-    // post as a whole is no longer published anywhere – flip the
-    // parent row back to `draft`. We deliberately use `draft` (which
-    // IS in the `posts.status` CHECK constraint) instead of
-    // introducing a new `archived` value, so no DB migration is
-    // required. The user can still re-publish from the UI because
-    // the archived LinkedIn row keeps its `published_at` for context.
-    const stillPublished = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null }).some(
-      (platformRow) =>
-        platformRow.platform !== "linkedin" && platformRow.status === "published",
-    );
-    if (!stillPublished) {
-      const { error: parentStatusError } = await supabase
-        .from("posts")
-        .update({ status: "draft" })
-        .eq("id", input.postId)
-        .eq("user_id", user.id);
-      if (parentStatusError) {
-        // Non-fatal: PostCard will show a brief "Publikované" badge
-        // with grey icons, which the user can fix by clicking the
-        // post. Log for diagnostics.
-        console.error(
-          `[deleteFromMeta] Failed to flip parent post ${input.postId} to draft after LinkedIn archive:`,
-          parentStatusError,
-        );
-      }
-    }
 
     console.log(
       `[deleteFromMeta] LinkedIn row archived (no API DELETE) for post ${input.postId}`,
     );
+
+    revalidateAllLocales("/calendar");
+    revalidateAllLocales("/posts");
+    revalidateAllLocales("/dashboard");
+
+    return {
+      success: true,
+      cannotDeleteViaApi: true,
+    };
+  }
+
+  // --- TikTok soft-archive ---
+  // Postio does not call the TikTok API DELETE (the API does not support
+  // deleting videos programmatically on the free tier). Instead, the user
+  // is told via toast to remove the post manually on TikTok, and Postio
+  // archives the TikTok row so the PostCard keeps showing the post with
+  // a greyed-out TikTok icon.
+  if (input.platform === "tiktok") {
+    const targetRow = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null }).find(
+      (platformRow) => platformRow.platform === "tiktok" && platformRow.status === "published",
+    );
+
+    if (!targetRow) {
+      return {
+        success: false,
+        cannotDeleteViaApi: true,
+        error: "TikTok řádek nenalezen nebo již není publikovaný.",
+      };
+    }
+
+    const now = new Date().toISOString();
+    const { error: archiveError } = await supabase
+      .from("post_platforms")
+      .update({
+        status: "archived",
+        archived_at: now,
+        archive_reason: "user_removed_manually",
+        external_id: null,
+        // Keep `published_at` so analytics still work
+      })
+      .eq("id", targetRow.id);
+
+    if (archiveError) {
+      console.error(`[deleteFromMeta] TikTok archive failed for post ${input.postId}:`, archiveError);
+      return { success: false, cannotDeleteViaApi: true, error: archiveError.message };
+    }
+
+    console.log(`[deleteFromMeta] TikTok row archived (no API DELETE) for post ${input.postId}`);
 
     revalidateAllLocales("/calendar");
     revalidateAllLocales("/posts");
@@ -1960,25 +1964,11 @@ export async function deleteFromMeta(input: {
                   `[deleteFromMeta] Instagram archive failed for post ${input.postId}:`,
                   archiveError,
                 );
-              } else {
-                // Keep `posts.status` in sync: if no other platform is still
-                // published, flip the parent row to `draft`.
-                const stillPublished = postPlatforms.some(
-                  (platformRow) =>
-                    platformRow.platform !== "instagram" && platformRow.status === "published",
-                );
-                if (!stillPublished) {
-                  await supabase
-                    .from("posts")
-                    .update({ status: "draft" })
-                    .eq("id", input.postId)
-                    .eq("user_id", user.id);
-                }
-
-                console.log(
-                  `[deleteFromMeta] Instagram row archived (no API DELETE) for post ${input.postId}`,
-                );
               }
+
+              console.log(
+                `[deleteFromMeta] Instagram row archived (no API DELETE) for post ${input.postId}`,
+              );
             }
 
             revalidateAllLocales("/calendar");

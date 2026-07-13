@@ -679,11 +679,13 @@ export function EditPostDialog({
     Promise.resolve().then(() => {
       if (isEdit && post) {
         setContent(post.content);
-        // Initialize account selection from post_platforms, excluding published ones
+        // Initialize account selection from post_platforms, excluding published/archived ones
         const publishedAccountIds = (post.post_platforms || []).filter(p => p.status === 'published').map(p => p.account_id ?? "");
+        const archivedAccountIds = (post.post_platforms || []).filter(p => p.status === 'archived').map(p => p.account_id ?? "");
+        const lockedAccountIds = [...publishedAccountIds, ...archivedAccountIds];
         const allAccountIds = (post.post_platforms || []).map(p => p.account_id ?? "").filter(Boolean);
-        // Pre-select non-published accounts; published ones are locked in the UI
-        setSelectedAccountIds(allAccountIds.filter(id => !publishedAccountIds.includes(id)));
+        // Pre-select non-published/non-archived accounts; published/archived ones are locked in the UI
+        setSelectedAccountIds(allAccountIds.filter(id => !lockedAccountIds.includes(id)));
         setStatus(post.status);
         setLocation(post.location ?? "");
         setTags(post.tags ?? []);
@@ -976,14 +978,18 @@ export function EditPostDialog({
     setError(null);
     try {
       // #18b — Include account selection in metadata save.
-      // selectedAccountIds contains only non-published accounts (published ones
-      // are filtered out on dialog open). Union with published accounts from
-      // post_platforms for the full list.
+      // selectedAccountIds contains only non-published/non-archived accounts
+      // (published/archived ones are filtered out on dialog open). Union with
+      // published and archived accounts from post_platforms for the full list.
       const publishedAccountIds = (post.post_platforms ?? [])
         .filter((p) => p.status === "published")
         .map((p) => p.account_id ?? "")
         .filter(Boolean);
-      const allAccountIds = [...new Set([...selectedAccountIds, ...publishedAccountIds])];
+      const archivedAccountIds = (post.post_platforms ?? [])
+        .filter((p) => p.status === "archived")
+        .map((p) => p.account_id ?? "")
+        .filter(Boolean);
+      const allAccountIds = [...new Set([...selectedAccountIds, ...publishedAccountIds, ...archivedAccountIds])];
 
       const result = await updatePost(post.id, {
         accountIds: allAccountIds,
@@ -2085,18 +2091,22 @@ export function EditPostDialog({
             ) : (
               <TooltipProvider delayDuration={150}>
                 {(() => {
-                  // Pre-compute published account IDs with legacy NULL-account_id fallback
+                  // Pre-compute published & archived account IDs with legacy NULL-account_id fallback
                   const publishedAccountIds = new Set<string>();
+                  const archivedAccountIds = new Set<string>();
                   const pp = post?.post_platforms ?? [];
                   for (const row of pp) {
-                    if (row.status !== "published") continue;
                     if (row.account_id) {
-                      publishedAccountIds.add(row.account_id);
+                      if (row.status === "published") publishedAccountIds.add(row.account_id);
+                      if (row.status === "archived") archivedAccountIds.add(row.account_id);
                     } else {
                       const firstOfPlatform = allAccounts.find(
                         (a) => a.platform === row.platform
                       );
-                      if (firstOfPlatform) publishedAccountIds.add(firstOfPlatform.id);
+                      if (firstOfPlatform) {
+                        if (row.status === "published") publishedAccountIds.add(firstOfPlatform.id);
+                        if (row.status === "archived") archivedAccountIds.add(firstOfPlatform.id);
+                      }
                     }
                   }
                   // Group accounts by platform
@@ -2148,8 +2158,9 @@ export function EditPostDialog({
                               {accounts.map((account) => {
                                 const isSelected = selectedAccountIds.includes(account.id);
                                 const isPublished = publishedAccountIds.has(account.id);
+                                const isArchived = archivedAccountIds.has(account.id);
                                 const requirementMet = isPlatformMediaRequirementMet(platformId);
-                                const isPlatformDisabled = !isPublished && !requirementMet;
+                                const isPlatformDisabled = (!isPublished && !isArchived) && !requirementMet;
                                 const tooltipMessage = isPlatformDisabled
                                   ? getPlatformRequirementTooltip(platformId)
                                   : null;
@@ -2159,12 +2170,14 @@ export function EditPostDialog({
                                     key={account.id}
                                     type="button"
                                     disabled={isPlatformDisabled}
-                                    onClick={() => !isPublished && toggleAccount(account.id)}
+                                    onClick={() => !isPublished && !isArchived && toggleAccount(account.id)}
                                     className={cn(
                                       "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all duration-200",
                                       isPublished
                                         ? "border-green-500/30 bg-green-500/10 text-green-400/80 opacity-60 pointer-events-none"
-                                        : isSelected
+                                        : isArchived
+                                          ? "border-gray-500/20 bg-gray-500/5 text-gray-400/60 opacity-50 pointer-events-none"
+                                          : isSelected
                                           ? "border-indigo-500/40 dark:border-indigo-500/60 bg-indigo-500/15 dark:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300"
                                           : "border-white/10 bg-white/[0.04] text-slate-700 dark:text-muted-foreground hover:bg-white/[0.08] hover:border-white/20",
                                       isPlatformDisabled && "opacity-40 cursor-not-allowed",

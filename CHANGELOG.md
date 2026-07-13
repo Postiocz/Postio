@@ -3,6 +3,34 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 Refactor — Lokalizace a finální cleanup (Prompt 027, Krok 5)
+
+- **Kontext**: Po zrušení manuálního publikování (Kroky 1–2) zůstala v překladech řada nepoužívaných klíčů z původního výběru typu účtu (Profesionální vs Osobní) a rozcestníku `profileChoice*`.
+- **Změny**: Odstraněny nepoužívané klíče ze `src/messages/{cs,en,uk}.json`:
+  1. Blok v `accounts`: `howToConnect`, `professional`, `professionalDesc`, `personal`, `personalDesc`, `autoPostingBadge`, `notificationsBadge`, `autoPublishing`, `autoPublishingDesc`, `communityReplies`, `communityRepliesDesc`, `postMetrics`, `postMetricsDesc`, `onlyNotifications`, `onlyNotificationsDesc`, `connectProfessional`, `setupPersonal`, `selectTypeSubtitle`.
+  2. `accounts.connectModal.profileChoice*` (5 klíčů: `profileChoiceTitle`, `profileChoiceDirectTitle`, `profileChoiceDirectDesc`, `profileChoiceManualTitle`, `profileChoiceManualDesc`).
+  Zachovány klíče pro výběr účtů (Krok 3: `posts.connectAccount`, `posts.noConnectedAccounts`).
+- **Ověření**: JSON validní ve všech 3 jazycích, `npx tsc --noEmit` ✅, kontrola překladů ✅.
+- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
+### 🔧 Fix — Oprava odesílacího motoru (target `account_id`) (Prompt 027, Krok 4)
+
+- **Kontext**: `publishPost` publikoval jen první `post_platforms` řádek, takže výběr více účtů téže sítě (např. 2× Facebook Page) vedl k publikaci na jediný účet.
+- **Změny**: `src/lib/actions/publish.ts` — `publishPost` nyní iteruje přes VŠECHNY pending `post_platforms` řádky a každý cílí přes vlastní `account_id` (`resolveTargetAccount`). Odstraněn legacy IG→FB fallback (čtení `instagram_id` z FB metadat); TikTok používá `row.metadata`; duplicitní guard přepsán z platform-only na `account_id` scope (již publikovaný řádek = no-op success). Cron edge function (`process-scheduled-posts`) již `account_id` používá, žádná změna.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test publikování na konkrétní účet i na 2× FB ✅.
+- **Upravené soubory**: `src/lib/actions/publish.ts`.
+
+### 🖼️ Feat — PreviewDialog z Dashboardu + TikTok soft-delete (Prompt 028)
+
+- **Kontext**: Kliknutí na příspěvek v sekci "Poslední příspěvky" na Dashboardu navigovalo na editační stránku, místo aby otevřelo náhled. TikTok nebyl podporován v chytrém mazání (chyběl handler v `deleteFromMeta` a chyběl v `noApiPlatforms`). Archivované účty v editoru nebyly vizuálně odlišeny.
+- **Změny**:
+  1. `src/app/[locale]/(dashboard)/dashboard/page.tsx`: Rozšířen dotaz na `post_platforms` o `external_id`, `published_at`; `<Link>` nahrazen `<div>` s `onClick` → otevírá `PreviewDialog` (stejný jako v Kalendáři) včetně "Zobrazit na síti" tlačítka.
+  2. `src/components/dashboard/delete-post-dialog.tsx`: Přidán `"tiktok"` do `noApiPlatforms` — TikTok se chová jako Instagram/LinkedIn (API warning overlay, badge "Ruční smazání").
+  3. `src/lib/actions/publish.ts` (`deleteFromMeta`): Nový handler pro TikTok — archivace `post_platforms` řádku (`status: "archived"`, smazán `external_id`), vrací `cannotDeleteViaApi: true`.
+  4. `src/components/edit-post-dialog.tsx`: Přidána detekce `archivedAccountIds`; archivované účty se v editoru zobrazí šedé (`opacity-50`, `pointer-events-none`), nejsou přepínatelné; metadata save zachovává vazbu.
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/delete-post-dialog.tsx`, `src/lib/actions/publish.ts`, `src/components/edit-post-dialog.tsx`.
+
 ### ✨ Feature — Plná podpora více účtů v Editoru (Prompt 027, Krok 3)
 
 - **Kontext**: Uživatel může mít připojeno více účtů stejné sítě (např. 2× Facebook Page). Editor umožňoval výběr jen 6 statických platforem bez vazby na konkrétní účet. Cílem bylo přepracovat výběr na seznam všech připojených účtů seskupených dle sítě.
@@ -74,45 +102,5 @@
   2. `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: předán `locale` prop do BillingCard.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil přesměrování na Stripe Checkout).
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx`, `src/app/[locale]/(dashboard)/settings/billing/page.tsx`.
-
-### 💳 Feat — Stripe Customer Portal + Manage Subscription UI (Prompt 024, Krok 4)
-
-- **Kontext**: Potřeba API endpointu a UI tlačítka pro správu předplatného ve Stripe Customer Portal.
-- **Změny**:
-  1. `src/app/api/stripe/portal/route.ts` (nový): `POST /api/stripe/portal` vytvoří Billing Portal session a vrátí URL.
-  2. `src/components/billing/manage-subscription-button.tsx` (nový): client komponenta s Button-in-Button pattern, loading stavem, indigo stylingem dle design manuálů.
-  3. `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: načítá `stripe_customer_id`, zobrazí ManageSubscriptionButton pokud existuje.
-  4. `src/messages/{cs,en,uk}.json`: nové klíče `manageSubscription`, `manageSubscriptionDesc`.
-  5. `src/app/api/stripe/checkout/route.ts`: fix `success_url`/`cancel_url` o locale prefix.
-  6. `src/app/api/stripe/portal/route.ts`: fix `return_url` o locale prefix.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (Stripe Portal se otevře, návrat na správnou URL).
-- **Upravené soubory**: `src/app/api/stripe/portal/route.ts` (nový), `src/components/billing/manage-subscription-button.tsx` (nový), `src/app/[locale]/(dashboard)/settings/billing/page.tsx`, `src/app/api/stripe/checkout/route.ts`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-### 💳 Feat — Stripe Webhook Handler (Prompt 024, Krok 3)
-
-- **Kontext**: Potřeba API endpointu pro příjem událostí ze Stripe, aby se změny předplatného propsaly do databáze.
-- **Změny**:
-  1. `src/app/api/webhooks/stripe/route.ts` (nový): handler událostí `checkout.session.completed` (upgrade plan), `customer.subscription.updated` (sync status), `customer.subscription.deleted` (revert na free).
-- **Ověření**: `npx tsc --noEmit` ✅, user potvrdil pokračování.
-- **Upravené soubory**: `src/app/api/webhooks/stripe/route.ts` (nový).
-
-### 💳 Feat — Stripe Checkout API Route (Prompt 024, Krok 2)
-
-- **Kontext**: Potřeba API endpointu, který vytvoří Stripe Checkout Session pro přechod z free na creator/pro tarif.
-- **Změny**:
-  1. `src/lib/stripe.ts` (nový): serverový Stripe klient s aktuální API verzí.
-  2. `src/app/api/stripe/checkout/route.ts` (nový): `POST /api/stripe/checkout` — autentizace uživatele, vytvoření/opětovné použití Stripe Customer, vytvoření Checkout Session, vrácení URL.
-  3. `package.json`: přidán `stripe` npm balíček.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test API v prohlížeči (vrácena platná Stripe Checkout URL) ✅.
-- **Upravené soubory**: `src/lib/stripe.ts` (nový), `src/app/api/stripe/checkout/route.ts` (nový), `package.json`.
-
-### 💳 Feat — Stripe databázová příprava (Prompt 024, Krok 1)
-
-- **Kontext**: Integrace platební brány Stripe. Před samotným napojením API je potřeba připravit databázové sloupce pro evidenci Stripe zákazníků a stavu předplatného.
-- **Změny**:
-  1. `supabase/migrations/035_add_stripe_fields.sql` (nový): přidány sloupce `stripe_customer_id TEXT`, `stripe_subscription_id TEXT`, `subscription_status TEXT`, `trial_ends_at TIMESTAMPTZ` do `public.users`.
-  2. `src/lib/supabase/types.ts`: doplněny nové sloupce do `Row`, `Insert` a `Update` typů tabulky `users`.
-- **Ověření**: `npx tsc --noEmit` ✅, uživatel potvrdil test migrace.
-- **Upravené soubory**: `supabase/migrations/035_add_stripe_fields.sql` (nový), `src/lib/supabase/types.ts`, `ukol.md` (Krok 1 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

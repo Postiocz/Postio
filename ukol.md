@@ -82,7 +82,7 @@ nepoužíváme (logika se odstraňuje, sloupec v DB může zůstat jako unused, 
   `post_platforms` na každý zvolený účet).
 - **Ověření:** `npx tsc --noEmit`, vizuální + funkční test (2× FB, výběr/odškrtnutí).
 
-#### [ ] Krok 4 — Oprava odesílacího motoru (target `account_id`)
+#### [x] Krok 4 — Oprava odesílacího motoru (target `account_id`)
 - **Soubory:** `src/lib/actions/publish.ts`, `supabase/functions/process-scheduled-posts/index.ts`.
 - **Akce:** Ujisti se, že publish motor používá `account_id` k přesnému zacílení na vybranou Stránku
   (helpery `resolveTargetAccount` atd. už `account_id` berou). Odstraň zbylé
@@ -90,7 +90,7 @@ nepoužíváme (logika se odstraňuje, sloupec v DB může zůstat jako unused, 
   odpovídá počtu zvolených účtů (ne jen jedna platforma).
 - **Ověření:** `npx tsc --noEmit`, manuální test publikování na konkrétní účet (i na 2× FB).
 
-#### [ ] Krok 5 — Lokalizace a finální cleanup
+#### [x] Krok 5 — Lokalizace a finální cleanup
 - **Soubory:** `src/messages/{cs,en,uk}.json`.
 - **Akce:** Odstranit nepoužívané klíče (profileChoice*, manualPublish*, connectModal.manual* a
   další z Kroku 1). Zachovat klíče pro výběr účtů (Krok 3) a případně přidat nové pro více účtů.

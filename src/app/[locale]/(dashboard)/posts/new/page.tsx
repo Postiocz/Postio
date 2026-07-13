@@ -27,6 +27,13 @@ import { useMediaUpload } from "@/hooks/use-media-upload";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
 
+type AccountInfo = {
+  id: string;
+  platform: string;
+  account_name: string;
+  avatar_url: string | null;
+};
+
 const PLATFORMS = [
   { id: "instagram", labelCs: "Instagram", labelEn: "Instagram", labelUk: "Instagram" },
   { id: "facebook", labelCs: "Facebook", labelEn: "Facebook", labelUk: "Facebook" },
@@ -63,7 +70,21 @@ export default function NewPostPage() {
    const router = useRouter();
   const { locale } = useParams();
   const [content, setContent] = useState("");
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [allAccounts, setAllAccounts] = useState<AccountInfo[]>([]);
+
+  // Account-based selection (Prompt 028 Krok 1): selectedPlatforms is derived
+  // from the chosen account IDs, keeping backward compatibility with the
+  // media-gating and button-disabling logic. Mirrors EditPostDialog.
+  const selectedPlatforms = useMemo(() => {
+    return [
+      ...new Set(
+        selectedAccountIds
+          .map((id) => allAccounts.find((a) => a.id === id)?.platform)
+          .filter((p): p is string => !!p),
+      ),
+    ];
+  }, [selectedAccountIds, allAccounts]);
   const [scheduledAt, setScheduledAt] = useState("");
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -87,6 +108,28 @@ export default function NewPostPage() {
     };
     getUser();
   }, []);
+
+  // Load connected accounts for the account-based platform picker (Prompt 028 Krok 1).
+  // Mirrors EditPostDialog's fetch("/api/accounts").
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const loadAccounts = async () => {
+      try {
+        const res = await fetch("/api/accounts");
+        if (res.ok) {
+          const data = (await res.json()) as { accounts?: AccountInfo[] };
+          if (!cancelled) setAllAccounts(data.accounts ?? []);
+        }
+      } catch {
+        // non-fatal – account picker shows empty state
+      }
+    };
+    loadAccounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // ---------------------------------------------------------------------
   // Template prefill (?template=<id>)
@@ -199,10 +242,12 @@ export default function NewPostPage() {
     const nextHasVideo = nextMedia.some((i) => i.kind === "video" && i.status !== "error");
     const nextHasAnyMedia = nextMedia.some((i) => i.status !== "error");
     removeMediaItem(id);
-    setSelectedPlatforms((prev) =>
-      prev.filter((p) => {
-        if (p === "tiktok" || p === "youtube") return nextHasVideo;
-        if (p === "instagram") return nextHasAnyMedia;
+    setSelectedAccountIds((prev) =>
+      prev.filter((accountId) => {
+        const account = allAccounts.find((a) => a.id === accountId);
+        if (!account) return true;
+        if (account.platform === "tiktok" || account.platform === "youtube") return nextHasVideo;
+        if (account.platform === "instagram") return nextHasAnyMedia;
         return true;
       }),
     );
@@ -226,9 +271,26 @@ export default function NewPostPage() {
     return getInstagramIncompatibleVideos().length > 0;
   }, [selectedPlatforms, getInstagramIncompatibleVideos]);
 
+  // Prompt 028 Krok 1 – platform chip toggles all accounts of that platform
+  // (the account-chip UI in Krok 2 will call toggleAccount directly).
   const togglePlatform = (platform: string) => {
-    setSelectedPlatforms((prev) =>
-      prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
+    const accountIdsOfPlatform = allAccounts
+      .filter((a) => a.platform === platform)
+      .map((a) => a.id);
+    setSelectedAccountIds((prev) => {
+      const allSelected =
+        accountIdsOfPlatform.length > 0 &&
+        accountIdsOfPlatform.every((id) => prev.includes(id));
+      if (allSelected) {
+        return prev.filter((id) => !accountIdsOfPlatform.includes(id));
+      }
+      return [...new Set([...prev, ...accountIdsOfPlatform])];
+    });
+  };
+
+  const toggleAccount = (id: string) => {
+    setSelectedAccountIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 

@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Refactor — Sjednocení výběru účtů: logika (Prompt 029, Krok 1)
+
+- **Kontext**: Stránka „Nový příspěvek" (`posts/new/page.tsx`) stále používala starý výběr obecných platforem (stav `selectedPlatforms`), zatímco `EditPostDialog` už volí konkrétní účty. Cílem je sjednotit obě UI (viz též Prompt 027 Krok 3).
+- **Změny**: `selectedPlatforms` převeden z `useState` na odvozený `useMemo` z `selectedAccountIds` + `allAccounts`; přidány stavy `selectedAccountIds`/`allAccounts`; načítání účtů z `GET /api/accounts` (efekt po `userId`); přidán `toggleAccount`; `togglePlatform` nyní vybírá všechny účty dané sítě; `handleRemoveMedia` odebírá účty dle platformy (zrcadlo `EditPostDialog`).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (výběr platformy funkční, edit OK).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
+
 ### 🔧 Fix — Oprava inicializace Stripe při buildu (Prompt 030)
 
 - **Kontext**: Při deploy na Vercel selhal build s chybou "Neither apiKey nor config.authenticator provided", protože `src/lib/stripe.ts` inicializoval Stripe i když `STRIPE_SECRET_KEY` nebyl nastaven (s prázdným řetězcem).

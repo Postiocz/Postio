@@ -63,12 +63,13 @@ interface DeletePostDialogProps {
 }
 
 export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleting }: DeletePostDialogProps) {
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  // Selected social_accounts ids – one entry per account the user wants
+  // to remove. Replaces the old platform-only selection so that two
+  // accounts of the same platform (e.g. 2× Facebook Page) are distinct.
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [deleteFromApp, setDeleteFromApp] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [livePlatforms, setLivePlatforms] = useState<string[]>([]);
   // Concrete published accounts (joined social_accounts) for this post.
-  // Drives per-account selection in Krok 3.
   const [publishedAccounts, setPublishedAccounts] = useState<PublishedAccount[]>([]);
   // Confirmation overlay for platforms that can't be deleted via API
   const [showApiWarning, setShowApiWarning] = useState(false);
@@ -78,10 +79,6 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
   const initialPublishedAccounts: PublishedAccount[] = (post.post_platforms || [])
     .filter(p => p.status === "published" && p.external_id)
     .map(p => ({ id: p.account_id ?? "", platform: p.platform, name: p.platform, avatar: null }));
-
-  const initialPublishedPlatforms = (post.post_platforms || [])
-    .filter(p => p.status === "published" && p.external_id)
-    .map(p => p.platform);
 
   // Fetch fresh post data when dialog opens
   const refreshPostData = useCallback(async (postId: string) => {
@@ -110,46 +107,38 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
             };
           });
         setPublishedAccounts(accounts);
-        const platforms = accounts.map(a => a.platform);
-        setLivePlatforms(platforms);
-        setSelectedPlatforms(platforms);
+        setSelectedAccountIds(accounts.map(a => a.id));
       }
     } catch {
       // Silently fall back to props data
       setPublishedAccounts(initialPublishedAccounts);
-      setLivePlatforms(initialPublishedPlatforms);
-      setSelectedPlatforms(initialPublishedPlatforms);
+      setSelectedAccountIds(initialPublishedAccounts.map(a => a.id));
     } finally {
       setRefreshing(false);
     }
-  }, [refreshing, initialPublishedAccounts, initialPublishedPlatforms]);
+  }, [refreshing, initialPublishedAccounts]);
 
   // Initialize state when dialog opens
   useEffect(() => {
     if (open) {
       setPublishedAccounts(initialPublishedAccounts);
-      setLivePlatforms(initialPublishedPlatforms);
-      setSelectedPlatforms(initialPublishedPlatforms);
+      setSelectedAccountIds(initialPublishedAccounts.map(a => a.id));
       setDeleteFromApp(true);
       setShowApiWarning(false);
       refreshPostData(post.id);
     }
   }, [open, post.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // LinkedIn is intentionally included in the selectable platforms
-  // list, but only as an information-only checkbox: Postio does not
-  // call the LinkedIn UGC API DELETE (it has no working sync, so we
-  // cannot reliably confirm that the API actually took effect). The
-  // checkbox just reminds the user to remove the post manually on
-  // LinkedIn – the row in `post_platforms` stays at `status="published"`
-  // so the rest of the post keeps syncing normally.
-  const hasLinkedInPublished = livePlatforms.includes("linkedin");
-  const selectablePlatforms = livePlatforms; // includes LinkedIn
-  const showSelectiveDelete = selectablePlatforms.length > 0;
+  // Per-account selection. `publishedAccounts` is the source of truth;
+  // `selectedAccountIds` holds the user's choice. We derive the list of
+  // selected platforms for the no-API warning logic and the confirm call.
+  const showSelectiveDelete = publishedAccounts.length > 0;
+  const selectedAccounts = publishedAccounts.filter(a => selectedAccountIds.includes(a.id));
+  const selectedPlatforms = selectedAccounts.map(a => a.platform);
 
-  const togglePlatform = (platform: string) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(platform) ? prev.filter(p => p !== platform) : [...prev, platform]
+  const toggleAccount = (id: string) => {
+    setSelectedAccountIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
@@ -176,7 +165,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
     onConfirm(selectedPlatforms, deleteFromApp);
   };
 
-  // Description copy is platform-aware so the user always knows what
+  // Description copy is account-aware so the user always knows what
   // they are about to do. LinkedIn is treated the same as Instagram
   // (Postio does not call any API for it – the user has to remove the
   // post manually on LinkedIn), so the LinkedIn text now reads as an
@@ -184,16 +173,18 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
   // promise. YouTube and Facebook keep the normal "delete from
   // platform via API" UX.
   const descriptionText = (() => {
-    if (hasLinkedInPublished && livePlatforms.length === 1) {
-      return "Tento příspěvek je publikován pouze na LinkedInu. Postio ho neumí smazat z LinkedInu automaticky – zaškrtni \u201ESmazat z LinkedIn\u201C jen pro potvrzení, že příspěvek smažeš ručně na LinkedInu. Pokud zároveň zaškrtneš \u201ETrvale smazat z aplikace\u201C, příspěvek zmizí i z Postia. Jinak zůstane v Postiu jako publikovaný (dokud LinkedIn nepotvrdí smazání).";
+    if (publishedAccounts.length === 0) {
+      return "Opravdu chcete tento příspěvek smazat? Tato akce je nevratná.";
     }
-    if (hasLinkedInPublished && livePlatforms.length > 1) {
-      return "Tento příspěvek je publikován na více sítích. U Facebooku, Instagramu a YouTube Postio smaže příspěvek z platformy automaticky. LinkedIn je nutné smazat ručně – zaškrtnutí \u201ESmazat z LinkedIn\u201C ti připomene, že tam musíš příspěvek odstranit sám/sama. Ostatní platformy příspěvku zůstanou publikované a budou se dál synchronizovat.";
+    const linkedInAccounts = publishedAccounts.filter(a => a.platform === "linkedin");
+    const otherAccounts = publishedAccounts.filter(a => a.platform !== "linkedin");
+    if (linkedInAccounts.length > 0 && otherAccounts.length === 0) {
+      return "Tento příspěběk je publikován pouze na LinkedInu. Postio ho neumí smazat z LinkedInu automaticky – zaškrtni „Smazat z LinkedIn“ jen pro potvrzení, že příspěběk smažeš ručně na LinkedInu. Pokud zároveň zaškrtneš „Trvale smazat z aplikace“, příspěběk zmizí i z Postia. Jinak zůstane v Postiu jako publikovaný (dokud LinkedIn nepotvrdí smazání).";
     }
-    if (showSelectiveDelete) {
-      return "Tento příspěvek je publikován na sociálních sítích. Vyberte, odkud jej chcete odstranit:";
+    if (linkedInAccounts.length > 0 && otherAccounts.length > 0) {
+      return "Tento příspěběk je publikován na více sítích a účtů. U Facebooku, Instagramu a YouTube Postio smaže příspěběk z platformy automaticky. LinkedIn je nutné smazat ručně – zaškrtnutí „Smazat z LinkedIn“ ti připomene, že tam musíš příspěběk odstranit sám/sama. Ostatní platformy příspěvku zůstanou publikované a budou se dál synchronizovat.";
     }
-    return "Opravdu chcete tento příspěvek smazat? Tato akce je nevratná.";
+    return "Tento příspěběk je publikován na sociálních sítích a konkrétních účtů. Vyberte, odkud jej chcete odstranit:";
   })();
 
   return (
@@ -220,31 +211,44 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
               </div>
             ) : (
               <>
-                {/* Platform checkboxes – LinkedIn is included as an
+                {/* Per-account checkboxes – one row per published
+                    social_accounts row. LinkedIn is included as an
                     information-only checkbox (no API call). */}
-                {selectablePlatforms.map(platform => {
-                  const Icon = PlatformIcon[platform] ?? null;
+                {publishedAccounts.map(acc => {
+                  const Icon = PlatformIcon[acc.platform] ?? null;
+                  const selected = selectedAccountIds.includes(acc.id);
                   return (
                     <div
-                      key={platform}
+                      key={acc.id}
                       className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] cursor-pointer transition-colors"
-                      onClick={() => togglePlatform(platform)}
+                      onClick={() => toggleAccount(acc.id)}
                     >
-                      <div className={cn(
-                        "flex h-5 w-5 items-center justify-center rounded border shrink-0",
-                        selectedPlatforms.includes(platform)
-                          ? "bg-indigo-500 border-indigo-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      )}>
-                        {selectedPlatforms.includes(platform) && <Check className="h-3.5 w-3.5 text-white" />}
-                      </div>
+                      {acc.avatar ? (
+                        <img
+                          src={acc.avatar}
+                          alt={acc.name}
+                          className="h-7 w-7 rounded-full shrink-0 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-semibold shrink-0">
+                          {(acc.name || acc.platform).charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       {Icon && (
                         <Icon className="h-5 w-5 shrink-0 text-foreground/60" />
                       )}
                       <span className="font-medium text-foreground flex-1">
-                        Smazat z {PLATFORM_NAMES[platform] || platform}
+                        Smazat z {acc.name}
                       </span>
-                      {noApiPlatforms.includes(platform as typeof noApiPlatforms[number]) && selectedPlatforms.includes(platform) && (
+                      <div className={cn(
+                        "flex h-5 w-5 items-center justify-center rounded border shrink-0",
+                        selected
+                          ? "bg-indigo-500 border-indigo-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      )}>
+                        {selected && <Check className="h-3.5 w-3.5 text-white" />}
+                      </div>
+                      {noApiPlatforms.includes(acc.platform as typeof noApiPlatforms[number]) && selected && (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full shrink-0">
                           <AlertTriangle className="h-3 w-3" />
                           Ruční smazání

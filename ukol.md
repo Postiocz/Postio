@@ -86,7 +86,7 @@ použít **Prompt 031** (029 i 030 jsou obsazené), aby nedošlo ke kolizi.
   3. Typ `post.post_platforms` rozšířit o `account_id` (+ account info z joinu).
 - **Ověření:** `npx tsc --noEmit`.
 
-#### [ ] Krok 3 — UI dialogu: checkboxy dle účtů
+#### [x] Krok 3 — UI dialogu: checkboxy dle účtů
 - **Soubory:** `src/components/dashboard/delete-post-dialog.tsx`.
 - **Akce:**
   1. Stav `selectedPlatforms` → `selectedAccountIds: string[]` (init z `publishedAccounts`). `toggleAccount(id)`.

@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Refactor — Account-aware mazání: UI dialogu (Prompt 031, Krok 3)
+
+- **Kontext**: Modál `DeletePostDialog` stále volil cíl mazání dle PLATFORMY („Smazat z Facebook"), takže u více účtů téže sítě (2× Facebook Page) byl nepoužitelný. Krok 1–2 připravily backend + data; Krok 3 přepisuje UI na výběr konkrétních účtů.
+- **Změny**: Interní stav `selectedPlatforms` → `selectedAccountIds` (init z `publishedAccounts`), `toggleAccount(id)`. Checkboxy renderují `publishedAccounts`: avatar (`<img>` / iniciála) + jméno účtu + ikona sítě (`PlatformIcon[acc.platform]`), text „Smazat z {jméno}". `noApiPlatforms` badge („Ruční smazání") vázán na `acc.platform` vybraného účtu; warning overlay odvozen z platforem vybraných účtů. `descriptionText` přepsán na account-aware. Zachováno „Trvale smazat z aplikace" + design (`rounded-[24px]`, glassmorphism, indigo). (Přesné cílení na 1 z 2× FB účtů přijde v Krok 4.)
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (1 účet i 2× FB zobrazí dva řádky s různými jmény).
+- **Upravené soubory**: `src/components/dashboard/delete-post-dialog.tsx`.
+
 ### 🔧 Refactor — Account-aware mazání: Typy + načítání (Prompt 031, Krok 2)
 
 - **Kontext**: Po Krok 1 (backend cílí na `account_id`) potřebuje dialog data o konkrétních účtech (jméno + avatar), aby v Krok 3 mohl nabídnout výběr per-účet místo per-platforma.
@@ -68,16 +75,5 @@
 - **Změny**: `src/lib/actions/publish.ts` — `publishPost` nyní iteruje přes VŠECHNY pending `post_platforms` řádky a každý cílí přes vlastní `account_id` (`resolveTargetAccount`). Odstraněn legacy IG→FB fallback (čtení `instagram_id` z FB metadat); TikTok používá `row.metadata`; duplicitní guard přepsán z platform-only na `account_id` scope (již publikovaný řádek = no-op success). Cron edge function (`process-scheduled-posts`) již `account_id` používá, žádná změna.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test publikování na konkrétní účet i na 2× FB ✅.
 - **Upravené soubory**: `src/lib/actions/publish.ts`.
-
-### 🖼️ Feat — PreviewDialog z Dashboardu + TikTok soft-delete (Prompt 028)
-
-- **Kontext**: Kliknutí na příspěvek v sekci "Poslední příspěvky" na Dashboardu navigovalo na editační stránku, místo aby otevřelo náhled. TikTok nebyl podporován v chytrém mazání (chyběl handler v `deleteFromMeta` a chyběl v `noApiPlatforms`). Archivované účty v editoru nebyly vizuálně odlišeny.
-- **Změny**:
-  1. `src/app/[locale]/(dashboard)/dashboard/page.tsx`: Rozšířen dotaz na `post_platforms` o `external_id`, `published_at`; `<Link>` nahrazen `<div>` s `onClick` → otevírá `PreviewDialog` (stejný jako v Kalendáři) včetně "Zobrazit na síti" tlačítka.
-  2. `src/components/dashboard/delete-post-dialog.tsx`: Přidán `"tiktok"` do `noApiPlatforms` — TikTok se chová jako Instagram/LinkedIn (API warning overlay, badge "Ruční smazání").
-  3. `src/lib/actions/publish.ts` (`deleteFromMeta`): Nový handler pro TikTok — archivace `post_platforms` řádku (`status: "archived"`, smazán `external_id`), vrací `cannotDeleteViaApi: true`.
-  4. `src/components/edit-post-dialog.tsx`: Přidána detekce `archivedAccountIds`; archivované účty se v editoru zobrazí šedé (`opacity-50`, `pointer-events-none`), nejsou přepínatelné; metadata save zachovává vazbu.
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/delete-post-dialog.tsx`, `src/lib/actions/publish.ts`, `src/components/edit-post-dialog.tsx`.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.

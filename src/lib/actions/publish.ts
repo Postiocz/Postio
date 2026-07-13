@@ -1570,7 +1570,12 @@ export async function updateOnPlatformAction(input: {
  */
 export async function deleteFromMeta(input: {
   postId: string;
-  platform: string;
+  /** Platform key (legacy / fallback when no specific account is targeted). */
+  platform?: string;
+  /** Specific social_accounts row to delete from. Preferred over `platform`
+   *  when the post is published to multiple accounts of the same platform
+   *  (e.g. 2× Facebook Page) so the user can delete from just one of them. */
+  accountId?: string;
 }): Promise<{
   success: boolean;
   error?: string;
@@ -1605,6 +1610,17 @@ export async function deleteFromMeta(input: {
     return { success: false, error: postError?.message ?? "Post not found" };
   }
 
+  // Central target-row resolution. Prefer a specific account when the
+  // post is published to multiple accounts of the same platform (e.g.
+  // 2× Facebook Page); fall back to the first published row of the
+  // platform key for backward compatibility with legacy callers that
+  // still pass only `platform`.
+  const postPlatforms = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null });
+  const targetRow = input.accountId
+    ? postPlatforms.find((r) => r.account_id === input.accountId && r.status === "published")
+    : postPlatforms.find((r) => r.platform === input.platform && r.status === "published");
+  const platform = targetRow?.platform ?? input.platform ?? "";
+
   // LinkedIn soft-archive: Postio does not call the LinkedIn UGC API
   // DELETE (it has no working sync, so we cannot reliably confirm
   // that an API DELETE actually took effect). Instead, the user is
@@ -1623,11 +1639,7 @@ export async function deleteFromMeta(input: {
   //   so the user gets a confirmation toast);
   // - knows the API was NOT called (so the "smazat ručně" toast
   //   is still shown).
-  if (input.platform === "linkedin") {
-    const targetRow = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null }).find(
-      (platformRow) => platformRow.platform === "linkedin" && platformRow.status === "published",
-    );
-
+  if (platform === "linkedin") {
     if (!targetRow) {
       return {
         success: false,
@@ -1679,11 +1691,7 @@ export async function deleteFromMeta(input: {
   // is told via toast to remove the post manually on TikTok, and Postio
   // archives the TikTok row so the PostCard keeps showing the post with
   // a greyed-out TikTok icon.
-  if (input.platform === "tiktok") {
-    const targetRow = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null }).find(
-      (platformRow) => platformRow.platform === "tiktok" && platformRow.status === "published",
-    );
-
+  if (platform === "tiktok") {
     if (!targetRow) {
       return {
         success: false,
@@ -1721,47 +1729,54 @@ export async function deleteFromMeta(input: {
     };
   }
 
-  const postPlatforms = getPostPlatforms(post as { post_platforms?: PostPlatformRow[] | null });
   const publishedPlatforms = postPlatforms.filter((platformRow) => platformRow.status === "published");
   if (publishedPlatforms.length === 0) {
     return { success: false, error: "Příspěvek není publikován." };
   }
 
-  const targetPlatformData = publishedPlatforms.find(
-    (platformRow) => platformRow.platform === input.platform,
-  );
-  const externalId = targetPlatformData?.external_id ?? null;
+  const externalId = targetRow?.external_id ?? null;
 
   if (!externalId) {
-    console.log(`deleteFromMeta: Na platformě ${input.platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
+    console.log(`deleteFromMeta: Na platformě ${platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
   }
-
-  const publishedPlatformNames = publishedPlatforms.map((platformRow) => platformRow.platform);
 
   // Verify the target platform is in published_platforms
-  if (!publishedPlatformNames.includes(input.platform)) {
-    return { success: false, error: `Příspěvek není publikován na ${input.platform}.` };
+  if (!publishedPlatforms.some((platformRow) => platformRow.platform === platform)) {
+    return { success: false, error: `Příspěvek není publikován na ${platform}.` };
   }
 
-  // Look up the access token for the target platform
-  const { data: accounts } = await supabaseAdmin
+  // At this point `targetRow` is guaranteed to be defined: we only reach
+  // here when a published row was found for the resolved account/platform.
+  if (!targetRow) {
+    return { success: false, error: "Cílový řádek příspěvku nenalezen." };
+  }
+
+  // Account-scoped token lookup: when a specific account is targeted,
+  // use that account's token directly; otherwise fall back to the
+  // platform key (legacy callers that pass only `platform`).
+  const tokenQuery = supabaseAdmin
     .from("social_accounts")
     .select("access_token")
     .eq("user_id", user.id)
-    .ilike("platform", input.platform)
-    .eq("is_active", true)
+    .eq("is_active", true);
+  if (input.accountId) {
+    tokenQuery.eq("id", input.accountId);
+  } else {
+    tokenQuery.ilike("platform", platform);
+  }
+  const { data: accounts } = await tokenQuery
     .order("created_at", { ascending: false })
     .limit(1);
 
   if (!accounts?.[0]?.access_token) {
     return {
       success: false,
-      error: `Chybí přístupový token pro ${input.platform}.`,
+      error: `Chybí přístupový token pro ${platform}.`,
     };
   }
 
   // --- Twitter (X) deletion ---
-  if (input.platform === "twitter") {
+  if (platform === "twitter") {
     if (!externalId) {
       return {
         success: false,
@@ -1810,8 +1825,7 @@ export async function deleteFromMeta(input: {
               removed_at: now,
               last_sync_at: now,
             })
-            .eq("post_id", input.postId)
-            .eq("platform", input.platform);
+            .eq("id", targetRow.id);
 
           revalidateAllLocales("/calendar");
           revalidateAllLocales("/posts");
@@ -1843,8 +1857,7 @@ export async function deleteFromMeta(input: {
         removed_at: now,
         last_sync_at: now,
       })
-      .eq("post_id", input.postId)
-      .eq("platform", input.platform);
+      .eq("id", targetRow.id);
 
     revalidateAllLocales("/calendar");
     revalidateAllLocales("/posts");
@@ -1862,7 +1875,7 @@ export async function deleteFromMeta(input: {
     //   - "1234567890" (old posts) — use directly as media_id
     //   - "shortcode" (edge case) — resolve via Graph API
     let deleteId = externalId;
-    if (input.platform === "instagram") {
+    if (platform === "instagram") {
       const pipeIdx = externalId.indexOf("|");
       if (pipeIdx > 0) {
         // "shortcode|media_id" — use the media_id part directly
@@ -1887,7 +1900,7 @@ export async function deleteFromMeta(input: {
 
     const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(deleteId)}`;
 
-    console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${input.platform}`);
+    console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${platform}`);
     console.log(`>>> POUŽITÉ ID: ${deleteId}`);
     console.log(`>>> POUŽITÝ TOKEN (last 10): ${accessToken.slice(-10)}`);
 
@@ -1905,7 +1918,7 @@ export async function deleteFromMeta(input: {
       const resData = await res.json().catch(async () => ({
         raw: await res.text().catch(() => ""),
       }));
-      console.log(`>>> META RESPONSE (${input.platform}):`, JSON.stringify(resData, null, 2));
+      console.log(`>>> META RESPONSE (${platform}):`, JSON.stringify(resData, null, 2));
 
       const errMsg = getGraphErrorMessage(resData);
       if (errMsg) {
@@ -1918,7 +1931,7 @@ export async function deleteFromMeta(input: {
             String(resData).toLowerCase().includes("does not exist"));
 
         if (isObjectNotFound) {
-          console.log(`>>> Object not found on ${input.platform} – post already deleted on platform. Treating as success.`);
+          console.log(`>>> Object not found on ${platform} – post already deleted on platform. Treating as success.`);
           // Mark as removed_externally since the post is already gone on the platform
           const now = new Date().toISOString();
           await supabase
@@ -1928,8 +1941,7 @@ export async function deleteFromMeta(input: {
               removed_at: now,
               last_sync_at: now,
             })
-            .eq("post_id", input.postId)
-            .eq("platform", input.platform);
+            .eq("id", targetRow.id);
 
           revalidateAllLocales("/calendar");
           revalidateAllLocales("/posts");
@@ -1937,16 +1949,11 @@ export async function deleteFromMeta(input: {
 
           return { success: true, cannotDeleteViaApi: true };
         } else {
-          console.error(`>>> CHYBA při mazání na ${input.platform}: ${errMsg}`);
+          console.error(`>>> CHYBA při mazání na ${platform}: ${errMsg}`);
           // API deletion not supported (e.g. Instagram) – soft-archive the row
           // so the user keeps a greyed-out icon as proof of past publication.
           // The post still exists on the platform; the user must delete it manually.
-          if (input.platform === "instagram") {
-            const targetRow = postPlatforms.find(
-              (platformRow) =>
-                platformRow.platform === "instagram" && platformRow.status === "published",
-            );
-
+          if (platform === "instagram") {
             if (targetRow) {
               const now = new Date().toISOString();
               const { error: archiveError } = await supabase
@@ -1983,25 +1990,25 @@ export async function deleteFromMeta(input: {
 
           // For other platforms (Facebook, etc.) that unexpectedly fail:
           // do NOT mark as removed_externally. The post still exists on the platform.
-          return { success: false, cannotDeleteViaApi: true, error: `Smazání z ${input.platform} přes API není podporováno. Smažte příspěvek ručně na platformě.` };
+          return { success: false, cannotDeleteViaApi: true, error: `Smazání z ${platform} přes API není podporováno. Smažte příspěvek ručně na platformě.` };
         }
       }
 
       // Úspěšné smazání – Graph API vrací {"success": true} pro Facebook
       // nebo {"id": "..."} pro Instagram
-      console.log(`>>> Smazání z ${input.platform} ÚSPĚŠNÉ`);
+      console.log(`>>> Smazání z ${platform} ÚSPĚŠNÉ`);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "Neznámá síťová chyba.";
-      console.error(`>>> VÝJIMEKA při mazání na ${input.platform}: ${errorMessage}`);
+      console.error(`>>> VÝJIMEKA při mazání na ${platform}: ${errorMessage}`);
       // Network error – do NOT mark as removed_externally.
       // The post may still exist on the platform. Let syncPublishedPosts verify via GET.
-      return { success: false, cannotDeleteViaApi: true, error: `Síťová chyba při mazání z ${input.platform}. Zkuste to znovu.` };
+      return { success: false, cannotDeleteViaApi: true, error: `Síťová chyba při mazání z ${platform}. Zkuste to znovu.` };
     }
   } else {
-    console.log(`>>> externalId chybí pro ${input.platform} – přeskočíme API volání`);
+    console.log(`>>> externalId chybí pro ${platform} – přeskočíme API volání`);
     // No externalId – do NOT mark as removed_externally.
     // We cannot verify the post status without an ID.
-    return { success: false, cannotDeleteViaApi: true, error: `Chybí ID pro smazání z ${input.platform}.` };
+    return { success: false, cannotDeleteViaApi: true, error: `Chybí ID pro smazání z ${platform}.` };
   }
 
   // Status update – only Facebook / Instagram reach this point
@@ -2011,7 +2018,7 @@ export async function deleteFromMeta(input: {
     status: "draft",
     published_at: null,
     external_id: null
-  }).eq("post_id", input.postId).eq("platform", input.platform);
+  }).eq("id", targetRow.id);
 
   // Revalidate after successful deletion
   revalidatePath("/", "layout");

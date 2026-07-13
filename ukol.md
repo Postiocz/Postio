@@ -42,5 +42,15 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
+### Prompt 030 — Implementace historických otisků smazaných příspěvků
 
+Cíl: Smazané příspěvky nezmizí z kalendáře, ale zůstanou jako "otisky" (read-only) pro historický přehled, bez zabírání místa médii.
+
+Zvolená architektura: **Soft Delete** (status 'archived' + sloupec `deleted_at`).
+
+- [x] **Krok 1: SQL Migrace**. Přidání sloupce `deleted_at` do tabulky `posts`. (posts.status sloupec neexistuje — smazán v migraci 025; post_platforms již 'archived' v CHECK constraintu má z migrace 031.)
+- [ ] **Krok 2: Úprava logiky smazání (`deletePost`)**. Při smazání z Postio: (a) nastavit `posts.status` na 'archived', (b) uložit čas do `deleted_at`, (c) vymazat `media_urls` (úspora místa). Místo hard delete.
+- [ ] **Krok 3: Status architektura + Calendar fetching**. Přidání 'archived' do status computation v `calendar/page.tsx` a `getPosts`/`getPost`. Status computation: `archived` when ALL `post_platforms` statuses are 'archived' (již částečně implementováno v `getPosts`). Doplnění `archived` do `STATUS_STYLES` v `post-calendar-chip.tsx`.
+- [ ] **Krok 4: Vizuální odlišení (UI)**. Archivované posty v kalendáři: zašedlé (`opacity-40`), bez náhledů médií, s ikonou zámku/přeškrtnutého oka. Detail postu v režimu "pouze pro čtení" (zamknutí editace). Vyřešit v `PostCalendarChip` a v edit post dialogu / post detail stránce.
+- [ ] **Krok 5: i18n a Lokalizace**. Přidání klíčů pro "Historický otisk", banner "Tento příspěvek byl smazán a slouží pouze jako záznam" do `messages/{cs,en,uk}.json`.
 

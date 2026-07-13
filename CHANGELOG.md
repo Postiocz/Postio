@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🗄️ SQL Migrace — Přidání `deleted_at` do tabulky `posts` (Prompt 030, Krok 1)
+
+- **Kontext**: Příprava DB pro soft-delete příspěvků. Místo hard-delete se budou příspěvky označovat `deleted_at` a zůstanou v DB jako historické otisky v kalendáři.
+- **Změny**: Nová migrace `038_add_archived_status_to_posts.sql` přidává sloupec `deleted_at TIMESTAMPTZ` do `public.posts` + parciální index `idx_posts_deleted_at`. CHECK constraint na `posts.status` není měněn — sloupec `status` byl smazán v migraci 025 (status se dopočítává z `post_platforms`, který už 'archived' povoluje).
+- **Ověření**: SQL provedeno v Supabase DB ✅.
+- **Upravené soubory**: `supabase/migrations/038_add_archived_status_to_posts.sql` (nový).
+
 ### 🔧 Refactor — Account-aware mazání: Propojení (Prompt 031, Krok 4)
 
 - **Kontext**: Po Krocích 1–3 dialog cílí na konkrétní účty v UI, ale `onConfirm` stále posílal odvozené platformy (`selectedPlatforms`), takže 2× Facebook Page pořád trefil první řádek. Krok 4 propojuje výběr účtů až do backendu.
@@ -65,15 +72,3 @@
 - **Změny**: `src/lib/stripe.ts` nyní inicializuje skutečnou instanci Stripe pouze pokud `STRIPE_SECRET_KEY` existuje; jinak vrátí dummy objekt s typovou kompatibilitou, který nehazuje chybu při buildu.
 - **Ověření**: Lokální `npm run build` úspěšně dokončen ✅.
 - **Upravené soubory**: `src/lib/stripe.ts`.
-
-### 🌐 Refactor — Lokalizace a finální cleanup (Prompt 027, Krok 5)
-
-- **Kontext**: Po zrušení manuálního publikování (Kroky 1–2) zůstala v překladech řada nepoužívaných klíčů z původního výběru typu účtu (Profesionální vs Osobní) a rozcestníku `profileChoice*`.
-- **Změny**: Odstraněny nepoužívané klíče ze `src/messages/{cs,en,uk}.json`:
-  1. Blok v `accounts`: `howToConnect`, `professional`, `professionalDesc`, `personal`, `personalDesc`, `autoPostingBadge`, `notificationsBadge`, `autoPublishing`, `autoPublishingDesc`, `communityReplies`, `communityRepliesDesc`, `postMetrics`, `postMetricsDesc`, `onlyNotifications`, `onlyNotificationsDesc`, `connectProfessional`, `setupPersonal`, `selectTypeSubtitle`.
-  2. `accounts.connectModal.profileChoice*` (5 klíčů: `profileChoiceTitle`, `profileChoiceDirectTitle`, `profileChoiceDirectDesc`, `profileChoiceManualTitle`, `profileChoiceManualDesc`).
-  Zachovány klíče pro výběr účtů (Krok 3: `posts.connectAccount`, `posts.noConnectedAccounts`).
-- **Ověření**: JSON validní ve všech 3 jazycích, `npx tsc --noEmit` ✅, kontrola překladů ✅.
-- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-*Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.

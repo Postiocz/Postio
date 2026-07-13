@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix — Oprava inicializace Stripe při buildu (Prompt 030)
+
+- **Kontext**: Při deploy na Vercel selhal build s chybou "Neither apiKey nor config.authenticator provided", protože `src/lib/stripe.ts` inicializoval Stripe i když `STRIPE_SECRET_KEY` nebyl nastaven (s prázdným řetězcem).
+- **Změny**: `src/lib/stripe.ts` nyní inicializuje skutečnou instanci Stripe pouze pokud `STRIPE_SECRET_KEY` existuje; jinak vrátí dummy objekt s typovou kompatibilitou, který nehazuje chybu při buildu.
+- **Ověření**: Lokální `npm run build` úspěšně dokončen ✅.
+- **Upravené soubory**: `src/lib/stripe.ts`.
+
 ### 🌐 Refactor — Lokalizace a finální cleanup (Prompt 027, Krok 5)
 
 - **Kontext**: Po zrušení manuálního publikování (Kroky 1–2) zůstala v překladech řada nepoužívaných klíčů z původního výběru typu účtu (Profesionální vs Osobní) a rozcestníku `profileChoice*`.
@@ -93,14 +100,5 @@
   2. `src/lib/supabase/types.ts`: `publishing_type?: 'direct' | 'manual'` přidáno do `Row`/`Insert`/`Update` u `social_accounts`.
 - **Ověření**: `npx tsc --noEmit` ✅, migrace spuštěna na Supabase ✅ (uživatel potvrdil).
 - **Upravené soubory**: `supabase/migrations/036_add_publishing_type.sql` (nový), `src/lib/supabase/types.ts`, `ukol.md` (Krok 1 ✅).
-
-### 💳 Feat — UI propojení BillingCard se Stripe Checkout (Prompt 024, Krok 5)
-
-- **Kontext**: Potřeba napojit tlačítka v ceníku na reálné Stripe Checkout API s loading stavy.
-- **Změny**:
-  1. `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx`: tlačítka "Upgrade"/"Subscribe" volají `POST /api/stripe/checkout`, přesměrují na Stripe URL. Loading stav přes `useTransition` + `Loader2` spinner.
-  2. `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: předán `locale` prop do BillingCard.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil přesměrování na Stripe Checkout).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx`, `src/app/[locale]/(dashboard)/settings/billing/page.tsx`.
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.*

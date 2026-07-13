@@ -272,23 +272,6 @@ export default function NewPostPage() {
     return getInstagramIncompatibleVideos().length > 0;
   }, [selectedPlatforms, getInstagramIncompatibleVideos]);
 
-  // Prompt 028 Krok 1 – platform chip toggles all accounts of that platform
-  // (the account-chip UI in Krok 2 will call toggleAccount directly).
-  const togglePlatform = (platform: string) => {
-    const accountIdsOfPlatform = allAccounts
-      .filter((a) => a.platform === platform)
-      .map((a) => a.id);
-    setSelectedAccountIds((prev) => {
-      const allSelected =
-        accountIdsOfPlatform.length > 0 &&
-        accountIdsOfPlatform.every((id) => prev.includes(id));
-      if (allSelected) {
-        return prev.filter((id) => !accountIdsOfPlatform.includes(id));
-      }
-      return [...new Set([...prev, ...accountIdsOfPlatform])];
-    });
-  };
-
   const toggleAccount = (id: string) => {
     setSelectedAccountIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]

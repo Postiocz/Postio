@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Refactor — Sjednocení výběru účtů: cleanup & design (Prompt 029, Krok 4)
+
+- **Kontext**: Po Krocích 1–3 je výběr účtů na stránce „Nový příspěvek" plně sjednocen s `EditPostDialog`. Zbývalo vyčistit mrtvý kód a ověřit design (Pravidlo 8).
+- **Změny**: Odstraněn nepoužitý `togglePlatform` (UI od Krok 2 volá `toggleAccount`). `selectedPlatforms` ponechán (používá ho `isInstagramVideoIncompatible`), `PLATFORMS` ponechán (lokalizované názvy skupin). Ověřeny překlady `noConnectedAccounts`/`connectAccount` (cs/en/uk). Account-picker dodržuje design manuály: radius 20px, glassmorphism, indigo akcenty, grid `grid-cols-2 md:grid-cols-3 gap-3` shodný s Editorem.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (shoda s EditPostDialog, publikování/naplánování).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
+
 ### 🔧 Refactor — Sjednocení výběru účtů: ukládání (Prompt 029, Krok 3)
 
 - **Kontext**: Po Krocích 1–2 volí UI konkrétní účty (`selectedAccountIds`), ale submit handlery stále posílaly `platforms: selectedPlatforms`. Výběr konkrétního účtu (i 2× Facebook Page) by se tak neuložil.
@@ -78,18 +85,5 @@
   2. `src/app/[locale]/(dashboard)/accounts/page.tsx`: odstraněno předávání `publishing_type` z OAuth redirect URL pro Instagram i Facebook; odstraněny `profileChoice*` překladové mapování; `onConnect` handler bez parametru.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test připojení v prohlížeči ✅ (uživatel potvrdil).
 - **Upravené soubory**: `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 2 ✅).
-
-### 🧹 Refactor — Odstranění manuálního publikování (Prompt 027, Krok 1)
-
-- **Kontext**: Meta API nepublikuje na osobní profily, funkce „Manuální publikování s připomínkou" byla nefunkční. Postio se stává čistě profesionálním nástrojem pro automatické publikování; rušíme celou `manual` vs `direct` logiku a připravujeme půdu pro plnou podporu více firemních účtů.
-- **Změny**:
-  1. `src/lib/actions/publish.ts`: odstraněny `getAccountPublishingType` + `markManualReady` a obě větve, které parkovaly `post_platforms` řádek jako `status='ready'` a vracely se před voláním API. Cílení přes `account_id` (Krok 4.2) zachováno.
-  2. `supabase/functions/process-scheduled-posts/index.ts`: odstraněn blok, který při cronu kontroloval `publishing_type='manual'` a přeskakoval API; nyní se publikuje vždy automaticky.
-  3. `src/app/[locale]/(dashboard)/dashboard/page.tsx`: odstraněn `ManualPublishWidget` + typy `ManualReadyRow`/`ManualReadyPost`, dotazy 8+9 (manuální účty / `ready` řádky), agregace a `Bell` import.
-  4. `src/components/edit-post-dialog.tsx`: odstraněn `PublishingTypeBadge`, stav `publishingTypeMap` (i jeho naplňování) a 4 použití, `Zap`/`Bell` importy.
-  5. `src/components/connect-account-modal.tsx`: odstraněn `showProfileChoice`, výběr Profil vs Osobní i ⚡/🔔 badge; klik na ikonu sítě rovnou volá `handleConnect("direct")`.
-  6. `src/app/[locale]/(dashboard)/accounts/page.tsx`: odebráno předávání `showProfileChoice`.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil: připojení bez výběru profilu, v editoru žádná 🔔/⚡, dashboard bez widgetu „Připraveno k ručnímu zveřejnění").
-- **Upravené soubory**: `src/lib/actions/publish.ts`, `supabase/functions/process-scheduled-posts/index.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/edit-post-dialog.tsx`, `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 1 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.

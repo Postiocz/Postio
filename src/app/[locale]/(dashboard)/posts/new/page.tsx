@@ -361,7 +361,7 @@ export default function NewPostPage() {
       const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
       const result = await createPostAction({
         content: content.trim(),
-        platforms: selectedPlatforms,
+        accountIds: selectedAccountIds,
         scheduledAt: normalizedScheduledAt,
         status,
         location: location.trim() || undefined,
@@ -404,7 +404,7 @@ export default function NewPostPage() {
       return;
     }
 
-    if (selectedPlatforms.length === 0) {
+    if (selectedAccountIds.length === 0) {
       toast.error("Pro publikování vyber alespoň jednu platformu.");
       return;
     }
@@ -429,7 +429,7 @@ export default function NewPostPage() {
       const mediaUrls = getMediaUrls();
       const createResult = await createPostAction({
         content: content.trim(),
-        platforms: selectedPlatforms,
+        accountIds: selectedAccountIds,
         scheduledAt: null,
         status: "draft",
         location: location.trim() || undefined,
@@ -525,7 +525,7 @@ export default function NewPostPage() {
       const mediaUrls = getMediaUrls();
       const result = await createPostAction({
         content: content.trim(),
-        platforms: selectedPlatforms,
+        accountIds: selectedAccountIds,
         scheduledAt: slotResult.scheduledAt,
         status: "scheduled",
         location: location.trim() || undefined,
@@ -1004,7 +1004,7 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={handleQueueToSchedule}
-                disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || queuing || hasUploading() || isInstagramVideoIncompatible}
+                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || queuing || hasUploading() || isInstagramVideoIncompatible}
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 variant="outline"
                 className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all"
@@ -1023,7 +1023,7 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={handlePublishNow}
-                disabled={!content.trim() || selectedPlatforms.length === 0 || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
+                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
@@ -1032,7 +1032,7 @@ export default function NewPostPage() {
               </Button>
             </div>
             {/* Explain why buttons might be disabled when only internal tags were set. */}
-            {(!content.trim() || selectedPlatforms.length === 0) && (
+            {(!content.trim() || selectedAccountIds.length === 0) && (
               <p className="text-xs text-muted-foreground/60">
                 {t("newPostHint")}
               </p>

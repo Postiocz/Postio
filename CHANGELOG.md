@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Refactor — Sjednocení výběru účtů: ukládání (Prompt 029, Krok 3)
+
+- **Kontext**: Po Krocích 1–2 volí UI konkrétní účty (`selectedAccountIds`), ale submit handlery stále posílaly `platforms: selectedPlatforms`. Výběr konkrétního účtu (i 2× Facebook Page) by se tak neuložil.
+- **Změny**: Ve všech 3 submit handlerech (`handleSubmit`, `handlePublishNow`, `handleQueueToSchedule`) změněno `platforms: selectedPlatforms` → `accountIds: selectedAccountIds`; backend `createPostAction` už `accountIds` zpracovává (lookup platformy dle `account_id`, zápis do `post_platforms`). Kontroly `selectedPlatforms.length === 0` → `selectedAccountIds.length === 0` na guardu handleru, disabled tlačítkách i `newPostHint`. `handleRemoveMedia` (účty dle platformy) již hotovo v Krok 1. `selectedPlatforms` zůstalo jen jako odvozený `useMemo` (instagram-block).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (vytvoření s konkrétním účtem i 2× FB, publikování/naplánování, media-gating auto-odebírání).
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
+
 ### 🔧 Refactor — Sjednocení výběru účtů: UI (Prompt 029, Krok 2)
 
 - **Kontext**: Stránka „Nový příspěvek" (`posts/new/page.tsx`) po Krok 1 měla logiku na účty, ale UI stále renderovala textové chips obecných platforem. Cílem bylo sjednotit UI s `EditPostDialog` (výběr konkrétních účtů, i 2× Facebook Page).
@@ -84,15 +91,5 @@
   6. `src/app/[locale]/(dashboard)/accounts/page.tsx`: odebráno předávání `showProfileChoice`.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test v prohlížeči ✅ (uživatel potvrdil: připojení bez výběru profilu, v editoru žádná 🔔/⚡, dashboard bez widgetu „Připraveno k ručnímu zveřejnění").
 - **Upravené soubory**: `src/lib/actions/publish.ts`, `supabase/functions/process-scheduled-posts/index.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/components/edit-post-dialog.tsx`, `src/components/connect-account-modal.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `ukol.md` (Krok 1 ✅).
-
-### 🎨 Feat — Vizuální indikátory publikování v Editoru (Prompt 026, Krok 3)
-
-- **Kontext**: Po zavedení `publishing_type` (Kroky 1-2) potřebuje uživatel v editoru příspěvku vidět, zda daný účet publikuje automaticky, či manuálně s připomínkou.
-- **Změny**:
-  1. `src/components/edit-post-dialog.tsx`: fetch účtů nově tahá `publishing_type`, sestaven stav `publishingTypeMap` (`platform -> direct|manual`).
-  2. Nový `PublishingTypeBadge` (16px glassmorphism odznáček): `Zap` (indigo) pro `direct` = Automatické publikování, `Bell` (amber) pro `manual` = Manuální publikování s připomínkou; tooltip přes nativní `title`.
-  3. Odznáček přidán ke všem ikonám platforem v editoru: výběr platforem, preview tabs, dodatečná tlačítka „Publikovat na…" a „Aktualizovat na…". Zobrazuje se jen u propojených účtů s známým `publishing_type`.
-- **Ověření**: `npx tsc --noEmit` ✅, vizuální test v prohlížeči ✅ (uživatel potvrdil ⚡/🔔 s tooltipem).
-- **Upravené soubory**: `src/components/edit-post-dialog.tsx`, `ukol.md` (Krok 3 ✅).
 
 *Starší historii projektu a předchozí milníky najdeš v historii Git commitů na GitHubu.

@@ -91,7 +91,7 @@ zápisu do CHANGELOGu po dokončení zvážit přejmenování (např. Prompt 029
   - **Pravidlo 8:** před úpravou načíst `.agents/skills/design-taste-frontend/SKILL.md` + `.agents/skills/high-end-visual-design/SKILL.md` a dodržet (Premium Glassmorphism, radius 20px, indigo akcenty).
 - **Ověření:** `npx tsc --noEmit`, vizuální test v prohlížeči (shoda s `EditPostDialog`).
 
-#### [ ] Krok 3 — Ukládání (createPostAction dostává `accountIds`)
+#### [x] Krok 3 — Ukládání (createPostAction dostává `accountIds`)
 - **Soubory:** `src/app/[locale]/(dashboard)/posts/new/page.tsx`.
 - **Akce:** Ve všech 3 submit handlerech (`handleSubmit`, `handlePublishNow`, `handleQueueToSchedule`) změnit
   `createPostAction({ ..., platforms: selectedPlatforms, ... })` na `accountIds: selectedAccountIds`

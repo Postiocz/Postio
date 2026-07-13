@@ -342,9 +342,13 @@ export async function updatePost(id: string, inputData: {
 }
 
 /**
- * Delete a post from Meta platforms (Facebook / Instagram) and from local DB.
- * Robust: if Meta API returns 404/400 (post already deleted externally),
- * we still remove the post from our DB (or mark it as 'removed_externally').
+ * Soft-delete a post: archives all post_platforms rows, sets deleted_at
+ * timestamp, and clears media_urls to save storage. The post stays in the
+ * DB as a historical "footprint" visible in the calendar.
+ *
+ * Also attempts to delete from Meta (Facebook / Instagram) via Graph API
+ * if the post was published, but gracefully handles 404/400 errors
+ * (post already deleted externally).
  */
 export async function deletePost(id: string) {
   const supabase = await createClient();
@@ -434,11 +438,38 @@ export async function deletePost(id: string) {
     // Still proceed – never block the user
   }
 
-  // Normal hard delete from our DB
-  const { error } = await supabase.from("posts").delete().eq("id", id).eq("user_id", user.id);
+  // Soft delete: archive post_platforms, set deleted_at, clear media_urls
+  // The post stays in the DB as a historical "footprint" in the calendar.
+  const now = new Date().toISOString();
+
+  // Archive all non-archived post_platforms rows
+  const { error: ppError } = await supabase
+    .from("post_platforms")
+    .update({
+      status: "archived",
+      archived_at: now,
+      archive_reason: "user_removed_from_app",
+    })
+    .eq("post_id", id)
+    .neq("status", "archived");
+
+  if (ppError) {
+    console.error("Error archiving post platforms:", ppError);
+    return { success: false, error: ppError.message };
+  }
+
+  // Soft-delete the post itself: set deleted_at, clear media_urls to save storage
+  const { error } = await supabase
+    .from("posts")
+    .update({
+      deleted_at: now,
+      media_urls: [],
+    })
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (error) {
-    console.error("Error deleting post:", error);
+    console.error("Error soft-deleting post:", error);
     return { success: false, error: error.message };
   }
 

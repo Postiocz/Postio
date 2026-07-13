@@ -313,6 +313,7 @@ export function PostCard({
       className={cn(
         "relative group bg-white/80 dark:bg-card/40 backdrop-blur-md border rounded-[20px] p-5 mb-6 transition-all hover:border-indigo-500/30 dark:hover:border-indigo-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-2xl",
         isSelected ? "border-indigo-500/50 dark:border-indigo-500/40 ring-1 ring-indigo-500/20" : "border-black/[0.08] dark:border-white/[0.06]",
+        post.status === "archived" && "opacity-50",
       )}
     >
       {/* Action buttons – top right (checkbox integrated here on hover) */}
@@ -336,6 +337,8 @@ export function PostCard({
             )}
           </button>
         )}
+        {/* Edit – hidden for archived (historical) posts */}
+        {post.status !== "archived" && (
         <Button
           variant="ghost"
           size="icon-sm"
@@ -345,6 +348,7 @@ export function PostCard({
         >
           <Edit className="h-3.5 w-3.5" />
         </Button>
+        )}
         {/* Preview (Eye) button – opens standalone preview dialog */}
         <Button
           variant="ghost"
@@ -381,8 +385,8 @@ export function PostCard({
             </Button>
           </>
         )}
-        {/* Regular delete button – hidden for removed_externally */}
-        {post.status !== "removed_externally" && (
+        {/* Regular delete button – hidden for removed_externally and archived */}
+        {post.status !== "removed_externally" && post.status !== "archived" && (
           <Button
             variant="ghost"
             size="icon-sm"

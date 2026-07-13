@@ -205,6 +205,8 @@ export default function EditPostPage() {
     })();
   }, [id, supabase, loadExistingUrls]);
 
+  const isArchived = postPlatforms.length > 0 && postPlatforms.every((p) => p.status === "archived");
+
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) =>
       prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
@@ -459,6 +461,16 @@ export default function EditPostPage() {
             </div>
           )}
 
+          {isArchived && (
+            <div className="flex items-start gap-3 rounded-xl border border-gray-500/30 bg-gray-500/10 p-4 text-sm text-muted-foreground">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-medium">{t("archivedBannerTitle") ?? "Historical Record"}</p>
+                <p className="text-xs text-muted-foreground/70">{t("archivedBannerDesc") ?? "This post was deleted and serves only as a historical record. Editing is not available."}</p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">{t("status")}</Label>
             <div className="flex flex-wrap gap-2">
@@ -469,11 +481,13 @@ export default function EditPostPage() {
                     key={s}
                     type="button"
                     onClick={() => setStatus(s)}
+                    disabled={isArchived}
                     className={
                       "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all" +
                       (isSelected
                         ? " border-indigo-500/50 bg-indigo-500/20 text-indigo-300"
-                        : " border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:border-white/10")
+                        : " border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:border-white/10") +
+                      (isArchived ? " opacity-50 cursor-not-allowed" : "")
                     }
                   >
                     {t(s)}
@@ -491,10 +505,12 @@ export default function EditPostPage() {
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="min-h-[200px] resize-y bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
+              disabled={isArchived}
+              className="min-h-[200px] resize-y bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
+          {!isArchived && (
           <div className="space-y-3">
             <Label className="text-sm font-medium text-muted-foreground/80">{t("mediaFiles")}</Label>
             <input
@@ -632,6 +648,7 @@ export default function EditPostPage() {
               </div>
             )}
           </div>
+          )}
 
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">
@@ -645,11 +662,13 @@ export default function EditPostPage() {
                     key={platform}
                     type="button"
                     onClick={() => togglePlatform(platform)}
+                    disabled={isArchived}
                     className={
                       "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all" +
                       (isSelected
                         ? " border-indigo-500/50 bg-indigo-500/20 text-indigo-300"
-                        : " border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:border-white/10")
+                        : " border-white/5 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:border-white/10") +
+                      (isArchived ? " opacity-50 cursor-not-allowed" : "")
                     }
                   >
                     {t(platform)}
@@ -666,8 +685,9 @@ export default function EditPostPage() {
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
+                disabled={isArchived}
                 placeholder={t("locationPlaceholder")}
-                className="h-12 rounded-xl border-white/10 bg-black/20 pl-10 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
+                className="h-12 rounded-xl border-white/10 bg-black/20 pl-10 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -742,6 +762,7 @@ export default function EditPostPage() {
             />
           </div>
 
+          {!isArchived && (
           <div className="flex flex-col gap-3 pt-2">
             {/* Instagram video-resolution hard-block banner. */}
             {isInstagramVideoIncompatible && (
@@ -794,6 +815,8 @@ export default function EditPostPage() {
               </p>
             )}
           </div>
+          )}
+
         </div>
       </div>
     </div>

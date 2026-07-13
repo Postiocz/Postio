@@ -342,9 +342,9 @@ export async function updatePost(id: string, inputData: {
 }
 
 /**
- * Soft-delete a post: archives all post_platforms rows, sets deleted_at
- * timestamp, and clears media_urls to save storage. The post stays in the
- * DB as a historical "footprint" visible in the calendar.
+ * Soft-delete a post: archives all post_platforms rows and sets deleted_at
+ * timestamp. Media URLs are preserved so the post remains visually
+ * representative in the calendar/history as a historical "footprint".
  *
  * Also attempts to delete from Meta (Facebook / Instagram) via Graph API
  * if the post was published, but gracefully handles 404/400 errors
@@ -458,12 +458,11 @@ export async function deletePost(id: string) {
     return { success: false, error: ppError.message };
   }
 
-  // Soft-delete the post itself: set deleted_at, clear media_urls to save storage
+  // Soft-delete the post itself: set deleted_at, keep media_urls for historical display
   const { error } = await supabase
     .from("posts")
     .update({
       deleted_at: now,
-      media_urls: [],
     })
     .eq("id", id)
     .eq("user_id", user.id);

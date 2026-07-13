@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar as CalendarIcon, Check, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Instagram, Facebook, Twitter, Linkedin, Youtube, TikTok } from "@/components/ui/social-icons";
 import type { Post, PostPlatform } from "@/types/calendar";
@@ -167,6 +167,10 @@ export function PostCalendarChip({
       <span className="truncate">
         {post.content?.substring(0, contentLength)}
       </span>
+
+      {post.status === "archived" && (
+        <Lock className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+      )}
     </div>
   );
 }

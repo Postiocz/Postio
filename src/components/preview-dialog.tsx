@@ -288,6 +288,14 @@ export function PreviewDialog({
             </div>
           )}
 
+          {/* Archived banner – shown only for historical/soft-deleted posts */}
+          {post.status === "archived" && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
+              <span className="font-medium">Historický záznam</span>
+              <span className="text-amber-500/70 dark:text-amber-400/70">— tento příspěvek byl smazán</span>
+            </div>
+          )}
+
           {/* High-fidelity preview – max height on desktop, scroll as safety net */}
           {availableTabs.length > 0 ? (
             <div className="relative overflow-y-auto rounded-[20px] border border-white/5 bg-black max-h-[65vh] postio-scrollbar">

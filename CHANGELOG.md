@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Oprava — Jednotná čistá ikona X napříč aplikací
+
+- **Kontext**: Ikona X se na různých místech vykreslovala špatně — stránka „Sociální účty" (připojit účet) i univerzální connect modal používaly starý pták (`Twitter` z `social-icons`), zatímco `XIcon` už byl opraven.
+- **Změny**: `src/components/ui/social-icons.tsx` — export `Twitter` nyní vykresluje stejnou čistou SVG cestu loga X jako `XIcon`. Tím se opraví ikona X na všech 5 místech: dlaždice „připojit účet", connect modal, kalendářní chip, preview dialog i edit dialog.
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `src/components/ui/social-icons.tsx`.
+
 ### 🎨 Oprava — Barevné rozlišení stavu platforem v dashboardu (Poslední příspěvky)
 
 - **Kontext**: V sekci „Poslední příspěvky" na dashboardu byly ikony všech platforem vždy šedé (`text-muted-foreground`), zatímco na stránce Příspěvky se barví podle stavu (zelená + fajfka při `published`). Nekonzistentní.
@@ -56,10 +63,3 @@
 - **Změny**: Přidány 2 nové klíče do `messages/cs.json`, `en.json`, `uk.json`. Čeština: "Historický záznam" / "Tento příspěvek byl smazán...". Angličtina: "Historical Record" / "This post was deleted...". Ukrajinština: "Історичний запис" / "Цей допис було видалено...".
 - **Ověření**: `npx tsc --noEmit` ✅, JSON validní ✅.
 - **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-### 👁️ Vizuální odlišení — read-only režim pro archivované příspěvky (Prompt 030, Krok 4)
-
-- **Kontext**: Archivované (soft-deleted) příspěvky potřebují vizuálně odlišit od aktivních — zašedlý vzhled, zámek v kalendáři, read-only režim v detailu, skrytí editačních tlačítek.
-- **Změny**: `_post-card.tsx` — opacity-50 pro archivované, skrytí Edit/Delete (jen Preview). `post-calendar-chip.tsx` — Lock ikona. `posts/[id]/page.tsx` — isArchived detekce, read-only banner, disabled textarea/status/platform/location, hidden media section a action buttons. `preview-dialog.tsx` — banner "Historický záznam — tento příspěvek byl smazán". `deletePost` — `media_urls` již nemažeme (zachování vizuální hodnoty).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/calendar/post-calendar-chip.tsx`, `src/app/[locale]/(dashboard)/posts/[id]/page.tsx`, `src/components/preview-dialog.tsx`, `src/lib/actions/posts.ts`.

@@ -80,11 +80,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { platform, accountName, accessToken } = body;
+    const { platform, accountName, accessToken, publishingType } = body;
 
-    if (!platform || !accountName || !accessToken) {
+    const isManual = publishingType === "manual";
+
+    if (!platform || !accountName) {
       return NextResponse.json(
-        { error: "Missing fields: platform, accountName, accessToken" },
+        { error: "Missing fields: platform, accountName" },
+        { status: 400 }
+      );
+    }
+
+    // Manual accounts (e.g. free X) are saved without an access token.
+    if (!isManual && !accessToken) {
+      return NextResponse.json(
+        { error: "Missing field: accessToken" },
         { status: 400 }
       );
     }
@@ -133,9 +143,16 @@ export async function POST(request: NextRequest) {
     // Update the existing manual row, or insert a new one if none exists.
     let dbError: { message: string } | null = null;
     if (existing) {
+      // Reconnect: refresh name / publishing mode. Manual accounts carry no
+      // token, so clear any previously stored one.
       const { error: updateError } = await supabase
         .from("social_accounts")
-        .update({ account_name: accountName, access_token: accessToken, is_active: true })
+        .update({
+          account_name: accountName,
+          access_token: isManual ? "" : accessToken,
+          publishing_type: isManual ? "manual" : "direct",
+          is_active: true,
+        })
         .eq("id", existing.id);
       dbError = updateError;
     } else {
@@ -145,7 +162,10 @@ export async function POST(request: NextRequest) {
           user_id: user.id,
           platform,
           account_name: accountName,
-          access_token: accessToken,
+          // Manual accounts have no API token (NOT NULL column -> empty string).
+          access_token: isManual ? "" : accessToken,
+          publishing_type: isManual ? "manual" : "direct",
+          platform_id: null,
           is_active: true,
         });
       dbError = insertError;

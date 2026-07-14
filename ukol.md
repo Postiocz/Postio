@@ -71,12 +71,12 @@ rozcestník v UI, uložení manuálního X účtu BEZ tokenu, větev v publish s
       - **Tlačítko B** „Automatické odesílání (Připravujeme)" → `disabled`, zašedlé, badge „Připravujeme" / „Experimental".
 - [x] Při úspěchu obnovit seznam účtů (`fetchAccounts()`) + toast.
 
-### Krok 2 — Uložení manuálního X účtu (API)
-- [ ] `src/app/api/accounts/route.ts` (POST): přijmout `publishingType`. Pokud `publishingType === "manual"`,
+### Krok 2 — Uložení manuálního X účtu (API) ✅
+- [x] `src/app/api/accounts/route.ts` (POST): přijmout `publishingType`. Pokud `publishingType === "manual"`,
       NEvyžadovat `accessToken` (povolit chybějící/prázdný); uložit řádek s `publishing_type: "manual"`,
       `account_name` = `@jméno`, `platform_id: null`, `is_active: true`. Zachovat deduplikaci na
       `(user_id, platform)` s `platform_id IS NULL`.
-- [ ] `publishing_type` je v DB z migrace 036 → žádná nová migrace není potřeba.
+- [x] `publishing_type` je v DB z migrace 036 → žádná nová migrace není potřeba.
 
 ### Krok 3 — Logika publish pro manuální X (K vyřízení)
 - [ ] `supabase/functions/process-scheduled-posts/index.ts`: před voláním publish pro `twitter` načíst

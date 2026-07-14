@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐦 Hybridní X režim — Uložení manuálního účtu (Prompt 031-X, Krok 2)
+
+- **Kontext**: Po Krok 1 (rozcestník) musí API přijmout manuální X účet bez tokenu. Sloupec `publishing_type` a status `post_platforms.status='ready'` už v DB existují (migrace 036).
+- **Změny**: `src/app/api/accounts/route.ts` (POST) — přijímá `publishingType`; pro `"manual"` NEvyžaduje `accessToken`, ukládá `publishing_type:"manual"`, `platform_id:null`, `is_active:true`. Pro `direct` (legacy onboarding) zůstává původní chování. `access_token` je NOT NULL → pro manuální účet prázdný řetězec. Zachována deduplikace na `(user_id, platform)` s `platform_id IS NULL` a kontrola limitu účtů. `GET` už `publishing_type` vrací, takže účet se zobrazí v seznamu.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální E2E test (uložení @handle, účet se objeví v seznamu Účtů) ✅.
+- **Upravené soubory**: `src/app/api/accounts/route.ts`.
+
 ### 🐦 Hybridní X režim — Rozcestník pro X (Prompt 031-X, Krok 1)
 
 - **Kontext**: Kvůli ceně X API ($200+) zavádíme hybridní X režim. Uživatel připojí X manuálně (zdarma, jen `@jméno`); Postio mu místo volání API v naplánovaný čas připraví podklady. Krok 1 přidává rozcestník v UI.
@@ -65,10 +72,3 @@
 - **Změny**: Interní stav `selectedPlatforms` → `selectedAccountIds` (init z `publishedAccounts`), `toggleAccount(id)`. Checkboxy renderují `publishedAccounts`: avatar (`<img>` / iniciála) + jméno účtu + ikona sítě (`PlatformIcon[acc.platform]`), text „Smazat z {jméno}". `noApiPlatforms` badge („Ruční smazání") vázán na `acc.platform` vybraného účtu; warning overlay odvozen z platforem vybraných účtů. `descriptionText` přepsán na account-aware. Zachováno „Trvale smazat z aplikace" + design (`rounded-[24px]`, glassmorphism, indigo). (Přesné cílení na 1 z 2× FB účtů přijde v Krok 4.)
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (1 účet i 2× FB zobrazí dva řádky s různými jmény).
 - **Upravené soubory**: `src/components/dashboard/delete-post-dialog.tsx`.
-
-### 🔧 Refactor — Account-aware mazání: Typy + načítání (Prompt 031, Krok 2)
-
-- **Kontext**: Po Krok 1 (backend cílí na `account_id`) potřebuje dialog data o konkrétních účtech (jméno + avatar), aby v Krok 3 mohl nabídnout výběr per-účet místo per-platforma.
-- **Změny**: `PostPlatform` typ rozšířen o `account_id: string | null`. Refresh dotaz v `delete-post-dialog.tsx` rozšířen na `post_platforms(account_id, platform, status, external_id, social_accounts(account_name, avatar_url))`; přidán stav `publishedAccounts` (`{ id, platform, name, avatar }`) sestavený z publikovaných řádků (+ fallback z props). Hlavní seznam (`post_platforms(*)`) vrací `account_id` automaticky.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (modál otevřen, žádná regrese mazání).
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/dashboard/delete-post-dialog.tsx`.

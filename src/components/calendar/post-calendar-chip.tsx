@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar as CalendarIcon, Check, Lock, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Clock, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Instagram, Facebook, Twitter, Linkedin, Youtube, TikTok } from "@/components/ui/social-icons";
 import type { Post, PostPlatform } from "@/types/calendar";
@@ -40,6 +40,8 @@ export function getPlatformIconColor(platformStatus: string): string {
   if (platformStatus === "published") return "text-emerald-600 dark:text-emerald-400";
   if (platformStatus === "failed") return "text-red-600 dark:text-red-400";
   if (platformStatus === "scheduled") return "text-indigo-500 dark:text-indigo-400";
+  // Hybridní X režim (Prompt 031-X-COMBO, Krok 5): manuální X čeká na ruční vyřízení.
+  if (platformStatus === "ready") return "text-sky-500 dark:text-sky-400";
   return "text-muted-foreground";
 }
 
@@ -87,6 +89,11 @@ export function PlatformIconsGroup({ platforms, size = "xs", showBadges = false 
             {showBadges && p.status === "failed" && (
               <div className={cn("absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-red-500", badgeSize)}>
                 <X className="h-1.5 w-1.5 text-white" strokeWidth={4} />
+              </div>
+            )}
+            {showBadges && p.status === "ready" && (
+              <div className={cn("absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-sky-500", badgeSize)}>
+                <Clock className="h-1.5 w-1.5 text-white" strokeWidth={4} />
               </div>
             )}
           </div>

@@ -338,6 +338,8 @@
   },
   "posts": {
     "title": "Příspěvky",
+    "todoTitle": "K vyřízení",
+    "manualReminder": "Manuální připomínka",
     "newPost": "Nový příspěvek",
     "editPost": "Upravit příspěvek",
     "loading": "Načítání...",

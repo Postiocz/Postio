@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐦 Indikátor „K vyřízení" pro manuální X posty (Prompt 031-X-COMBO, Krok 5)
+
+- **Kontext**: Po Krocích 1–4 chyběla v seznamu Příspěvky a v kalendáři viditelná indikace, že manuální X post (platforma ve stavu `post_platforms.status='ready'`) se ještě musí ručně publikovat. V kartě byla `ready` ikona šedá bez popisku.
+- **Změny**: `src/lib/types.ts` — `PlatformStatus` nyní zahrnuje `'ready'`. `_post-card.tsx` — ikona `ready` platformy má sky barvu + hodinový badge; vedle stavového badge přibyl odznáček „K vyřízení" (sky) s tooltipem „Manuální připomínka". `post-calendar-chip.tsx` — ikona `ready` platformy sky + hodinový badge (při `showBadges`). i18n — nové klíče `posts.todoTitle` + `posts.manualReminder` (cs/en/uk).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: `src/lib/types.ts`, `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/calendar/post-calendar-chip.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
 ### 🐦 Oprava — Manuální X účet padal na validaci access_token (Prompt 031-X-COMBO, Krok 1)
 
 - **Kontext**: Při „Odeslat"/naplánování příspěvku určeného jen pro manuální X účet (hybridní režim, `publishing_type='manual'`, `access_token` uložen jako prázdný řetězec) funkce `publishPost` padla na kontrole `if (!twAccount?.access_token)` s chybou „Chybí propojený X (Twitter) účet (access_token)." Manuální post se nedal odeslat.
@@ -63,10 +70,3 @@
 - **Změny**: `_post-card.tsx` — grayscale(100%) filtr s group-hover grayscale-0 + transition; přidán `deleted_at` do typu a zobrazení data smazání vedle chipu "Archivováno". `preview-dialog.tsx` — pro archivované posty se filtrují platformy se statusem 'archived' místo 'published', takže se vykreslí high-fidelity náhled. Typy — `deleted_at` doplněn do `PostListItem`, `NormalizedPost` a `Post` (calendar). Lokalizace — nový klíč `deletedOn` (cs: "smazáno", en: "deleted", uk: "видалено").
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/preview-dialog.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `src/types/calendar.ts`, `src/app/[locale]/(dashboard)/posts/normalize-post.ts`.
-
-### 🌐 i18n — Překlady pro archivované příspěvky (Prompt 030, Krok 5)
-
-- **Kontext**: Chybějící překladové klíče `archivedBannerTitle` a `archivedBannerDesc` pro read-only banner v detailu archivovaného postu. Klíč `statusArchived` již existoval.
-- **Změny**: Přidány 2 nové klíče do `messages/cs.json`, `en.json`, `uk.json`. Čeština: "Historický záznam" / "Tento příspěvek byl smazán...". Angličtina: "Historical Record" / "This post was deleted...". Ukrajinština: "Історичний запис" / "Цей допис було видалено...".
-- **Ověření**: `npx tsc --noEmit` ✅, JSON validní ✅.
-- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.

@@ -338,6 +338,8 @@
   },
   "posts": {
     "title": "Posts",
+    "todoTitle": "To do",
+    "manualReminder": "Manual reminder",
     "newPost": "New Post",
     "editPost": "Edit Post",
     "loading": "Loading...",

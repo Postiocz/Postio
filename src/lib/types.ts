@@ -19,4 +19,4 @@ export type PostStatus =
  * Mirrors PostStatus - DB column can contain any of these values
  * after user soft-delete (archive) or external sync (removed_externally).
  */
-export type PlatformStatus = PostStatus;
+export type PlatformStatus = PostStatus | 'ready';

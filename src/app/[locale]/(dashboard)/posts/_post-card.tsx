@@ -136,6 +136,9 @@ export function PostCard({
 
   const statusLabel = statusLabels[post.status] ?? post.status;
   const statusStyle = STATUS_STYLES[post.status] ?? STATUS_STYLES.draft;
+  // Hybridní X režim (Prompt 031-X-COMBO, Krok 5): platforma ve stavu
+  // 'ready' čeká na ruční publikaci na X – uživatel to musí vidět.
+  const hasReadyPlatform = (post.post_platforms || []).some((p) => p.status === "ready");
 
   const handleDeleteConfirm = async (selectedAccountIds: string[], deleteFromApp: boolean) => {
     setIsDeleting(true);
@@ -454,6 +457,9 @@ export function PostCard({
                 const isPublished = p.status === "published";
                 const isFailed = p.status === "failed";
                 const isRemovedExternally = p.status === "removed_externally";
+                // Hybridní X režim (Prompt 031-X-COMBO, Krok 5): manuální
+                // X účet čeká na ruční vyřízení (status 'ready').
+                const isReady = p.status === "ready";
                 return (
                   <div
                     key={p.id || p.platform}
@@ -462,11 +468,12 @@ export function PostCard({
                       isPublished ? "bg-white dark:bg-white/[0.03] border-emerald-200 dark:border-emerald-500/30" :
                       isFailed ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30" :
                       isRemovedExternally ? "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30" :
+                      isReady ? "bg-sky-50 dark:bg-sky-500/15 border-sky-300 dark:border-sky-500/30" :
                       "bg-white/50 dark:bg-white/[0.02] border-black/5 dark:border-white/5 opacity-60"
                     )}
                     title={`Status: ${p.status}`}
                   >
-                    <Icon className={cn("h-4 w-4", isPublished ? "text-emerald-600 dark:text-emerald-400" : isFailed ? "text-red-600 dark:text-red-400" : isRemovedExternally ? "text-orange-600 dark:text-orange-400" : "text-foreground/80")} />
+                    <Icon className={cn("h-4 w-4", isPublished ? "text-emerald-600 dark:text-emerald-400" : isFailed ? "text-red-600 dark:text-red-400" : isRemovedExternally ? "text-orange-600 dark:text-orange-400" : isReady ? "text-sky-600 dark:text-sky-400" : "text-foreground/80")} />
                     {isPublished && (
                       <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 border-2 border-white dark:border-card">
                         <Check className="h-2 w-2 text-white" strokeWidth={4} />
@@ -482,6 +489,11 @@ export function PostCard({
                         <AlertTriangle className="h-2 w-2 text-white" strokeWidth={4} />
                       </div>
                     )}
+                    {isReady && (
+                      <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-sky-500 border-2 border-white dark:border-card">
+                        <Clock className="h-2 w-2 text-white" strokeWidth={4} />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -489,6 +501,11 @@ export function PostCard({
             <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs ${statusStyle}`}>
               {statusLabel}
             </Badge>
+            {hasReadyPlatform && (
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30" title={t("manualReminder")}>
+                {t("todoTitle")}
+              </Badge>
+            )}
             {post.status === "archived" && post.deleted_at && (
               <span className="text-[10px] text-muted-foreground/50 ml-1">
                 {tv("deletedOn", {}, "deleted")} {new Date(post.deleted_at).toLocaleDateString(localeTag, { day: "numeric", month: "short" })}

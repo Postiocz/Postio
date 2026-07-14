@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐦 Hybridní X režim — Označit jako publikované (Prompt 031-X-COMBO, Krok 2+3)
+
+- **Kontext**: Po Krocích 1 a 5 šel manuální X post do sekce „K vyřízení", ale uživatel ho po ručním zveřejnění na X nemohl odtud odebrat. Chyběla akce, která přepne `post_platforms.status` z `'ready'` na `'published'`.
+- **Změny**: `src/lib/actions/publish.ts` — nová `"use server"` funkce `markAsPublishedManual({ postId, platform?, accountId? })`: ověří vlastnictví postu, nastaví `status='published'`, `published_at=now()`, `publish_error=null` (scope přes `status='ready'` + volitelně `platform`/`accountId`), standardní revalidace. `dashboard/page.tsx` — widget „K vyřízení": `TodoPostItem` nově nese `postId`/`accountId`; emerald tlačítko „Označit jako publikované" volá akci a karta se po úspěchu optimisticky skryje. `_post-card.tsx` — tlačítko v zápatí karty (pouze pro twitter řádek ve stavu `'ready'`), po úspěchu `toast.success` + `router.refresh()`. i18n — `dashboard.markPublished` + `posts.markPublished` (cs/en/uk).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: `src/lib/actions/publish.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
 ### 🐦 Indikátor „K vyřízení" pro manuální X posty (Prompt 031-X-COMBO, Krok 5)
 
 - **Kontext**: Po Krocích 1–4 chyběla v seznamu Příspěvky a v kalendáři viditelná indikace, že manuální X post (platforma ve stavu `post_platforms.status='ready'`) se ještě musí ručně publikovat. V kartě byla `ready` ikona šedá bez popisku.
@@ -63,10 +70,3 @@
 - **Změny**: `src/components/x-connect-modal.tsx` (nový) — glassmorphism modal s volbou "Manuální režim (Zdarma)" (input na `@handle` → `POST /api/accounts` s `publishingType:"manual"`) a zašedlým/disabled tlačítkem "Automatické odesílání (Připravujeme)". `src/app/[locale]/(dashboard)/accounts/page.tsx` — klik na X dlaždici otevírá `XConnectModal` místo univerzálního OAuth modalu; přidán `handleXManualConnect`. Lokalizace `xConnect.*` v cs/en/uk. OAuth route `/api/accounts/x` ponechán (skryt v UI).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: `src/components/x-connect-modal.tsx` (nový), `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-### 👁️ Vizuální vylepšení — Grayscale, datum smazání, archivovaný preview (Prompt 030, Krok 6)
-
-- **Kontext**: Dokončení vizuálního zážitku pro archivované (soft-deleted) příspěvky. 5 refinements: černobílý filtr, datum smazání, oprava preview dialogu, lokalizace. Tlačítka Edit/Delete již byla skryta v Kroku 4.
-- **Změny**: `_post-card.tsx` — grayscale(100%) filtr s group-hover grayscale-0 + transition; přidán `deleted_at` do typu a zobrazení data smazání vedle chipu "Archivováno". `preview-dialog.tsx` — pro archivované posty se filtrují platformy se statusem 'archived' místo 'published', takže se vykreslí high-fidelity náhled. Typy — `deleted_at` doplněn do `PostListItem`, `NormalizedPost` a `Post` (calendar). Lokalizace — nový klíč `deletedOn` (cs: "smazáno", en: "deleted", uk: "видалено").
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/preview-dialog.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`, `src/types/calendar.ts`, `src/app/[locale]/(dashboard)/posts/normalize-post.ts`.

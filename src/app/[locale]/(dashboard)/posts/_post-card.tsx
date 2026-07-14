@@ -19,7 +19,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
-import { deleteFromMeta } from "@/lib/actions/publish";
+import { deleteFromMeta, markAsPublishedManual } from "@/lib/actions/publish";
 import { EditPostDialog } from "@/components/edit-post-dialog";
 import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
 import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
@@ -118,6 +118,9 @@ export function PostCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
+  // Hybridní X režim (Prompt 031-X-COMBO, Krok 2): loading stav tlačítka
+  // „Označit jako publikované" pro manuální X (status 'ready').
+  const [isMarking, setIsMarking] = useState(false);
   // #13 — Content expand/collapse state
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
@@ -139,6 +142,11 @@ export function PostCard({
   // Hybridní X režim (Prompt 031-X-COMBO, Krok 5): platforma ve stavu
   // 'ready' čeká na ruční publikaci na X – uživatel to musí vidět.
   const hasReadyPlatform = (post.post_platforms || []).some((p) => p.status === "ready");
+  // Hybridní X režim (Prompt 031-X-COMBO, Krok 2): tlačítko „Označit jako
+  // publikované" zobrazíme jen pro manuální X ve stavu 'ready'.
+  const readyTwitterRow = (post.post_platforms || []).find(
+    (p) => p.status === "ready" && p.platform.toLowerCase() === "twitter",
+  );
 
   const handleDeleteConfirm = async (selectedAccountIds: string[], deleteFromApp: boolean) => {
     setIsDeleting(true);
@@ -294,6 +302,31 @@ export function PostCard({
       return;
     }
     setIsRepublishing(false);
+  };
+
+  // Hybridní X režim (Prompt 031-X-COMBO, Krok 2): uživatel ručně zveřejnil
+  // manuální X příspěvek → přepneme řádek z 'ready' na 'published'.
+  const handleMarkPublished = async () => {
+    if (!readyTwitterRow) return;
+    setIsMarking(true);
+    try {
+      const result = await markAsPublishedManual({
+        postId: post.id,
+        platform: readyTwitterRow.platform,
+        accountId: readyTwitterRow.account_id ?? undefined,
+      });
+      if (result.success) {
+        toast.success(t("markPublished"));
+        router.refresh();
+      } else {
+        toast.error(result.error || t("toastRemoveUnexpectedError"));
+      }
+    } catch (e) {
+      console.error("markAsPublishedManual error:", e);
+      toast.error(t("toastRemoveUnexpectedError"));
+    } finally {
+      setIsMarking(false);
+    }
   };
 
   const localeTag = toLocaleTag(locale);
@@ -591,6 +624,19 @@ export function PostCard({
                 <Clock className="h-3 w-3" />
                 {tv("scheduledAt", {}, "Published at")}: {scheduledTime}
               </span>
+            )}
+            {readyTwitterRow && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto gap-1.5 h-7 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400"
+                onClick={handleMarkPublished}
+                disabled={isMarking}
+                title={t("markPublished")}
+              >
+                <Check className="h-3.5 w-3.5" />
+                {t("markPublished")}
+              </Button>
             )}
           </div>
         </div>

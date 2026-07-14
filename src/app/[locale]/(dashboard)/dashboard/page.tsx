@@ -52,6 +52,7 @@ import {
   calculateTrend,
 } from "@/lib/dashboard-stats";
 import { normalizePost } from "../posts/normalize-post";
+import { markAsPublishedManual } from "@/lib/actions/publish";
 import {
   PreviewDialog,
   type PreviewPostData,
@@ -112,6 +113,8 @@ type CreatedAtRow = {
 // "K vyřízení" – manuální X příspěvky (Prompt 031-X, Krok 3).
 type TodoPostItem = {
   id: string;
+  postId: string;
+  accountId: string | null;
   platform: string;
   scheduled_at: string | null;
   content: string;
@@ -369,6 +372,8 @@ export default function DashboardPage({
           const post = Array.isArray(row.posts) ? row.posts[0] : row.posts;
           return {
             id: row.id,
+            postId: post?.id ?? "",
+            accountId: row.account_id,
             platform: row.platform,
             scheduled_at: row.scheduled_at,
             content: post?.content ?? "",
@@ -526,6 +531,10 @@ function DashboardContent({
   const [previewPost, setPreviewPost] = useState<PreviewPostData | null>(null);
   // "K vyřízení" – který manuální X příspěvek má zkopírovaný text.
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // "K vyřízení" – id post_platforms řádků už označených jako publikované
+  // (optimistické skrytí karty bez čekání na re-fetch).
+  const [markedIds, setMarkedIds] = useState<Set<string>>(new Set());
+  const [markingId, setMarkingId] = useState<string | null>(null);
 
   const handleCopyText = useCallback(async (id: string, text: string) => {
     try {
@@ -534,6 +543,25 @@ function DashboardContent({
       setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 2000);
     } catch {
       // Clipboard may be unavailable (e.g. non-secure context) – ignore.
+    }
+  }, []);
+
+  // Hybridní X režim (Prompt 031-X-COMBO, Krok 2): uživatel ručně zveřejnil
+  // X příspěvek a odebírá ho ze sekce „K vyřízení".
+  const handleMarkPublished = useCallback(async (todo: TodoPostItem) => {
+    setMarkingId(todo.id);
+    try {
+      const res = await markAsPublishedManual({
+        postId: todo.postId,
+        platform: todo.platform,
+        accountId: todo.accountId ?? undefined,
+      });
+      if (res.success) {
+        // Optimisticky skryjeme kartu – při dalším focusu se seznam obnoví.
+        setMarkedIds((prev) => new Set(prev).add(todo.id));
+      }
+    } finally {
+      setMarkingId(null);
     }
   }, []);
 
@@ -868,17 +896,19 @@ function DashboardContent({
       )}
 
       {/* "K vyřízení" – manuální X příspěvky (Hybridní X režim, Krok 3) */}
-      {data.todoPosts.length > 0 && (
+      {data.todoPosts.filter((todo) => !markedIds.has(todo.id)).length > 0 && (
         <div>
           <div className="mb-4 flex items-center gap-2">
             <XIcon className="h-4 w-4 text-sky-400" />
             <h2 className="text-lg font-semibold">{t("todoTitle")}</h2>
             <Badge variant="outline" className="bg-sky-500/10 text-sky-400">
-              {data.todoPosts.length}
+              {data.todoPosts.filter((todo) => !markedIds.has(todo.id)).length}
             </Badge>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.todoPosts.map((todo) => {
+            {data.todoPosts
+              .filter((todo) => !markedIds.has(todo.id))
+              .map((todo) => {
               const preview = buildRecentPostPreview(todo.content) || postsT("newPost");
               const primaryMedia = todo.media_urls[0] ?? null;
               const timeLabel = todo.scheduled_at
@@ -957,6 +987,16 @@ function DashboardContent({
                           </a>
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                        disabled={markingId === todo.id}
+                        onClick={() => handleMarkPublished(todo)}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        {t("markPublished")}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

@@ -2553,3 +2553,67 @@ export async function publishAdditionalPlatforms(input: {
   }
 }
 
+/**
+ * Hybridní X režim (Prompt 031-X-COMBO, Krok 3): uživatel manuálně
+ * publikoval X příspěvek a chce ho odebrat ze sekce „K vyřízení".
+ * Změní `post_platforms.status` z 'ready' na 'published' a zapíše
+ * `published_at = now()`. Scope dle platform / accountId jako ostatní handlery.
+ */
+export async function markAsPublishedManual(input: {
+  postId: string;
+  platform?: string;
+  accountId?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  // Ověření vlastnictví postu (RLS) před zápisem.
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("id")
+    .eq("id", input.postId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (postError || !post) {
+    return { success: false, error: postError?.message ?? "Post not found" };
+  }
+
+  const publishedAt = new Date().toISOString();
+
+  let ppQuery = supabase
+    .from("post_platforms")
+    .update({
+      status: "published",
+      published_at: publishedAt,
+      publish_error: null,
+    })
+    .eq("post_id", input.postId)
+    .eq("status", "ready");
+
+  if (input.platform) ppQuery = ppQuery.eq("platform", input.platform);
+  if (input.accountId) ppQuery = ppQuery.eq("account_id", input.accountId);
+
+  const { error: ppError } = await ppQuery;
+
+  if (ppError) {
+    console.error("markAsPublishedManual: Failed to update post_platforms:", ppError.message);
+    return { success: false, error: ppError.message };
+  }
+
+  revalidatePath("/", "layout");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+
+  return { success: true };
+}
+

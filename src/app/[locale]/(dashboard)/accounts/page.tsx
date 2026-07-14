@@ -715,6 +715,16 @@ export default function AccountsPage() {
                           {account.metadata.custom_url}
                         </Badge>
                       )}
+                    {/* Hybridní X režim (Prompt 031-X): manuální účet = připomínka */}
+                    {account.platform === "twitter" &&
+                      account.publishing_type === "manual" && (
+                        <Badge
+                          variant="premium"
+                          className="mt-1.5 w-fit gap-1 rounded-full px-2 py-0 text-[10px] font-medium bg-sky-500/10 text-sky-400"
+                        >
+                          {t("manualReminder")}
+                        </Badge>
+                      )}
                     {/* Token expiry warning */}
                     {isExpired && tokenStatus && (
                       <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive">

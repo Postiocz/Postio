@@ -3,6 +3,19 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐦 Hybridní X režim — Logika publish + sekce „K vyřízení" (Prompt 031-X, Krok 3)
+
+- **Kontext**: Po Krocích 1–2 se manuální X účet uloží, ale scheduler neměl twitter větev (padal do „Unsupported platform"). Hybridní režim vyžaduje, aby se manuální X posty NEposílaly přes API, ale označily k ručnímu vyřízení.
+- **Změny**: `supabase/functions/process-scheduled-posts/index.ts` — přidána twitter větev: načte `social_accounts.publishing_type`; pro existující X účet nastaví `manualReady` (žádné volání API) a finální update zapíše `post_platforms.status='ready'` (zachovává `scheduled_at`). `ready` řádky se nepočítají do published/failed a nevkládají analytics; dotaz na začátku bere jen `status='scheduled'`, takže se znovu netahají. `dashboard/page.tsx` — nový dotaz na `post_platforms` (status 'ready', ilike twitter, přes posts!inner pro RLS) + sekce „K vyřízení" s kartami (náhled textu/obrázku, plánované datum, tlačítka „Kopírovat text" → schránka s feedbackem, „Stáhnout obrázek" → media_urls). `accounts/page.tsx` — badge „Manuální připomínka" u manuálního X účtu.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: `supabase/functions/process-scheduled-posts/index.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+### 🌐 i18n — Lokalizace Hybridního X režimu (Prompt 031-X, Krok 4)
+
+- **Kontext**: Chybějící překladové klíče pro rozcestník (xConnect.*) a sekci „K vyřízení" (dashboard.*). xConnect.* přidány v Krocích 1, dashboard.* + accounts.manualReminder v Kroku 3 (nutné pro funkčnost sekce).
+- **Změny**: Do `messages/cs.json`, `en.json`, `uk.json` přidány klíče `dashboard.todoTitle`, `dashboard.copyText`, `dashboard.copied`, `dashboard.downloadImage`, `dashboard.manualReminder` a `accounts.manualReminder` (cs: „K vyřízení"/„Kopírovat text"/„Zkopírováno"/„Stáhnout obrázek"/„Manuální připomínka"; en: „To do"/„Copy text"/„Copied"/„Download image"/„Manual reminder"; uk: „До виконання"/„Копіювати текст"/„Скопійовано"/„Завантажити зображення"/„Ручне нагадування").
+- **Ověření**: JSON validní ✅, `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
 ### 🐦 Hybridní X režim — Uložení manuálního účtu (Prompt 031-X, Krok 2)
 
 - **Kontext**: Po Krok 1 (rozcestník) musí API přijmout manuální X účet bez tokenu. Sloupec `publishing_type` a status `post_platforms.status='ready'` už v DB existují (migrace 036).
@@ -51,24 +64,3 @@
 - **Změny**: `src/lib/actions/posts.ts` — `deletePost`: hard-delete (`supabase.from("posts").delete()`) nahrazen UPDATE: `deleted_at = now()`, `media_urls = []` na `posts` tabulce + archivace všech nearchivovaných `post_platforms` řádků na `status='archived'` s `archived_at` a `archive_reason`. Komentář funkce aktualizován.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test smazání v prohlížeči ✅.
 - **Upravené soubory**: `src/lib/actions/posts.ts`.
-
-### 🗄️ SQL Migrace — Přidání `deleted_at` do tabulky `posts` (Prompt 030, Krok 1)
-
-- **Kontext**: Příprava DB pro soft-delete příspěvků. Místo hard-delete se budou příspěvky označovat `deleted_at` a zůstanou v DB jako historické otisky v kalendáři.
-- **Změny**: Nová migrace `038_add_archived_status_to_posts.sql` přidává sloupec `deleted_at TIMESTAMPTZ` do `public.posts` + parciální index `idx_posts_deleted_at`. CHECK constraint na `posts.status` není měněn — sloupec `status` byl smazán v migraci 025 (status se dopočítává z `post_platforms`, který už 'archived' povoluje).
-- **Ověření**: SQL provedeno v Supabase DB ✅.
-- **Upravené soubory**: `supabase/migrations/038_add_archived_status_to_posts.sql` (nový).
-
-### 🔧 Refactor — Account-aware mazání: Propojení (Prompt 031, Krok 4)
-
-- **Kontext**: Po Krocích 1–3 dialog cílí na konkrétní účty v UI, ale `onConfirm` stále posílal odvozené platformy (`selectedPlatforms`), takže 2× Facebook Page pořád trefil první řádek. Krok 4 propojuje výběr účtů až do backendu.
-- **Změny**: `delete-post-dialog.tsx` — typ prop `onConfirm` změněn na `(selectedAccountIds: string[], deleteFromApp: boolean)`; `handleConfirm` i `handleWarningConfirm` volají `onConfirm(selectedAccountIds, deleteFromApp)`. `_post-card.tsx` — `handleDeleteConfirm(selectedAccountIds, deleteFromApp)` iteruje `for (const accountId of selectedAccountIds) await deleteFromMeta({ postId, accountId })`; `hasArchivedPlatform` odvozen z platforem vybraných účtů přes `post.post_platforms.find(p => p.account_id === accountId)?.platform` (linkedin/instagram). 2× FB nyní maže přesně jeden účet.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (2× FB selektivní mazání z jednoho účtu, LinkedIn ruční, trvalé smazání z aplikace).
-- **Upravené soubory**: `src/components/dashboard/delete-post-dialog.tsx`, `src/app/[locale]/(dashboard)/posts/_post-card.tsx`.
-
-### 🔧 Refactor — Account-aware mazání: UI dialogu (Prompt 031, Krok 3)
-
-- **Kontext**: Modál `DeletePostDialog` stále volil cíl mazání dle PLATFORMY („Smazat z Facebook"), takže u více účtů téže sítě (2× Facebook Page) byl nepoužitelný. Krok 1–2 připravily backend + data; Krok 3 přepisuje UI na výběr konkrétních účtů.
-- **Změny**: Interní stav `selectedPlatforms` → `selectedAccountIds` (init z `publishedAccounts`), `toggleAccount(id)`. Checkboxy renderují `publishedAccounts`: avatar (`<img>` / iniciála) + jméno účtu + ikona sítě (`PlatformIcon[acc.platform]`), text „Smazat z {jméno}". `noApiPlatforms` badge („Ruční smazání") vázán na `acc.platform` vybraného účtu; warning overlay odvozen z platforem vybraných účtů. `descriptionText` přepsán na account-aware. Zachováno „Trvale smazat z aplikace" + design (`rounded-[24px]`, glassmorphism, indigo). (Přesné cílení na 1 z 2× FB účtů přijde v Krok 4.)
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (1 účet i 2× FB zobrazí dva řádky s různými jmény).
-- **Upravené soubory**: `src/components/dashboard/delete-post-dialog.tsx`.

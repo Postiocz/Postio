@@ -1955,6 +1955,9 @@ Deno.serve(async (request: Request) => {
 
       let externalId: string | null = null;
       let publishError: string | null = null;
+      // When true, the row is parked in 'ready' state (manual X reminder)
+      // instead of being published via an API call.
+      let manualReady = false;
 
       const targetPlatform = pp.platform;
 
@@ -2230,15 +2233,53 @@ Deno.serve(async (request: Request) => {
             }
           }
         }
+      } else if (targetPlatform === "twitter") {
+        // --- X / Twitter (Hybrid mode, Prompt 031-X, Krok 3) ---
+        // No X-API publish path is wired up yet, so every X row — including
+        // "direct" accounts until OAuth publishing lands — is parked in the
+        // 'ready' state. A `manual` account (publishing_type='manual') is
+        // intentionally never posted via API: instead we keep the row as
+        // 'ready' so the app's "K vyřízení" section can hand the user the
+        // prepared text + image to post themselves. `scheduled_at` is left
+        // untouched so the reminder stays anchored to the original plan time.
+        const xQuery = supabaseAdmin
+          .from("social_accounts")
+          .select("id, publishing_type")
+          .eq("user_id", post.user_id)
+          .eq("is_active", true)
+          .ilike("platform", "twitter");
+        if (pp.account_id) {
+          xQuery.eq("id", pp.account_id);
+        }
+        const { data: xAccounts, error: xAccountError } = await xQuery
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (xAccountError) {
+          publishError = xAccountError.message;
+          console.log(`>>> X account error for post ${post.id}`, { error: publishError });
+        } else if (!xAccounts?.[0]) {
+          publishError = "Chybí propojený X účet.";
+          console.log(`>>> X account missing for post ${post.id}`, { error: publishError });
+        } else {
+          manualReady = true;
+          console.log(`>>> X hybrid mode for post_platforms ${pp.id}: marked 'ready'`);
+        }
       } else {
         publishError = `Unsupported platform: ${targetPlatform}`;
       }
 
-      console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${targetPlatform} -> ${publishError ? 'failed' : 'published'}`);
+      const newStatus: string = manualReady
+        ? "ready"
+        : publishError
+          ? "failed"
+          : "published";
+
+      console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${targetPlatform} -> ${newStatus}`);
 
       const ppUpdateValues: Record<string, unknown> = {
-        status: publishError ? "failed" : "published",
-        published_at: publishError ? null : nowIso,
+        status: newStatus,
+        published_at: newStatus === "published" ? nowIso : null,
         external_id: externalId,
         publish_error: publishError ?? null,
       };
@@ -2258,7 +2299,10 @@ Deno.serve(async (request: Request) => {
         continue;
       }
 
-      if (!publishError) {
+      // Manual X reminder rows ('ready') are neither published nor failed —
+      // the user still has to post them on X themselves, so they don't feed
+      // analytics or the published/failed counters.
+      if (!publishError && !manualReady) {
         const { error: analyticsError } = await supabaseAdmin
           .from("analytics")
           .insert({ post_id: post.id });
@@ -2273,7 +2317,7 @@ Deno.serve(async (request: Request) => {
 
       if (publishError) {
         failed += 1;
-      } else {
+      } else if (!manualReady) {
         published += 1;
       }
     } catch (error) {

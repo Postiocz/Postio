@@ -108,6 +108,26 @@ type CreatedAtRow = {
   created_at: string | null;
 };
 
+// "K vyřízení" – manuální X příspěvky (Prompt 031-X, Krok 3).
+type TodoPostItem = {
+  id: string;
+  platform: string;
+  scheduled_at: string | null;
+  content: string;
+  media_urls: string[];
+};
+
+type TodoPostRow = {
+  id: string;
+  platform: string;
+  scheduled_at: string | null;
+  account_id: string | null;
+  posts:
+    | { id: string; content: string | null; media_urls: string[] | null }
+    | Array<{ id: string; content: string | null; media_urls: string[] | null }>
+    | null;
+};
+
 function buildRecentPostPreview(content: string) {
   const normalized = content.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
@@ -174,6 +194,7 @@ export default function DashboardPage({
     publishedTotal: 0,
     weeklyTrend: 0,
     userId: null,
+    todoPosts: [],
   });
 
   useEffect(() => {
@@ -204,6 +225,7 @@ export default function DashboardPage({
             publishedTotal: 0,
             weeklyTrend: 0,
             userId: null,
+            todoPosts: [],
           });
           return;
         }
@@ -228,6 +250,7 @@ export default function DashboardPage({
           postTagsRows,
           publishedPlatformsRows,
           postCreatedAtRows,
+          todoRows,
         ] = await Promise.all([
           // 1. Celkový počet příspěvků.
           supabase
@@ -286,6 +309,17 @@ export default function DashboardPage({
             .eq("status", "published"),
           // 7. Datumy vytvoření všech postů – pro trend indikátor.
           supabase.from("posts").select("created_at").eq("user_id", user.id),
+          // 8. "K vyřízení" – manuální X příspěvky (status 'ready' pro twitter).
+          // Hybridní X režim (Prompt 031-X, Krok 3): scheduler tyto řádky
+          // nezveřejnil přes API, ale označil je k ručnímu vyřízení.
+          supabase
+            .from("post_platforms")
+            .select(
+              "id, platform, scheduled_at, account_id, posts!inner(id, content, media_urls)",
+            )
+            .eq("posts.user_id", user.id)
+            .eq("status", "ready")
+            .ilike("platform", "twitter"),
         ]);
 
         if (cancelled) return;
@@ -326,6 +360,20 @@ export default function DashboardPage({
           },
         );
         const connectedAccounts = accountsData.count ?? 0;
+
+        // "K vyřízení" – manuální X příspěvky k ručnímu zveřejnění.
+        const todoPosts: TodoPostItem[] = (
+          (todoRows.data ?? []) as TodoPostRow[]
+        ).map((row) => {
+          const post = Array.isArray(row.posts) ? row.posts[0] : row.posts;
+          return {
+            id: row.id,
+            platform: row.platform,
+            scheduled_at: row.scheduled_at,
+            content: post?.content ?? "",
+            media_urls: post?.media_urls ?? [],
+          };
+        });
         const dbStreak = userData.data?.streak ?? 0;
         const currentPlan = userData.data?.plan ?? "free";
 
@@ -403,6 +451,7 @@ export default function DashboardPage({
           publishedTotal,
           weeklyTrend,
           userId: user.id,
+          todoPosts,
         });
       } catch (error) {
         console.error("Dashboard data fetch error:", error);
@@ -454,6 +503,7 @@ interface DashboardData {
   publishedTotal: number;
   weeklyTrend: number;
   userId: string | null;
+  todoPosts: TodoPostItem[];
 }
 
 function DashboardContent({
@@ -473,6 +523,18 @@ function DashboardContent({
   // Preview dialog state
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPost, setPreviewPost] = useState<PreviewPostData | null>(null);
+  // "K vyřízení" – který manuální X příspěvek má zkopírovaný text.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyText = useCallback(async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 2000);
+    } catch {
+      // Clipboard may be unavailable (e.g. non-secure context) – ignore.
+    }
+  }, []);
 
   const openPreview = useCallback((post: RecentPostItem) => {
     setPreviewPost({
@@ -773,6 +835,105 @@ function DashboardContent({
                     </CardContent>
                   </Card>
                 </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* "K vyřízení" – manuální X příspěvky (Hybridní X režim, Krok 3) */}
+      {data.todoPosts.length > 0 && (
+        <div>
+          <div className="mb-4 flex items-center gap-2">
+            <XIcon className="h-4 w-4 text-sky-400" />
+            <h2 className="text-lg font-semibold">{t("todoTitle")}</h2>
+            <Badge variant="outline" className="bg-sky-500/10 text-sky-400">
+              {data.todoPosts.length}
+            </Badge>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {data.todoPosts.map((todo) => {
+              const preview = buildRecentPostPreview(todo.content) || postsT("newPost");
+              const primaryMedia = todo.media_urls[0] ?? null;
+              const timeLabel = todo.scheduled_at
+                ? t("scheduledFor", {
+                    date: new Date(todo.scheduled_at).toLocaleDateString(locale),
+                  })
+                : null;
+
+              return (
+                <Card
+                  key={todo.id}
+                  className="bg-card/40 backdrop-blur-md border-white/5"
+                >
+                  <CardContent className="flex h-full flex-col gap-3 p-3.5">
+                    <div className="flex items-center gap-1.5">
+                      <XIcon className="h-4 w-4 text-sky-400" />
+                      <span className="text-[11px] font-medium text-sky-400/80">
+                        {t("manualReminder")}
+                      </span>
+                    </div>
+
+                    {primaryMedia && (
+                      <div className="relative aspect-video max-h-[140px] overflow-hidden rounded-lg border border-white/10">
+                        {isVideoUrl(primaryMedia) ? (
+                          <video
+                            src={primaryMedia}
+                            className="h-full w-full object-cover"
+                            preload="metadata"
+                            muted
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={primaryMedia}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    <h3 className="line-clamp-3 whitespace-pre-wrap text-sm font-medium">
+                      {preview}
+                    </h3>
+
+                    {timeLabel && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{timeLabel}</span>
+                      </div>
+                    )}
+
+                    <div className="mt-auto flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => handleCopyText(todo.id, todo.content)}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {copiedId === todo.id
+                          ? t("copied")
+                          : t("copyText")}
+                      </Button>
+                      {primaryMedia && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          asChild
+                        >
+                          <a href={primaryMedia} download target="_blank" rel="noreferrer">
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            {t("downloadImage")}
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>

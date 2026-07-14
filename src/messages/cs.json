@@ -275,6 +275,11 @@
   },
   "dashboard": {
     "title": "Vítejte v Postio",
+    "todoTitle": "K vyřízení",
+    "copyText": "Kopírovat text",
+    "copied": "Zkopírováno",
+    "downloadImage": "Stáhnout obrázek",
+    "manualReminder": "Manuální připomínka",
     "subtitle": "Přehled vaší aktivity na sociálních sítích",
     "totalPosts": "Celkem příspěvků",
     "scheduled": "Naplánované",
@@ -510,6 +515,7 @@
   },
   "accounts": {
     "title": "Sociální účty",
+    "manualReminder": "Manuální připomínka",
     "connect": "Propojit účet",
     "connectAccount": "Propojit účet",
     "disconnect": "Odpojit",
@@ -1023,11 +1029,26 @@
       "heading": "Často kladené dotazy",
       "subheading": "Vše, co potřebuješ vědět, než začneš.",
       "items": [
-        { "q": "Mohu začít zdarma?", "a": "Ano. Tarif Free je trvale zdarma a umožňuje propojit 1 účet a publikovat až 10 příspěvků měsíčně. Kreditní kartu nepotřebuješ." },
-        { "q": "Jaké sítě Postio podporuje?", "a": "Facebook, Instagram, LinkedIn, X (Twitter), TikTok a YouTube. Všechny spravuješ z jednoho místa." },
-        { "q": "Co se stane, když překročím limit příspěvků?", "a": "Na tarifu Free další příspěvky v daném měsíci nepublikuješ, dokud se limit nevynuluje. Přechod na Creator nebo Pro limit odstraní." },
-        { "q": "Lze kdykoliv změnit tarif?", "a": "Ano. Přechod na vyšší i nižší tarif je možný kdykoliv a projeví se okamžitě." },
-        { "q": "Jsou moje data v bezpečí?", "a": "Ano. Přihlašování i přístupové tokeny sítí jsou šifrované, ukládáme je bezpečně a pravidelně obnovujeme." }
+        {
+          "q": "Mohu začít zdarma?",
+          "a": "Ano. Tarif Free je trvale zdarma a umožňuje propojit 1 účet a publikovat až 10 příspěvků měsíčně. Kreditní kartu nepotřebuješ."
+        },
+        {
+          "q": "Jaké sítě Postio podporuje?",
+          "a": "Facebook, Instagram, LinkedIn, X (Twitter), TikTok a YouTube. Všechny spravuješ z jednoho místa."
+        },
+        {
+          "q": "Co se stane, když překročím limit příspěvků?",
+          "a": "Na tarifu Free další příspěvky v daném měsíci nepublikuješ, dokud se limit nevynuluje. Přechod na Creator nebo Pro limit odstraní."
+        },
+        {
+          "q": "Lze kdykoliv změnit tarif?",
+          "a": "Ano. Přechod na vyšší i nižší tarif je možný kdykoliv a projeví se okamžitě."
+        },
+        {
+          "q": "Jsou moje data v bezpečí?",
+          "a": "Ano. Přihlašování i přístupové tokeny sítí jsou šifrované, ukládáme je bezpečně a pravidelně obnovujeme."
+        }
       ]
     },
     "footer": {

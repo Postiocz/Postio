@@ -275,6 +275,11 @@
   },
   "dashboard": {
     "title": "Welcome to Postio",
+    "todoTitle": "To do",
+    "copyText": "Copy text",
+    "copied": "Copied",
+    "downloadImage": "Download image",
+    "manualReminder": "Manual reminder",
     "subtitle": "Overview of your social media activity",
     "totalPosts": "Total Posts",
     "scheduled": "Scheduled",
@@ -510,6 +515,7 @@
   },
   "accounts": {
     "title": "Social Accounts",
+    "manualReminder": "Manual reminder",
     "connect": "Connect Account",
     "connectAccount": "Connect Account",
     "disconnect": "Disconnect",
@@ -1023,11 +1029,26 @@
       "heading": "Frequently asked questions",
       "subheading": "Everything you need to know before you start.",
       "items": [
-        { "q": "Can I start for free?", "a": "Yes. The Free plan is free forever and lets you connect 1 account and publish up to 10 posts per month. No credit card needed." },
-        { "q": "Which networks does Postio support?", "a": "Facebook, Instagram, LinkedIn, X (Twitter), TikTok and YouTube. You manage them all from one place." },
-        { "q": "What happens if I exceed the post limit?", "a": "On the Free plan you won't be able to publish more posts that month until the limit resets. Upgrading to Creator or Pro removes the limit." },
-        { "q": "Can I change my plan anytime?", "a": "Yes. You can move to a higher or lower plan whenever you want, and the change applies immediately." },
-        { "q": "Is my data safe?", "a": "Yes. Login and network access tokens are encrypted, stored securely, and refreshed regularly." }
+        {
+          "q": "Can I start for free?",
+          "a": "Yes. The Free plan is free forever and lets you connect 1 account and publish up to 10 posts per month. No credit card needed."
+        },
+        {
+          "q": "Which networks does Postio support?",
+          "a": "Facebook, Instagram, LinkedIn, X (Twitter), TikTok and YouTube. You manage them all from one place."
+        },
+        {
+          "q": "What happens if I exceed the post limit?",
+          "a": "On the Free plan you won't be able to publish more posts that month until the limit resets. Upgrading to Creator or Pro removes the limit."
+        },
+        {
+          "q": "Can I change my plan anytime?",
+          "a": "Yes. You can move to a higher or lower plan whenever you want, and the change applies immediately."
+        },
+        {
+          "q": "Is my data safe?",
+          "a": "Yes. Login and network access tokens are encrypted, stored securely, and refreshed regularly."
+        }
       ]
     },
     "footer": {

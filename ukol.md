@@ -78,16 +78,16 @@ rozcestník v UI, uložení manuálního X účtu BEZ tokenu, větev v publish s
       `(user_id, platform)` s `platform_id IS NULL`.
 - [x] `publishing_type` je v DB z migrace 036 → žádná nová migrace není potřeba.
 
-### Krok 3 — Logika publish pro manuální X (K vyřízení)
-- [ ] `supabase/functions/process-scheduled-posts/index.ts`: před voláním publish pro `twitter` načíst
+### Krok 3 — Logika publish pro manuální X (K vyřízení) ✅
+- [x] `supabase/functions/process-scheduled-posts/index.ts`: před voláním publish pro `twitter` načíst
       `social_accounts.publishing_type`. Pokud `'manual'` → NEN volat API; nastavit `post_platforms.status = 'ready'`
       (připraveno ke zveřejnění) a ponechat `scheduled_at`. Ostatní platformy běží dál.
-- [ ] Nová sekce „K vyřízení" v `dashboard/page.tsx`: seznam postů s `post_platforms` status `'ready'`
+- [x] Nová sekce „K vyřízení" v `dashboard/page.tsx`: seznam postů s `post_platforms` status `'ready'`
       pro `twitter`. Pro každý: tlačítko „Kopírovat text" (schránka) + „Stáhnout obrázek" (odkaz na `media_urls`).
-- [ ] Volitelně: u manuálního X účtu v seznamu Účtů badge „Manuální připomínka".
+- [x] Volitelně: u manuálního X účtu v seznamu Účtů badge „Manuální připomínka".
 
-### Krok 4 — Lokalizace (cs / en / uk)
-- [ ] `src/messages/{cs,en,uk}.json` (namespace `accounts` + `dashboard`): klíče
+### Krok 4 — Lokalizace (cs / en / uk) ✅
+- [x] `src/messages/{cs,en,uk}.json` (namespace `accounts` + `dashboard`): klíče
       `xConnect.title`, `xConnect.manualButton`, `xConnect.manualDesc`, `xConnect.autoComingSoon`,
       `xConnect.usernamePlaceholder`, `xConnect.manualSaved`, `dashboard.todoTitle`, `dashboard.copyText`,
       `dashboard.downloadImage`, `dashboard.manualReminder`.

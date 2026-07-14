@@ -833,6 +833,14 @@ export async function publishPost(input: { postId: string }): Promise<{
   if (targetPlatform === "twitter") {
     const twAccount = await resolveTargetAccount(supabaseAdmin, userId, "twitter", targetAccountId);
 
+    // Hybridní X režim (Prompt 031-X-COMBO, Krok 1): manuální X účet nemá
+    // access_token, takže by níže padl na validaci. Místo volání X API ho
+    // rovnou označíme k ručnímu vyřízení (status 'ready') a vrátíme success.
+    if (twAccount?.publishing_type === "manual") {
+      await handleManualReady(supabase, userId, postId, "twitter", targetAccountId);
+      return { success: true, data: { platform: "twitter" } };
+    }
+
     if (!twAccount?.access_token) {
       return {
         success: false,
@@ -1103,6 +1111,45 @@ async function handlePublishSuccess(
 
   if (ppError) {
     console.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
+  }
+
+  revalidatePath("/", "layout");
+  revalidateAllLocales("/calendar");
+  revalidateAllLocales("/posts");
+  revalidateAllLocales("/dashboard");
+}
+
+/**
+ * Hybridní X režim (Prompt 031-X-COMBO, Krok 1): manuální X účet nemá
+ * access_token (uložen jako prázdný řetězec). Místo volání X API označíme
+ * řádek k ručnímu vyřízení (status 'ready') a zachováme `scheduled_at`,
+ * aby se příspěvek objevil v sekci „K vyřízení" na Dashboardu.
+ */
+async function handleManualReady(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  postId: string,
+  platform: string,
+  accountId?: string | null,
+) {
+  console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> ready (manuální účet)`);
+
+  let ppQuery = supabase
+    .from("post_platforms")
+    .update({
+      status: "ready",
+      // scheduled_at ponecháváme beze změny (Supabase update nuluje jen
+      // explicitně předané sloupce) – čas pro ruční vyřízení zůstává.
+      publish_error: null,
+    })
+    .eq("post_id", postId)
+    .eq("platform", platform);
+  if (accountId) ppQuery = ppQuery.eq("account_id", accountId);
+
+  const { error: ppError } = await ppQuery;
+
+  if (ppError) {
+    console.error("handleManualReady: Failed to update post_platforms:", ppError.message);
   }
 
   revalidatePath("/", "layout");
@@ -2343,6 +2390,13 @@ export async function publishAdditionalPlatforms(input: {
   // --- Twitter (X) ---
   if (targetPlatform === "twitter") {
     const twAccount = await resolveTargetAccount(supabaseAdmin, user.id, "twitter", targetAccountId);
+
+    // Hybridní X režim (Prompt 031-X-COMBO, Krok 1): manuální X účet nemá
+    // access_token → místo API volání označíme řádek k ručnímu vyřízení.
+    if (twAccount?.publishing_type === "manual") {
+      await handleManualReady(supabase, user.id, post.id, "twitter", targetAccountId);
+      return { success: true, data: { platform: "twitter" } };
+    }
 
     if (!twAccount?.access_token) {
       return {

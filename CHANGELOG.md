@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐦 Oprava — Manuální X účet padal na validaci access_token (Prompt 031-X-COMBO, Krok 1)
+
+- **Kontext**: Při „Odeslat"/naplánování příspěvku určeného jen pro manuální X účet (hybridní režim, `publishing_type='manual'`, `access_token` uložen jako prázdný řetězec) funkce `publishPost` padla na kontrole `if (!twAccount?.access_token)` s chybou „Chybí propojený X (Twitter) účet (access_token)." Manuální post se nedal odeslat.
+- **Změny**: `src/lib/actions/publish.ts` — větev `twitter` v `publishPost` i `publishAdditionalPlatforms` nyní před kontrolou tokenu zjišťuje `publishing_type`. Pro `'manual'` přeskočí X API a zavolá novou `handleManualReady`, která zapíše `post_platforms.status='ready'` (zachovává `scheduled_at`). Řádek tak skončí v sekci „K vyřízení" na Dashboardu místo chyby.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: `src/lib/actions/publish.ts`.
+
 ### 🎨 Oprava — Jednotná čistá ikona X napříč aplikací
 
 - **Kontext**: Ikona X se na různých místech vykreslovala špatně — stránka „Sociální účty" (připojit účet) i univerzální connect modal používaly starý pták (`Twitter` z `social-icons`), zatímco `XIcon` už byl opraven.

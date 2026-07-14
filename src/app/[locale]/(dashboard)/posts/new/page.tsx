@@ -33,6 +33,7 @@ type AccountInfo = {
   platform: string;
   account_name: string;
   avatar_url: string | null;
+  publishing_type?: string | null;
 };
 
 const PLATFORMS = [
@@ -68,6 +69,7 @@ function resolvePublishErrorMessage(params: {
 
 export default function NewPostPage() {
   const t = useTranslations("posts");
+  const td = useTranslations("dashboard");
    const router = useRouter();
   const { locale } = useParams();
   const [content, setContent] = useState("");
@@ -86,6 +88,12 @@ export default function NewPostPage() {
       ),
     ];
   }, [selectedAccountIds, allAccounts]);
+  // Hybridní X režim (Prompt 031-X-COMBO, Krok 4): je mezi vybranými účty
+  // manuální X (publishing_type='manual')? Pak tlačítko zní jinak.
+  const hasManualTwitter = selectedAccountIds.some((id) => {
+    const acc = allAccounts.find((a) => a.id === id);
+    return acc?.platform?.toLowerCase() === "twitter" && acc?.publishing_type === "manual";
+  });
   const [scheduledAt, setScheduledAt] = useState("");
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -432,7 +440,9 @@ export default function NewPostPage() {
       const publishResult = await publishPost({ postId });
 
       if (publishResult.success) {
-        toast.success("Příspěvek byl úspěšně publikován!");
+        // Hybridní X režim (Prompt 031-X-COMBO, Krok 4): u manuálního X
+        // příspěvek nebyl zveřejněn, jen připraven k ručnímu vyřízení.
+        toast.success(hasManualTwitter ? td("markPublishedToast") : "Příspěvek byl úspěšně publikován!");
         router.push(`/${locale}/posts`);
         return;
       }
@@ -1011,7 +1021,7 @@ export default function NewPostPage() {
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
               >
                 {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {(publishing || loading || hasUploading()) ? t("saving") : t("publishNow")}
+                {(publishing || loading || hasUploading()) ? t("saving") : (hasManualTwitter ? t("prepareToDo") : t("publishNow"))}
               </Button>
             </div>
             {/* Explain why buttons might be disabled when only internal tags were set. */}

@@ -125,6 +125,7 @@ export function PostCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
   const t = useTranslations("posts");
+  const td = useTranslations("dashboard");
   // next-intl's parameterized t() can return undefined; this helper always returns string
   const tv = (key: string, params?: Record<string, string | number | Date>, fallback = ""): string => t(key, params) ?? fallback;
 
@@ -316,7 +317,7 @@ export function PostCard({
         accountId: readyTwitterRow.account_id ?? undefined,
       });
       if (result.success) {
-        toast.success(t("markPublished"));
+        toast.success(td("markPublishedToast"));
         router.refresh();
       } else {
         toast.error(result.error || t("toastRemoveUnexpectedError"));

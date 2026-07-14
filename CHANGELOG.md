@@ -3,6 +3,19 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Oprava — Barevné rozlišení stavu platforem v dashboardu (Poslední příspěvky)
+
+- **Kontext**: V sekci „Poslední příspěvky" na dashboardu byly ikony všech platforem vždy šedé (`text-muted-foreground`), zatímco na stránce Příspěvky se barví podle stavu (zelená + fajfka při `published`). Nekonzistentní.
+- **Změny**: `dashboard/page.tsx` — render ikon platforem nyní iteruje `post.post_platforms_raw` (místo deduplikovaného seznamu `post.platforms`) a aplikuje stejnou logiku jako `_post-card.tsx`: `published` → `text-emerald-400` + bílá fajfka v rohu, `failed` → červená, `removed_externally` → oranžová, ostatní → šedá. Přidán import `Check`.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: `src/app/[locale]/(dashboard)/dashboard/page.tsx`.
+### 🎨 Oprava — Čistá ikona X (místo poškozené SVG cesty)
+
+- **Kontext**: `XIcon` v `social-icons.tsx` mělo ztvárněnou/neplatnou SVG cestu, která se v UI vykreslovala hrozně.
+- **Změny**: `src/components/ui/social-icons.tsx` — `XIcon` nahrazen oficiální cestou loga X (čisté „X" písmo, viewBox 0 0 24 24, `fill="currentColor"`), dědí barvu z `className` (např. zelená při `published`).
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `src/components/ui/social-icons.tsx`.
+
 ### 🐦 Hybridní X režim — Logika publish + sekce „K vyřízení" (Prompt 031-X, Krok 3)
 
 - **Kontext**: Po Krocích 1–2 se manuální X účet uloží, ale scheduler neměl twitter větev (padal do „Unsupported platform"). Hybridní režim vyžaduje, aby se manuální X posty NEposílaly přes API, ale označily k ručnímu vyřízení.
@@ -50,17 +63,3 @@
 - **Změny**: `_post-card.tsx` — opacity-50 pro archivované, skrytí Edit/Delete (jen Preview). `post-calendar-chip.tsx` — Lock ikona. `posts/[id]/page.tsx` — isArchived detekce, read-only banner, disabled textarea/status/platform/location, hidden media section a action buttons. `preview-dialog.tsx` — banner "Historický záznam — tento příspěvek byl smazán". `deletePost` — `media_urls` již nemažeme (zachování vizuální hodnoty).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/calendar/post-calendar-chip.tsx`, `src/app/[locale]/(dashboard)/posts/[id]/page.tsx`, `src/components/preview-dialog.tsx`, `src/lib/actions/posts.ts`.
-
-### 🎨 Status architektura — `archived` status v kalendáři a detailech (Prompt 030, Krok 3)
-
-- **Kontext**: Po Kroku 2 se data archivují v DB, ale kalendář neznal `archived` status — chyběl v status computation i ve vizuálních stylech.
-- **Změny**: `getPost` (`posts.ts`) a `calendar/page.tsx` — přidán `archived` do status computation (všechny platformy 'archived' → computed 'archived'). `post-calendar-chip.tsx` — přidán `archived` do `STATUS_STYLES` (gray/opacity). `getPosts` a `normalize-post.ts` již měly hotovo.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test v kalendáři ✅.
-- **Upravené soubory**: `src/lib/actions/posts.ts`, `src/app/[locale]/(dashboard)/calendar/page.tsx`, `src/components/calendar/post-calendar-chip.tsx`.
-
-### 💿 Soft delete — `deletePost` převeden na archivační režim (Prompt 030, Krok 2)
-
-- **Kontext**: Místo hard-delete z DB nyní `deletePost` archivuje příspěvek — nastaví `deleted_at`, vymaže `media_urls` a přepne všechny `post_platforms` na `status='archived'`. Meta API část (volání Graph API) zůstává zachována.
-- **Změny**: `src/lib/actions/posts.ts` — `deletePost`: hard-delete (`supabase.from("posts").delete()`) nahrazen UPDATE: `deleted_at = now()`, `media_urls = []` na `posts` tabulce + archivace všech nearchivovaných `post_platforms` řádků na `status='archived'` s `archived_at` a `archive_reason`. Komentář funkce aktualizován.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test smazání v prohlížeči ✅.
-- **Upravené soubory**: `src/lib/actions/posts.ts`.

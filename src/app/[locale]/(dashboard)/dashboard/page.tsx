@@ -12,6 +12,7 @@ import {
   FileText,
   Link as LinkIcon,
   Copy,
+  Check,
   Plus,
   ArrowRight,
   Crown,
@@ -707,9 +708,6 @@ function DashboardContent({
                 buildRecentPostPreview(post.content) || postsT("newPost");
               const primaryMedia = post.media_urls[0] ?? null;
               const extraMedia = post.media_urls.length - 1;
-              const uniquePlatforms = Array.from(
-                new Set(post.platforms.map((p) => p.toLowerCase())),
-              ).slice(0, 5);
               const visibleTags = post.post_tags.slice(0, 2);
               const extraTags = post.post_tags.length - 2;
               const timeLabel =
@@ -740,15 +738,43 @@ function DashboardContent({
                       {/* Top row: platform icons + status badge */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
-                          {uniquePlatforms.length > 0 ? (
-                            uniquePlatforms.map((p) => {
-                              const Icon = platformIcons[p];
-                              return Icon ? (
-                                <Icon
-                                  key={p}
-                                  className="h-4 w-4 text-muted-foreground"
-                                />
-                              ) : null;
+                          {post.post_platforms_raw.length > 0 ? (
+                            post.post_platforms_raw.map((p) => {
+                              const Icon =
+                                platformIcons[p.platform.toLowerCase()] ??
+                                FileText;
+                              const isPublished = p.status === "published";
+                              const isFailed = p.status === "failed";
+                              const isRemovedExternally =
+                                p.status === "removed_externally";
+                              return (
+                                <div
+                                  key={p.id || p.platform}
+                                  className="relative"
+                                  title={`Status: ${p.status}`}
+                                >
+                                  <Icon
+                                    className={cn(
+                                      "h-4 w-4",
+                                      isPublished
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : isFailed
+                                          ? "text-red-600 dark:text-red-400"
+                                          : isRemovedExternally
+                                            ? "text-orange-600 dark:text-orange-400"
+                                            : "text-muted-foreground",
+                                    )}
+                                  />
+                                  {isPublished && (
+                                    <div className="absolute -bottom-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 border-2 border-white dark:border-card">
+                                      <Check
+                                        className="h-1.5 w-1.5 text-white"
+                                        strokeWidth={4}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
                             })
                           ) : (
                             <FileText className="h-4 w-4 text-muted-foreground" />

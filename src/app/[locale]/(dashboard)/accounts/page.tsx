@@ -37,6 +37,7 @@ import {
 import { Reorder } from "framer-motion";
 import { toast } from "sonner";
 import { ConnectAccountModal } from "@/components/connect-account-modal";
+import { XConnectModal } from "@/components/x-connect-modal";
 import {
   FacebookPageSelector,
   type FacebookPageDto,
@@ -191,6 +192,9 @@ export default function AccountsPage() {
   );
   const [deleting, setDeleting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  // Hybrid X mode (Prompt 031-X): X gets its own decision modal instead of the
+  // generic OAuth modal. Automatic publishing is disabled there for now.
+  const [showXModal, setShowXModal] = useState(false);
   const [connectModalPlatform, setConnectModalPlatform] = useState<{
     id: PlatformId;
     name: string;
@@ -451,6 +455,27 @@ export default function AccountsPage() {
     setDeleting(false);
   }
 
+  // Hybrid X mode (Prompt 031-X, Krok 1): save a manual X account (no token).
+  // The API endpoint is extended in Krok 2 to accept publishingType='manual'.
+  async function handleXManualConnect(username: string) {
+    const res = await fetch("/api/accounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        platform: "twitter",
+        accountName: username,
+        publishingType: "manual",
+      }),
+    });
+    const result = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      throw new Error(result.error || t("xConnect.error"));
+    }
+    setShowXModal(false);
+    fetchAccounts();
+    toast.success(t("xConnect.manualSaved"));
+  }
+
   if (loading) return <div className="text-muted-foreground">{t("loading")}</div>;
 
   const hasConnectedAccounts = accounts.some((a) => a.is_active);
@@ -509,6 +534,13 @@ export default function AccountsPage() {
                     );
                     if (isAtAccountLimit && !alreadyConnected) {
                       toast.error(t("accountLimitReached"));
+                      return;
+                    }
+                    // X uses the hybrid decision modal (Prompt 031-X) instead of
+                    // the generic OAuth modal. Automatic publishing stays hidden
+                    // there for now; the OAuth code is retained in the codebase.
+                    if (platform.id === "twitter") {
+                      setShowXModal(true);
                       return;
                     }
                     // All platforms connect through the universal OAuth modal.
@@ -923,6 +955,13 @@ export default function AccountsPage() {
           }}
         />
       )}
+
+      {/* Hybrid X decision modal (Prompt 031-X, Krok 1) */}
+      <XConnectModal
+        open={showXModal}
+        onOpenChange={(open) => setShowXModal(open)}
+        onManualConnect={handleXManualConnect}
+      />
 
       {/* Facebook Page selector dialog (tick which Pages to enable). */}
       <FacebookPageSelector

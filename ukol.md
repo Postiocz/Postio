@@ -42,3 +42,53 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
+## 🐦 Prompt 031-X — Hybridní X režim (Manuální připomínky pro X)
+
+**Kontext:** Kvůli ceně oficiálního X API ($200+) nevynucujeme pro start automatické odesílání.
+Zavádíme „Hybridní X režim": uživatel si připojí X manuálně (zdarma, jen `@jméno`) a Postio mu v
+naplánovaný čas připraví podklady (text + obrázek) v sekci „K vyřízení" místo volání API. Stávající
+X OAuth kód se PONECHÁ, ale v UI se dočasně skryje / označí „Experimental / Připravujeme".
+
+**Co už v kódu existuje (migrace 036, Prompt 026):** sloupec `social_accounts.publishing_type`
+('direct' | 'manual', default 'direct') a status `post_platforms.status = 'ready'` (připraveno
+ke zveřejnění). Ve `types.ts` i `/api/accounts` route je `publishing_type` už přítomen. Chybí:
+rozcestník v UI, uložení manuálního X účtu BEZ tokenu, větev v publish scheduleru a sekce „K vyřízení".
+
+**Dotčené soubory (analýza):**
+- `src/app/[locale]/(dashboard)/accounts/page.tsx` — klik na `twitter` → `onConnect` směřuje na OAuth (`/api/accounts/x`).
+- `src/app/api/accounts/x/route.ts` — X OAuth (PKCE). PONECHAT, skrýt v UI.
+- `src/app/api/accounts/route.ts` — POST umí legacy manuální insert (vyžaduje `accessToken`); GET vrací `publishing_type`.
+- `src/components/connect-account-modal.tsx` — univerzální modal (zatím jen OAuth cesta).
+- `supabase/functions/process-scheduled-posts/index.ts` — edge scheduler volá publish per platformu.
+- `src/app/[locale]/(dashboard)/dashboard/page.tsx` — cíl pro sekci „K vyřízení".
+
+### Krok 1 — Rozcestník pro X (modál) ✅
+- [x] V `accounts/page.tsx` zachytit klik na `platform.id === "twitter"` a otevřít NOVÝ `XConnectModal`
+      (místo univerzálního `ConnectAccountModal`). Pro ostatní sítě zůstává stávající chování.
+- [x] Nový `src/components/x-connect-modal.tsx` (design dle manuálu: glassmorphism, `rounded-[20px]`, indigo):
+      - **Tlačítko A** „Osobní / Manuální (Zdarma)" → zobrazí input na `@uživatelské_jméno` → po odeslání
+        volá `POST /api/accounts` s `{ platform: "twitter", accountName, publishingType: "manual" }` (BEZ tokenu).
+      - **Tlačítko B** „Automatické odesílání (Připravujeme)" → `disabled`, zašedlé, badge „Připravujeme" / „Experimental".
+- [x] Při úspěchu obnovit seznam účtů (`fetchAccounts()`) + toast.
+
+### Krok 2 — Uložení manuálního X účtu (API)
+- [ ] `src/app/api/accounts/route.ts` (POST): přijmout `publishingType`. Pokud `publishingType === "manual"`,
+      NEvyžadovat `accessToken` (povolit chybějící/prázdný); uložit řádek s `publishing_type: "manual"`,
+      `account_name` = `@jméno`, `platform_id: null`, `is_active: true`. Zachovat deduplikaci na
+      `(user_id, platform)` s `platform_id IS NULL`.
+- [ ] `publishing_type` je v DB z migrace 036 → žádná nová migrace není potřeba.
+
+### Krok 3 — Logika publish pro manuální X (K vyřízení)
+- [ ] `supabase/functions/process-scheduled-posts/index.ts`: před voláním publish pro `twitter` načíst
+      `social_accounts.publishing_type`. Pokud `'manual'` → NEN volat API; nastavit `post_platforms.status = 'ready'`
+      (připraveno ke zveřejnění) a ponechat `scheduled_at`. Ostatní platformy běží dál.
+- [ ] Nová sekce „K vyřízení" v `dashboard/page.tsx`: seznam postů s `post_platforms` status `'ready'`
+      pro `twitter`. Pro každý: tlačítko „Kopírovat text" (schránka) + „Stáhnout obrázek" (odkaz na `media_urls`).
+- [ ] Volitelně: u manuálního X účtu v seznamu Účtů badge „Manuální připomínka".
+
+### Krok 4 — Lokalizace (cs / en / uk)
+- [ ] `src/messages/{cs,en,uk}.json` (namespace `accounts` + `dashboard`): klíče
+      `xConnect.title`, `xConnect.manualButton`, `xConnect.manualDesc`, `xConnect.autoComingSoon`,
+      `xConnect.usernamePlaceholder`, `xConnect.manualSaved`, `dashboard.todoTitle`, `dashboard.copyText`,
+      `dashboard.downloadImage`, `dashboard.manualReminder`.
+

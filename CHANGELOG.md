@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐦 Hybridní X režim — Rozcestník pro X (Prompt 031-X, Krok 1)
+
+- **Kontext**: Kvůli ceně X API ($200+) zavádíme hybridní X režim. Uživatel připojí X manuálně (zdarma, jen `@jméno`); Postio mu místo volání API v naplánovaný čas připraví podklady. Krok 1 přidává rozcestník v UI.
+- **Změny**: `src/components/x-connect-modal.tsx` (nový) — glassmorphism modal s volbou "Manuální režim (Zdarma)" (input na `@handle` → `POST /api/accounts` s `publishingType:"manual"`) a zašedlým/disabled tlačítkem "Automatické odesílání (Připravujeme)". `src/app/[locale]/(dashboard)/accounts/page.tsx` — klik na X dlaždici otevírá `XConnectModal` místo univerzálního OAuth modalu; přidán `handleXManualConnect`. Lokalizace `xConnect.*` v cs/en/uk. OAuth route `/api/accounts/x` ponechán (skryt v UI).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: `src/components/x-connect-modal.tsx` (nový), `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
 ### 👁️ Vizuální vylepšení — Grayscale, datum smazání, archivovaný preview (Prompt 030, Krok 6)
 
 - **Kontext**: Dokončení vizuálního zážitku pro archivované (soft-deleted) příspěvky. 5 refinements: černobílý filtr, datum smazání, oprava preview dialogu, lokalizace. Tlačítka Edit/Delete již byla skryta v Kroku 4.
@@ -65,10 +72,3 @@
 - **Změny**: `PostPlatform` typ rozšířen o `account_id: string | null`. Refresh dotaz v `delete-post-dialog.tsx` rozšířen na `post_platforms(account_id, platform, status, external_id, social_accounts(account_name, avatar_url))`; přidán stav `publishedAccounts` (`{ id, platform, name, avatar }`) sestavený z publikovaných řádků (+ fallback z props). Hlavní seznam (`post_platforms(*)`) vrací `account_id` automaticky.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (modál otevřen, žádná regrese mazání).
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/components/dashboard/delete-post-dialog.tsx`.
-
-### 🔧 Refactor — Account-aware mazání: Backend (Prompt 031, Krok 1)
-
-- **Kontext**: `DeletePostDialog` volí cíl mazání dle `platform` (`.find(r => r.platform === input.platform)`), což je nejednoznačné u více účtů téže sítě (2× Facebook Page) – vždy trefí první řádek. Krok 1 přepisuje backend `deleteFromMeta` na cílení přes `account_id`.
-- **Změny**: `src/lib/actions/publish.ts` — signatura `deleteFromMeta` rozšířena na `{ postId; platform?; accountId? }`; centrální lookup řádku `post_platforms` (pokud `accountId` → `r.account_id === accountId && status==="published"`, jinak `platform` fallback pro zpětnou kompatibilitu); odvozená `platform` z nalezeného řádku; všechny větve (linkedin/tiktok/twitter/instagram/facebook) používají sdílený `targetRow` a cílí přes `.eq("id", targetRow.id)`; token lookup account-scoped (`.eq("id", accountId)` přednostně).
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `src/lib/actions/publish.ts`.

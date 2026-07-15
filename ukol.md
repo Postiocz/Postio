@@ -65,10 +65,11 @@
   - `src/components/marketing/marketing-nav.tsx` → zvednout overlay nad header (`z-40` → `z-[60]`), aby jeho horní lišta s X byla viditelná a klikatelná. (Alternativa: přepnout hamburger v headeru na X, když je `open`.)
   - Dopad: viditelné/funkční tlačítko zpět (stížnost 2).
 
-- [ ] **KROK 3 – Oprava responzivity a návratnosti cookie dialogu**
-  - `src/components/ui/dialog.tsx` → do `DialogContent` přidat `max-h-[90vh] overflow-y-auto`.
-  - `src/components/cookie-consent.tsx` → do zápatí dialogu přidat explicitní tlačítko **Zavřít** (+ i18n klíč, pokud chybí).
-  - Dopad: obsah se posouvá v dialogu, zavírací i akční tlačítka dosažitelná (stížnost 3).
+- [x] **KROK 3 – Oprava responzivity a návratnosti cookie dialogu** (+ footer newsletter)
+  - `src/components/ui/dialog.tsx` → `DialogContent` `max-h-[90vh] overflow-y-auto overflow-x-hidden`.
+  - `src/components/cookie-consent.tsx` → tlačítko **Zavřít** v zápatí (i18n `cookie.close` cs/en/uk), footer složí tlačítka pod sebe na mobilu.
+  - `src/components/marketing/newsletter-form.tsx` → formulář `flex-col sm:flex-row`, tlačítko `w-full sm:w-auto`, input `min-w-0` (oprava přetečení tlačítka „Odebírat" ve footeru).
+  - Dopad: dialog i footer vejdou do obrazovky, zavírá se přes X i „Zavřít" (stížnost 3).
 
 - [ ] **KROK 4 – Plovoucí cookie karta vs. `/privacy`**
   - `src/components/cookie-consent.tsx` → skrýt plovoucí kartu na trase `/privacy` (tam je sekce Cookies + vlastní návrat dole, který karta překrývá).

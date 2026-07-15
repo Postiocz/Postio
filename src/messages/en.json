@@ -817,7 +817,8 @@
     "advertisingDesc": "These cookies are used to make advertising more relevant and less repetitive.",
     "on": "On",
     "off": "Off",
-    "savePreferences": "Save Preferences"
+    "savePreferences": "Save Preferences",
+    "close": "Close"
   },
   "privacy": {
     "title": "Privacy Policy",

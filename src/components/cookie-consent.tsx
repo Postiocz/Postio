@@ -200,22 +200,32 @@ export function CookieConsent() {
             </div>
           </div>
 
-          <div className="mt-8 flex justify-end gap-3">
+          <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="rounded-2xl px-6"
-              onClick={() => saveConsent("necessary", functional, analytics, marketing)}
+              className="rounded-2xl px-6 w-full sm:w-auto"
+              onClick={() => setOpen(false)}
             >
-              {cookie("savePreferences")}
+              {cookie("close")}
             </Button>
-            <Button
-              size="sm"
-              className="rounded-2xl px-6"
-              onClick={() => saveConsent("all")}
-            >
-              {cookie("acceptAll")}
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-2xl px-6 w-full sm:w-auto"
+                onClick={() => saveConsent("necessary", functional, analytics, marketing)}
+              >
+                {cookie("savePreferences")}
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-2xl px-6 w-full sm:w-auto"
+                onClick={() => saveConsent("all")}
+              >
+                {cookie("acceptAll")}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

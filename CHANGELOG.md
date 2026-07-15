@@ -10,6 +10,13 @@
 - **Ověření**: manuální test na mobilu ✅ (X zavírá menu).
 - **Upravené soubory**: `src/components/marketing/marketing-nav.tsx`.
 
+### 🐛 Oprava – Mobilní responzivita cookie dialogu + footer newsletter (KROK 3)
+
+- **Kontext**: Cookie dialog („Nastavení souborů cookie") na mobilu přesahoval výšku i šířku obrazovky – zavírací X i tlačítka byla mimo dosah („nelze zpět"). Po přidání tlačítka „Zavřít" footer dialogu (3 tlačítka vedle sebe) způsobil horizontální přetečení. Navíc newsletter formulář ve footeru (input + tlačítko „Odebírat" v `flex` bez zalomení) vytlačoval tlačítko vpravo mimo rámeček.
+- **Změny**: `src/components/ui/dialog.tsx` — `DialogContent` nově `max-h-[90vh] overflow-y-auto overflow-x-hidden` (obsah se posouvá, žádný horizontální posuv). `src/components/cookie-consent.tsx` — do zápatí dialogu přidáno explicitní tlačítko „Zavřít" (i18n klíč `cookie.close` v cs/en/uk); footer nyní složí tlačítka pod sebe na mobilu (`flex-col-reverse sm:flex-row`). `src/components/marketing/newsletter-form.tsx` — formulář `flex-col sm:flex-row`, tlačítko `w-full sm:w-auto`, input `min-w-0` (zabránění horizontálnímu přetečení).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test na mobilu ✅ (dialog i footer vejdou do obrazovky, zavírá se přes X i „Zavřít").
+- **Upravené soubory**: `src/components/ui/dialog.tsx`, `src/components/cookie-consent.tsx`, `src/components/marketing/newsletter-form.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
+
 ### 🐦 Hybridní X režim — UI text + i18n (Prompt 031-X-COMBO, Krok 4)
 
 - **Kontext**: Po Krocích 1–3 uživatel nepoznal, že „odeslání" manuálního X postu neznamená reálné zveřejnění, ale jen přípravu k ručnímu vyřízení. Tlačítko v editoru i toast hlásily „publikováno".
@@ -64,10 +71,3 @@
 - **Změny**: `supabase/functions/process-scheduled-posts/index.ts` — přidána twitter větev: načte `social_accounts.publishing_type`; pro existující X účet nastaví `manualReady` (žádné volání API) a finální update zapíše `post_platforms.status='ready'` (zachovává `scheduled_at`). `ready` řádky se nepočítají do published/failed a nevkládají analytics; dotaz na začátku bere jen `status='scheduled'`, takže se znovu netahají. `dashboard/page.tsx` — nový dotaz na `post_platforms` (status 'ready', ilike twitter, přes posts!inner pro RLS) + sekce „K vyřízení" s kartami (náhled textu/obrázku, plánované datum, tlačítka „Kopírovat text" → schránka s feedbackem, „Stáhnout obrázek" → media_urls). `accounts/page.tsx` — badge „Manuální připomínka" u manuálního X účtu.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: `supabase/functions/process-scheduled-posts/index.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-### 🌐 i18n — Lokalizace Hybridního X režimu (Prompt 031-X, Krok 4)
-
-- **Kontext**: Chybějící překladové klíče pro rozcestník (xConnect.*) a sekci „K vyřízení" (dashboard.*). xConnect.* přidány v Krocích 1, dashboard.* + accounts.manualReminder v Kroku 3 (nutné pro funkčnost sekce).
-- **Změny**: Do `messages/cs.json`, `en.json`, `uk.json` přidány klíče `dashboard.todoTitle`, `dashboard.copyText`, `dashboard.copied`, `dashboard.downloadImage`, `dashboard.manualReminder` a `accounts.manualReminder` (cs: „K vyřízení"/„Kopírovat text"/„Zkopírováno"/„Stáhnout obrázek"/„Manuální připomínka"; en: „To do"/„Copy text"/„Copied"/„Download image"/„Manual reminder"; uk: „До виконання"/„Копіювати текст"/„Скопійовано"/„Завантажити зображення"/„Ручне нагадування").
-- **Ověření**: JSON validní ✅, `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-

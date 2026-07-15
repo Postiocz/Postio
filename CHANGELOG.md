@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✅ Ověření – Mobilní responzivita (KROK 5, finální)
+
+- **Kontext**: Závěrečné ověření všech 4 kroků opravy mobilní responzivity: globální přetečení (KROK 1), burger menu landing (KROK 2), cookie dialog + footer newsletter (KROK 3), skrytí plovoucí karty na `/privacy` (KROK 4).
+- **Změny**: Žádné kódové změny – finální kontrola. `npx tsc --noEmit` ✅ nad celým projektem (EXIT 0). Manuální test na 320/375/390px potvrdil: landing burger (funkční X zpět), cookie karta→dialog (posouvatelný, zavírá se přes X i „Zavřít", footer bez přetečení), `/privacy` (karta skryta, návrat funkční; jinde se zobrazuje).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
+- **Upravené soubory**: žádné (ověřovací milník).
+
 ### 🐛 Oprava – Skrytí plovoucí cookie karty na `/privacy` (KROK 4)
 
 - **Kontext**: Na stránce `/privacy` (cs/en/uk) je vlastní sekce Cookies + návratové tlačítko dole, ale plovoucí cookie karta (vpravo dole, `z-50`) ho překrývala, takže se uživatel „nedostal zpět".
@@ -65,10 +72,3 @@
 - **Změny**: `src/components/ui/social-icons.tsx` — export `Twitter` nyní vykresluje stejnou čistou SVG cestu loga X jako `XIcon`. Tím se opraví ikona X na všech 5 místech: dlaždice „připojit účet", connect modal, kalendářní chip, preview dialog i edit dialog.
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `src/components/ui/social-icons.tsx`.
-
-### 🎨 Oprava — Barevné rozlišení stavu platforem v dashboardu (Poslední příspěvky)
-
-- **Kontext**: V sekci „Poslední příspěvky" na dashboardu byly ikony všech platforem vždy šedé (`text-muted-foreground`), zatímco na stránce Příspěvky se barví podle stavu (zelená + fajfka při `published`). Nekonzistentní.
-- **Změny**: `dashboard/page.tsx` — render ikon platforem nyní iteruje `post.post_platforms_raw` (místo deduplikovaného seznamu `post.platforms`) a aplikuje stejnou logiku jako `_post-card.tsx`: `published` → `text-emerald-400` + bílá fajfka v rohu, `failed` → červená, `removed_externally` → oranžová, ostatní → šedá. Přidán import `Check`.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/dashboard/page.tsx`.

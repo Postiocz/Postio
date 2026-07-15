@@ -74,7 +74,7 @@
 - [x] **KROK 4 – Plovoucí cookie karta vs. `/privacy`**
   - `src/components/cookie-consent.tsx` → skrýt plovoucí kartu na trase `/privacy` (tam je sekce Cookies + vlastní návrat dole, který karta překrývá).
 
-- [ ] **KROK 5 – Ověření**
+- [x] **KROK 5 – Ověření**
   - `npx tsc --noEmit` + manuální test responzivního režimu (320/375/390px): landing burger, cookie karta→dialog, `/privacy`.
   - Dle Pravidla 8 před UI změnami načíst design manuály.
 

@@ -57,7 +57,7 @@
 
 **Kroky:**
 
-- [ ] **KROK 1 – Globální zábrana horizontálního přetečení**
+- [x] **KROK 1 – Globální zábrana horizontálního přetečení**
   - `src/app/globals.css` → v `@layer base` do `body` přidat `overflow-x-hidden`.
   - Dopad: mizí horizontální scroll plošně (stížnost 1).
 

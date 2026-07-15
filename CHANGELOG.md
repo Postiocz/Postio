@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Oprava – Globální zábrana horizontálního přetečení (KROK 1)
+
+- **Kontext**: Na mobilu byla celá aplikace příliš široká (horizontální posuv). `body` měl jen `text-foreground`, chybělo `overflow-x-hidden`. Marketing layout navíc obsahuje glow div (`w-[860px]`) bez vlastního `overflow-hidden`, což přispívalo k přetečení.
+- **Změny**: `src/app/globals.css` — v `@layer base` přidáno `overflow-x-hidden` do pravidla `body` (`@apply text-foreground overflow-x-hidden`). Horizontální posuv mizí plošně napříč aplikací a zároveň se ořízne přetečení od glow divu.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test na mobilu ✅ (zmizel horizontální scroll na landing/dashboard).
+- **Upravené soubory**: `src/app/globals.css`.
+
 ### 🐛 Oprava – Burger menu na landing page (chybějící tlačítko zpět)
 
 - **Kontext**: Na mobilu se po rozkliknutí burger menu na landing page nezobrazovalo tlačítko zpět/zavřít. Celoobrazovkový overlay měl `z-40`, zatímco plovoucí header s hamburgerem `z-50` – zavírací X overlaye bylo schované pod headerem a nedostupné (klik na hamburger znovu jen volal `setOpen(true)`).
@@ -64,10 +71,3 @@
 - **Změny**: `src/components/ui/social-icons.tsx` — `XIcon` nahrazen oficiální cestou loga X (čisté „X" písmo, viewBox 0 0 24 24, `fill="currentColor"`), dědí barvu z `className` (např. zelená při `published`).
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `src/components/ui/social-icons.tsx`.
-
-### 🐦 Hybridní X režim — Logika publish + sekce „K vyřízení" (Prompt 031-X, Krok 3)
-
-- **Kontext**: Po Krocích 1–2 se manuální X účet uloží, ale scheduler neměl twitter větev (padal do „Unsupported platform"). Hybridní režim vyžaduje, aby se manuální X posty NEposílaly přes API, ale označily k ručnímu vyřízení.
-- **Změny**: `supabase/functions/process-scheduled-posts/index.ts` — přidána twitter větev: načte `social_accounts.publishing_type`; pro existující X účet nastaví `manualReady` (žádné volání API) a finální update zapíše `post_platforms.status='ready'` (zachovává `scheduled_at`). `ready` řádky se nepočítají do published/failed a nevkládají analytics; dotaz na začátku bere jen `status='scheduled'`, takže se znovu netahají. `dashboard/page.tsx` — nový dotaz na `post_platforms` (status 'ready', ilike twitter, přes posts!inner pro RLS) + sekce „K vyřízení" s kartami (náhled textu/obrázku, plánované datum, tlačítka „Kopírovat text" → schránka s feedbackem, „Stáhnout obrázek" → media_urls). `accounts/page.tsx` — badge „Manuální připomínka" u manuálního X účtu.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
-- **Upravené soubory**: `supabase/functions/process-scheduled-posts/index.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/app/[locale]/(dashboard)/accounts/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.

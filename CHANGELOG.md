@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 📝 Upgrade – Profesionální README.md + obrázky
+
+- **Kontext**: Aktuální README byl příliš strohý, neodrážel aktuální kvalitu projektu Postio a chyběly klíčové informace (odkaz na produkci, unikátní funkce, architektura).
+- **Změny**: Kompletně přepsán `README.md`: přidán header s názvem, podnadpisem a odkazem na `postio-app.cz`; přidány obrázky (logo.svg a hero-mockup_cs.png) z public/; sekce s unikátními funkcemi (AI Vision, Multi-platform, High-Fidelity Previews, Auto-Queue, Analytika); přehlednější Tech Stack; sekce Getting Started; část o architektuře Post + Platform Instances; detailní Design System s Glassmorphism a 20px radiusem; tabulka podporovaných sítí.
+- **Ověření**: Soubor je formátován v Markdownu, obrázky jsou přidány.
+- **Upravené soubory**: `README.md`.
+
 ### ✅ Ověření – Mobilní responzivita (KROK 5, finální)
 
 - **Kontext**: Závěrečné ověření všech 4 kroků opravy mobilní responzivity: globální přetečení (KROK 1), burger menu landing (KROK 2), cookie dialog + footer newsletter (KROK 3), skrytí plovoucí karty na `/privacy` (KROK 4).

@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Oprava – Skrytí plovoucí cookie karty na `/privacy` (KROK 4)
+
+- **Kontext**: Na stránce `/privacy` (cs/en/uk) je vlastní sekce Cookies + návratové tlačítko dole, ale plovoucí cookie karta (vpravo dole, `z-50`) ho překrývala, takže se uživatel „nedostal zpět".
+- **Změny**: `src/components/cookie-consent.tsx` — přidána detekce routy `isPrivacyPage = pathname.replace(/\/$/, "") === \`/${locale}/privacy\``; plovoucí karta obalena podmínkou `{!isPrivacyPage && (...)}`, takže na `/privacy` se nevykresluje (preferences dialog zůstává v kódu, ale není na této routě dostupný).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (karta na `/privacy` zmizela, návrat funguje; jinde se zobrazuje).
+- **Upravené soubory**: `src/components/cookie-consent.tsx`.
+
 ### 🐛 Oprava – Globální zábrana horizontálního přetečení (KROK 1)
 
 - **Kontext**: Na mobilu byla celá aplikace příliš široká (horizontální posuv). `body` měl jen `text-foreground`, chybělo `overflow-x-hidden`. Marketing layout navíc obsahuje glow div (`w-[860px]`) bez vlastního `overflow-hidden`, což přispívalo k přetečení.
@@ -65,9 +72,3 @@
 - **Změny**: `dashboard/page.tsx` — render ikon platforem nyní iteruje `post.post_platforms_raw` (místo deduplikovaného seznamu `post.platforms`) a aplikuje stejnou logiku jako `_post-card.tsx`: `published` → `text-emerald-400` + bílá fajfka v rohu, `failed` → červená, `removed_externally` → oranžová, ostatní → šedá. Přidán import `Check`.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/dashboard/page.tsx`.
-### 🎨 Oprava — Čistá ikona X (místo poškozené SVG cesty)
-
-- **Kontext**: `XIcon` v `social-icons.tsx` mělo ztvárněnou/neplatnou SVG cestu, která se v UI vykreslovala hrozně.
-- **Změny**: `src/components/ui/social-icons.tsx` — `XIcon` nahrazen oficiální cestou loga X (čisté „X" písmo, viewBox 0 0 24 24, `fill="currentColor"`), dědí barvu z `className` (např. zelená při `published`).
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `src/components/ui/social-icons.tsx`.

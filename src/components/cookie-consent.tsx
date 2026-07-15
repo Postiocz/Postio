@@ -22,6 +22,7 @@ export function CookieConsent() {
   const cookie = useTranslations("cookie");
   const pathname = usePathname();
   const locale = pathname.split("/")[1];
+  const isPrivacyPage = pathname.replace(/\/$/, "") === `/${locale}/privacy`;
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -78,7 +79,8 @@ export function CookieConsent() {
 
   return (
     <>
-      {/* Floating cookie card – responsive positioning */}
+      {/* Floating cookie card – hidden on /privacy (page has its own Cookies section + return) */}
+      {!isPrivacyPage && (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[400px] z-50 lg:left-auto lg:right-6 lg:bottom-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/40 p-4 lg:p-5 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           <p className="mb-4 lg:mb-6 text-[11px] leading-tight lg:text-sm lg:leading-relaxed text-muted-foreground">
@@ -109,6 +111,7 @@ export function CookieConsent() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Preferences Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>

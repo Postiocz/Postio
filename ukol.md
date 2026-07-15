@@ -71,7 +71,7 @@
   - `src/components/marketing/newsletter-form.tsx` → formulář `flex-col sm:flex-row`, tlačítko `w-full sm:w-auto`, input `min-w-0` (oprava přetečení tlačítka „Odebírat" ve footeru).
   - Dopad: dialog i footer vejdou do obrazovky, zavírá se přes X i „Zavřít" (stížnost 3).
 
-- [ ] **KROK 4 – Plovoucí cookie karta vs. `/privacy`**
+- [x] **KROK 4 – Plovoucí cookie karta vs. `/privacy`**
   - `src/components/cookie-consent.tsx` → skrýt plovoucí kartu na trase `/privacy` (tam je sekce Cookies + vlastní návrat dole, který karta překrývá).
 
 - [ ] **KROK 5 – Ověření**

@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✨ Feat - Dual-Font System (Prompt 033, Krok 1+2)
+
+- **Kontext**: Landing Page měla pouze bezpatkový Inter. Cílem bylo povýšit vizuál prémiovým patkovým písmem (Playfair Display) pro nadpisy a ceny, zatímco Dashboard a Fakturace zůstávají čistě sans-serif.
+- **Změny**: `src/app/layout.tsx` - naimportován Google Font `Playfair_Display` jako `--font-serif` (váhy 400 až 900) a přidán do `<html>` className. `src/app/globals.css` - zaregistrována `--font-serif` v `@theme inline`. `src/app/[locale]/(marketing)/page.tsx` - `font-serif` na H1 (hero) a H2 (Benefits). `src/components/marketing/pricing-section.tsx` - `font-serif` na H2 sekce ceníku a na velké číslo ceny. Jména plánů (H3) a Fakturace zůstávají sans.
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (serif viditelný na Landing, Dashboard sans).
+- **Upravené soubory**: `src/app/layout.tsx`, `src/app/globals.css`, `src/app/[locale]/(marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`.
+
 ### 📝 Upgrade – Profesionální README.md + obrázky
 
 - **Kontext**: Aktuální README byl příliš strohý, neodrážel aktuální kvalitu projektu Postio a chyběly klíčové informace (odkaz na produkci, unikátní funkce, architektura).
@@ -72,10 +79,3 @@
 - **Změny**: `src/lib/actions/publish.ts` — větev `twitter` v `publishPost` i `publishAdditionalPlatforms` nyní před kontrolou tokenu zjišťuje `publishing_type`. Pro `'manual'` přeskočí X API a zavolá novou `handleManualReady`, která zapíše `post_platforms.status='ready'` (zachovává `scheduled_at`). Řádek tak skončí v sekci „K vyřízení" na Dashboardu místo chyby.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: `src/lib/actions/publish.ts`.
-
-### 🎨 Oprava — Jednotná čistá ikona X napříč aplikací
-
-- **Kontext**: Ikona X se na různých místech vykreslovala špatně — stránka „Sociální účty" (připojit účet) i univerzální connect modal používaly starý pták (`Twitter` z `social-icons`), zatímco `XIcon` už byl opraven.
-- **Změny**: `src/components/ui/social-icons.tsx` — export `Twitter` nyní vykresluje stejnou čistou SVG cestu loga X jako `XIcon`. Tím se opraví ikona X na všech 5 místech: dlaždice „připojit účet", connect modal, kalendářní chip, preview dialog i edit dialog.
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `src/components/ui/social-icons.tsx`.

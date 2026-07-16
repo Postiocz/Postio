@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import type { Viewport } from "next";
 import "./globals.css";
 import { cookies } from "next/headers";
@@ -7,6 +7,15 @@ import Script from "next/script";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+// Elegant serif used ONLY for marketing headings & prices (premium feel).
+// In-app UI (dashboard/billing) stays sans-serif via --font-sans.
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-serif",
   display: "swap",
 });
 
@@ -31,7 +40,7 @@ export default async function RootLayout({
   const isDark = themeCookie !== "light";
 
   return (
-    <html lang="cs" className={`${inter.variable} ${isDark ? "dark" : ""}`} suppressHydrationWarning>
+    <html lang="cs" className={`${inter.variable} ${playfair.variable} ${isDark ? "dark" : ""}`} suppressHydrationWarning>
       <body className="min-h-screen" suppressHydrationWarning>
         <Script
           id="theme-init"

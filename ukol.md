@@ -42,3 +42,19 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
+### Prompt 033 – Přepínač měn a prémiová Dual-Font Typografie
+
+Cíl: Přidat do ceníku přepínač měn (USD, CZK, EUR) a povýšit vizuál veřejné Landing Page elegantním patkovým písmem (Serif) pro nadpisy a ceny, zatímco vnitřní aplikace (Dashboard/Fakturace) zůstane čistě bezpatková (Sans-serif).
+
+Poznámky z analýzy:
+- Projekt používá **Tailwind v4** (config v `globals.css` přes `@theme inline`, žádný `tailwind.config.js`). Serif font se přidá jako `--font-serif` proměnná do `@theme inline`.
+- `src/app/layout.tsx` načítá jen `Inter` jako `--font-sans`.
+- Ceník existuje 2×: `src/components/marketing/pricing-section.tsx` (Landing, server, jen `priceEur`) a `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx` (Fakturace, client, už má `priceCzk/priceEur/priceUsd`).
+- Přepínač měn musí být client komponenta (stav) → na Landing bude potřeba data předat do client wrapperu.
+
+- [x] **Krok 1: Dual-Font System.** Naimportovat do `layout.tsx` Google Font 'Playfair Display' (elegantní Serif) přes `next/font/google` jako `--font-serif`. Zaregistrovat proměnnou `--font-serif` do `@theme inline` v `globals.css` (utility třída `font-serif`).
+- [x] **Krok 2: Aplikace fontu na Landing Page.** Aplikovat patkový font STRIKTNĚ POUZE na hlavní nadpisy (H1, H2) veřejné Landing Page a na velká čísla cen (v `pricing-section.tsx`).
+- [ ] **Krok 3: Izolace aplikace (In-app UI).** Upravit `billing-card.tsx` (přidat prop `isMarketingView?: boolean`). Na `/settings/billing` karta používá bezpatkový font; na Landing page použije Serif pro číslo ceny. (Landing používá `pricing-section.tsx` – zajistit konzistenci Serif jen na marketingu.)
+- [ ] **Krok 4: Datový model měn.** Upravit cenová data, aby každá karta podporovala 3 hodnoty: CZK, EUR, USD (Creator: 199 Kč / 8 € / 9 $, Pro: 499 Kč / 20 € / 22 $). Sjednotit v `pricing-section.tsx` (doplnit `priceCzk`/`priceUsd`) i `billing-card.tsx`.
+- [ ] **Krok 5: Currency Switcher.** Vytvořit novou UI komponentu – elegantní pilulkový segmented control s Glassmorphismem. Přidat nad ceník na Landing page i na stránku Fakturace. Výběr měny přepíná zobrazené ceny + správné symboly (Kč, €, $).
+

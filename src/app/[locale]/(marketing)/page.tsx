@@ -57,7 +57,7 @@ export default async function MarketingPage({
         </div>
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <Reveal>
-            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
               {t("hero.title")}
             </h1>
             <p className="mt-5 max-w-[52ch] text-base text-muted-foreground sm:text-lg">
@@ -97,7 +97,7 @@ export default async function MarketingPage({
       {/* Benefits: bento grid with rhythm (2+1, 1+2) */}
       <section id="funkce" className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-28">
         <Reveal>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {t("benefits.heading")}
           </h2>
         </Reveal>

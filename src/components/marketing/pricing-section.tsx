@@ -86,7 +86,7 @@ export async function PricingSection({ locale }: { locale: string }) {
       className="relative mx-auto max-w-7xl scroll-mt-28 px-4 py-20 sm:px-6 md:py-28"
     >
       <Reveal>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+        <h2 className="font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           {t("pricing.heading")}
         </h2>
         <p className="mt-3 max-w-[60ch] text-base text-muted-foreground">
@@ -137,7 +137,7 @@ export async function PricingSection({ locale }: { locale: string }) {
                   </div>
 
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold tracking-tight text-foreground">
+                    <span className="font-serif text-4xl font-bold tracking-tight text-foreground">
                       {displayPrice}
                     </span>
                     {plan.priceEur > 0 && (

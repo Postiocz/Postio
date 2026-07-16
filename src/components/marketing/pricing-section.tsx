@@ -24,7 +24,9 @@ interface Plan {
   id: "free" | "creator" | "pro";
   name: string;
   description: string;
+  priceCzk: number;
   priceEur: number;
+  priceUsd: number;
   features: Feature[];
   isRecommended: boolean;
   ctaLabel: string;
@@ -38,7 +40,9 @@ export async function PricingSection({ locale }: { locale: string }) {
       id: "free",
       name: t("pricing.free"),
       description: t("pricing.freeDesc"),
+      priceCzk: 0,
       priceEur: 0,
+      priceUsd: 0,
       features: [
         { label: t("pricing.accounts"), value: "1" },
         { label: t("pricing.postsPerMonth"), value: "10" },
@@ -52,7 +56,9 @@ export async function PricingSection({ locale }: { locale: string }) {
       id: "creator",
       name: t("pricing.creator"),
       description: t("pricing.creatorDesc"),
+      priceCzk: 199,
       priceEur: 8,
+      priceUsd: 9,
       features: [
         { label: t("pricing.accounts"), value: "5" },
         { label: t("pricing.postsPerMonth"), value: t("pricing.unlimited") },
@@ -67,7 +73,9 @@ export async function PricingSection({ locale }: { locale: string }) {
       id: "pro",
       name: t("pricing.pro"),
       description: t("pricing.proDesc"),
+      priceCzk: 499,
       priceEur: 20,
+      priceUsd: 22,
       features: [
         { label: t("pricing.accounts"), value: "∞" },
         { label: t("pricing.postsPerMonth"), value: t("pricing.unlimited") },

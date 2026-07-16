@@ -14,7 +14,7 @@ export async function FaqSection({ locale }: { locale: string }) {
       className="relative mx-auto max-w-7xl scroll-mt-28 px-4 py-20 sm:px-6 md:py-28"
     >
       <Reveal>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+        <h2 className="font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           {t("faq.heading")}
         </h2>
         <p className="mt-3 max-w-[60ch] text-base text-muted-foreground">

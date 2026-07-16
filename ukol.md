@@ -54,7 +54,7 @@ Poznámky z analýzy:
 
 - [x] **Krok 1: Dual-Font System.** Naimportovat do `layout.tsx` Google Font 'Playfair Display' (elegantní Serif) přes `next/font/google` jako `--font-serif`. Zaregistrovat proměnnou `--font-serif` do `@theme inline` v `globals.css` (utility třída `font-serif`).
 - [x] **Krok 2: Aplikace fontu na Landing Page.** Aplikovat patkový font STRIKTNĚ POUZE na hlavní nadpisy (H1, H2) veřejné Landing Page a na velká čísla cen (v `pricing-section.tsx`, též H2 v `faq-section.tsx`).
-- [ ] **Krok 3: Izolace aplikace (In-app UI).** Upravit `billing-card.tsx` (přidat prop `isMarketingView?: boolean`). Na `/settings/billing` karta používá bezpatkový font; na Landing page použije Serif pro číslo ceny. (Landing používá `pricing-section.tsx` – zajistit konzistenci Serif jen na marketingu.)
+- [x] **Krok 3: Izolace aplikace (In-app UI).** Realizováno bez propu `isMarketingView`: serif (`font-serif`) je aplikován VÝHRADNĚ na marketing komponenty (`page.tsx` H1/H2, `pricing-section.tsx` H2 + cena, `faq-section.tsx` H2). `billing-card.tsx` (Fakturace) serif nemá → zůstává čistě sans-serif.
 - [x] **Krok 4: Datový model měn.** Upravit cenová data, aby každá karta podporovala 3 hodnoty: CZK, EUR, USD (Creator: 199 Kč / 8 € / 9 $, Pro: 499 Kč / 20 € / 22 $). Sjednotit v `pricing-section.tsx` (doplnit `priceCzk`/`priceUsd`) i `billing-card.tsx`.
-- [ ] **Krok 5: Currency Switcher.** Vytvořit novou UI komponentu – elegantní pilulkový segmented control s Glassmorphismem. Přidat nad ceník na Landing page i na stránku Fakturace. Výběr měny přepíná zobrazené ceny + správné symboly (Kč, €, $).
+- [x] **Krok 5: Currency Switcher.** Vytvořit novou UI komponentu – elegantní pilulkový segmented control s Glassmorphismem. Přidat nad ceník na Landing page i na stránku Fakturace. Výběr měny přepíná zobrazené ceny + správné symboly (Kč, €, $).
 

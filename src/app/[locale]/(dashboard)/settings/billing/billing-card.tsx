@@ -3,6 +3,8 @@
 import React, { useTransition } from "react";
 import { Check, Crown, Loader2, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/lib/pricing";
+import type { Currency } from "@/components/marketing/currency-switcher";
 import { cn } from "@/lib/utils";
 
 interface Feature {
@@ -10,7 +12,7 @@ interface Feature {
   value: string;
 }
 
-interface Plan {
+export interface Plan {
   id: "free" | "creator" | "pro";
   name: string;
   description: string;
@@ -25,6 +27,7 @@ interface Plan {
 interface BillingCardProps {
   plan: Plan;
   locale: string;
+  currency?: Currency;
   translations: {
     current: string;
     recommended: string;
@@ -40,11 +43,11 @@ const iconMap: Record<string, React.ElementType> = {
   pro: Crown,
 };
 
-export function BillingCard({ plan, locale, translations }: BillingCardProps) {
+export function BillingCard({ plan, locale, currency = "eur", translations }: BillingCardProps) {
   const Icon = iconMap[plan.id] || Sparkles;
   const [isPending, startTransition] = useTransition();
 
-  const displayPrice = plan.priceEur > 0 ? `${plan.priceEur}€` : "Free";
+  const { display, isFree } = formatPrice(plan, currency, "Free");
 
   const handleCheckout = () => {
     if (plan.isCurrent) return;
@@ -113,8 +116,8 @@ export function BillingCard({ plan, locale, translations }: BillingCardProps) {
 
         {/* Price */}
         <div className="flex items-baseline gap-1">
-          <span className="text-4xl font-bold tracking-tight">{displayPrice}</span>
-          {plan.priceEur > 0 && (
+          <span className="text-4xl font-bold tracking-tight">{display}</span>
+          {!isFree && (
             <span className="text-sm text-muted-foreground">{translations.perMonth}</span>
           )}
         </div>

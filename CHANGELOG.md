@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 💱 Feat - Currency Switcher + izolace (Prompt 033, Krok 3+5)
+
+- **Kontext**: Ceník zobrazoval jen EUR, žádný přepínač měn. Serif (Krok 1+2) byl aplikován jen na marketing, izolace aplikace potvrzena.
+- **Změny**: `src/components/marketing/currency-switcher.tsx` - nová client komponenta (pilulkový segmented control, glassmorphism, 20px radius, indigo accent, 3 měny CZK/EUR/USD). `src/lib/pricing.ts` - helper `formatPrice` (CZK "199 Kč", EUR "8 €", USD "$9", free fallback). `src/components/marketing/pricing-client.tsx` - nová client island (Landing: switcher + karty, serif cena zachována). `src/components/marketing/pricing-section.tsx` - přepsáno na server (data → PricingClient). `src/app/[locale](dashboard)/settings/billing/billing-card.tsx` - prop `currency` + `formatPrice` (zůstává sans). `src/app/[locale](dashboard)/settings/billing/billing-client.tsx` - nová client island (Fakturace: switcher nad gridem). `src/app/[locale](dashboard)/settings/billing/page.tsx` - volá BillingClient. Krok 3: izolace realizována bez propu (serif jen na marketing, billing-card sans).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (switcher přepíná CZK/EUR/USD na Landing i Fakturace, serif jen na Landing, Dashboard sans).
+- **Upravené soubory**: currency-switcher.tsx, lib/pricing.ts, pricing-client.tsx, pricing-section.tsx, billing-card.tsx, billing-client.tsx, billing/page.tsx.
+
 ### 💱 Feat - Datový model měn (Prompt 033, Krok 4)
 
 - **Kontext**: Ceník zobrazoval jen EUR. Pro budoucí přepínač měn byly potřebny 3 hodnoty (CZK, EUR, USD) na každé kartě.
@@ -66,9 +73,3 @@
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
 
-### 🐦 Hybridní X režim — Označit jako publikované (Prompt 031-X-COMBO, Krok 2+3)
-
-- **Kontext**: Po Krocích 1 a 5 šel manuální X post do sekce „K vyřízení", ale uživatel ho po ručním zveřejnění na X nemohl odtud odebrat. Chyběla akce, která přepne `post_platforms.status` z `'ready'` na `'published'`.
-- **Změny**: `src/lib/actions/publish.ts` — nová `"use server"` funkce `markAsPublishedManual({ postId, platform?, accountId? })`: ověří vlastnictví postu, nastaví `status='published'`, `published_at=now()`, `publish_error=null` (scope přes `status='ready'` + volitelně `platform`/`accountId`), standardní revalidace. `dashboard/page.tsx` — widget „K vyřízení": `TodoPostItem` nově nese `postId`/`accountId`; emerald tlačítko „Označit jako publikované" volá akci a karta se po úspěchu optimisticky skryje. `_post-card.tsx` — tlačítko v zápatí karty (pouze pro twitter řádek ve stavu `'ready'`), po úspěchu `toast.success` + `router.refresh()`. i18n — `dashboard.markPublished` + `posts.markPublished` (cs/en/uk).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
-- **Upravené soubory**: `src/lib/actions/publish.ts`, `src/app/[locale]/(dashboard)/dashboard/page.tsx`, `src/app/[locale]/(dashboard)/posts/_post-card.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.

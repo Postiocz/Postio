@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
-import { BillingCard } from "./billing-card";
+import { BillingClient } from "./billing-client";
 import { ManageSubscriptionButton } from "@/components/billing/manage-subscription-button";
 
 export default async function BillingPage({
@@ -109,22 +109,17 @@ export default async function BillingPage({
         <ManageSubscriptionButton />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
-        {plans.map((plan) => (
-          <BillingCard
-            key={plan.id}
-            plan={plan}
-            locale={locale}
-            translations={{
-              current: t("current"),
-              recommended: t("recommended"),
-              perMonth: t("perMonth"),
-              subscribe: t("subscribe"),
-              upgrade: t("upgrade"),
-            }}
-          />
-        ))}
-      </div>
+      <BillingClient
+        plans={plans}
+        locale={locale}
+        translations={{
+          current: t("current"),
+          recommended: t("recommended"),
+          perMonth: t("perMonth"),
+          subscribe: t("subscribe"),
+          upgrade: t("upgrade"),
+        }}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -52,6 +52,7 @@ export default function ReferralStats({
   const t = useTranslations("referrals");
   const reduce = useReducedMotion();
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const referralLink = referralCode
     ? `https://postio-app.cz/${locale}/login?ref=${referralCode}`
@@ -152,22 +153,39 @@ export default function ReferralStats({
         whileInView="show"
         viewport={{ once: true, amount: 0.2 }}
       >
-        <h2 className="text-lg font-semibold text-foreground">{t("howItWorks")}</h2>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">{t("howItWorks")}</h2>
+          <button
+            type="button"
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            aria-label={t("howItWorks")}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/10 sm:hidden"
+          >
+            <ChevronDown
+              className={`h-5 w-5 transition-transform duration-300 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+        </div>
+        <div
+          className={`mt-4 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 ${open ? "grid" : "hidden"} sm:grid`}
+        >
           {STEPS.map((step) => (
             <div
               key={step.n}
-              className="flex flex-col items-center text-center rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/40 dark:bg-card/20 p-5"
+              className="flex flex-row items-start gap-4 text-left rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/40 dark:bg-card/20 p-5 sm:flex-col sm:items-center sm:text-center"
             >
               <div
-                className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold ${step.badge}`}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold ${step.badge}`}
               >
                 {step.n}
               </div>
-              <p className="mt-3 font-semibold text-foreground">
-                {t(step.titleKey)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{t(step.descKey)}</p>
+              <div className="flex flex-col gap-1 sm:items-center sm:gap-0">
+                <p className="font-semibold text-foreground sm:mt-3">
+                  {t(step.titleKey)}
+                </p>
+                <p className="text-sm text-muted-foreground sm:mt-1">{t(step.descKey)}</p>
+              </div>
             </div>
           ))}
         </div>

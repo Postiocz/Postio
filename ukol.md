@@ -42,48 +42,23 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 🎯 Prompt 034 – Referral program ("Doporuč a získej")
+### 🔧 Mimořádný úkol – Sjednocení zarovnání na mobilu u Referral stránky
 
-**Cíl:** Systém doporučování uživatelů. Uživatel má unikátní odkaz, vidí statistiky a návod.
+**Cíl:** Na mobilu odstranit nekonzistenci: stránka "Doporučení" má hlavičku + kroky "Jak to funguje" vycentrované, ale ostatní sekce doleva. Výsledek: na mobilu kompaktní "List view" (číslo vlevo, text vpravo, vše doleva), na desktopu zachovat stávající 4 karty vedle sebe (centrované).
 
 **Analýza stavu (FÁZE 1):**
-- Tabulka `users` (migrace `001_initial_schema.sql`) má sloupce `id, full_name, avatar_url, plan, language, streak, onboarded, created_at`. Přidání `referral_code` + `referred_by` je přímočaré.
-- Trigger `handle_new_user` (`002_auth_trigger.sql`) vytváří řádek `users` při registraci. Rozšířím ho o generování unikátního `referral_code` (retry-loop proti kolizi UNIQUE).
-- ⚠️ **Rozdíl oproti zadání:** `settings-sidebar.tsx` je mrtvý komponent (neimportuje se nikde). Reálná navigace podstránek nastavení je v `src/components/dashboard/sidebar.tsx` (`submenuItems`) a `src/components/dashboard/mobile-nav.tsx` (dropdown). Novou položku přidám sem, ne do `settings-sidebar.tsx`.
-- Zachycení `?ref=`: email registrace (`emailAuthAction`) i Google OAuth (`auth/callback/route.ts`) vyžadují sjednocený helper `applyReferral(code, userId)`, který po vzniku session doplní `referred_by` (jen pokud je null a není self).
-- Odkaz: `https://postio-app.cz/{locale}/login?ref=CODE` (produkční doména dle README).
+- `src/components/referral/referral-stats.tsx` – sekce "Jak to funguje" (BOTTOM): kontejner `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4`; každá karta má `flex flex-col items-center text-center` → na mobilu 1 sloupec, kolečko nahoře, nadpis+popis centrované → zabírá zbytečně mnoho vertikálního místa a nesedí s levo-zarovnaným zbytkem stránky.
+- MIDDLE sekce ("Váš doporučovací odkaz"): label `yourLink` je už čistě doleva (žádný `text-center`) – OK.
+- `src/app/[locale](dashboard)/settings/referrals/page.tsx` – hlavní h1/p: `flex flex-col items-center text-center sm:items-start sm:text-left` → na mobilu vycentrované (toto bylo schváleno v předchozím úkolu, nyní chceme zrušit a zarovnat doleva všude).
 
-**Krok 1: Úprava databáze + zachycení ref kódu** `[x]`
-- SQL migrace `039_add_referral_system.sql`:
-  - `ALTER TABLE public.users ADD COLUMN referral_code TEXT UNIQUE;`
-  - `ALTER TABLE public.users ADD COLUMN referred_by UUID REFERENCES public.users(id) ON DELETE SET NULL;`
-  - Úprava `handle_new_user` (v `002` nebo nová migrace `040` s `CREATE OR REPLACE`): generování `referral_code` přes LOOP s `upper(substring(replace(gen_random_uuid()::text,'-','') from 1 for 6))` a retry při `unique_violation`.
-  - RLS: `referred_by` je na vlastním řádku → pokryto existujícími policy (SELECT/UPDATE own row).
-- Helper `src/lib/referral.ts`: `applyReferral(code, userId)` – resolve kódu na referrer id (SELECT podle `referral_code`), UPDATE `referred_by` jen pokud null a `referrer_id != userId`.
-- Napojení:
-  - `email-signin.tsx`: pokud URL obsahuje `?ref=`, uložit do cookie `postio_ref` (přežije i e-mail verifikaci).
-  - `emailAuthAction`: po `signUp`/`signIn` přečíst `postio_ref` a zavolat `applyReferral`.
-  - `auth/callback/route.ts`: po `exchangeCodeForSession` (Google) přečíst cookie `postio_ref` a zavolat `applyReferral`.
-- `npx tsc --noEmit` + manuální test (registrace s `?ref=`, ověření `referred_by` v DB).
+**Krok 1: Mobilní accordion + Desktop původní vzhled (sekce "Jak to funguje")** `[x]`
+- V `referral-stats.tsx` přepsat BOTTOM sekci "Jak to funguje":
+  - Nadpis `howItWorks` (`h2`) v řádku s `ChevronDown` ikonou v `<button>` vpravo (flex `justify-between`). Šipka mobilní-only (`sm:hidden`); na desktopu nadpis statický, obsah vždy viditelný.
+  - `useState(open)` (výchozí `false` = na mobilu sbaleno). Klik na šipku toggluje `open`; šipka rotuje `rotate-180` (`transition-transform duration-300 motion-reduce:transition-none`).
+  - Grid karet: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`; display třída: mobilní `${open ? "grid" : "hidden"}`, desktop vždy `sm:grid` (přepsání base).
+  - Karta kroku: mobilní `flex flex-row items-start gap-4 text-left` (číslo vlevo, textový blok vpravo, kolečko `shrink-0`); desktop `sm:flex-col sm:items-center sm:text-center` (původní vzhled: 4 karty vedle sebe, centrované). Textový blok `flex flex-col gap-1 sm:items-center`, nadpis `sm:mt-3`, popis `sm:mt-1`.
+- Import `ChevronDown` z `lucide-react`.
+- `npx tsc --noEmit` + manuální test: Desktop = původní 4 karty centrované, šipka skrytá. Mobil = nadpis + šipka, obsah skrytý; po kliku se rozbalí (4 kompaktní řádky, číslo vlevo, text doleva), šipka se otočí.
 
-**Krok 2: Nová položka v menu nastavení + routa** `[x]`
-- `dashboard/sidebar.tsx`: přidat do `submenuItems.account` položku `{ href: /${locale}/settings/referrals, label: settingsLabels.referrals, icon: Gift }`; přidat `gift: Gift` do `ICON_MAP` a `referalls` do `settingsLabels` typu.
-- `mobile-nav.tsx`: stejná položka do `accountLabel` sekce dropdownu + icon `Gift`.
-- `dashboard/layout.tsx`: předat `settingsLabels.referrals` (i18n klíč `settings.referrals`).
-- Vytvořit `src/app/[locale]/(dashboard)/settings/referrals/page.tsx` (zatím prázdná/server wrapper, který načte `referral_code`, počet referralů a předá do client komponenty z Kroku 3).
-- `npx tsc --noEmit` + manuální test (položka viditelná v postranním menu i mobile dropdownu, route funkční).
-
-**Krok 3: UI Referral stránky (Glassmorphism, dle design skillů)** `[x]`
-- `referrals/page.tsx` (server): načte `referral_code`, `count(referred_by = id)` jako "Celkem doporučení", a odvozenou odměnu (počet referralů = počet měsíců PRO zdarma).
-- Client komponenta `referral-stats.tsx` s dvěma horními kartami:
-  - "Celkem doporučení" (počet uživatelů s `referred_by` = můj id).
-  - "Získané odměny" (odvozeno z počtu referralů; copy: za každé doporučení 1 měsíc PRO zdarma).
-- Sekce "Váš doporučovací odkaz": input (readonly) s odkazem `https://postio-app.cz/{locale}/login?ref=CODE` + tlačítko "Kopírovat" (`navigator.clipboard`, toast potvrzení).
-- Sekce "Jak to funguje": 4 kroky (Zkopírujte odkaz → Sdílejte → Registrace uživatele → Získejte odměnu: měsíc PRO zdarma).
-- Design: Pure Black pozadí, radius 20px, glassmorphism, indigo accent, grid pattern, custom cubic-bezier motion, respektovat `prefers-reduced-motion`. Žádné em-dash. Konzistentní s existujícími settings stránkami.
-- `npx tsc --noEmit` + manuální test vizuálu a kopírování.
-
-**Krok 4: Lokalizace (cs/en/uk)** `[x]`
-- Přidat klíče do `src/messages/cs.json`, `en.json`, `uk.json` (namespace `settings` nebo nový `referrals`): `referrals`, `referralsDescription`, `totalReferrals`, `rewardsEarned`, `yourLink`, `copy`, `copied`, `howItWorks`, `step1`–`step4`, atd.
-- `npx tsc --noEmit` + manuální test všech 3 jazyků.
+**Krok 2 (byrokracie po schválení):** Označit Krok 1 ✅, zapsat do CHANGELOG.md (Pravidlo 6), git commit (Pravidlo 4).
 

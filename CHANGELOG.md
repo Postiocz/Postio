@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Referral "Jak to funguje": mobilní accordion + desktop původní (Mimořádný úkol)
+
+- **Kontext**: Na mobilu působila sekce "Jak to funguje" nekonzistentně (kroky centrované, zabíraly zbytečně mnoho vertikálního místa). Požadavek: na desktopu zachovat původní vzhled (4 karty vedle sebe, centrované), na mobilu sekci sbalit pod rozbalovací nadpis.
+- **Změny**: `src/components/referral/referral-stats.tsx` - BOTTOM sekce "Jak to funguje" přepsána: nadpis `howItWorks` (`h2`) + `ChevronDown` v `<button>` vpravo (flex `justify-between`, šipka `sm:hidden`). `useState(open)` (výchozí `false` = na mobilu sbaleno); klik toggluje `open`, šipka rotuje `rotate-180` (`transition-transform duration-300 motion-reduce:transition-none`). Grid karet: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`; display třída `${open ? "grid" : "hidden"} sm:grid` (mobil sbalitelné, desktop vždy grid). Karta kroku: mobil `flex flex-row items-start gap-4 text-left` (číslo vlevo, textový blok vpravo, kolečko `shrink-0`), desktop `sm:flex-col sm:items-center sm:text-center` (původní vzhled 4 karet). Přidán import `ChevronDown` z lucide-react. Zachováno: radius 20px, pastel badge, `prefers-reduced-motion`.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test: desktop = původní 4 karty centrované (šipka skrytá); mobil = nadpis + šipka, obsah skrytý, po kliku 4 kompaktní řádky (číslo vlevo, text doleva), šipka se otočí.
+- **Poznámka**: Hlavička stránky "Doporučení" ponechána beze změny (centrovaná na mobilu dle dřívějšího schválení).
+- **Upravené soubory**: referral-stats.tsx.
+
 ### 🎯 Feat - Referral: UI stránka + lokalizace (Prompt 034, Krok 3+4)
 
 - **Kontext**: Krok 2 přidal menu + prázdnou routu. Chyběla plná UI stránky (statistiky, odkaz, Jak to funguje) a překlady cs/en/uk. Od uživatele schválena Varianta 1 (pouze vizuální zobrazení odměn).
@@ -67,10 +75,3 @@
 - **Změny**: `src/components/cookie-consent.tsx` — přidána detekce routy `isPrivacyPage = pathname.replace(/\/$/, "") === \`/${locale}/privacy\``; plovoucí karta obalena podmínkou `{!isPrivacyPage && (...)}`, takže na `/privacy` se nevykresluje (preferences dialog zůstává v kódu, ale není na této routě dostupný).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (karta na `/privacy` zmizela, návrat funkce; jinde se zobrazuje).
 - **Upravené soubory**: `src/components/cookie-consent.tsx`.
-
-### 🐛 Oprava – Globální zábrana horizontálního přetečení (KROK 1)
-
-- **Kontext**: Na mobilu byla celá aplikace příliš široká (horizontální posuv). `body` měl jen `text-foreground`, chybělo `overflow-x-hidden`. Marketing layout navíc obsahuje glow div (`w-[860px]`) bez vlastního `overflow-hidden`, což přispívalo k přetečení.
-- **Změny**: `src/app/globals.css` — v `@layer base` přidáno `overflow-x-hidden` do pravidla `body` (`@apply text-foreground overflow-x-hidden`). Horizontální posuv mizí plošně napříč aplikací a zároveň se ořízne přetečení od glow divu.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test na mobilu ✅ (zmizel horizontální scroll na landing/dashboard).
-- **Upravené soubory**: `src/app/globals.css`.

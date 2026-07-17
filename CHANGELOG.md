@@ -3,12 +3,20 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Formátování právních rout (Prompt 033, Krok 4)
+
+- **Kontext**: Krok 3 přidal 4 routy zobrazující .txt raw (`whitespace-pre-line`). Chybělo strukturované formátování (nadpisy, odrážky, datum).
+- **Změny**: `src/components/marketing/legal-doc-page.tsx` - NOVÁ `parseLegalDoc(raw)`: extrahuje název (řádek pod `POSTIO`) → `<h1>` a `Naposledy aktualizováno: <datum>` → podtitulek; tělo (od první číslované sekce) parsuje na bloky: top-level `N.` → `<h2>`, sub-level `N.N` → `<h3>` (inline text oddělen do `<p>`), `* ` → odrážka (seskupeno do `<ul>`), ostatní → `<p>`. Duplicitní název+datum pod hlavičkou přeskočeno. Stylování `max-w-3xl`, black bg, bílá nadpisy - konzistentní s `/privacy`.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (4 routy: název+datum v hlavičce, sekce jako nadpisy, odrážky jako seznam; cs/en/uk přes LocaleSwitcher).
+- **Poznámka**: `04_...AI.txt` má řádek 17 slitou tabulku (bez oddělovačů) → vykreslena jako odstavec (parsování tabulek mimo rozsah Krok 4). EN/UK zobrazují cs zdroj (rozhodnutí B).
+- **Upravené soubory**: legal-doc-page.tsx.
+
 ### 🔧 Feat - Právní routy (Prompt 033, Krok 3)
 
 - **Kontext**: Footer odkazuje na `/privacy-policy`, `/terms-of-service`, `/dpa`, `/ai-transparency-notice`, ale tyto routy neexistovaly - klik na ně vedl na 404.
 - **Změny**: `src/lib/legal-docs.ts` - NOVÝ reader (`fs/promises`, Node runtime, čte `doc/*.txt` přes `process.cwd()`). `src/components/marketing/legal-doc-page.tsx` - NOVÁ sdílená server komponenta (hlavička s Logem = odkaz domů jako `/privacy`, tělo dokumentu raw `whitespace-pre-line`, `<SiteFooter locale={locale} />`, tlačítko Zpět). 4 routy pod `(marketing)`: `privacy-policy`, `terms-of-service`, `dpa`, `ai-transparency-notice` (`page.tsx`), každá volá `LegalDocPage` s příslušným souborem a `runtime = "nodejs"`. Middleware: routy veřejné automaticky (nejsou `isDashboardRoute`), žádná změna.
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (4 routy načítají text dokumentu, hlavička + footer + LocaleSwitcher funkční; cs/en/uk).
-- **Poznámka**: Krok 4 přidá parser (h2/odrážky/datum) pouze do `legal-doc-page.tsx`; `.txt` soubory v `doc/` musejí zůstat (čtou se za běhu).
+- **Poznámka**: Krok 4 přidal parser (h2/odrážky/datum) do `legal-doc-page.tsx`; `.txt` soubory v `doc/` musejí zůstat (čtou se za běhu).
 - **Upravené soubory**: legal-docs.ts (nová), legal-doc-page.tsx (nová), privacy-policy/page.tsx (nová), terms-of-service/page.tsx (nová), dpa/page.tsx (nová), ai-transparency-notice/page.tsx (nová).
 
 ### 🔧 Feat - Footer (SiteFooter) + cookie modal reopen (Prompt 033, Krok 1)
@@ -69,10 +77,3 @@
 - **Změny**: `src/components/marketing/pricing-section.tsx` - rozšířen `Plan` interface o `priceCzk`/`priceUsd` a naplněna data (Free 0/0/0, Creator 199/8/9, Pro 499/20/22). `src/app/[locale](dashboard)/settings/billing/page.tsx` i `billing-card.tsx` už měly všechny 3 měny (potvrzeno). Datový model sjednocen v obou cenících.
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `src/components/marketing/pricing-section.tsx`.
-
-### ✨ Feat - Dual-Font System (Prompt 033, Krok 1+2)
-
-- **Kontext**: Landing Page měla pouze bezpatkový Inter. Cílem bylo povýšit vizuál prémiovým patkovým písmem (Playfair Display) pro nadpisy a ceny, zatímco Dashboard a Fakturace zůstávají čistě sans-serif.
-- **Změny**: `src/app/layout.tsx` - naimportován Google Font `Playfair_Display` jako `--font-serif` (váhy 400 až 900) a přidán do `<html>` className. `src/app/globals.css` - zaregistrována `--font-serif` v `@theme inline`. `src/app/[locale](marketing)/page.tsx` - `font-serif` na H1 (hero) a H2 (Benefits). `src/components/marketing/pricing-section.tsx` - `font-serif` na H2 sekce ceníku a na velké číslo ceny. `src/components/marketing/faq-section.tsx` - `font-serif` na H2 sekce FAQ. Jména plánů (H3) a Fakturace zůstávají sans.
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (serif viditelný na Landing, Dashboard sans).
-- **Upravené soubory**: `src/app/layout.tsx`, `src/app/globals.css`, `src/app/[locale](marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`.

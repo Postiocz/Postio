@@ -1,0 +1,59 @@
+POSTIO
+Data Processing Agreement (DPA)
+
+https://postio-app.cz  |  info@postio-app.cz
+
+Last updated: July 16, 2026
+
+
+
+
+Data Processing Agreement (DPA)
+Last updated: July 16, 2026
+1. PURPOSE AND SCOPE
+1.1 This Data Processing Agreement ('DPA') forms part of the contractual relationship established by the Terms of Service governing the use of the Postio platform and the Services provided by the operator of Postio ('Processor') and the customer ('Customer' or 'Controller').
+1.2 This DPA governs the processing of the Customer's Personal Data carried out by the Processor on behalf of the Customer in connection with the provision of the Services and applies where the Processor processes Personal Data as a processor within the meaning of the GDPR.
+1.3 Processing of personal data carried out by the Processor in the role of an independent Controller (account management, billing, security) is governed by the Privacy Policy, not this DPA.
+1.4 In the event of a conflict between this DPA and the Terms of Service regarding the processing of Personal Data, this DPA takes precedence.
+2. DEFINITIONS
+'Customer' or 'Controller' - a natural or legal person who has entered into an agreement to use Postio and determines the purposes and means of processing Personal Data.
+'Processor' - the operator of the Postio application, who processes Personal Data on behalf of the Controller.
+'Customer Personal Data' - any personal data contained in Customer Data that the Processor processes on behalf of the Customer in connection with the provision of the Services.
+'GDPR' - Regulation (EU) 2016/679 of the European Parliament and of the Council.
+'Sub-processor' - any third party entrusted by the Processor with the processing of the Customer's Personal Data.
+3. ALLOCATION OF ROLES
+3.1 Controller. The Customer acts as the Controller of the Customer's Personal Data and determines the purposes and means of its processing.
+3.2 Processor. The Processor processes the Customer's Personal Data exclusively on behalf of the Customer and in accordance with this DPA, the Terms of Service and the documented instructions of the Customer.
+4. DETAILS OF PROCESSING
+ItemDescriptionSubject of processingOperation of the Postio platform for social media managementDurationFor the term of the subscription + 30 days after its terminationNature of processingStorage, transfer, analysis, publication of contentPurpose of processingProvision, operation, maintenance, security and support of the Postio ServicesCategories of data subjectsNames, emails, profile photos, published content, social media analyticsCategories of data subjectsCustomers, followers and recipients of the Customer's content on social networks
+5. CUSTOMER INSTRUCTIONS
+5.1 The Processor processes the Customer's Personal Data only on the basis of documented instructions of the Customer, in particular those contained in the Terms of Service, this DPA or other written instructions.
+The Customer is responsible for:
+* Determining the purposes and legal titles for processing Personal Data,
+* Ensuring all necessary rights, authorizations and consents for providing data,
+* Ensuring the correctness, quality and lawfulness of the Customer's Personal Data.
+5.3 If the Processor believes that a documented instruction violates applicable data protection regulations, it shall inform the Customer without undue delay.
+6. OBLIGATIONS OF THE PROCESSOR
+The Processor undertakes to:
+* Process the Customer's Personal Data only in accordance with this DPA and the instructions,
+* Ensure that persons authorized to process data are bound by confidentiality,
+* Establish and maintain appropriate technical and organizational security measures,
+* Not transfer Personal Data to third parties without prior approval,
+* Assist the Customer in handling data subject requests (access, erasure, etc.),
+* Delete or return all Customer Personal Data upon termination of the Services.
+7. SUB-PROCESSORS
+7.1 General authorization. The Customer grants the Processor a general authorization to engage Sub-processors in the processing of the Customer's Personal Data.
+7.2 List of existing Sub-processors:
+Sub-processorPurposeLocationSupabase, Inc.Database, authentication, storageUSA/EU (SCC)Google LLC (Gemini API)AI Vision featureUSA (SCC)Stripe, Inc.Payment processingUSA (SCC)Vercel, Inc.Application hostingUSA/EU (SCC)
+7.3 Changes. The Processor informs the Customer of the appointment of new Sub-processors in advance. The Customer may raise a reasoned objection.
+8. TRANSFER OF DATA TO THIRD COUNTRIES
+Transfer of Personal Data outside the EEA takes place exclusively on the basis of Standard Contractual Clauses (SCC) under Article 46 GDPR or other approved mechanisms.
+9. SECURITY INCIDENT NOTIFICATION
+9.1 In the event of a breach of security of the Customer's Personal Data, the Processor shall inform the Customer by email without undue delay, at the latest within 72 hours of becoming aware.
+9.2 The notification contains a description of the incident, the categories of data affected, estimated consequences and remedial measures.
+10. AUDIT
+The Processor shall provide the Customer with the information necessary to demonstrate compliance with this DPA and allow audits, including inspections carried out by an independent auditor, once a year with 30 days' advance notice.
+11. FINAL PROVISIONS
+This DPA is governed by the law of the Czech Republic and is valid for the entire duration of the contractual relationship between the parties.
+
+Contact: info@postio-app.cz  |  https://postio-app.cz

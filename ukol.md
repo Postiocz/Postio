@@ -48,7 +48,7 @@
 
 **✅ Schválená rozhodnutí (uživatelem potvrzena před Krokem 1):**
 - **A) Newsletter:** PONECHÁVÁ se nahoře, pod ním 4 sloupce + spodní řádek.
-- **B) EN/UK právní texty:** Pro `en`/`uk` se zobrazí cs zdroj (funkční, bez překladu).
+- **B) EN/UK právní texty:** Vygenerovány strojové překlady (koncepty) do `doc/en/` a `doc/uk/` (stejné názvy souborů jako cs). Načítání je locale-aware s cs zálohou (`readLegalDoc(fileName, locale)`). Parser podporuje datum i nadpisy ve všech 3 jazycích (rozšířen regex o cyrilici). ⚠️ Před produkcí nutná právní kontrola překladů.
 - **C) Mrtvé odkazy:** Changelog, Srovnání s Bufferem, Status služby, Stáhnout aplikaci se VYNECHÁVAJÍ. Registrace → `/{locale}/login`.
 - **D) `/privacy` vs `/privacy-policy`:** Obě existují; `/privacy` ponechána (odkazuje na ni cookie consent).
 
@@ -91,7 +91,15 @@
   - ostatní → `<p>` (`leading-relaxed text-muted-foreground`)
 - Hlavičku dokumentu (POSTIO, název, URL, datum) vykreslit jako titulek stránky + `Naposledy aktualizováno`.
 - Stylování: container `max-w-3xl mx-auto px-6 py-12`, konzistentní s `/privacy` (black bg, white headings). Žádný externí plugin.
-- **EN/UK:** dle rozhodnutí B (cs zdroj, nebo placeholder).
+- **EN/UK:** dle rozhodnutí B – vygenerovány překlady do `doc/en/` a `doc/uk/`.
+
+#### ✅ Krok 5 – Překlady právních stránek do EN a UK — HOTOVÝ, ověřeno uživatelem
+- **Soubory:** `doc/en/01-04_*.txt` (anglické koncepty) + `doc/uk/01-04_*.txt` (ukrajinské koncepty), stejné názvy jako cs, zrcadlící strukturu (POSTIO / název / URL|email / "Last updated" resp. "Останнє оновлення" / číslované sekce / `* ` odrážky).
+- **Úpravy kódu:**
+  - `src/lib/legal-docs.ts`: `readLegalDoc(fileName, locale)` hledá postupně `doc/{locale}/{fileName}`, pak `doc/{fileName}` (cs záloha).
+  - `src/components/marketing/legal-doc-page.tsx`: lokalizovaný popisek data (cs/en/uk) + regex pro datum podporuje 3 jazyky; regex pro `h2` rozšířen o cyrilici (`А-ЯЄІЇҐ`), aby ukrajinské sekce byly nadpisy.
+- **Test:** `npx tsc --noEmit` ✅; smoke test parseru na ukrajinském souboru (nadpis, datum i bloky správně); manuální test v prohlížeči potvrzen uživatelem.
+- **⚠️ Poznámka:** EN/UK jsou strojové překlady – před produkcí nutná právní kontrola.
 
 ---
 *Po schválení každého kroku: označit ✅, zapsat CHANGELOG (max 10 záznamů), dle Pravidla 4 git commit. Žádný push.*

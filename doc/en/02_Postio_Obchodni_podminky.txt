@@ -1,0 +1,83 @@
+POSTIO
+Terms of Service
+
+https://postio-app.cz  |  info@postio-app.cz
+
+Last updated: July 16, 2026
+
+
+
+
+Terms of Service
+Last updated: July 16, 2026
+1. INTRODUCTORY PROVISIONS
+1.1 These Terms of Service ('Terms') govern the relationship between the operator of the Postio application ('Postio', 'we') and the user of the service ('User' or 'you') when using the platform available at https://postio-app.cz.
+1.2 By using Postio you agree to these Terms. If you do not agree with the Terms, do not use Postio.
+1.3 Postio is a SaaS (Software as a Service) tool for planning, publishing and analyzing posts on social networks, supplemented with artificial intelligence features.
+2. ACCOUNT AND REGISTRATION
+2.1 To use Postio you must create an account and provide true, current and complete information.
+2.2 You are fully responsible for the security of your account, login credentials and all activities carried out under your account.
+2.3 It is prohibited to share login credentials with third parties or to create accounts by automated means.
+2.4 You are obliged to notify us immediately of any suspicious access to your account at info@postio-app.cz.
+3. SUBSCRIPTION AND PAYMENTS
+3.1 Plans
+PlanContentFree1 connected account, up to 10 posts/month, basic features. Free forever.StarterMore connected accounts, higher limits, access to AI featuresProUnlimited posts, full analytics, priority support
+Current prices are available on the Pricing page (https://postio-app.cz/pricing).
+3.2 Billing. Subscription is billed in advance (monthly or annually) according to the chosen period.
+3.3 Payments. Payments are processed by a third party (Stripe). Postio does not store card numbers.
+3.4 Automatic renewal. The subscription renews automatically until you cancel it. Cancellation takes effect at the end of the current billing period.
+3.5 Refunds. Subscription payments are non-refundable, except where required by applicable law.
+3.6 Price changes. We reserve the right to change prices. We will inform you of a change at the latest 30 days in advance by email.
+4. FEATURES AND PLAN LIMITS
+4.1 Each plan has defined limits (number of accounts, posts, features). Exceeding limits may result in restriction or a prompt to upgrade the plan.
+4.2 The Free plan is intended for personal and testing purposes. For commercial use we recommend a paid plan.
+5. CONNECTED SOCIAL NETWORKS
+5.1 Postio acts as an intermediary for publishing to social networks via their official APIs. You are obliged to comply with the terms of each connected platform.
+5.2 Postio is not responsible for changes in social network APIs, outages or access restrictions from these platforms.
+5.3 You terminate the connection by revoking access in Postio settings or directly in the social network settings. Your previously published content on social networks is not deleted thereby.
+6. ARTIFICIAL INTELLIGENCE FEATURES
+6.1 Postio provides the AI Vision feature using the Google Gemini API. AI outputs are generated automatically and have not undergone human review.
+6.2 You are responsible for reviewing, editing and, where applicable, approving all AI-generated content before its publication.
+6.3 Postio is not responsible for the accuracy, suitability or legality of AI-generated content.
+6.4 You may not use the AI features to generate content that is unlawful, misleading, hateful or otherwise objectionable.
+7. USER CONTENT
+7.1 You bear exclusive responsibility for all content you publish to social networks via Postio.
+You represent and warrant that:
+* You have all necessary rights to the content you publish,
+* Your content does not infringe the rights of third parties (copyright, trademarks, right of personality),
+* Your content is not unlawful, misleading, obscene, threatening or otherwise inappropriate.
+7.3 Postio reserves the right to remove content or restrict access to an account if the content violates these Terms.
+8. USE RESTRICTIONS
+It is prohibited:
+* To use Postio for any illegal activity
+* To attempt unauthorized access to the Postio system
+* To scrape or extract data from Postio by automated means
+* To sell, resell or sublicense access to Postio without our consent
+* To publish spam, phishing or malware via Postio
+* To circumvent technical restrictions or security measures
+9. AVAILABILITY AND SUPPORT
+9.1 We strive for maximum availability of Postio, but we do not provide a guaranteed SLA except where expressly agreed.
+9.2 Customer support is available at info@postio-app.cz. We guarantee a response time within 2 business days.
+9.3 We reserve the right to planned and unplanned outages for maintenance or updates.
+10. INTELLECTUAL PROPERTY
+10.1 Postio and all its components (software, design, logos, documentation) are our intellectual property.
+10.2 Your content remains your property. By using Postio you grant us a limited license to technically process and transmit your content for the purpose of providing the Services.
+11. LIABILITY AND WARRANTIES
+11.1 Postio is provided 'as is' and 'as available' without any warranties.
+To the maximum extent permitted by law, Postio is not liable for:
+* Loss of data, revenue or profit
+* Indirect or consequential damages
+* Damages caused by outages of third-party services (social networks, AI providers)
+11.3 Postio's total liability to you for any claims shall not exceed the amount you paid for Postio in the last 12 months.
+12. ACCOUNT TERMINATION
+12.1 You can delete your account at any time in the app settings (Settings -> Danger zone -> Delete account).
+12.2 We reserve the right to suspend or terminate your access in case of violation of these Terms.
+12.3 Upon account termination your data is deleted in accordance with the Privacy Policy.
+13. GOVERNING LAW AND DISPUTE RESOLUTION
+13.1 These Terms are governed by the law of the Czech Republic.
+13.2 Disputes will be resolved primarily by amicable means. If amicable resolution is not achieved, the competent courts are those of the Czech Republic.
+13.3 If you are a consumer, you have the right to use out-of-court dispute resolution via the Czech Trade Inspection Authority (coi.cz).
+14. CHANGES TO THE TERMS
+We will inform you of material changes by email at the latest 14 days before they take effect. Continuing to use Postio after the changes take effect means you agree to the new Terms.
+
+Contact: info@postio-app.cz  |  https://postio-app.cz

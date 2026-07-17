@@ -1,0 +1,57 @@
+POSTIO
+AI Transparency Notice
+
+https://postio-app.cz  |  info@postio-app.cz
+
+Last updated: July 16, 2026
+
+
+
+
+AI Transparency Notice
+Last updated: July 16, 2026
+1. INTRODUCTION
+Postio uses artificial intelligence (AI) features to help you create better content on social networks faster and more efficiently. This Notice explains how AI works in Postio, what data it processes and what your rights are in relation to AI.
+2. WHAT AI FEATURES POSTIO USES
+FeatureDescriptionTechnologyAI VisionAutomatic generation of captions, hashtags and post suggestions from imagesGoogle Gemini APIContent SuggestionsAssisted generation of post text based on your instructionsGoogle Gemini APITiming OptimizationRecommendation of optimal publishing time based on analyticsInternal algorithm
+3. HOW AI VISION WORKS
+3.1 Input. You upload an image or enter a text instruction. This content is sent via a secure HTTPS connection to the Google Gemini API.
+3.2 Processing. The Google Gemini API analyzes the content and generates a text output (caption, post suggestion, hashtags).
+3.3 Output. The generated suggestion is displayed in your Postio editor. You can modify or reject the suggestion as you wish.
+3.4 Human oversight. All AI outputs are merely suggestions. You always review and approve the final content before its publication. Postio does not publish content without your conscious confirmation.
+4. WHAT DATA AI PROCESSES
+AI features in Postio process only the data you actively submit to them:
+* Images uploaded to AI Vision
+* Text instructions and requests entered into the AI
+* Post context (platform name, communication tone, if provided)
+What AI does not process automatically:
+* Your historical posts without your explicit request
+* Analytics data of your social networks
+* Data of other users
+5. TRAINING OF AI MODELS
+Postio does not use your data to train its own AI models.
+Data sent to the Google Gemini API is subject to Google's terms. Under current Google Cloud API terms, Google does not use customer data from the API to train its models without explicit consent. More information: cloud.google.com/terms
+6. AUTOMATED DECISION-MAKING
+6.1 Postio does not use fully automated decision-making with legal or similarly significant effects on you within the meaning of Article 22 GDPR.
+6.2 The timing optimization feature recommends publishing times; the final decision is always yours.
+6.3 All AI-generated content must be manually confirmed by you before publication.
+7. AI LIMITATIONS AND RISKS
+We draw attention to these inherent limitations of AI:
+* Inaccuracies: AI may generate factually incorrect or misleading information. Always verify the factual correctness of outputs.
+* Cultural and linguistic sensitivity: AI may not always correctly recognize cultural context or language nuances.
+* Bias: AI models may reflect prejudices present in training data.
+* Copyright: Do not use AI to reproduce protected works of third parties.
+* Outputs are not legal/professional advice: AI-generated content does not constitute legal, financial or other professional advice.
+8. COMPLIANCE WITH THE EU AI ACT
+Postio follows the development of AI regulation in the EU and undertakes to continuously adapt its practices to the requirements of Regulation (EU) 2024/1689 (EU AI Act) to the extent applicable to the use of AI in our platform.
+The AI Vision feature and content generation are classified as limited-risk systems under the EU AI Act - they are generative AI tools for content creation, to which primarily transparency obligations apply (the user must be informed that they are working with AI-generated content).
+9. YOUR RIGHTS IN RELATION TO AI
+You have the right to:
+* Not use AI features - all AI features are optional, Postio can be used fully without them,
+* Request an explanation of recommendations or AI outputs,
+* Reject or modify any AI-generated content before publication,
+* Contact us with questions or concerns about AI at info@postio-app.cz.
+10. UPDATES TO THIS NOTICE
+We will inform you of material changes in the way AI is used by email or in-app notification.
+
+Contact: info@postio-app.cz  |  https://postio-app.cz

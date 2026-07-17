@@ -1,0 +1,94 @@
+POSTIO
+Privacy Policy
+
+https://postio-app.cz  |  info@postio-app.cz
+
+Last updated: July 16, 2026
+
+
+
+
+Privacy Policy
+Last updated: July 16, 2026
+1. INTRODUCTION
+1.1 Who we are. We are the operator of the Postio application, available at https://postio-app.cz (hereinafter "we", "us" or "our"). Postio is a tool for planning and publishing content on social networks using artificial intelligence.
+1.2 What we do. Postio provides a SaaS platform for social media management that enables users to plan, publish and analyze posts on Facebook, Instagram, LinkedIn, YouTube, X (Twitter) and TikTok. Services include artificial intelligence features (AI Vision based on Google Gemini), automatic post scheduling, performance analytics and integrations with third-party platforms.
+1.3 Purpose of this Policy. This Privacy Policy explains how we collect, use, disclose, retain and otherwise process your personal data when using Postio. This Policy should be read together with our Terms of Service, the Data Processing Agreement (DPA) and the AI Transparency Notice.
+1.4 Legal framework. We process your personal data in accordance with Regulation (EU) 2016/679 (GDPR).
+1.5 Child protection. Our Services are intended for persons over 18 years of age. We do not knowingly collect personal data from persons under 18.
+2. DATA CONTROLLER
+Controller: Operator of the Postio application
+Website: https://postio-app.cz
+Contact email: info@postio-app.cz
+3. WHAT PERSONAL DATA WE PROCESS
+3.1 Account information
+* First and last name
+* Email address
+* Login credentials (password in encrypted form)
+* Profile information
+* Username
+3.2 Billing and transaction data
+* Billing address
+* Subscription and plan information
+* Payment history and invoices
+* NOTE: Card payment data is processed exclusively by Stripe - we do not store or process it.
+3.3 Social media and connected accounts data
+* Access tokens for connected social networks (Facebook, Instagram, LinkedIn, YouTube, X, TikTok)
+* Published and scheduled posts, images and videos
+* Social media analytics (reach, interactions, views)
+3.4 Data on AI interactions
+* Images and texts submitted to the AI Vision feature (Gemini)
+* Generated captions, hashtag suggestions and post drafts
+* Feedback on AI outputs
+3.5 Technical and usage data
+* IP address
+* Browser type and version, operating system
+* Device identifiers
+* Login and in-app activity records
+* Diagnostic and performance information
+3.6 Customer support communication
+* Content of your correspondence with us
+* Bug reports and feedback
+* Attachments and screenshots provided when resolving issues
+4. PURPOSES AND LEGAL BASES OF PROCESSING
+We process personal data only where we have a valid legal basis under the GDPR:
+Purpose of processingData categoriesLegal basisOperation and provision of the ServiceAccount info, social data, technical dataPerformance of contractRegistration and account managementAccount infoPerformance of contractAI Vision featuresAI interaction data, images and contentPerformance of contractSubscription and payment managementBilling dataPerformance of contract and legal obligationCustomer supportAccount info, communications, technical dataPerformance of contract and legitimate interestSecurity and fraud preventionSecurity logs, technical dataLegitimate interest and legal obligationMarketing communicationsEmail addressYour consentFulfilment of legal obligationsAny categoryLegal obligation
+4.1 AI and model training. Your posts, images or data submitted to the AI Vision feature are not used to train our own AI models. Data is sent to the Google Gemini API solely for the purpose of generating real-time responses.
+5. ARTIFICIAL INTELLIGENCE FEATURES
+5.1 AI Vision (Google Gemini). Postio uses the Google Gemini API to automatically generate captions and post suggestions from images. More information is available in our AI Transparency Notice.
+5.2 AI data processing. Images and texts you submit to the AI Vision feature are sent to Google Gemini API servers. Google's processing of data is governed by Google's terms and their privacy policy. We do not store this data longer than necessary to provide the service.
+5.3 Your responsibility. You are responsible for having all necessary rights to the content (images, texts) you submit to AI Vision, and that such content does not infringe the rights of third parties.
+6. CONNECTED SOCIAL NETWORKS
+By connecting social networks you authorize us to access their API to the extent you approved during OAuth authorization. Each social network processes data in accordance with its own terms.
+PlatformProcessed dataFacebook / InstagramAccess tokens, post publishing, page analyticsLinkedInAccess tokens, publishing to profile or company pageYouTubeAccess tokens, video uploads, channel statisticsX (Twitter)Access tokens, tweetingTikTokAccess tokens, video uploads
+7. SHARING PERSONAL DATA
+We do not sell or rent your personal data to third parties. We share data only with the following recipients:
+RecipientPurposeLocationGoogle LLC (Gemini API)AI Vision featureUSA (Standard Contractual Clauses)Supabase, Inc.Database, authentication, file storageEU/USA (SCC)Stripe, Inc.Payment processingUSA (SCC)Vercel, Inc.Application hostingUSA/EU (SCC)
+8. TRANSFER OF DATA TO THIRD COUNTRIES
+Some third-party providers (Google, Stripe, Supabase) have servers outside the European Economic Area (EEA). Such transfers are based on Standard Contractual Clauses (SCC) under Article 46 GDPR or another appropriate safeguard.
+9. DATA RETENTION PERIOD
+Data categoryRetention periodAccount dataFor the duration of the account + 3 yearsPosts and scheduled contentFor the duration of the account + 1 yearBilling records10 years (legal obligation)Login records12 monthsCustomer support communication3 years from case closureAI interaction dataMaximum 30 days from processing
+Upon account deletion, all data is permanently removed within 30 days.
+10. YOUR RIGHTS
+Under the GDPR you have the following rights:
+* Right of access to your personal data
+* Right to rectification of inaccurate data
+* Right to erasure ('right to be forgotten')
+* Right to restriction of processing
+* Right to data portability
+* Right to object to processing
+* Right to withdraw consent (where processing is based on consent, without affecting the lawfulness of prior processing)
+* Right to lodge a complaint with the Office for Personal Data Protection (ÚOOÚ), Pplk. Sochora 27, 170 00 Prague 7, uoou.cz
+Exercise your rights by email to info@postio-app.cz. We will respond within 30 days at the latest.
+11. SECURITY
+To protect your data we use:
+* Encryption of data in transit (HTTPS/TLS)
+* Encryption of data at rest in the database (Supabase)
+* Row Level Security (RLS) - each user sees only their own data
+* Two-factor authentication (2FA)
+* Regular security audits
+* Access on the principle of least privilege
+12. CHANGES TO THIS POLICY
+We will inform you of material changes by email or in-app notification, at the latest 14 days before they take effect. If you continue using Postio after the changes take effect, this means you agree to the new Policy.
+
+Contact: info@postio-app.cz  |  https://postio-app.cz

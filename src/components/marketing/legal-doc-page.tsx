@@ -50,9 +50,18 @@ function parseLegalDoc(raw: string): {
       );
     })?.trim() ?? "";
 
-  const dateLine = lines.find((l) => /naposledy aktualizováno/i.test(l));
+  // Matches the "last updated" label in any of the three supported languages
+  // so the date can be extracted regardless of the document's locale.
+  const dateLine = lines.find((l) =>
+    /(naposledy aktualizováno|last updated|останнє оновлення)/i.test(l),
+  );
   const lastUpdated = dateLine
-    ? dateLine.replace(/.*naposledy aktualizováno[:\s]*/i, "").trim()
+    ? dateLine
+        .replace(
+          /.*(naposledy aktualizováno|last updated|останнє оновлення)[:\s]*/i,
+          "",
+        )
+        .trim()
     : "";
 
   // Body starts at the first numbered section; everything before it
@@ -74,7 +83,7 @@ function parseLegalDoc(raw: string): {
       } else {
         blocks.push({ type: "h3", text: t });
       }
-    } else if (/^\d+\.\s+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]/.test(t)) {
+    } else if (/^\d+\.\s+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽА-ЯЄІЇҐ]/.test(t)) {
       blocks.push({ type: "h2", text: t });
     } else if (t.startsWith("* ")) {
       blocks.push({ type: "bullet", text: t.slice(2).trim() });
@@ -100,9 +109,17 @@ export async function LegalDocPage({
   locale: string;
   fileName: string;
 }) {
-  const raw = await readLegalDoc(fileName);
+  const raw = await readLegalDoc(fileName, locale);
   const { title, lastUpdated, blocks } = parseLegalDoc(raw);
   const common = await getTranslations({ locale, namespace: "common" });
+
+  // Localized "last updated" label (the date itself comes from the document).
+  const lastUpdatedLabel: Record<string, string> = {
+    cs: "Naposledy aktualizováno:",
+    en: "Last updated:",
+    uk: "Останнє оновлення:",
+  };
+  const lastUpdatedText = lastUpdatedLabel[locale] ?? lastUpdatedLabel.cs;
 
   // Group consecutive bullets into a single <ul>.
   const elements: ReactNode[] = [];
@@ -179,7 +196,7 @@ export async function LegalDocPage({
             </h1>
             {lastUpdated && (
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Naposledy aktualizováno: {lastUpdated}
+                {lastUpdatedText} {lastUpdated}
               </p>
             )}
           </div>

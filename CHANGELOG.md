@@ -3,12 +3,20 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Překlady právních stránek EN/UK (Prompt 033, Krok 5)
+
+- **Kontext**: Krok 4 parsuje cs; rozhodnutí B původně "cs zdroj pro en/uk", uživatel změnil na vygenerování strojových překladů (konceptů).
+- **Změny**: `src/lib/legal-docs.ts` - `readLegalDoc(fileName, locale)` hledá postupně `doc/{locale}/{fileName}`, pak cs zálohu `doc/{fileName}`. `src/components/marketing/legal-doc-page.tsx` - lokalizovaný popisek data (cs/en/uk), regex data podporuje 3 jazyky, regex `h2` rozšířen o cyrilici (`А-ЯЄІЇҐ`). 4 soubory v `doc/en/` (01-04) + 4 v `doc/uk/` (01-04), stejné názvy jako cs, zrcadlící strukturu (POSTIO / název / URL|email / "Last updated" resp. "Останнє оновлення" / číslované sekce / `* ` odrážky).
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); smoke test parseru na ukrajinském souboru (nadpis, datum i bloky OK); manuální test ✅ (8 routů en/uk načítá překlad).
+- **Poznámka**: EN/UK jsou strojové překlady – před produkcí nutná právní kontrola.
+- **Upravené soubory**: legal-docs.ts, legal-doc-page.tsx, doc/en/* (4 nové), doc/uk/* (4 nové).
+
 ### 🔧 Feat - Formátování právních rout (Prompt 033, Krok 4)
 
 - **Kontext**: Krok 3 přidal 4 routy zobrazující .txt raw (`whitespace-pre-line`). Chybělo strukturované formátování (nadpisy, odrážky, datum).
 - **Změny**: `src/components/marketing/legal-doc-page.tsx` - NOVÁ `parseLegalDoc(raw)`: extrahuje název (řádek pod `POSTIO`) → `<h1>` a `Naposledy aktualizováno: <datum>` → podtitulek; tělo (od první číslované sekce) parsuje na bloky: top-level `N.` → `<h2>`, sub-level `N.N` → `<h3>` (inline text oddělen do `<p>`), `* ` → odrážka (seskupeno do `<ul>`), ostatní → `<p>`. Duplicitní název+datum pod hlavičkou přeskočeno. Stylování `max-w-3xl`, black bg, bílá nadpisy - konzistentní s `/privacy`.
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (4 routy: název+datum v hlavičce, sekce jako nadpisy, odrážky jako seznam; cs/en/uk přes LocaleSwitcher).
-- **Poznámka**: `04_...AI.txt` má řádek 17 slitou tabulku (bez oddělovačů) → vykreslena jako odstavec (parsování tabulek mimo rozsah Krok 4). EN/UK zobrazují cs zdroj (rozhodnutí B).
+- **Poznámka**: `04_...AI.txt` má řádek 17 slitou tabulku (bez oddělovačů) → vykreslena jako odstavec (parsování tabulek mimo rozsah Krok 4).
 - **Upravené soubory**: legal-doc-page.tsx.
 
 ### 🔧 Feat - Právní routy (Prompt 033, Krok 3)
@@ -70,10 +78,3 @@
 - **Změny**: `src/components/marketing/currency-switcher.tsx` - nová client komponenta (pilulkový segmented control, glassmorphism, 20px radius, indigo accent, 3 měny CZK/EUR/USD). `src/lib/pricing.ts` - helper `formatPrice` (CZK "199 Kč", EUR "8 €", USD "$9", free fallback). `src/components/marketing/pricing-client.tsx` - nová client island (Landing: switcher + karty, serif cena zachována). `src/components/marketing/pricing-section.tsx` - přepsáno na server (data → PricingClient). `src/app/[locale](dashboard)/settings/billing/billing-card.tsx` - prop `currency` + `formatPrice` (zůstává sans). `src/app/[locale](dashboard)/settings/billing/billing-client.tsx` - nová client island (Fakturace: switcher nad gridem). `src/app/[locale](dashboard)/settings/billing/page.tsx` - volá BillingClient. Krok 3: izolace realizována bez propu (serif jen na marketing, billing-card sans).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (switcher přepíná CZK/EUR/USD na Landing i Fakturace, serif jen na Landing, Dashboard sans).
 - **Upravené soubory**: currency-switcher.tsx, lib/pricing.ts, pricing-client.tsx, pricing-section.tsx, billing-card.tsx, billing-client.tsx, billing/page.tsx.
-
-### 💱 Feat - Datový model měn (Prompt 033, Krok 4)
-
-- **Kontext**: Ceník zobrazoval jen EUR. Pro budoucí přepínač měn byly potřebny 3 hodnoty (CZK, EUR, USD) na každé kartě.
-- **Změny**: `src/components/marketing/pricing-section.tsx` - rozšířen `Plan` interface o `priceCzk`/`priceUsd` a naplněna data (Free 0/0/0, Creator 199/8/9, Pro 499/20/22). `src/app/[locale](dashboard)/settings/billing/page.tsx` i `billing-card.tsx` už měly všechny 3 měny (potvrzeno). Datový model sjednocen v obou cenících.
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `src/components/marketing/pricing-section.tsx`.

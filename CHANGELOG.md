@@ -3,12 +3,12 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-### 🔧 Feat - Premium serif font na Login + Landing newsletter (Mimořádný úkol, Krok 2)
+### 🔧 Feat - Footer (SiteFooter) + cookie modal reopen (Prompt 033, Krok 1)
 
-- **Kontext**: Login page neměla patkový font `--font-serif` (zavedený v Promptu 033) jako Landing Page. Sekční nadpis newsletteru "Získejte tipy pro sítě" v `site-footer.tsx` také postrádal serif, zatímco Benefits/Pricing/FAQ ho už měly.
-- **Změny**: `src/app/[locale]/(auth)/login/page.tsx` - nadpis `getStarted` (`<h2>`) dostal `font-serif`. `src/components/marketing/site-footer.tsx` - nadpis `newsletterTitle` (`<h3>`) dostal `font-serif` (sjednocení s ostatními sekčními nadpisy Landing Page). Popis `newsletterDesc` ponechán sans, brand `<h1>` Logo na loginu bez serifu.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (serif na login i landing, Light i Dark).
-- **Upravené soubory**: login/page.tsx, site-footer.tsx.
+- **Kontext**: Marketing web neměl profesionální patičku se sloupci odkazů. Existující `site-footer.tsx` měl jen newsletter kartu + jednoduchou lištu.
+- **Změny**: `src/components/marketing/site-footer.tsx` - přepsáno na 4 sloupce (Produkt, Podpora, Právní & GDPR, Aplikace) + zachovaná newsletter karta nahoře + spodní řádek (Logo + © + tagline | "Vytvořeno s ❤️ v ČR" | LocaleSwitcher). Odkazy `#A89FFF` → hover `#6C47FF`, nadpisy uppercase bílé, horní ohraničení `border-white/10`. `src/components/marketing/cookie-settings-link.tsx` - NOVÁ client komponenta (tlačítko dispečující `postio:open-cookie-settings`). `src/components/cookie-consent.tsx` - preferences Dialog nyní vždy namountovaný a naslouchá na uvedený event, takže "Nastavení cookies" otevře modal i po uložení souhlasu. `src/messages/{cs,en,uk}.json` - NOVÝ top-level namespace `footer`.
+- **Ověření**: `npx tsc --noEmit` ✅, JSON platné, manuální test ✅ (cs/en/uk, Light i Dark, cookie modal + LocaleSwitcher funkční; opraven duplicitní React klíč v APLIKACE sloupci).
+- **Upravené soubory**: site-footer.tsx, cookie-settings-link.tsx (nová), cookie-consent.tsx, cs.json, en.json, uk.json.
 
 ### 🔧 Fix - Čitelnost mobilní navigace v Light mode (Mimořádný úkol, Krok 1)
 

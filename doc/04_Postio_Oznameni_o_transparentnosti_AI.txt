@@ -1,0 +1,59 @@
+﻿POSTIO
+Oznámení o transparentnosti AI (AI Transparency Notice)
+
+https://postio-app.cz  |  info@postio-app.cz
+
+Naposledy aktualizováno: 16. července 2026
+
+
+
+
+
+Oznámení o transparentnosti AI
+Naposledy aktualizováno: 16. července 2026
+1. ÚVOD
+Postio vyuziva funkce umele inteligence (AI) k tomu, aby vam pomohla vytvaret lepsi obsah na socialni site rychleji a efektivneji. Toto Oznameni vysvetluje, jak AI v Postio funguje, jaka data zpracovava a jaka jsou vase prava ve vztahu k AI.
+2. JAKÉ AI FUNKCE POSTIO VYUŽÍVÁ
+FunkcePopisTechnologieAI VisionAutomaticke generovani popisku, hashtagu a navrhu prispevku z obrazkuGoogle Gemini APINavrhy obsahuAsistovane generovani textu prispevku na zaklade vasich pokynuGoogle Gemini APIOptimalizace nacasovaniDoporuceni optimalniho casu pro publikovani na zaklade analytikyInterni algoritmus
+3. JAK AI VISION FUNGUJE
+3.1 Vstup. Nahrayete obrazek nebo zadate textovy pokyn. Tento obsah je odeslan prostrednictvim zabezpeceneho HTTPS pripojeni na Google Gemini API.
+3.2 Zpracovani. Google Gemini API analyzuje obsah a generuje textovy vystup (popisek, navrh prispevku, hashtags).
+3.3 Vystup. Vygenerovany navrh se zobrazi ve vasem editoru v Postio. Navrh muzete libovolne upravit nebo odmítnout.
+3.4 Lidsky dohled. Vsechny vystupy AI jsou pouze navrhy. Finalni obsah vzdy kontrolujete a schvalujete vy pred jeho publikovanim. Postio nepublikuje obsah bez vaseho vedomeho potvrzeni.
+4. JAKÁ DATA AI ZPRACOVÁVÁ
+Funkce AI v Postio zpracovavaji pouze data, ktera do nich aktivne vlozite:
+* Obrazky nahrané do AI Vision
+* Textove pokyny a pozadavky zadane do AI
+* Kontext prispevku (nazev platformy, ton komunikace, pokud je zadan)
+Co AI nezpracovava automaticky:
+* Vase historicke prispevky bez vaseho explicitniho zadani
+* Analyticka data vasich socialnich siti
+* Data jinych uzivatelu
+5. TRÉNOVÁNÍ AI MODELŮ
+Postio nepouziva vase data k trenovani vlastnich AI modelu.
+Data odesilana do Google Gemini API podleha podminkam Google. Dle aktualnich podminek Google Cloud API Google nepouziva data zakazniku z API k trenovani svych modelu bez vyslovneho souhlasu. Vice informaci: cloud.google.com/terms
+6. AUTOMATIZOVANÉ ROZHODOVÁNÍ
+6.1 Postio nevyuziva plne automatizovane rozhodovani s pravnimi nebo obdobne zavaznymi dopady na vas ve smyslu cl. 22 GDPR.
+6.2 Funkce optimalizace nacasovani doporucuje casy publikovani, finalni rozhodnuti je vzdy na vas.
+6.3 Veskery obsah generovany AI musi byt vami rucne potvrzen pred publikovanim.
+7. OMEZENÍ A RIZIKA AI
+Upozornujeme na tato inherentni omezeni AI:
+* Nepresnosti: AI muze generovat fakticky nespravne nebo zavadejici informace. Vzdy overujte vecnou spravnost vystupu.
+* Kulturni a jazykova citlivost: AI nemusi vzdy spravne rozpoznat kulturni kontext nebo jazykove nuance.
+* Bias: AI modely mohou odrazet predsudky pritomne v trenovacich datech.
+* Autorska prava: Nepouzivejte AI k reprodukci chranených del tretich stran.
+* Vystupy nejsou pravni/odborne poradenstvi: Obsah generovany AI nepredstavuje pravni, financni ani jine odborne poradenstvi.
+8. SOULAD S EU AI ACT
+Postio sleduje vyvoj regulace AI v EU a zavazuje se prubezne prizpusobovat sve postupy pozadavkum Narizeni (EU) 2024/1689 (EU AI Act) v rozsahu aplikovatelnem na vyuziti AI v nasi platforme.
+Funkce AI Vision a generovani obsahu jsou klasifikovany jako systemy s omezenym rizikem dle EU AI Act - jde o generativni AI nastroje pro tvorbu obsahu, na ktere se vztahuji zejména povinnosti transparentnosti (uzivatel musi byt informovan, ze pracuje s AI generovanym obsahem).
+9. VAŠE PRÁVA VE VZTAHU K AI
+Mate pravo:
+* Nepouzivat AI funkce - vsechny AI funkce jsou volitelne, Postio lze plnohodnotne vyuzivat bez nich,
+* Zadat vysvetleni k doporucenim nebo vystupum AI,
+* Odmitnout nebo upravit jakykoli obsah vygenerovany AI pred publikovanim,
+* Kontaktovat nas s dotazy nebo obavami ohledne AI na info@postio-app.cz.
+10. AKTUALIZACE TOHOTO OZNÁMENÍ
+O podstatnych zmenach ve zpusobu vyuziti AI vas budeme informovat e-mailem nebo oznamenim v aplikaci.
+
+
+Kontakt: info@postio-app.cz  |  https://postio-app.cz

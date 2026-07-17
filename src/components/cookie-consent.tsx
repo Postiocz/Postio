@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { type Database } from "@/lib/supabase/types";
 
@@ -42,6 +41,15 @@ export function CookieConsent() {
     } else {
       setShow(true);
     }
+  }, []);
+
+  // Allow the footer "Nastavení cookies" link (and any other surface) to reopen
+  // the preferences dialog even after consent was already saved.
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("postio:open-cookie-settings", handler);
+    return () =>
+      window.removeEventListener("postio:open-cookie-settings", handler);
   }, []);
 
   const saveConsent = async (
@@ -75,12 +83,10 @@ export function CookieConsent() {
     setOpen(false);
   };
 
-  if (!show) return null;
-
   return (
     <>
-      {/* Floating cookie card – hidden on /privacy (page has its own Cookies section + return) */}
-      {!isPrivacyPage && (
+      {/* Floating cookie card – shown only until consent is given, hidden on /privacy */}
+      {show && !isPrivacyPage && (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[400px] z-50 lg:left-auto lg:right-6 lg:bottom-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/40 p-4 lg:p-5 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           <p className="mb-4 lg:mb-6 text-[11px] leading-tight lg:text-sm lg:leading-relaxed text-muted-foreground">
@@ -113,11 +119,8 @@ export function CookieConsent() {
       </div>
       )}
 
-      {/* Preferences Dialog */}
+      {/* Preferences Dialog – always mounted so it can be reopened from the footer */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <span className="hidden">{cookie("preferences")}</span>
-        </DialogTrigger>
         <DialogContent className="sm:max-w-lg border-black/10 dark:border-white/10 bg-white/90 dark:bg-black/60 backdrop-blur-2xl text-foreground">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold tracking-tight">

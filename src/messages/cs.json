@@ -1089,5 +1089,35 @@
       "linkFaq": "FAQ",
       "linkLogin": "Přihlásit se"
     }
+  },
+  "footer": {
+    "newsletterTitle": "Získejte tipy pro sítě",
+    "newsletterDesc": "Přihlaste se k odběru novinek o tvorbě obsahu, nových funkcích a tipech pro sociální sítě.",
+    "productTitle": "Produkt",
+    "supportTitle": "Podpora",
+    "legalTitle": "Právní & GDPR",
+    "appTitle": "Aplikace",
+    "product": {
+      "features": "Funkce",
+      "pricing": "Ceník"
+    },
+    "support": {
+      "faq": "FAQ",
+      "contact": "Kontakt"
+    },
+    "legal": {
+      "privacy": "Ochrana osobních údajů",
+      "terms": "Obchodní podmínky",
+      "dpa": "GDPR / DPA",
+      "aiTransparency": "Transparentnost AI",
+      "cookieSettings": "Nastavení cookies"
+    },
+    "app": {
+      "login": "Přihlásit se",
+      "register": "Registrace"
+    },
+    "copyright": "© 2026 Postio. Všechna práva vyhrazena.",
+    "tagline": "Plánujte a publikujte obsah na sociální sítě s AI.",
+    "madeInCz": "Vytvořeno s ❤️ v České republice"
   }
 }

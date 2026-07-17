@@ -1090,5 +1090,35 @@
       "linkFaq": "FAQ",
       "linkLogin": "Увійти"
     }
+  },
+  "footer": {
+    "newsletterTitle": "Отримуйте поради для соцмереж",
+    "newsletterDesc": "Підпишіться на новини про створення контенту, нові функції та поради для соцмереж.",
+    "productTitle": "Продукт",
+    "supportTitle": "Підтримка",
+    "legalTitle": "Правові питання та GDPR",
+    "appTitle": "Застосунок",
+    "product": {
+      "features": "Функції",
+      "pricing": "Ціни"
+    },
+    "support": {
+      "faq": "Часті питання",
+      "contact": "Контакт"
+    },
+    "legal": {
+      "privacy": "Політика конфіденційності",
+      "terms": "Умови надання послуг",
+      "dpa": "GDPR / DPA",
+      "aiTransparency": "Прозорість AI",
+      "cookieSettings": "Налаштування cookies"
+    },
+    "app": {
+      "login": "Увійти",
+      "register": "Реєстрація"
+    },
+    "copyright": "© 2026 Postio. Усі права захищені.",
+    "tagline": "Плануйте та публікуйте контент у соцмережах за допомогою AI.",
+    "madeInCz": "Створено з ❤️ у Чеській Республіці"
   }
 }

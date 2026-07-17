@@ -1089,5 +1089,35 @@
       "linkFaq": "FAQ",
       "linkLogin": "Log in"
     }
+  },
+  "footer": {
+    "newsletterTitle": "Get social media tips",
+    "newsletterDesc": "Subscribe for content creation news, new features and social media tips.",
+    "productTitle": "Product",
+    "supportTitle": "Support",
+    "legalTitle": "Legal & GDPR",
+    "appTitle": "App",
+    "product": {
+      "features": "Features",
+      "pricing": "Pricing"
+    },
+    "support": {
+      "faq": "FAQ",
+      "contact": "Contact"
+    },
+    "legal": {
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service",
+      "dpa": "GDPR / DPA",
+      "aiTransparency": "AI Transparency",
+      "cookieSettings": "Cookie settings"
+    },
+    "app": {
+      "login": "Log in",
+      "register": "Sign up"
+    },
+    "copyright": "© 2026 Postio. All rights reserved.",
+    "tagline": "Plan and publish social media content with AI.",
+    "madeInCz": "Made with ❤️ in the Czech Republic"
   }
 }

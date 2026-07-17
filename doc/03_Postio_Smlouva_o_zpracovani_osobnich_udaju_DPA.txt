@@ -1,0 +1,61 @@
+﻿POSTIO
+Smlouva o zpracování osobních údajů (DPA)
+
+https://postio-app.cz  |  info@postio-app.cz
+
+Naposledy aktualizováno: 16. července 2026
+
+
+
+
+
+Smlouva o zpracování osobních údajů (DPA)
+Naposledy aktualizováno: 16. července 2026
+1. ÚČEL A ROZSAH
+1.1 Tato Smlouva o zpracovani osobnich udaju ('DPA') tvori soucast smluvniho vztahu založeneho Obchodnimi podminkami upravujicimi uzivani platformy Postio a Sluzeb poskytovanych provozovatelem Postio ('Zpracovatel') a zakaznikem ('Zakaznik' nebo 'Spravce').
+1.2 Tato DPA upravuje zpracovani Osobnich udaju Zakaznika provadene Zpracovatelem jmenem Zakaznika v souvislosti s poskytovanim Sluzeb a pouzije se tehdy, pokud Zpracovatel zpracovava Osobni udaje jako zpracovatel ve smyslu GDPR.
+1.3 Zpracovani osobnich udaju provadene Zpracovatelem v postaveni samostatneho Spravce (sprava uctu, fakturace, bezpecnost) se ridi Zasadami ochrany osobnich udaju, nikoliv touto DPA.
+1.4 V pripade rozporu mezi touto DPA a Obchodnimi podminkami ve vztahu ke zpracovani Osobnich udaju ma prednost tato DPA.
+2. DEFINICE
+'Zakaznik' nebo 'Spravce' - fyzicka nebo pravnicka osoba, ktera uzavrela smlouvu o pouzivani Postio a urcuje ucely a prostredky zpracovani Osobnich udaju.
+'Zpracovatel' - provozovatel aplikace Postio, ktery zpracovava Osobni udaje jmenem Spravce.
+'Osobni udaje Zakaznika' - jakekoli osobni udaje obsazene v Zakaznickych datech, ktere Zpracovatel zpracovava jmenem Zakaznika v souvislosti s poskytovanim Sluzeb.
+'GDPR' - Narizeni Evropskeho parlamentu a Rady (EU) 2016/679.
+'Subzpracovatel' - jakakoli treti osoba poverena Zpracovatelem ke zpracovani Osobnich udaju Zakaznika.
+3. ROZDĚLENÍ ROLÍ
+3.1 Správce. Zakaznik vystupuje jako Spravce Osobnich udaju Zakaznika a urcuje ucely a prostredky jejich zpracovani.
+3.2 Zpracovatel. Zpracovatel zpracovava Osobni udaje Zakaznika vyhradne jmenem Zakaznika a v souladu s touto DPA, Obchodnimi podminkami a dolozenymi pokyny Zakaznika.
+4. PODROBNOSTI ZPRACOVÁNÍ
+PolozkaPopisPredmet zpracovaniProvoz platformy Postio pro spravu socialnich sitiDoba trvaniPo dobu platnosti predplatneho + 30 dni po jeho ukonceniPovaha zpracovaniUchovavani, prenos, analyza, publikovani obsahuUcel zpracovaniPoskytovani, provoz, udrzba, zabezpeceni a podpora Sluzeb PostioKategorie osobnych udajuJmena, e-maily, profilove fotografie, publikovany obsah, analyticka data ze socialnich sitiKategorie subjektu udajuZakaznici, sledujici a prijemci obsahu Zakaznika na socialnich sitich
+5. POKYNY ZÁKAZNÍKA
+5.1 Zpracovatel zpracovava Osobni udaje Zakaznika pouze na zaklade dolozenych pokynu Zakaznika, zejména obsazenych v Obchodnich podminkach, teto DPA nebo jinych pisemnych pokynech.
+Zákazník odpovídá za:
+* Urceni ucelu a pravnich titulu zpracovani Osobnich udaju,
+* Zajisteni vsech nezbytnych prav, opravneni a souhlasu k poskytnuti dat,
+* Zajisteni spravnosti, kvality a zakonnosti Osobnich udaju Zakaznika.
+5.3 Pokud se Zpracovatel domniva, ze dolozeny pokyn porusuje prislusne predpisy o ochrane osobnich udaju, bez zbytecneho odkladu o tom informuje Zakaznika.
+6. POVINNOSTI ZPRACOVATELE
+Zpracovatel se zavazuje:
+* Zpracovavat Osobni udaje Zakaznika pouze v souladu s touto DPA a pokyny,
+* Zajistit, aby osoby opravnene zpracovavat data byly vazany mlcenlivosti,
+* Zavest a udrzovat odpovidajici technicka a organizacni bezpecnostni opatreni,
+* Nepredavat Osobni udaje tretim stranam bez predchoziho schvaleni,
+* Pomahat Zakaznikovi s vyrizovanim zadosti subjektu udaju (pristup, vymaz atd.),
+* Smazat nebo vratit vsechny Osobni udaje Zakaznika po ukonceni poskytovani Sluzeb.
+7. SUBZPRACOVATELÉ
+7.1 Obecné pověření. Zakaznik udeluje Zpracovateli obecne opravneni zapojovat Subzpracovatele ke zpracovani Osobnich udaju Zakaznika.
+7.2 Seznam stávajících Subzpracovatelů:
+SubzpracovatelUcelUmisteniSupabase, Inc.Databaze, autentizace, storageUSA/EU (SCC)Google LLC (Gemini API)AI Vision funkceUSA (SCC)Stripe, Inc.Zpracovani platebUSA (SCC)Vercel, Inc.Hosting aplikaceUSA/EU (SCC)
+7.3 Změny. Zpracovatel informuje Zakaznika o jmenovani novych Subzpracovatelu s predstihem. Zakaznik muze vznet odůvodnenou namitku.
+8. PŘEDÁVÁNÍ DAT DO TŘETÍCH ZEMÍ
+Predavani Osobnich udaju mimo EHP probiha vyhradne na zaklade standardnich smluvnich dolozek (SCC) dle cl. 46 GDPR nebo jinych schvalenych mechanismu.
+9. HLÁŠENÍ BEZPEČNOSTNÍCH INCIDENTŮ
+9.1 V pripade poruseni zabezpeceni Osobnich udaju Zakaznika Zpracovatel bez zbytecneho odkladu, nejpozdeji do 72 hodin od zjisteni, informuje Zakaznika e-mailem.
+9.2 Oznameni obsahuje popis incidentu, dotcenych kategorii dat, odhadovane dusledky a nápravna opatreni.
+10. AUDIT
+Zpracovatel poskytne Zakaznikovi informace nezbytne k prokazani souladu s touto DPA a umozni audity, vcetne inspekci provadenych nezavislym auditorem, jednou rocne s predstihem 30 dni.
+11. ZÁVĚREČNÁ USTANOVENÍ
+Tato DPA se ridi pravem Ceske republiky a plati po celou dobu trvani smluvniho vztahu mezi stranami.
+
+
+Kontakt: info@postio-app.cz  |  https://postio-app.cz

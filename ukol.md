@@ -42,53 +42,57 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 🔧 Mimořádný úkol – Sjednocení zarovnání na mobilu u Referral stránky
+### 📋 Prompt 033 – Vytvoření Footeru a Právních stránek
 
-**Cíl:** Na mobilu odstranit nekonzistenci: stránka "Doporučení" má hlavičku + kroky "Jak to funguje" vycentrované, ale ostatní sekce doleva. Výsledek: na mobilu kompaktní "List view" (číslo vlevo, text vpravo, vše doleva), na desktopu zachovat stávající 4 karty vedle sebe (centrované).
+**Kontext (zjištěno analýzou):** V `doc/` jsou 4 `.txt` dokumenty (cs, bez diakritiky v části textu – renderujeme jak jsou). V `src/components/marketing/site-footer.tsx` už existuje `SiteFooter` (newsletter + jednoduchá lišta) a je vykreslen v `app/[locale]/(marketing)/page.tsx` přes `<SiteFooter locale={locale} />`. Layout `(marketing)` už obsahuje `MarketingNav` + grid pozadí, takže nové stránky dostanou nav automaticky. `@tailwindcss/typography` NENÍ nainstalován → použiji vlastní čisté stylování (konzistentní s existující `/privacy` stránkou). Cookie modal (`cookie-consent.tsx`) je globalní v `[locale]/layout.tsx`, ale Dialog mize z DOMu, jakmile je souhlas uložen → pro odkaz "Nastavení cookies" je třeba ho upravit.
 
-**Analýza stavu (FÁZE 1):**
-- `src/components/referral/referral-stats.tsx` – sekce "Jak to funguje" (BOTTOM): kontejner `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4`; každá karta má `flex flex-col items-center text-center` → na mobilu 1 sloupec, kolečko nahoře, nadpis+popis centrované → zabírá zbytečně mnoho vertikálního místa a nesedí s levo-zarovnaným zbytkem stránky.
-- MIDDLE sekce ("Váš doporučovací odkaz"): label `yourLink` je už čistě doleva (žádný `text-center`) – OK.
-- `src/app/[locale](dashboard)/settings/referrals/page.tsx` – hlavní h1/p: `flex flex-col items-center text-center sm:items-start sm:text-left` → na mobilu vycentrované (toto bylo schváleno v předchozím úkolu, nyní chceme zrušit a zarovnat doleva všude).
+**✅ Schválená rozhodnutí (uživatelem potvrzena před Krokem 1):**
+- **A) Newsletter:** PONECHÁVÁ se nahoře, pod ním 4 sloupce + spodní řádek.
+- **B) EN/UK právní texty:** Pro `en`/`uk` se zobrazí cs zdroj (funkční, bez překladu).
+- **C) Mrtvé odkazy:** Changelog, Srovnání s Bufferem, Status služby, Stáhnout aplikaci se VYNECHÁVAJÍ. Registrace → `/{locale}/login`.
+- **D) `/privacy` vs `/privacy-policy`:** Obě existují; `/privacy` ponechána (odkazuje na ni cookie consent).
 
-**Krok 1: Mobilní accordion + Desktop původní vzhled (sekce "Jak to funguje")** `[x]`
-- V `referral-stats.tsx` přepsat BOTTOM sekci "Jak to funguje":
-  - Nadpis `howItWorks` (`h2`) v řádku s `ChevronDown` ikonou v `<button>` vpravo (flex `justify-between`). Šipka mobilní-only (`sm:hidden`); na desktopu nadpis statický, obsah vždy viditelný.
-  - `useState(open)` (výchozí `false` = na mobilu sbaleno). Klik na šipku toggluje `open`; šipka rotuje `rotate-180` (`transition-transform duration-300 motion-reduce:transition-none`).
-  - Grid karet: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`; display třída: mobilní `${open ? "grid" : "hidden"}`, desktop vždy `sm:grid` (přepsání base).
-  - Karta kroku: mobilní `flex flex-row items-start gap-4 text-left` (číslo vlevo, textový blok vpravo, kolečko `shrink-0`); desktop `sm:flex-col sm:items-center sm:text-center` (původní vzhled: 4 karty vedle sebe, centrované). Textový blok `flex flex-col gap-1 sm:items-center`, nadpis `sm:mt-3`, popis `sm:mt-1`.
-- Import `ChevronDown` z `lucide-react`.
-- `npx tsc --noEmit` + manuální test: Desktop = původní 4 karty centrované, šipka skrytá. Mobil = nadpis + šipka, obsah skrytý; po kliku se rozbalí (4 kompaktní řádky, číslo vlevo, text doleva), šipka se otočí.
+---
 
-**Krok 2 (byrokracie po schválení):** Označit Krok 1 ✅, zapsat do CHANGELOG.md (Pravidlo 6), git commit (Pravidlo 4).
+#### ✅ Krok 1 – Komponenta `SiteFooter` (4 sloupce + spodní řádek) — HOTOVÝ, ověřeno uživatelem
+- **Soubor:** přepsat `src/components/marketing/site-footer.tsx` (zachovat export `SiteFooter({ locale })` → `page.tsx` se nemění).
+- **Design:** Pure Black (`bg-black`), horní ohraničení `border-white/10`. Nadpisy sloupců: `uppercase font-bold text-white`. Odkazy: `text-[#A89FFF] hover:text-[#6C47FF]`.
+  - Volitelná newsletter karta nahoře (dle rozhodnutí A).
+  - **4 sloupce** (`grid` 1→2→4 cols, mobile-friendly):
+    1. **PRODUKT:** Funkce (`#funkce`), Ceník (`#cenik`), Changelog (`#` dle C), Srovnání s Bufferem (`#` dle C)
+    2. **PODPORA:** FAQ (`#faq`), Kontakt (`mailto:info@postio-app.cz`), Status služby (`#` dle C)
+    3. **PRÁVNÍ & GDPR:** Ochrana osobních údajů (`/{locale}/privacy-policy`), Obchodní podmínky (`/{locale}/terms-of-service`), GDPR / DPA (`/{locale}/dpa`), Transparentnost AI (`/{locale}/ai-transparency-notice`), Nastavení cookies (tlačítko → modal)
+    4. **APLIKACE:** Přihlásit se (`/{locale}/login`), Registrace (`/{locale}/login` dle C), Stáhnout aplikaci (`#` dle C)
+  - **Spodní řádek** (`flex flex-col sm:flex-row justify-between`): vlevo Logo + `© 2026 Postio. Všechna práva vyhrazena.` + `Plánujte a publikujte obsah na sociální sítě s AI.`; uprostřed `Vytvořeno s ❤️ v České republice`; vpravo `<LocaleSwitcher />`.
+- **Sub-úkoly:**
+  - `LocaleSwitcher` je client komponenta (`useSearchParams`) → v patičce (server) obalit do `<Suspense>`.
+  - **Nová client komponenta** `src/components/marketing/cookie-settings-link.tsx`: tlačítko `<button>` s `onClick` dispečující `window.dispatchEvent(new CustomEvent("postio:open-cookie-settings"))`.
+  - **Úprava `cookie-consent.tsx`:** Dialog s předvolbami nechat vždy namountovaný (přesunout mimo `if (!show) return null`) a přidat `useEffect` naslouchající na `postio:open-cookie-settings` → `setOpen(true)`. Floating karta zůstává podmíněná (`!isPrivacyPage && !consent`).
+- **Ověření:** `npx tsc --noEmit` ✅; manuální test v prohlížeči.
 
-### 🔧 Mimořádný úkol – Oprava čitelnosti mobilní navigace a sjednocení fontu na Login page
+#### ✅ Krok 2 – i18n pro Footer (namespace `footer`)
+- Přidat top-level `footer` namespace do `src/messages/{cs,en,uk}.json` s klíči: `productTitle`, `supportTitle`, `legalTitle`, `appTitle`, `product.features`, `product.pricing`, `product.changelog`, `product.compareBuffer`, `support.faq`, `support.contact`, `support.status`, `legal.privacy`, `legal.terms`, `legal.dpa`, `legal.aiTransparency`, `legal.cookieSettings`, `app.login`, `app.register`, `app.download`, `copyright`, `tagline`, `madeInCz`.
+- (Původní `landing.footer` klíče zůstanou nedotčené; nový footer použije `footer`.)
 
-**Cíl:** (1) Spodní mobilní navigace (`mobile-nav.tsx`) je v Light mode nečitelná (šedý text na poloprůhledné černé liště). (2) Přihlašovací stránka (`(auth)/login/page.tsx`) nemá patkový font `--font-serif` jako Landing Page – sjednotit.
+#### ✅ Krok 3 – Generování 4 rout (veřejné)
+- **Složky/soubory** v `src/app/[locale]/(marketing)/`:
+  - `privacy-policy/page.tsx` ← `doc/01_Postio_Zasady_ochrany_osobnich_udaju.txt`
+  - `terms-of-service/page.tsx` ← `doc/02_Postio_Obchodni_podminky.txt`
+  - `dpa/page.tsx` ← `doc/03_Postio_Smlouva_o_zpracovani_osobnich_udaju_DPA.txt`
+  - `ai-transparency-notice/page.tsx` ← `doc/04_Postio_Oznameni_o_transparentnosti_AI.txt`
+- Každá stránka: server komponenta, čte příslušný `.txt` přes `fs/promises` (Node runtime, `process.cwd()/doc/...`), vykreslí `<SiteFooter locale={locale} />` dole. Hlavička = Logo link zpět (jako `/privacy`).
+- **Middleware:** routy pod `(marketing)` NEJSOU v `isDashboardRoute` → jsou veřejné automaticky, **žádná funkční změna není nutná**. (Volitelně: přidat komentář/veřejný seznam pro explicitnost – viz poznámka v Krok 3.)
 
-**Analýza stavu (FÁZE 1):**
-- `src/components/dashboard/mobile-nav.tsx`:
-  - Řádek 141: `<div className="bg-black/60 backdrop-blur-xl border-t border-white/10 h-[56px] ...">` – pozadí `bg-black/60` bez `dark:` varianty → v Light mode poloprůhledná čerň nad světlou stránkou = středně šedá lišta.
-  - Řádek 156 (nav items) i 186 (settings trigger): `isActive ? "text-indigo-500" : "text-zinc-500"` bez `dark:` variantů. `text-zinc-500` (šedá) na středně šedé liště = špatný kontrast → v Light mode ikony i popisky téměř neviditelné.
-  - `drop-shadow` glow u aktivní položky zůstává zachován.
-- `src/app/[locale](auth)/login/page.tsx`:
-  - Řádek ~38: `<h1 className="flex justify-center"><Logo .../></h1>` – H1 je brand Logo (žádný text "Postio"), bez `font-serif`.
-  - Řádek ~41: `<h2 ...>{t("getStarted")}</h2>` – hlavní textový nadpis "getStarted", bez `font-serif`.
-  - `--font-serif` (Playfair Display) zaveden v Promptu 033 (globals.css `@theme inline` + layout.tsx) a na Landing Page se aplikuje přes třídu `font-serif`. Na login page se zatím nepoužívá.
-  - Poznámka: v kódu je "getStarted" v `<h2>`; `<h1>` je Logo. Pro sjednocení s Landing hero aplikujeme `font-serif` na textový nadpis `getStarted` (H1 = Logo ponecháme bez serifu, je to brand značka).
+#### ✅ Krok 4 – Naplnění obsahem (formátování `.txt`)
+- Parser (server-side v každé stránce): rozdělit text na řádky; pravidla:
+  - `^\d+\.\s+[A-Z...]` nebo `^\d+\.\d+\s` → `<h2>` nadpis (bílý, `font-semibold`)
+  - řádek začínající `* ` → odrážka (seznam)
+  - prázdný řádek → mezera mezi odstavci
+  - ostatní → `<p>` (`leading-relaxed text-muted-foreground`)
+- Hlavičku dokumentu (POSTIO, název, URL, datum) vykreslit jako titulek stránky + `Naposledy aktualizováno`.
+- Stylování: container `max-w-3xl mx-auto px-6 py-12`, konzistentní s `/privacy` (black bg, white headings). Žádný externí plugin.
+- **EN/UK:** dle rozhodnutí B (cs zdroj, nebo placeholder).
 
-**Krok 1: Oprava kontrastu Mobile Nav** `[x]`
-- V `mobile-nav.tsx`:
-  - Řádek 141: `bg-black/60 backdrop-blur-xl border-t border-white/10` → `bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10` (adaptivní světlá/tmavá lišta).
-  - Řádek 156 (nav items): `isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-zinc-400"`.
-  - Řádek 186 (settings trigger): stejná změna `isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-zinc-400"`.
-- `npx tsc --noEmit` + manuální test (Light + Dark mode): ikony i popisky jasně čitelné, aktivní indigo, neaktivní šedá/slates.
-
-**Krok 2: Premium Font na Login Page + Landing newsletter** `[x]`
-- V `(auth)/login/page.tsx` přidat `font-serif` do className nadpisu `getStarted` (`<h2>`): `className="mt-8 text-4xl font-bold tracking-tight text-foreground font-serif sm:text-5xl lg:text-6xl"`.
-- V `src/components/marketing/site-footer.tsx` přidat `font-serif` na nadpis `newsletterTitle` (`<h3>`): `className="text-xl font-bold tracking-tight text-foreground font-serif"`. Sjednocuje sekci "Získejte tipy pro sítě" s ostatními sekčními nadpisy Landing Page (Benefits/Pricing/FAQ), které už serif mají. Popis `newsletterDesc` ponechán sans (jako subtitulky ostatních sekcí).
-- (Volitelné k diskusi) též `font-serif` na `<h1>` Logo v login? Doporučuji NE – Logo je brand značka.
-- `npx tsc --noEmit` + manuální test: "getStarted" i "Získejte tipy pro sítě" v patkovém fontu, vizuálně sladěné s Landing Page hero.
-
-**Krok 3 (byrokracie po schválení):** Označit Kroky 1–2 ✅, zapsat do CHANGELOG.md (Pravidlo 6), git commit (Pravidlo 4).
+---
+*Po schválení každého kroku: označit ✅, zapsat CHANGELOG (max 10 záznamů), dle Pravidla 4 git commit. Žádný push.*
 

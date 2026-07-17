@@ -66,7 +66,7 @@
   - `auth/callback/route.ts`: po `exchangeCodeForSession` (Google) přečíst cookie `postio_ref` a zavolat `applyReferral`.
 - `npx tsc --noEmit` + manuální test (registrace s `?ref=`, ověření `referred_by` v DB).
 
-**Krok 2: Nová položka v menu nastavení + routa** `[ ]`
+**Krok 2: Nová položka v menu nastavení + routa** `[x]`
 - `dashboard/sidebar.tsx`: přidat do `submenuItems.account` položku `{ href: /${locale}/settings/referrals, label: settingsLabels.referrals, icon: Gift }`; přidat `gift: Gift` do `ICON_MAP` a `referalls` do `settingsLabels` typu.
 - `mobile-nav.tsx`: stejná položka do `accountLabel` sekce dropdownu + icon `Gift`.
 - `dashboard/layout.tsx`: předat `settingsLabels.referrals` (i18n klíč `settings.referrals`).

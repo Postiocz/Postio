@@ -8,6 +8,7 @@ import { Logo } from "@/components/ui/logo";
 import {
   LayoutDashboard,
   FileText,
+  Gift,
   Link as LinkIcon,
   Copy,
   BarChart3,
@@ -64,6 +65,7 @@ interface SidebarProps {
     general: string;
     billing: string;
     labels: string;
+    referrals: string;
     accountLabel: string;
     organizationLabel: string;
     featuresLabel: string;
@@ -133,6 +135,7 @@ export function Sidebar({
         { href: `/${locale}/settings/profile`, label: settingsLabels.profile, icon: User },
         { href: `/${locale}/settings/preferences`, label: settingsLabels.preferences, icon: SlidersHorizontal },
         { href: `/${locale}/settings/notifications`, label: settingsLabels.notifications, icon: Bell },
+        { href: `/${locale}/settings/referrals`, label: settingsLabels.referrals, icon: Gift },
       ],
       organization: [
         { href: `/${locale}/settings/general`, label: settingsLabels.general, icon: Building2 },

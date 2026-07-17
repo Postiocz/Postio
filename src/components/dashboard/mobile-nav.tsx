@@ -17,6 +17,7 @@ import {
   CreditCard,
   Tag,
   Copy,
+  Gift,
   LogOut,
   MessageSquare,
   Crown,
@@ -83,6 +84,7 @@ interface MobileNavProps {
     general: string;
     billing: string;
     labels: string;
+    referrals: string;
     accountLabel: string;
     organizationLabel: string;
     featuresLabel: string;
@@ -268,6 +270,12 @@ export default function MobileNav({ locale, settingsLabels }: MobileNavProps) {
                 <Link href={`/${locale}/settings/notifications`} className="flex items-center gap-3 px-3 py-2">
                   <Bell className="h-4 w-4 text-slate-600 dark:text-white/70" />
                   <span className="text-sm">{settingsLabels.notifications}</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+                <Link href={`/${locale}/settings/referrals`} className="flex items-center gap-3 px-3 py-2">
+                  <Gift className="h-4 w-4 text-slate-600 dark:text-white/70" />
+                  <span className="text-sm">{settingsLabels.referrals}</span>
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

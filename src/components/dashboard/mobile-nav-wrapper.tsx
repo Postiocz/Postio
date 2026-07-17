@@ -18,6 +18,7 @@ export default function MobileNavWrapper({
     general: string;
     billing: string;
     labels: string;
+    referrals: string;
     accountLabel: string;
     organizationLabel: string;
     featuresLabel: string;

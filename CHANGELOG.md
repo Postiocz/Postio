@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎯 Feat - Referral: položka menu + routa (Prompt 034, Krok 2)
+
+- **Kontext**: Krok 1 uložil `referral_code`/`referred_by` a zachytil `?ref=`. Chyběla navigace a stránka pro zobrazení doporučení.
+- **Změny**: `src/components/dashboard/sidebar.tsx` - položka `Doporučení` (ikona `Gift`) v submenu sekce Účet + `referrals` v typu `settingsLabels`. `src/components/dashboard/mobile-nav.tsx` - stejná položka v mobilním dropdownu (sekce Účet) + typ. `src/components/dashboard/mobile-nav-wrapper.tsx` - `referrals` v typu. `src/app/[locale](dashboard)/layout.tsx` - předal `referrals: settingsT("referrals")` do `Sidebar` i `MobileNavWrapper`. `src/messages/{cs,en,uk}.json` - klíče `referrals`, `referralsDescription`, `yourLink`, `totalReferrals` (namespace `settings`). `src/app/[locale](dashboard)/settings/referrals/page.tsx` - NOVÁ server stránka: načte `referral_code` a `count(referred_by = id)`, vykreslí nadpis + kartu s readonly odkazem `https://postio-app.cz/{locale}/login?ref=CODE` a počtem doporučení.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test: položka viditelná v desktop sidebaru i mobilním dropdownu, route funkční.
+- **Poznámka**: Plná glassmorphism UI + kopírování + „Jak to funguje" je Krok 3. Odměnová logika (přidělování měsíců PRO) zatím NENÍ implementována – existuje jen datový model z Kroku 1.
+- **Upravené soubory**: sidebar.tsx, mobile-nav.tsx, mobile-nav-wrapper.tsx, layout.tsx, cs.json, en.json, uk.json, referrals/page.tsx (nová).
+
 ### 🎯 Feat - Referral systém: DB + zachycení kódu (Prompt 034, Krok 1)
 
 - **Kontext**: Chyběl referral systém. Úkol 034 ("Doporuč a získej") vyžaduje uložení, kdo koho pozval, a unikátní kód pro sdílení odkazu.
@@ -66,10 +74,4 @@
 - **Ověření**: manuální test na mobilu ✅ (X zavírá menu).
 - **Upravené soubory**: `src/components/marketing/marketing-nav.tsx`.
 
-### 🐛 Oprava – Mobilní responzivita cookie dialogu + footer newsletter (KROK 3)
-
-- **Kontext**: Cookie dialog („Nastavení souborů cookie") na mobilu přesahoval výšku i šířku obrazovky – zavírací X i tlačítka byla mimo dosah („nelze zpět"). Po přidání tlačítka „Zavřít" footer dialogu (3 tlačítka vedle sebe) způsobil horizontální přetečení. Navíc newsletter formulář ve footeru (input + tlačítko „Odebírat" v `flex` bez zalomení) vytlačoval tlačítko vpravo mimo rámeček.
-- **Změny**: `src/components/ui/dialog.tsx` — `DialogContent` nově `max-h-[90vh] overflow-y-auto overflow-x-hidden` (obsah se posouvá, žádný horizontální posuv). `src/components/cookie-consent.tsx` — do zápatí dialogu přidáno explicitní tlačítko „Zavřít" (i18n klíč `cookie.close` v cs/en/uk); footer nyní složí tlačítka pod sebe na mobilu (`flex-col-reverse sm:flex-row`). `src/components/marketing/newsletter-form.tsx` — formulář `flex-col sm:flex-row`, tlačítko `w-full sm:w-auto`, input `min-w-0` (zabránění horizontálnímu přetečení).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test na mobilu ✅ (dialog i footer vejdou do obrazovky, zavírá se přes X i „Zavřít").
-- **Upravené soubory**: `src/components/ui/dialog.tsx`, `src/components/cookie-consent.tsx`, `src/components/marketing/newsletter-form.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
 

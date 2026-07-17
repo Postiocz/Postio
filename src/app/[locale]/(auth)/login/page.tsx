@@ -5,6 +5,7 @@ import { AuthNav } from "@/components/auth/auth-nav";
 import { Logo } from "@/components/ui/logo";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import { RefCapture } from "@/components/auth/ref-capture";
 
 export default async function LoginPage({
   params,
@@ -24,6 +25,9 @@ export default async function LoginPage({
 
       {/* Floating glass nav */}
       <AuthNav />
+
+      {/* Captures ?ref= from the URL into a cookie for referral attribution */}
+      <RefCapture />
 
       {/* Left: form panel – full width mobile, 40% desktop */}
       <div className="relative z-10 flex w-full min-h-[100dvh] pt-28 pb-48 lg:py-12 flex-col justify-between px-6 lg:w-[40%] lg:px-16 xl:px-24 lg:justify-center">

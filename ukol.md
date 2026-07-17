@@ -42,19 +42,48 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### Prompt 033 – Přepínač měn a prémiová Dual-Font Typografie
+### 🎯 Prompt 034 – Referral program ("Doporuč a získej")
 
-Cíl: Přidat do ceníku přepínač měn (USD, CZK, EUR) a povýšit vizuál veřejné Landing Page elegantním patkovým písmem (Serif) pro nadpisy a ceny, zatímco vnitřní aplikace (Dashboard/Fakturace) zůstane čistě bezpatková (Sans-serif).
+**Cíl:** Systém doporučování uživatelů. Uživatel má unikátní odkaz, vidí statistiky a návod.
 
-Poznámky z analýzy:
-- Projekt používá **Tailwind v4** (config v `globals.css` přes `@theme inline`, žádný `tailwind.config.js`). Serif font se přidá jako `--font-serif` proměnná do `@theme inline`.
-- `src/app/layout.tsx` načítá jen `Inter` jako `--font-sans`.
-- Ceník existuje 2×: `src/components/marketing/pricing-section.tsx` (Landing, server, jen `priceEur`) a `src/app/[locale]/(dashboard)/settings/billing/billing-card.tsx` (Fakturace, client, už má `priceCzk/priceEur/priceUsd`).
-- Přepínač měn musí být client komponenta (stav) → na Landing bude potřeba data předat do client wrapperu.
+**Analýza stavu (FÁZE 1):**
+- Tabulka `users` (migrace `001_initial_schema.sql`) má sloupce `id, full_name, avatar_url, plan, language, streak, onboarded, created_at`. Přidání `referral_code` + `referred_by` je přímočaré.
+- Trigger `handle_new_user` (`002_auth_trigger.sql`) vytváří řádek `users` při registraci. Rozšířím ho o generování unikátního `referral_code` (retry-loop proti kolizi UNIQUE).
+- ⚠️ **Rozdíl oproti zadání:** `settings-sidebar.tsx` je mrtvý komponent (neimportuje se nikde). Reálná navigace podstránek nastavení je v `src/components/dashboard/sidebar.tsx` (`submenuItems`) a `src/components/dashboard/mobile-nav.tsx` (dropdown). Novou položku přidám sem, ne do `settings-sidebar.tsx`.
+- Zachycení `?ref=`: email registrace (`emailAuthAction`) i Google OAuth (`auth/callback/route.ts`) vyžadují sjednocený helper `applyReferral(code, userId)`, který po vzniku session doplní `referred_by` (jen pokud je null a není self).
+- Odkaz: `https://postio-app.cz/{locale}/login?ref=CODE` (produkční doména dle README).
 
-- [x] **Krok 1: Dual-Font System.** Naimportovat do `layout.tsx` Google Font 'Playfair Display' (elegantní Serif) přes `next/font/google` jako `--font-serif`. Zaregistrovat proměnnou `--font-serif` do `@theme inline` v `globals.css` (utility třída `font-serif`).
-- [x] **Krok 2: Aplikace fontu na Landing Page.** Aplikovat patkový font STRIKTNĚ POUZE na hlavní nadpisy (H1, H2) veřejné Landing Page a na velká čísla cen (v `pricing-section.tsx`, též H2 v `faq-section.tsx`).
-- [x] **Krok 3: Izolace aplikace (In-app UI).** Realizováno bez propu `isMarketingView`: serif (`font-serif`) je aplikován VÝHRADNĚ na marketing komponenty (`page.tsx` H1/H2, `pricing-section.tsx` H2 + cena, `faq-section.tsx` H2). `billing-card.tsx` (Fakturace) serif nemá → zůstává čistě sans-serif.
-- [x] **Krok 4: Datový model měn.** Upravit cenová data, aby každá karta podporovala 3 hodnoty: CZK, EUR, USD (Creator: 199 Kč / 8 € / 9 $, Pro: 499 Kč / 20 € / 22 $). Sjednotit v `pricing-section.tsx` (doplnit `priceCzk`/`priceUsd`) i `billing-card.tsx`.
-- [x] **Krok 5: Currency Switcher.** Vytvořit novou UI komponentu – elegantní pilulkový segmented control s Glassmorphismem. Přidat nad ceník na Landing page i na stránku Fakturace. Výběr měny přepíná zobrazené ceny + správné symboly (Kč, €, $).
+**Krok 1: Úprava databáze + zachycení ref kódu** `[x]`
+- SQL migrace `039_add_referral_system.sql`:
+  - `ALTER TABLE public.users ADD COLUMN referral_code TEXT UNIQUE;`
+  - `ALTER TABLE public.users ADD COLUMN referred_by UUID REFERENCES public.users(id) ON DELETE SET NULL;`
+  - Úprava `handle_new_user` (v `002` nebo nová migrace `040` s `CREATE OR REPLACE`): generování `referral_code` přes LOOP s `upper(substring(replace(gen_random_uuid()::text,'-','') from 1 for 6))` a retry při `unique_violation`.
+  - RLS: `referred_by` je na vlastním řádku → pokryto existujícími policy (SELECT/UPDATE own row).
+- Helper `src/lib/referral.ts`: `applyReferral(code, userId)` – resolve kódu na referrer id (SELECT podle `referral_code`), UPDATE `referred_by` jen pokud null a `referrer_id != userId`.
+- Napojení:
+  - `email-signin.tsx`: pokud URL obsahuje `?ref=`, uložit do cookie `postio_ref` (přežije i e-mail verifikaci).
+  - `emailAuthAction`: po `signUp`/`signIn` přečíst `postio_ref` a zavolat `applyReferral`.
+  - `auth/callback/route.ts`: po `exchangeCodeForSession` (Google) přečíst cookie `postio_ref` a zavolat `applyReferral`.
+- `npx tsc --noEmit` + manuální test (registrace s `?ref=`, ověření `referred_by` v DB).
+
+**Krok 2: Nová položka v menu nastavení + routa** `[ ]`
+- `dashboard/sidebar.tsx`: přidat do `submenuItems.account` položku `{ href: /${locale}/settings/referrals, label: settingsLabels.referrals, icon: Gift }`; přidat `gift: Gift` do `ICON_MAP` a `referalls` do `settingsLabels` typu.
+- `mobile-nav.tsx`: stejná položka do `accountLabel` sekce dropdownu + icon `Gift`.
+- `dashboard/layout.tsx`: předat `settingsLabels.referrals` (i18n klíč `settings.referrals`).
+- Vytvořit `src/app/[locale]/(dashboard)/settings/referrals/page.tsx` (zatím prázdná/server wrapper, který načte `referral_code`, počet referralů a předá do client komponenty z Kroku 3).
+- `npx tsc --noEmit` + manuální test (položka viditelná v postranním menu i mobile dropdownu, route funkční).
+
+**Krok 3: UI Referral stránky (Glassmorphism, dle design skillů)** `[ ]`
+- `referrals/page.tsx` (server): načte `referral_code`, `count(referred_by = id)` jako "Celkem doporučení", a odvozenou odměnu (počet referralů = počet měsíců PRO zdarma).
+- Client komponenta `referral-stats.tsx` s dvěma horními kartami:
+  - "Celkem doporučení" (počet uživatelů s `referred_by` = můj id).
+  - "Získané odměny" (odvozeno z počtu referralů; copy: za každé doporučení 1 měsíc PRO zdarma).
+- Sekce "Váš doporučovací odkaz": input (readonly) s odkazem `https://postio-app.cz/{locale}/login?ref=CODE` + tlačítko "Kopírovat" (`navigator.clipboard`, toast potvrzení).
+- Sekce "Jak to funguje": 4 kroky (Zkopírujte odkaz → Sdílejte → Registrace uživatele → Získejte odměnu: měsíc PRO zdarma).
+- Design: Pure Black pozadí, radius 20px, glassmorphism, indigo accent, grid pattern, custom cubic-bezier motion, respektovat `prefers-reduced-motion`. Žádné em-dash. Konzistentní s existujícími settings stránkami.
+- `npx tsc --noEmit` + manuální test vizuálu a kopírování.
+
+**Krok 4: Lokalizace (cs/en/uk)** `[ ]`
+- Přidat klíče do `src/messages/cs.json`, `en.json`, `uk.json` (namespace `settings` nebo nový `referrals`): `referrals`, `referralsDescription`, `totalReferrals`, `rewardsEarned`, `yourLink`, `copy`, `copied`, `howItWorks`, `step1`–`step4`, atd.
+- `npx tsc --noEmit` + manuální test všech 3 jazyků.
 

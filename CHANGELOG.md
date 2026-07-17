@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎯 Feat - Referral systém: DB + zachycení kódu (Prompt 034, Krok 1)
+
+- **Kontext**: Chyběl referral systém. Úkol 034 ("Doporuč a získej") vyžaduje uložení, kdo koho pozval, a unikátní kód pro sdílení odkazu.
+- **Změny**: `supabase/migrations/039_add_referral_system.sql` - sloupce `referral_code` (UNIQUE TEXT) a `referred_by` (UUID → `users.id`, ON DELETE SET NULL); trigger `handle_new_user` generuje 6znakový unikátní kód (retry-loop proti kolizi); backfill kódů pro existující účty. `src/lib/referral.ts` - `applyReferral(code, userId)` přes admin klienta (funguje i bez session), idempotentní, ignoruje self-referral. `src/lib/referral-constants.ts` - `REFERRAL_COOKIE` bez server závislostí. `src/components/auth/ref-capture.tsx` - uloží `?ref=` z URL do cookie `postio_ref` (přežije OAuth i e-mail verifikaci). Napojeno v `src/lib/actions/auth.ts` (po `signUp`) a `src/app/auth/callback/route.ts` (po Google `exchangeCodeForSession`).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (registrace s `?ref=` zapíše `referred_by`; build bez chyby `next/headers` po vyňětí konstanty do `referral-constants.ts`).
+- **Upravené soubory**: 039_add_referral_system.sql, referral.ts, referral-constants.ts, ref-capture.tsx, login/page.tsx, actions/auth.ts, callback/route.ts.
+
 ### 💱 Feat - Currency Switcher + izolace (Prompt 033, Krok 3+5)
 
 - **Kontext**: Ceník zobrazoval jen EUR, žádný přepínač měn. Serif (Krok 1+2) byl aplikován jen na marketing, izolace aplikace potvrzena.
@@ -65,11 +72,4 @@
 - **Změny**: `src/components/ui/dialog.tsx` — `DialogContent` nově `max-h-[90vh] overflow-y-auto overflow-x-hidden` (obsah se posouvá, žádný horizontální posuv). `src/components/cookie-consent.tsx` — do zápatí dialogu přidáno explicitní tlačítko „Zavřít" (i18n klíč `cookie.close` v cs/en/uk); footer nyní složí tlačítka pod sebe na mobilu (`flex-col-reverse sm:flex-row`). `src/components/marketing/newsletter-form.tsx` — formulář `flex-col sm:flex-row`, tlačítko `w-full sm:w-auto`, input `min-w-0` (zabránění horizontálnímu přetečení).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test na mobilu ✅ (dialog i footer vejdou do obrazovky, zavírá se přes X i „Zavřít").
 - **Upravené soubory**: `src/components/ui/dialog.tsx`, `src/components/cookie-consent.tsx`, `src/components/marketing/newsletter-form.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
-
-### 🐦 Hybridní X režim — UI text + i18n (Prompt 031-X-COMBO, Krok 4)
-
-- **Kontext**: Po Krocích 1–3 uživatel nepoznal, že „odeslání" manuálního X postu neznamená reálné zveřejnění, ale jen přípravu k ručnímu vyřízení. Tlačítko v editoru i toast hlásily „publikováno".
-- **Změny**: `posts/new/page.tsx` — `AccountInfo` nově nese `publishing_type`; `hasManualTwitter` detekuje výběr manuálního X účtu (`platform=twitter` + `publishing_type='manual'`). Hlavní tlačítko zní pak `posts.prepareToDo` („Připravit k vyřízení 🔔") místo `posts.publishNow`; success toast používá `dashboard.markPublishedToast` („Označeno jako publikované") místo „Příspěvek byl úspěšně publikován!". i18n — přidány klíče `posts.prepareToDo` + `dashboard.markPublishedToast` (cs/en/uk).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
-- **Upravené soubory**: `src/app/[locale]/(dashboard)/posts/new/page.tsx`, `src/messages/cs.json`, `src/messages/en.json`, `src/messages/uk.json`.
 

@@ -2,7 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
+import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
 
 type Locale = "cs" | "en" | "uk";
 
@@ -73,6 +74,16 @@ export async function emailAuthAction(
         return { errorKey: "emailAlreadyExists", errorMessage: null, successKey: null };
       }
       return { errorKey: "signUpError", errorMessage: error.message, successKey: null };
+    }
+
+    // Referral attribution (best-effort: never fail sign-up because of it).
+    const refCookie = (await cookies()).get(REFERRAL_COOKIE)?.value;
+    if (refCookie && data.user) {
+      try {
+        await applyReferral(refCookie, data.user.id);
+      } catch {
+        // Ignore – referral capture must not block account creation.
+      }
     }
 
     if (data.user && !data.user.email_confirmed_at) {

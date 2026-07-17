@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
 import { getAccountLimitInfo, accountLimitErrorMessage } from "@/lib/account-limit";
 
 type FacebookPagesResponse = {
@@ -503,6 +504,16 @@ export async function GET(request: NextRequest) {
   const oauthUser = oauthSession?.user;
   const targetUserId =
     existingSession?.user?.id ?? existingUser?.id ?? oauthUser?.id ?? null;
+
+  // Referral attribution for OAuth sign-ins (best-effort, non-blocking).
+  const refCookie = request.cookies.get(REFERRAL_COOKIE)?.value;
+  if (refCookie && oauthUser) {
+    try {
+      await applyReferral(refCookie, oauthUser.id);
+    } catch {
+      // Ignore – referral capture must not break the auth callback.
+    }
+  }
 
   // Set when the Facebook OAuth upsert had to drop new active accounts that
   // would exceed the user's plan limit. Surfaced to the /accounts page via a

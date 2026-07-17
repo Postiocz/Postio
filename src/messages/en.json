@@ -715,8 +715,6 @@
     "billing": "Billing",
     "referrals": "Referrals",
     "referralsDescription": "Invite friends and earn free months of PRO.",
-    "yourLink": "Your referral link",
-    "totalReferrals": "Total referrals",
     "labels": "Labels",
     "accountLabel": "Account",
     "organizationLabel": "Organization",
@@ -842,6 +840,24 @@
     "contact": "Contact",
     "contactDesc": "If you have questions about this policy, contact us at",
     "lastUpdated": "Last updated"
+  },
+  "referrals": {
+    "totalReferrals": "Total referrals",
+    "rewardsEarned": "Rewards earned",
+    "rewardsSub": "Months of PRO, free",
+    "yourLink": "Your referral link",
+    "copy": "Copy",
+    "copied": "Link copied",
+    "copyError": "Copy failed",
+    "howItWorks": "How it works",
+    "step1Title": "Copy your link",
+    "step1Desc": "Copy your unique referral link.",
+    "step2Title": "Share",
+    "step2Desc": "Send it to friends on social media or by email.",
+    "step3Title": "Sign up",
+    "step3Desc": "Your friends sign up through your link.",
+    "step4Title": "Get rewarded",
+    "step4Desc": "Earn one free month of PRO per referral."
   },
   "setup": {
     "title": "Complete Setup",

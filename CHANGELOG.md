@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎯 Feat - Referral: UI stránka + lokalizace (Prompt 034, Krok 3+4)
+
+- **Kontext**: Krok 2 přidal menu + prázdnou routu. Chyběla plná UI stránky (statistiky, odkaz, Jak to funguje) a překlady cs/en/uk. Od uživatele schválena Varianta 1 (pouze vizuální zobrazení odměn).
+- **Změny**: `src/components/referral/referral-stats.tsx` - NOVÁ client komponenta (framer-motion, sonner toast). TOP: dvě glass karty (Celkem doporučení / Získané odměny + "Měsíce PRO tarifu zdarma"), obojí = `count(referred_by)`. MIDDLE: read-only input s odkazem + tlačítko Kopírovat (`navigator.clipboard`, ikona přepne na fajfku, `toast.success`). BOTTOM: "Jak to funguje" `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`, 4 kroky s číslovanými pastel badge (indigo/purple/pink/emerald) + glow, text-center/items-center. Design: radius 20px, glassmorphism, `useReducedMotion()` (prefers-reduced-motion), žádný em-dash. `src/app/[locale](dashboard)/settings/referrals/page.tsx` - přepsáno na server wrapper (načte `referral_code` + `count(referred_by)`, předá do `ReferralStats`); hlavní nadpis zarovnán na střed (mobil) / vlevo (desktop). `src/messages/{cs,en,uk}.json` - NOVÝ top-level namespace `referrals` (14 klíčů: totalReferrals, rewardsEarned, rewardsSub, yourLink, copy, copied, copyError, howItWorks, step1-4); osamocené `yourLink`/`totalReferrals` přesunuty z `settings`.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), JSON zprávy platné, manuální test ✅ (kopírování, animace, překlady cs/en/uk).
+- **Poznámka**: Odměny čistě vizuální (Varianta 1) - žádné reálné přidělování PRO / Stripe.
+- **Upravené soubory**: referral-stats.tsx (nová), referrals/page.tsx, cs.json, en.json, uk.json.
+
 ### 🎯 Feat - Referral: položka menu + routa (Prompt 034, Krok 2)
 
 - **Kontext**: Krok 1 uložil `referral_code`/`referred_by` a zachytil `?ref=`. Chyběla navigace a stránka pro zobrazení doporučení.
@@ -28,16 +36,16 @@
 ### 💱 Feat - Datový model měn (Prompt 033, Krok 4)
 
 - **Kontext**: Ceník zobrazoval jen EUR. Pro budoucí přepínač měn byly potřebny 3 hodnoty (CZK, EUR, USD) na každé kartě.
-- **Změny**: `src/components/marketing/pricing-section.tsx` - rozšířen `Plan` interface o `priceCzk`/`priceUsd` a naplněna data (Free 0/0/0, Creator 199/8/9, Pro 499/20/22). `src/app/[locale]/(dashboard)/settings/billing/page.tsx` i `billing-card.tsx` už měly všechny 3 měny (potvrzeno). Datový model sjednocen v obou cenících.
+- **Změny**: `src/components/marketing/pricing-section.tsx` - rozšířen `Plan` interface o `priceCzk`/`priceUsd` a naplněna data (Free 0/0/0, Creator 199/8/9, Pro 499/20/22). `src/app/[locale](dashboard)/settings/billing/page.tsx` i `billing-card.tsx` už měly všechny 3 měny (potvrzeno). Datový model sjednocen v obou cenících.
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `src/components/marketing/pricing-section.tsx`.
 
 ### ✨ Feat - Dual-Font System (Prompt 033, Krok 1+2)
 
 - **Kontext**: Landing Page měla pouze bezpatkový Inter. Cílem bylo povýšit vizuál prémiovým patkovým písmem (Playfair Display) pro nadpisy a ceny, zatímco Dashboard a Fakturace zůstávají čistě sans-serif.
-- **Změny**: `src/app/layout.tsx` - naimportován Google Font `Playfair_Display` jako `--font-serif` (váhy 400 až 900) a přidán do `<html>` className. `src/app/globals.css` - zaregistrována `--font-serif` v `@theme inline`. `src/app/[locale]/(marketing)/page.tsx` - `font-serif` na H1 (hero) a H2 (Benefits). `src/components/marketing/pricing-section.tsx` - `font-serif` na H2 sekce ceníku a na velké číslo ceny. `src/components/marketing/faq-section.tsx` - `font-serif` na H2 sekce FAQ. Jména plánů (H3) a Fakturace zůstávají sans.
+- **Změny**: `src/app/layout.tsx` - naimportován Google Font `Playfair_Display` jako `--font-serif` (váhy 400 až 900) a přidán do `<html>` className. `src/app/globals.css` - zaregistrována `--font-serif` v `@theme inline`. `src/app/[locale](marketing)/page.tsx` - `font-serif` na H1 (hero) a H2 (Benefits). `src/components/marketing/pricing-section.tsx` - `font-serif` na H2 sekce ceníku a na velké číslo ceny. `src/components/marketing/faq-section.tsx` - `font-serif` na H2 sekce FAQ. Jména plánů (H3) a Fakturace zůstávají sans.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (serif viditelný na Landing, Dashboard sans).
-- **Upravené soubory**: `src/app/layout.tsx`, `src/app/globals.css`, `src/app/[locale]/(marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`.
+- **Upravené soubory**: `src/app/layout.tsx`, `src/app/globals.css`, `src/app/[locale](marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`.
 
 ### 📝 Upgrade – Profesionální README.md + obrázky
 
@@ -57,7 +65,7 @@
 
 - **Kontext**: Na stránce `/privacy` (cs/en/uk) je vlastní sekce Cookies + návratové tlačítko dole, ale plovoucí cookie karta (vpravo dole, `z-50`) ho překrývala, takže se uživatel „nedostal zpět".
 - **Změny**: `src/components/cookie-consent.tsx` — přidána detekce routy `isPrivacyPage = pathname.replace(/\/$/, "") === \`/${locale}/privacy\``; plovoucí karta obalena podmínkou `{!isPrivacyPage && (...)}`, takže na `/privacy` se nevykresluje (preferences dialog zůstává v kódu, ale není na této routě dostupný).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (karta na `/privacy` zmizela, návrat funguje; jinde se zobrazuje).
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (karta na `/privacy` zmizela, návrat funkce; jinde se zobrazuje).
 - **Upravené soubory**: `src/components/cookie-consent.tsx`.
 
 ### 🐛 Oprava – Globální zábrana horizontálního přetečení (KROK 1)
@@ -66,12 +74,3 @@
 - **Změny**: `src/app/globals.css` — v `@layer base` přidáno `overflow-x-hidden` do pravidla `body` (`@apply text-foreground overflow-x-hidden`). Horizontální posuv mizí plošně napříč aplikací a zároveň se ořízne přetečení od glow divu.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test na mobilu ✅ (zmizel horizontální scroll na landing/dashboard).
 - **Upravené soubory**: `src/app/globals.css`.
-
-### 🐛 Oprava – Burger menu na landing page (chybějící tlačítko zpět)
-
-- **Kontext**: Na mobilu se po rozkliknutí burger menu na landing page nezobrazovalo tlačítko zpět/zavřít. Celoobrazovkový overlay měl `z-40`, zatímco plovoucí header s hamburgerem `z-50` – zavírací X overlaye bylo schované pod headerem a nedostupné (klik na hamburger znovu jen volal `setOpen(true)`).
-- **Změny**: `src/components/marketing/marketing-nav.tsx` — z-index overlaye zvednut z `z-40` na `z-[60]`, takže jeho horní lišta s tlačítkem X je nyní nad headerem viditelná a klikatelná.
-- **Ověření**: manuální test na mobilu ✅ (X zavírá menu).
-- **Upravené soubory**: `src/components/marketing/marketing-nav.tsx`.
-
-

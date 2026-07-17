@@ -715,8 +715,6 @@
     "billing": "Fakturace",
     "referrals": "Doporučení",
     "referralsDescription": "Pozvěte přátele a získejte měsíce PRO zdarma.",
-    "yourLink": "Váš doporučovací odkaz",
-    "totalReferrals": "Celkem doporučení",
     "labels": "Štítky",
     "accountLabel": "Účet",
     "organizationLabel": "Organizace",
@@ -842,6 +840,24 @@
     "contact": "Kontakt",
     "contactDesc": "Pokud máte otázky ohledně této politiky, kontaktujte nás na",
     "lastUpdated": "Poslední aktualizace"
+  },
+  "referrals": {
+    "totalReferrals": "Celkem doporučení",
+    "rewardsEarned": "Získané odměny",
+    "rewardsSub": "Měsíce PRO tarifu zdarma",
+    "yourLink": "Váš doporučovací odkaz",
+    "copy": "Kopírovat",
+    "copied": "Odkaz zkopírován",
+    "copyError": "Kopírování se nezdařilo",
+    "howItWorks": "Jak to funguje",
+    "step1Title": "Zkopírujte odkaz",
+    "step1Desc": "Zkopírujte svůj jedinečný doporučovací odkaz.",
+    "step2Title": "Sdílejte",
+    "step2Desc": "Pošlete ho přátelům na sociálních sítích nebo e-mailem.",
+    "step3Title": "Registrace",
+    "step3Desc": "Vaši přátelé se zaregistrují přes váš odkaz.",
+    "step4Title": "Získejte odměnu",
+    "step4Desc": "Za každého získáte jeden měsíc PRO zdarma."
   },
   "setup": {
     "title": "Dokončete nastavení",

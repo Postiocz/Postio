@@ -73,7 +73,7 @@
 - Vytvořit `src/app/[locale]/(dashboard)/settings/referrals/page.tsx` (zatím prázdná/server wrapper, který načte `referral_code`, počet referralů a předá do client komponenty z Kroku 3).
 - `npx tsc --noEmit` + manuální test (položka viditelná v postranním menu i mobile dropdownu, route funkční).
 
-**Krok 3: UI Referral stránky (Glassmorphism, dle design skillů)** `[ ]`
+**Krok 3: UI Referral stránky (Glassmorphism, dle design skillů)** `[x]`
 - `referrals/page.tsx` (server): načte `referral_code`, `count(referred_by = id)` jako "Celkem doporučení", a odvozenou odměnu (počet referralů = počet měsíců PRO zdarma).
 - Client komponenta `referral-stats.tsx` s dvěma horními kartami:
   - "Celkem doporučení" (počet uživatelů s `referred_by` = můj id).
@@ -83,7 +83,7 @@
 - Design: Pure Black pozadí, radius 20px, glassmorphism, indigo accent, grid pattern, custom cubic-bezier motion, respektovat `prefers-reduced-motion`. Žádné em-dash. Konzistentní s existujícími settings stránkami.
 - `npx tsc --noEmit` + manuální test vizuálu a kopírování.
 
-**Krok 4: Lokalizace (cs/en/uk)** `[ ]`
+**Krok 4: Lokalizace (cs/en/uk)** `[x]`
 - Přidat klíče do `src/messages/cs.json`, `en.json`, `uk.json` (namespace `settings` nebo nový `referrals`): `referrals`, `referralsDescription`, `totalReferrals`, `rewardsEarned`, `yourLink`, `copy`, `copied`, `howItWorks`, `step1`–`step4`, atd.
 - `npx tsc --noEmit` + manuální test všech 3 jazyků.
 

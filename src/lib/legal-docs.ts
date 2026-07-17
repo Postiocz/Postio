@@ -5,16 +5,19 @@ import path from "path";
  * Reads a legal document (.txt) from the repo's `doc/` directory.
  *
  * Runs on the Node.js runtime (server component). Locale resolution:
- *  - `cs` (or any locale without a translation) reads `doc/<fileName>`;
+ *  - `cs` (or any locale without a translation) reads `doc/cs/<fileName>`;
  *  - `en`/`uk` first try `doc/<locale>/<fileName>`, falling back to the `cs`
- *    source when a translation is missing.
+ *    source in `doc/cs` when a translation is missing.
  * Structured parsing (headings, bullets, date) is handled by the consumer.
  */
 export async function readLegalDoc(
   fileName: string,
   locale = "cs",
 ): Promise<string> {
-  const dirs = locale === "cs" ? ["doc"] : [`doc/${locale}`, "doc"];
+  const dirs =
+    locale === "cs"
+      ? ["doc/cs", "doc"]
+      : [`doc/${locale}`, "doc/cs"];
 
   for (const dir of dirs) {
     try {

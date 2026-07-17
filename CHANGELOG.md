@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Chore - Přesun cs právních dokumentů do doc/cs
+
+- **Kontext**: 4 české `.txt` dokumenty byly v holém `doc/`, zatímco en/uk ve vlastních podadresářích → nejednotná struktura.
+- **Změny**: `git mv` 4 cs souborů `doc/01-04_*.txt` → `doc/cs/01-04_*.txt` (zachována historie). `src/lib/legal-docs.ts` - cs nyní čte z `doc/cs` (s `doc` jako záloha); en/uk fallback změněn z `doc` na `doc/cs`.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); smoke test loaderu (cs/en/uk vracejí správný název z nových cest).
+- **Upravené soubory**: legal-docs.ts, doc/cs/* (4 přesunuté).
+
 ### 🔧 Feat - Překlady právních stránek EN/UK (Prompt 033, Krok 5)
 
 - **Kontext**: Krok 4 parsuje cs; rozhodnutí B původně "cs zdroj pro en/uk", uživatel změnil na vygenerování strojových překladů (konceptů).
@@ -71,10 +78,3 @@
 - **Změny**: `supabase/migrations/039_add_referral_system.sql` - sloupce `referral_code` (UNIQUE TEXT) a `referred_by` (UUID → `users.id`, ON DELETE SET NULL); trigger `handle_new_user` generuje 6znakový unikátní kód (retry-loop proti kolizi); backfill kódů pro existující účty. `src/lib/referral.ts` - `applyReferral(code, userId)` přes admin klienta (funguje i bez session), idempotentní, ignoruje self-referral. `src/lib/referral-constants.ts` - `REFERRAL_COOKIE` bez server závislostí. `src/components/auth/ref-capture.tsx` - uloží `?ref=` z URL do cookie `postio_ref` (přežije OAuth i e-mail verifikaci). Napojeno v `src/lib/actions/auth.ts` (po `signUp`) a `src/app/auth/callback/route.ts` (po Google `exchangeCodeForSession`).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (registrace s `?ref=` zapíše `referred_by`; build bez chyby `next/headers` po vyňětí konstanty do `referral-constants.ts`).
 - **Upravené soubory**: 039_add_referral_system.sql, referral.ts, referral-constants.ts, ref-capture.tsx, login/page.tsx, actions/auth.ts, callback/route.ts.
-
-### 💱 Feat - Currency Switcher + izolace (Prompt 033, Krok 3+5)
-
-- **Kontext**: Ceník zobrazoval jen EUR, žádný přepínač měn. Serif (Krok 1+2) byl aplikován jen na marketing, izolace aplikace potvrzena.
-- **Změny**: `src/components/marketing/currency-switcher.tsx` - nová client komponenta (pilulkový segmented control, glassmorphism, 20px radius, indigo accent, 3 měny CZK/EUR/USD). `src/lib/pricing.ts` - helper `formatPrice` (CZK "199 Kč", EUR "8 €", USD "$9", free fallback). `src/components/marketing/pricing-client.tsx` - nová client island (Landing: switcher + karty, serif cena zachována). `src/components/marketing/pricing-section.tsx` - přepsáno na server (data → PricingClient). `src/app/[locale](dashboard)/settings/billing/billing-card.tsx` - prop `currency` + `formatPrice` (zůstává sans). `src/app/[locale](dashboard)/settings/billing/billing-client.tsx` - nová client island (Fakturace: switcher nad gridem). `src/app/[locale](dashboard)/settings/billing/page.tsx` - volá BillingClient. Krok 3: izolace realizována bez propu (serif jen na marketing, billing-card sans).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (switcher přepíná CZK/EUR/USD na Landing i Fakturace, serif jen na Landing, Dashboard sans).
-- **Upravené soubory**: currency-switcher.tsx, lib/pricing.ts, pricing-client.tsx, pricing-section.tsx, billing-card.tsx, billing-client.tsx, billing/page.tsx.

@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Právní routy (Prompt 033, Krok 3)
+
+- **Kontext**: Footer odkazuje na `/privacy-policy`, `/terms-of-service`, `/dpa`, `/ai-transparency-notice`, ale tyto routy neexistovaly - klik na ně vedl na 404.
+- **Změny**: `src/lib/legal-docs.ts` - NOVÝ reader (`fs/promises`, Node runtime, čte `doc/*.txt` přes `process.cwd()`). `src/components/marketing/legal-doc-page.tsx` - NOVÁ sdílená server komponenta (hlavička s Logem = odkaz domů jako `/privacy`, tělo dokumentu raw `whitespace-pre-line`, `<SiteFooter locale={locale} />`, tlačítko Zpět). 4 routy pod `(marketing)`: `privacy-policy`, `terms-of-service`, `dpa`, `ai-transparency-notice` (`page.tsx`), každá volá `LegalDocPage` s příslušným souborem a `runtime = "nodejs"`. Middleware: routy veřejné automaticky (nejsou `isDashboardRoute`), žádná změna.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (4 routy načítají text dokumentu, hlavička + footer + LocaleSwitcher funkční; cs/en/uk).
+- **Poznámka**: Krok 4 přidá parser (h2/odrážky/datum) pouze do `legal-doc-page.tsx`; `.txt` soubory v `doc/` musejí zůstat (čtou se za běhu).
+- **Upravené soubory**: legal-docs.ts (nová), legal-doc-page.tsx (nová), privacy-policy/page.tsx (nová), terms-of-service/page.tsx (nová), dpa/page.tsx (nová), ai-transparency-notice/page.tsx (nová).
+
 ### 🔧 Feat - Footer (SiteFooter) + cookie modal reopen (Prompt 033, Krok 1)
 
 - **Kontext**: Marketing web neměl profesionální patičku se sloupci odkazů. Existující `site-footer.tsx` měl jen newsletter kartu + jednoduchou lištu.
@@ -68,10 +76,3 @@
 - **Změny**: `src/app/layout.tsx` - naimportován Google Font `Playfair_Display` jako `--font-serif` (váhy 400 až 900) a přidán do `<html>` className. `src/app/globals.css` - zaregistrována `--font-serif` v `@theme inline`. `src/app/[locale](marketing)/page.tsx` - `font-serif` na H1 (hero) a H2 (Benefits). `src/components/marketing/pricing-section.tsx` - `font-serif` na H2 sekce ceníku a na velké číslo ceny. `src/components/marketing/faq-section.tsx` - `font-serif` na H2 sekce FAQ. Jména plánů (H3) a Fakturace zůstávají sans.
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (serif viditelný na Landing, Dashboard sans).
 - **Upravené soubory**: `src/app/layout.tsx`, `src/app/globals.css`, `src/app/[locale](marketing)/page.tsx`, `src/components/marketing/pricing-section.tsx`, `src/components/marketing/faq-section.tsx`.
-
-### 📝 Upgrade – Profesionální README.md + obrázky
-
-- **Kontext**: Aktuální README byl příliš strohý, neodrážel aktuální kvalitu projektu Postio a chyběly klíčové informace (odkaz na produkci, unikátní funkce, architektura).
-- **Změny**: Kompletně přepsán `README.md`: přidán header s názvem, podnadpisem a odkazem na `postio-app.cz`; přidány obrázky (logo.svg a hero-mockup_cs.png) z public/; sekce s unikátními funkcemi (AI Vision, Multi-platform, High-Fidelity Previews, Auto-Queue, Analytika); přehlednější Tech Stack; sekce Getting Started; část o architektuře Post + Platform Instances; detailní Design System s Glassmorphism a 20px radiusem; tabulka podporovaných sítí.
-- **Ověření**: Soubor je formátován v Markdownu, obrázky jsou přidány.
-- **Upravené soubory**: `README.md`.

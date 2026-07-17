@@ -62,3 +62,32 @@
 
 **Krok 2 (byrokracie po schválení):** Označit Krok 1 ✅, zapsat do CHANGELOG.md (Pravidlo 6), git commit (Pravidlo 4).
 
+### 🔧 Mimořádný úkol – Oprava čitelnosti mobilní navigace a sjednocení fontu na Login page
+
+**Cíl:** (1) Spodní mobilní navigace (`mobile-nav.tsx`) je v Light mode nečitelná (šedý text na poloprůhledné černé liště). (2) Přihlašovací stránka (`(auth)/login/page.tsx`) nemá patkový font `--font-serif` jako Landing Page – sjednotit.
+
+**Analýza stavu (FÁZE 1):**
+- `src/components/dashboard/mobile-nav.tsx`:
+  - Řádek 141: `<div className="bg-black/60 backdrop-blur-xl border-t border-white/10 h-[56px] ...">` – pozadí `bg-black/60` bez `dark:` varianty → v Light mode poloprůhledná čerň nad světlou stránkou = středně šedá lišta.
+  - Řádek 156 (nav items) i 186 (settings trigger): `isActive ? "text-indigo-500" : "text-zinc-500"` bez `dark:` variantů. `text-zinc-500` (šedá) na středně šedé liště = špatný kontrast → v Light mode ikony i popisky téměř neviditelné.
+  - `drop-shadow` glow u aktivní položky zůstává zachován.
+- `src/app/[locale](auth)/login/page.tsx`:
+  - Řádek ~38: `<h1 className="flex justify-center"><Logo .../></h1>` – H1 je brand Logo (žádný text "Postio"), bez `font-serif`.
+  - Řádek ~41: `<h2 ...>{t("getStarted")}</h2>` – hlavní textový nadpis "getStarted", bez `font-serif`.
+  - `--font-serif` (Playfair Display) zaveden v Promptu 033 (globals.css `@theme inline` + layout.tsx) a na Landing Page se aplikuje přes třídu `font-serif`. Na login page se zatím nepoužívá.
+  - Poznámka: v kódu je "getStarted" v `<h2>`; `<h1>` je Logo. Pro sjednocení s Landing hero aplikujeme `font-serif` na textový nadpis `getStarted` (H1 = Logo ponecháme bez serifu, je to brand značka).
+
+**Krok 1: Oprava kontrastu Mobile Nav** `[x]`
+- V `mobile-nav.tsx`:
+  - Řádek 141: `bg-black/60 backdrop-blur-xl border-t border-white/10` → `bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10` (adaptivní světlá/tmavá lišta).
+  - Řádek 156 (nav items): `isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-zinc-400"`.
+  - Řádek 186 (settings trigger): stejná změna `isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-zinc-400"`.
+- `npx tsc --noEmit` + manuální test (Light + Dark mode): ikony i popisky jasně čitelné, aktivní indigo, neaktivní šedá/slates.
+
+**Krok 2: Premium Font na Login Page** `[ ]`
+- V `(auth)/login/page.tsx` přidat `font-serif` do className nadpisu `getStarted` (`<h2>`): `className="mt-8 text-4xl font-bold tracking-tight text-foreground font-serif sm:text-5xl lg:text-6xl"`.
+- (Volitelné k diskusi) též `font-serif` na `<h1>` Logo? Doporučuji NE – Logo je brand značka.
+- `npx tsc --noEmit` + manuální test: nadpis "getStarted" v patkovém fontu, vizuálně sladěný s Landing Page hero.
+
+**Krok 3 (byrokracie po schválení):** Označit Kroky 1–2 ✅, zapsat do CHANGELOG.md (Pravidlo 6), git commit (Pravidlo 4).
+

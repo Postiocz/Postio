@@ -138,7 +138,7 @@ export default function MobileNav({ locale, settingsLabels }: MobileNavProps) {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
-      <div className="bg-black/60 backdrop-blur-xl border-t border-white/10 h-[56px] flex items-center justify-evenly px-1 pb-safe">
+      <div className="bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 h-[56px] flex items-center justify-evenly px-1 pb-safe">
         {navItems.map((item) => {
           const isActive = normalizedPathname === item.path ||
             (item.path !== "/" && normalizedPathname.startsWith(item.path));
@@ -153,7 +153,7 @@ export default function MobileNav({ locale, settingsLabels }: MobileNavProps) {
                 whileTap={{ scale: 0.9 }}
                 className={cn(
                   "flex flex-col items-center justify-center transition-all duration-300",
-                  isActive ? "text-indigo-500" : "text-zinc-500"
+                  isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-zinc-400"
                 )}
               >
                 <item.icon className={cn(

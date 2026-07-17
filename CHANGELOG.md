@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix - Čitelnost mobilní navigace v Light mode (Mimořádný úkol, Krok 1)
+
+- **Kontext**: Spodní mobilní navigace měla pozadí `bg-black/60` bez `dark:` varianty a neaktivní položky `text-zinc-500` - v Light mode šedý text/ikony na poloprůhledné černé liště = špatný kontrast, prakticky nečitelné.
+- **Změny**: `src/components/dashboard/mobile-nav.tsx` - lišta: `bg-black/60 border-t border-white/10` → `bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10` (adaptivní). Barvy položek (nav items i settings trigger): `text-indigo-500`/`text-zinc-500` → `text-indigo-600 dark:text-indigo-400` (aktivní) a `text-slate-600 dark:text-zinc-400` (neaktivní). Glow `drop-shadow` u aktivní položky zachován.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (Light i Dark mode: ikony i popisky čitelné, aktivní indigo).
+- **Upravené soubory**: mobile-nav.tsx.
+
 ### 🔧 Feat - Referral "Jak to funguje": mobilní accordion + desktop původní (Mimořádný úkol)
 
 - **Kontext**: Na mobilu působila sekce "Jak to funguje" nekonzistentně (kroky centrované, zabíraly zbytečně mnoho vertikálního místa). Požadavek: na desktopu zachovat původní vzhled (4 karty vedle sebe, centrované), na mobilu sekci sbalit pod rozbalovací nadpis.
@@ -68,10 +75,3 @@
 - **Změny**: Žádné kódové změny – finální kontrola. `npx tsc --noEmit` ✅ nad celým projektem (EXIT 0). Manuální test na 320/375/390px potvrdil: landing burger (funkční X zpět), cookie karta→dialog (posouvatelný, zavírá se přes X i „Zavřít", footer bez přetečení), `/privacy` (karta skryta, návrat funkční; jinde se zobrazuje).
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
 - **Upravené soubory**: žádné (ověřovací milník).
-
-### 🐛 Oprava – Skrytí plovoucí cookie karty na `/privacy` (KROK 4)
-
-- **Kontext**: Na stránce `/privacy` (cs/en/uk) je vlastní sekce Cookies + návratové tlačítko dole, ale plovoucí cookie karta (vpravo dole, `z-50`) ho překrývala, takže se uživatel „nedostal zpět".
-- **Změny**: `src/components/cookie-consent.tsx` — přidána detekce routy `isPrivacyPage = pathname.replace(/\/$/, "") === \`/${locale}/privacy\``; plovoucí karta obalena podmínkou `{!isPrivacyPage && (...)}`, takže na `/privacy` se nevykresluje (preferences dialog zůstává v kódu, ale není na této routě dostupný).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅ (karta na `/privacy` zmizela, návrat funkce; jinde se zobrazuje).
-- **Upravené soubory**: `src/components/cookie-consent.tsx`.

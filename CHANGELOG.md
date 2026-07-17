@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Premium serif font na Login + Landing newsletter (Mimořádný úkol, Krok 2)
+
+- **Kontext**: Login page neměla patkový font `--font-serif` (zavedený v Promptu 033) jako Landing Page. Sekční nadpis newsletteru "Získejte tipy pro sítě" v `site-footer.tsx` také postrádal serif, zatímco Benefits/Pricing/FAQ ho už měly.
+- **Změny**: `src/app/[locale]/(auth)/login/page.tsx` - nadpis `getStarted` (`<h2>`) dostal `font-serif`. `src/components/marketing/site-footer.tsx` - nadpis `newsletterTitle` (`<h3>`) dostal `font-serif` (sjednocení s ostatními sekčními nadpisy Landing Page). Popis `newsletterDesc` ponechán sans, brand `<h1>` Logo na loginu bez serifu.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (serif na login i landing, Light i Dark).
+- **Upravené soubory**: login/page.tsx, site-footer.tsx.
+
 ### 🔧 Fix - Čitelnost mobilní navigace v Light mode (Mimořádný úkol, Krok 1)
 
 - **Kontext**: Spodní mobilní navigace měla pozadí `bg-black/60` bez `dark:` varianty a neaktivní položky `text-zinc-500` - v Light mode šedý text/ikony na poloprůhledné černé liště = špatný kontrast, prakticky nečitelné.
@@ -68,10 +75,3 @@
 - **Změny**: Kompletně přepsán `README.md`: přidán header s názvem, podnadpisem a odkazem na `postio-app.cz`; přidány obrázky (logo.svg a hero-mockup_cs.png) z public/; sekce s unikátními funkcemi (AI Vision, Multi-platform, High-Fidelity Previews, Auto-Queue, Analytika); přehlednější Tech Stack; sekce Getting Started; část o architektuře Post + Platform Instances; detailní Design System s Glassmorphism a 20px radiusem; tabulka podporovaných sítí.
 - **Ověření**: Soubor je formátován v Markdownu, obrázky jsou přidány.
 - **Upravené soubory**: `README.md`.
-
-### ✅ Ověření – Mobilní responzivita (KROK 5, finální)
-
-- **Kontext**: Závěrečné ověření všech 4 kroků opravy mobilní responzivity: globální přetečení (KROK 1), burger menu landing (KROK 2), cookie dialog + footer newsletter (KROK 3), skrytí plovoucí karty na `/privacy` (KROK 4).
-- **Změny**: Žádné kódové změny – finální kontrola. `npx tsc --noEmit` ✅ nad celým projektem (EXIT 0). Manuální test na 320/375/390px potvrdil: landing burger (funkční X zpět), cookie karta→dialog (posouvatelný, zavírá se přes X i „Zavřít", footer bez přetečení), `/privacy` (karta skryta, návrat funkční; jinde se zobrazuje).
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅.
-- **Upravené soubory**: žádné (ověřovací milník).

@@ -15,7 +15,7 @@ export async function SiteFooter({ locale }: { locale: string }) {
     <footer className="relative mx-auto max-w-7xl px-4 pb-10 pt-20 sm:px-6 md:pb-14">
       {/* Newsletter card */}
       <div className="mx-auto mb-16 max-w-xl rounded-[20px] border border-border bg-card/60 p-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md sm:p-10">
-        <h3 className="text-xl font-bold tracking-tight text-foreground">
+        <h3 className="text-xl font-bold tracking-tight text-foreground font-serif">
           {t("newsletterTitle")}
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">

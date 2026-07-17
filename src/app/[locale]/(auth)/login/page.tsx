@@ -40,7 +40,7 @@ export default async function LoginPage({
                 <Logo className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-5xl" />
               </h1>
 
-              <h2 className="mt-8 text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+              <h2 className="mt-8 text-4xl font-bold tracking-tight text-foreground font-serif sm:text-5xl lg:text-6xl">
                 {t("getStarted")}
               </h2>
 

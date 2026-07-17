@@ -84,10 +84,11 @@
   - Řádek 186 (settings trigger): stejná změna `isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-zinc-400"`.
 - `npx tsc --noEmit` + manuální test (Light + Dark mode): ikony i popisky jasně čitelné, aktivní indigo, neaktivní šedá/slates.
 
-**Krok 2: Premium Font na Login Page** `[ ]`
+**Krok 2: Premium Font na Login Page + Landing newsletter** `[x]`
 - V `(auth)/login/page.tsx` přidat `font-serif` do className nadpisu `getStarted` (`<h2>`): `className="mt-8 text-4xl font-bold tracking-tight text-foreground font-serif sm:text-5xl lg:text-6xl"`.
-- (Volitelné k diskusi) též `font-serif` na `<h1>` Logo? Doporučuji NE – Logo je brand značka.
-- `npx tsc --noEmit` + manuální test: nadpis "getStarted" v patkovém fontu, vizuálně sladěný s Landing Page hero.
+- V `src/components/marketing/site-footer.tsx` přidat `font-serif` na nadpis `newsletterTitle` (`<h3>`): `className="text-xl font-bold tracking-tight text-foreground font-serif"`. Sjednocuje sekci "Získejte tipy pro sítě" s ostatními sekčními nadpisy Landing Page (Benefits/Pricing/FAQ), které už serif mají. Popis `newsletterDesc` ponechán sans (jako subtitulky ostatních sekcí).
+- (Volitelné k diskusi) též `font-serif` na `<h1>` Logo v login? Doporučuji NE – Logo je brand značka.
+- `npx tsc --noEmit` + manuální test: "getStarted" i "Získejte tipy pro sítě" v patkovém fontu, vizuálně sladěné s Landing Page hero.
 
 **Krok 3 (byrokracie po schválení):** Označit Kroky 1–2 ✅, zapsat do CHANGELOG.md (Pravidlo 6), git commit (Pravidlo 4).
 

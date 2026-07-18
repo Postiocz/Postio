@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 032 – Příprava na produkční nasazení (postio-app.cz): FÁZE 1 – Plán + Audit ENV (Krok 1)
+
+- **Kontext**: Projekt stabilizovaný, cíl přestěhování z `postio-alpha.vercel.app` na `postio-app.cz`. FÁZE 1 = pouze analýza a zápis plánu do `ukol.md`, žádný kód.
+- **Změny**: `ukol.md` – pod sekci ## 10. AKTUÁLNÍ ÚKOLY přidán úkol "Prompt 032" s 5 kroky (1 Audit ENV, 2 SEO/Meta, 3 Dynamické adresy, 4 E-mail, 5 Sitemap/Robots). KROK 1 označen ✅.
+- **Audit (výstup Kroku 1)**: `NEXT_PUBLIC_APP_URL` → `https://postio-app.cz`. TikTok má hardcoded `TIKTOK_REDIRECT_URI` (`src/app/api/accounts/tiktok/route.ts:10`) na `postio-alpha.vercel.app`; X/LinkedIn/Google/YouTube používají dynamické `${url.origin}`. Stripe: přepnout `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_CREATOR/PRO` na Live + live webhook endpoint.
+- **Ověření**: Manuální analýza kódu (grep process.env + hardcoded URL). Žádný kód nezměněn.
+- **Upravené soubory**: ukol.md, CHANGELOG.md.
+
 ### 🔧 Fix - Mobilní patička do 2 sloupců (Krok 1)
 
 - **Kontext**: Na mobilu (<768px) byly sekce patičky (PRODUKT, PODPORA, PRÁVNÍ, APLIKACE) naskládány v 1 úzkém sloupci pod sebou. Požadavek: přehlednější 2 sloupce vedle sebe.

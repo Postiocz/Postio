@@ -11,7 +11,7 @@ Last updated: July 16, 2026
 Terms of Service
 Last updated: July 16, 2026
 1. INTRODUCTORY PROVISIONS
-1.1 These Terms of Service ('Terms') govern the relationship between the operator of the Postio application ('Postio', 'we') and the user of the service ('User' or 'you') when using the platform available at https://postio-app.cz.
+1.1 These Terms of Service ('Terms') govern the relationship between the operator of the Postio application, which is Václav Nykl, ID Number (IČO): 74260138, with registered office at Sokolská 464/27, Nové Město, 12000 Praha 2, Czech Republic ('Postio', 'we'), and the user of the service ('User' or 'you') when using the platform available at https://postio-app.cz.
 1.2 By using Postio you agree to these Terms. If you do not agree with the Terms, do not use Postio.
 1.3 Postio is a SaaS (Software as a Service) tool for planning, publishing and analyzing posts on social networks, supplemented with artificial intelligence features.
 2. ACCOUNT AND REGISTRATION

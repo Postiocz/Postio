@@ -61,7 +61,7 @@
   - `03_...DPA.txt` → bod 1.1 (ř. 15): doplnit identifikaci Zpracovatele.
   - `04_...AI.txt` → bod 1 ÚVOD (ř. 15): doplnit jméno/firmu do úvodního odstavce.
 
-- [ ] **Krok 2 – EN mutace (doc/en, 4 soubory):**
+- [x] ✅ **Krok 2 – EN mutace (doc/en, 4 soubory):** HOTOVO. Terminologie „ID Number (IČO)" / „Registered Office", adresa v originále + „Czech Republic".
   - Stejná místa jako CS. Terminologie: „ID Number" (IČO), „Registered Office" (sídlo). Adresa v EN přepisu.
   - `01` sekce 2 „DATA CONTROLLER" (ř. 20); `02` bod 1.1 (ř. 14); `03` bod 1.1 (ř. 14); `04` bod 1 INTRODUCTION (ř. 14).
 

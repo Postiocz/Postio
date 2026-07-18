@@ -11,7 +11,7 @@ Last updated: July 16, 2026
 Data Processing Agreement (DPA)
 Last updated: July 16, 2026
 1. PURPOSE AND SCOPE
-1.1 This Data Processing Agreement ('DPA') forms part of the contractual relationship established by the Terms of Service governing the use of the Postio platform and the Services provided by the operator of Postio ('Processor') and the customer ('Customer' or 'Controller').
+1.1 This Data Processing Agreement ('DPA') forms part of the contractual relationship established by the Terms of Service governing the use of the Postio platform and the Services provided by the operator of Postio, which is Václav Nykl, ID Number (IČO): 74260138, with registered office at Sokolská 464/27, Nové Město, 12000 Praha 2, Czech Republic ('Processor'), and the customer ('Customer' or 'Controller').
 1.2 This DPA governs the processing of the Customer's Personal Data carried out by the Processor on behalf of the Customer in connection with the provision of the Services and applies where the Processor processes Personal Data as a processor within the meaning of the GDPR.
 1.3 Processing of personal data carried out by the Processor in the role of an independent Controller (account management, billing, security) is governed by the Privacy Policy, not this DPA.
 1.4 In the event of a conflict between this DPA and the Terms of Service regarding the processing of Personal Data, this DPA takes precedence.

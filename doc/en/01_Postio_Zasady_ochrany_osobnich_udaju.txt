@@ -17,7 +17,9 @@ Last updated: July 16, 2026
 1.4 Legal framework. We process your personal data in accordance with Regulation (EU) 2016/679 (GDPR).
 1.5 Child protection. Our Services are intended for persons over 18 years of age. We do not knowingly collect personal data from persons under 18.
 2. DATA CONTROLLER
-Controller: Operator of the Postio application
+Controller: Václav Nykl, operator of the Postio application
+ID Number (IČO): 74260138
+Registered Office: Sokolská 464/27, Nové Město, 12000 Praha 2, Czech Republic
 Website: https://postio-app.cz
 Contact email: info@postio-app.cz
 3. WHAT PERSONAL DATA WE PROCESS

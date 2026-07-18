@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (EN, Krok 2)
+
+- **Kontext**: Navazuje na Krok 1 (cs). EN mutace potřebovaly stejnou identifikaci OSVČ provozovatele.
+- **Změny (doc/en)**: `01_...` sekce 2 DATA CONTROLLER – Václav Nykl + ID Number (IČO) + Registered Office (3 řádky). `02_...` bod 1.1 – identifikace provozovatele. `03_...` bod 1.1 – identifikace Processoru. `04_...` bod 1 INTRODUCTION – jméno+IČO+sídlo v závorce.
+- **Poznámka**: Terminologie „ID Number (IČO)" / „Registered Office"; adresa v originále + „Czech Republic". UK (Krok 3) zbývá.
+- **Upravené soubory**: doc/en/01–04 (4 soubory).
+
 ### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (CS, Krok 1)
 
 - **Kontext**: Právní dokumenty (Privacy, Terms, DPA, AI Notice) neobsahovaly identifikaci OSVČ provozovatele (Václav Nykl, IČO 74260138, sídlo Sokolská 464/27, Nové Město, 12000 Praha 2, Česko).
@@ -71,10 +78,3 @@
 - **Poznámka**: Odměny čistě vizuální (Varianta 1) - žádné reálné přidělování PRO / Stripe.
 - **Upravené soubory**: referral-stats.tsx (nová), referrals/page.tsx, cs.json, en.json, uk.json.
 
-### 🎯 Feat - Referral: položka menu + routa (Prompt 034, Krok 2)
-
-- **Kontext**: Krok 1 uložil `referral_code`/`referred_by` a zachytil `?ref=`. Chyběla navigace a stránka pro zobrazení doporučení.
-- **Změny**: `src/components/dashboard/sidebar.tsx` - položka `Doporučení` (ikona `Gift`) v submenu sekce Účet + `referrals` v typu `settingsLabels`. `src/components/dashboard/mobile-nav.tsx` - stejná položka v mobilním dropdownu (sekce Účet) + typ. `src/components/dashboard/mobile-nav-wrapper.tsx` - `referrals` v typu. `src/app/[locale](dashboard)/layout.tsx` - předal `referrals: settingsT("referrals")` do `Sidebar` i `MobileNavWrapper`. `src/messages/{cs,en,uk}.json` - klíče `referrals`, `referralsDescription`, `yourLink`, `totalReferrals` (namespace `settings`). `src/app/[locale](dashboard)/settings/referrals/page.tsx` - NOVÁ server stránka: načte `referral_code` a `count(referred_by = id)`, vykreslí nadpis + kartu s readonly odkazem `https://postio-app.cz/{locale}/login?ref=CODE` a počtem doporučení.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test: položka viditelná v desktop sidebaru i mobilním dropdownu, route funkční.
-- **Poznámka**: Plná glassmorphism UI + kopírování + „Jak to funguje" je Krok 3. Odměnová logika (přidělování měsíců PRO) zatím NENÍ implementována – existuje jen datový model z Kroku 1.
-- **Upravené soubory**: sidebar.tsx, mobile-nav.tsx, mobile-nav-wrapper.tsx, layout.tsx, cs.json, en.json, uk.json, referrals/page.tsx (nová).

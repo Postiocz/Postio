@@ -11,7 +11,7 @@ Last updated: July 16, 2026
 AI Transparency Notice
 Last updated: July 16, 2026
 1. INTRODUCTION
-Postio uses artificial intelligence (AI) features to help you create better content on social networks faster and more efficiently. This Notice explains how AI works in Postio, what data it processes and what your rights are in relation to AI.
+Postio, operated by Václav Nykl (ID Number (IČO): 74260138, registered office at Sokolská 464/27, Nové Město, 12000 Praha 2, Czech Republic), uses artificial intelligence (AI) features to help you create better content on social networks faster and more efficiently. This Notice explains how AI works in Postio, what data it processes and what your rights are in relation to AI.
 2. WHAT AI FEATURES POSTIO USES
 FeatureDescriptionTechnologyAI VisionAutomatic generation of captions, hashtags and post suggestions from imagesGoogle Gemini APIContent SuggestionsAssisted generation of post text based on your instructionsGoogle Gemini APITiming OptimizationRecommendation of optimal publishing time based on analyticsInternal algorithm
 3. HOW AI VISION WORKS

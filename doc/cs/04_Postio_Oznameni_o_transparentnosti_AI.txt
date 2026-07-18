@@ -12,9 +12,9 @@ Naposledy aktualizováno: 16. července 2026
 Oznámení o transparentnosti AI
 Naposledy aktualizováno: 16. července 2026
 1. ÚVOD
-Postio vyuziva funkce umele inteligence (AI) k tomu, aby vam pomohla vytvaret lepsi obsah na socialni site rychleji a efektivneji. Toto Oznameni vysvetluje, jak AI v Postio funguje, jaka data zpracovava a jaka jsou vase prava ve vztahu k AI.
+Postio, jehoz provozovatelem je Václav Nykl (ICO: 74260138, sidlo Sokolská 464/27, Nové Město, 12000 Praha 2, Česko), vyuziva funkce umele inteligence (AI) k tomu, aby vam pomohla vytvaret lepsi obsah na socialni site rychleji a efektivneji. Toto Oznameni vysvetluje, jak AI v Postio funguje, jaka data zpracovava a jaka jsou vase prava ve vztahu k AI.
 2. JAKÉ AI FUNKCE POSTIO VYUŽÍVÁ
-FunkcePopisTechnologieAI VisionAutomaticke generovani popisku, hashtagu a navrhu prispevku z obrazkuGoogle Gemini APINavrhy obsahuAsistovane generovani textu prispevku na zaklade vasich pokynuGoogle Gemini APIOptimalizace nacasovaniDoporuceni optimalniho casu pro publikovani na zaklade analytikyInterni algoritmus
+FunkcePopisTechnologieAI VisionAutomaticke generovani popisku, hashtagu a navrhu prispevku z obrazkuGoogle Gemini APINavrhy obsahuAsistovane generovani textu prispevku na zaklade vasich pokynuGoogle Gemini APIOptimalizace nacasovaniDoporuceni optimalniho casu pro publikovani na zaklade analytikyInterni algoritmus
 3. JAK AI VISION FUNGUJE
 3.1 Vstup. Nahrayete obrazek nebo zadate textovy pokyn. Tento obsah je odeslan prostrednictvim zabezpeceneho HTTPS pripojeni na Google Gemini API.
 3.2 Zpracovani. Google Gemini API analyzuje obsah a generuje textovy vystup (popisek, navrh prispevku, hashtags).

@@ -12,7 +12,7 @@ Naposledy aktualizováno: 16. července 2026
 Obchodní podmínky
 Naposledy aktualizováno: 16. července 2026
 1. ÚVODNÍ USTANOVENÍ
-1.1 Tyto obchodni podminky ('Podminky') upravuji vztah mezi provozovatelem aplikace Postio ('Postio', 'my') a uzivatelem sluzby ('Uzivatel' nebo 'vy') pri pouzivani platformy dostupne na https://postio-app.cz.
+1.1 Tyto obchodni podminky ('Podminky') upravuji vztah mezi provozovatelem aplikace Postio, kterym je Václav Nykl, ICO: 74260138, se sidlem Sokolská 464/27, Nové Město, 12000 Praha 2, Česko ('Postio', 'my'), a uzivatelem sluzby ('Uzivatel' nebo 'vy') pri pouzivani platformy dostupne na https://postio-app.cz.
 1.2 Pouzivanim Postio souhlasite s temito Podminkami. Pokud s Podminkami nesouhlasite, nepouzivejte Postio.
 1.3 Postio je SaaS (Software as a Service) nastroj pro planovani, publikovani a analyzu prispevku na socialnich sitich, doplneny o funkce umele inteligence.
 2. ÚČET A REGISTRACE
@@ -22,7 +22,7 @@ Naposledy aktualizováno: 16. července 2026
 2.4 Mate povinnost ihned nas informovat o jakemkoliv podezrelem pristupu k vasemu uctu na info@postio-app.cz.
 3. PŘEDPLATNÉ A PLATBY
 3.1 Tarify
-TarifObsahFree1 propojeny ucet, az 10 prispevku/mesic, zakladni funkce. Zdarma navzdy.StarterVice propojených uctu, vyssi limity, pristup k AI funkcimProNeomezeny pocet prispevku, plna analytika, prioritni podpora
+TarifObsahFree1 propojeny ucet, az 10 prispevku/mesic, zakladni funkce. Zdarma navzdy.StarterVice propojených uctu, vyssi limity, pristup k AI funkcimProNeomezeny pocet prispevku, plna analytika, prioritni podpora
 Aktualni ceny jsou dostupne na strance Cenik (https://postio-app.cz/pricing).
 3.2 Fakturace. Predplatne se fakturuje predem (mesicne nebo rocne) dle zvoleneho obdobi.
 3.3 Platby. Platby jsou zpracovavany treti stranou (Stripe). Postio neuklada cisla platebnich karet.

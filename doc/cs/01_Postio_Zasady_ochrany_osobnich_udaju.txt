@@ -18,7 +18,9 @@ Naposledy aktualizováno: 16. července 2026
 1.4 Pravni predpisy. Vase osobni udaje zpracovavame v souladu s Narizenim (EU) 2016/679 (GDPR).
 1.5 Ochrana deti. Nase Sluzby jsou urceny osobam starsim 18 let. Vedome neshromazujeme osobni udaje od osob mladsich 18 let.
 2. SPRÁVCE OSOBNÍCH ÚDAJŮ
-Spravce: Provozovatel aplikace Postio
+Spravce: Václav Nykl, provozovatel aplikace Postio
+ICO: 74260138
+Sidlo: Sokolská 464/27, Nové Město, 12000 Praha 2, Česko
 Web: https://postio-app.cz
 Kontaktni e-mail: info@postio-app.cz
 3. JAKÉ OSOBNÍ ÚDAJE ZPRACOVÁVÁME
@@ -53,7 +55,7 @@ Kontaktni e-mail: info@postio-app.cz
 * Prilohy a screenshoty poskytnuty pri reseni problemu
 4. ÚČELY A PRÁVNÍ ZÁKLADY ZPRACOVÁNÍ
 Osobni udaje zpracovavame pouze tehdy, pokud pro takove zpracovani mame platny pravni zaklad dle GDPR:
-Ucel zpracovaniKategorie datPravni zakladProvoz a poskytovani SluzebInformace o uctu, data soc. siti, technicke udajePlneni smlouvyRegistrace a sprava uctuInformace o uctuPlneni smlouvyFunkcionality AI VisionData AI interakci, obrazky a obsahPlneni smlouvySprava predplatneho a platbyFakturacni udajePlneni smlouvy a pravni povinnostZakaznicka podporaInformace o uctu, komunikace, technicke udajePlneni smlouvy a opravneny zajemZabezpeceni a prevence podvoduBezpecnostni zaznamy, technicke udajeOpravneny zajem a pravni povinnostMarketingova sdeleniE-mailova adresaVas souhlasPlneni pravnich povinnostiJakakoli kategoriePravni povinnost
+Ucel zpracovaniKategorie datPravni zakladProvoz a poskytovani SluzebInformace o uctu, data soc. siti, technicke udajePlneni smlouvyRegistrace a sprava uctuInformace o uctuPlneni smlouvyFunkcionality AI VisionData AI interakci, obrazky a obsahPlneni smlouvySprava predplatneho a platbyFakturacni udajePlneni smlouvy a pravni povinnostZakaznicka podporaInformace o uctu, komunikace, technicke udajePlneni smlouvy a opravneny zajemZabezpeceni a prevence podvoduBezpecnostni zaznamy, technicke udajeOpravneny zajem a pravni povinnostMarketingova sdeleniE-mailova adresaVas souhlasPlneni pravnich povinnostiJakakoli kategoriePravni povinnost
 4.1 AI a trenování modelu. Vase prispevky, obrazky ani data zadana do funkce AI Vision nepouzivame k trenovani vlastnich AI modelu. Data jsou predavana Google Gemini API vyhradne za ucelem generovani odpovedi v realnem case.
 5. FUNKCIONALITY UMĚLÉ INTELIGENCE
 5.1 AI Vision (Google Gemini). Postio vyuziva Google Gemini API pro automaticke generovani popisku a navrhu prispevku z obrazku. Blizsi informace najdete v nasem Oznameni o transparentnosti AI.
@@ -61,14 +63,14 @@ Ucel zpracovaniKategorie datPravni zakladProvoz a poskytovani SluzebInformac
 5.3 Vase odpovednost. Odpovidate za to, ze mate veskerá potrebna prava k obsahu (obrazkum, textum), ktery do AI Vision vkladate, a ze tento obsah neporusuje prava tretich stran.
 6. PROPOJENÉ SOCIÁLNÍ SÍTĚ
 Propojenim socialnich siti nas opravnujete k pristupu k jejich API v rozsahu, ktery jste odsouhlasili pri OAuth autorizaci. Kazda socialni sit zpracovava data v souladu se svymi vlastnimi podmínkami.
-PlatformaZpracovavane udajeFacebook / InstagramPristupove tokeny, publikovani prispevku, analyticka data stranekLinkedInPristupove tokeny, publikovani na profil nebo firemni strankuYouTubePristupove tokeny, nahravani videi, statistiky kanaluX (Twitter)Pristupove tokeny, zverejnovani tweetuTikTokPristupove tokeny, nahravani videi
+PlatformaZpracovavane udajeFacebook / InstagramPristupove tokeny, publikovani prispevku, analyticka data stranekLinkedInPristupove tokeny, publikovani na profil nebo firemni strankuYouTubePristupove tokeny, nahravani videi, statistiky kanaluX (Twitter)Pristupove tokeny, zverejnovani tweetuTikTokPristupove tokeny, nahravani videi
 7. SDÍLENÍ OSOBNÍCH ÚDAJŮ
 Vase osobni udaje neprodavame ani nepronajimame tretim stranam. Udaje sdilime pouze s nize uvedenymi subjekty:
-PrijemceUcelUmisteniGoogle LLC (Gemini API)AI Vision funkceUSA (Standard Contractual Clauses)Supabase, Inc.Databaze, autentizace, ukladani souboruEU/USA (SCC)Stripe, Inc.Zpracovani platebUSA (SCC)Vercel, Inc.Hosting aplikaceUSA/EU (SCC)
+PrijemceUcelUmisteniGoogle LLC (Gemini API)AI Vision funkceUSA (Standard Contractual Clauses)Supabase, Inc.Databaze, autentizace, ukladani souboruEU/USA (SCC)Stripe, Inc.Zpracovani platebUSA (SCC)Vercel, Inc.Hosting aplikaceUSA/EU (SCC)
 8. PŘEDÁVÁNÍ DAT DO TŘETÍCH ZEMÍ
 Nekteri poskytovatelé tretich stran (Google, Stripe, Supabase) maji servery mimo Evropsky hospodarsky prostor (EHP). Takova predani probihaji na zaklade standardnich smluvnich dolozek (SCC) dle cl. 46 GDPR nebo jine primerene zaruky.
 9. DOBA UCHOVÁVÁNÍ DAT
-Kategorie datDoba uchovavaniData uctuPo dobu trvani uctu + 3 rokyPrispevky a planovany obsahPo dobu trvani uctu + 1 rokFakturacni zaznamy10 let (zakonna povinnost)Zaznamy o prihlaseni12 mesicuKomunikace se zakaznickou podporou3 roky od uzavreni pozadavkuData AI interakciNejdele 30 dni od zpracovani
+Kategorie datDoba uchovavaniData uctuPo dobu trvani uctu + 3 rokyPrispevky a planovany obsahPo dobu trvani uctu + 1 rokFakturacni zaznamy10 let (zakonna povinnost)Zaznamy o prihlaseni12 mesicuKomunikace se zakaznickou podporou3 roky od uzavreni pozadavkuData AI interakciNejdele 30 dni od zpracovani
 Po smazani uctu jsou vsechna data trvale odstranena do 30 dni.
 10. VAŠE PRÁVA
 Dle GDPR mate nasledujici prava:

@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix - Mobilní patička do 2 sloupců (Krok 1)
+
+- **Kontext**: Na mobilu (<768px) byly sekce patičky (PRODUKT, PODPORA, PRÁVNÍ, APLIKACE) naskládány v 1 úzkém sloupci pod sebou. Požadavek: přehlednější 2 sloupce vedle sebe.
+- **Změny**: `src/components/marketing/site-footer.tsx:81` - kontejner sekcí `grid grid-cols-1 gap-10 ... sm:grid-cols-2 lg:grid-cols-4` → `grid grid-cols-2 gap-10 ... md:grid-cols-4`. Mobil `<768px` nyní `grid-cols-2` (2 sloupce), od `md` (≥768px) `md:grid-cols-4` (4 sloupce). Mazána redundantní `sm:grid-cols-2`. Spodní lišta (logo+copyright) beze změny, zůstává vycentrovaná pod sloupci.
+- **Ověření**: Manuální test ✅ (mobil 2 sloupce, desktop 4 sloupce).
+- **Upravené soubory**: site-footer.tsx.
+
 ### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (UK, Krok 3 – dokončeno)
 
 - **Kontext**: Poslední mutace (uk). Dokončuje doplnění identifikace OSVČ provozovatele do všech 3 jazyků právních dokumentů.
@@ -68,13 +75,5 @@
 - **Změny**: `src/components/dashboard/mobile-nav.tsx` - lišta: `bg-black/60 border-t border-white/10` → `bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10` (adaptivní). Barvy položek (nav items i settings trigger): `text-indigo-500`/`text-zinc-500` → `text-indigo-600 dark:text-indigo-400` (aktivní) a `text-slate-600 dark:text-zinc-400` (neaktivní). Glow `drop-shadow` u aktivní položky zachován.
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (Light i Dark mode: ikony i popisky čitelné, aktivní indigo).
 - **Upravené soubory**: mobile-nav.tsx.
-
-### 🔧 Feat - Referral "Jak to funguje": mobilní accordion + desktop původní (Mimořádný úkol)
-
-- **Kontext**: Na mobilu působila sekce "Jak to funguje" nekonzistentně (kroky centrované, zabíraly zbytečně mnoho vertikálního místa). Požadavek: na desktopu zachovat původní vzhled (4 karty vedle sebe, centrované), na mobilu sekci sbalit pod rozbalovací nadpis.
-- **Změny**: `src/components/referral/referral-stats.tsx` - BOTTOM sekce "Jak to funguje" přepsána: nadpis `howItWorks` (`h2`) + `ChevronDown` v `<button>` vpravo (flex `justify-between`, šipka `sm:hidden`). `useState(open)` (výchozí `false` = na mobilu sbaleno); klik toggluje `open`, šipka rotuje `rotate-180` (`transition-transform duration-300 motion-reduce:transition-none`). Grid karet: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`; display třída `${open ? "grid" : "hidden"} sm:grid` (mobil sbalitelné, desktop vždy grid). Karta kroku: mobil `flex flex-row items-start gap-4 text-left` (číslo vlevo, textový blok vpravo, kolečko `shrink-0`), desktop `sm:flex-col sm:items-center sm:text-center` (původní vzhled 4 karet). Přidán import `ChevronDown` z lucide-react. Zachováno: radius 20px, pastel badge, `prefers-reduced-motion`.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test: desktop = původní 4 karty centrované (šipka skrytá); mobil = nadpis + šipka, obsah skrytý, po kliku 4 kompaktní řádky (číslo vlevo, text doleva), šipka se otočí.
-- **Poznámka**: Hlavička stránky "Doporučení" ponechána beze změny (centrovaná na mobilu dle dřívějšího schválení).
-- **Upravené soubory**: referral-stats.tsx.
 
 

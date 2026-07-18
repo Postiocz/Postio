@@ -1,4 +1,4 @@
-﻿POSTIO
+POSTIO
 Obchodní podmínky (Terms of Service)
 
 https://postio-app.cz  |  info@postio-app.cz
@@ -12,74 +12,74 @@ Naposledy aktualizováno: 16. července 2026
 Obchodní podmínky
 Naposledy aktualizováno: 16. července 2026
 1. ÚVODNÍ USTANOVENÍ
-1.1 Tyto obchodni podminky ('Podminky') upravuji vztah mezi provozovatelem aplikace Postio, kterym je Václav Nykl, ICO: 74260138, se sidlem Sokolská 464/27, Nové Město, 12000 Praha 2, Česko ('Postio', 'my'), a uzivatelem sluzby ('Uzivatel' nebo 'vy') pri pouzivani platformy dostupne na https://postio-app.cz.
-1.2 Pouzivanim Postio souhlasite s temito Podminkami. Pokud s Podminkami nesouhlasite, nepouzivejte Postio.
-1.3 Postio je SaaS (Software as a Service) nastroj pro planovani, publikovani a analyzu prispevku na socialnich sitich, doplneny o funkce umele inteligence.
+1.1 Tyto obchodní podmínky ("Podmínky") upravují vztah mezi provozovatelem aplikace Postio, kterým je Václav Nykl, IČO: 74260138, se sídlem Sokolská 464/27, Nové Město, 12000 Praha 2, Česko ("Postio", "my"), a uživatelem služby ("Uživatel" nebo "vy") při používání platformy dostupné na https://postio-app.cz.
+1.2 Používáním Postio souhlasíte s těmito Podmínkami. Pokud s Podmínkami nesouhlasíte, nepoužívejte Postio.
+1.3 Postio je SaaS (Software as a Service) nástroj pro plánování, publikování a analýzu příspěvků na sociálních sítích, doplněný o funkce umělé inteligence.
 2. ÚČET A REGISTRACE
-2.1 Pro pouzivani Postio musite vytvorit ucet a poskytnout pravdive, aktualni a upne informace.
-2.2 Za bezpecnost sveho uctu, prihlasovacich udaju a veskerych aktivit provedených pod vasim uctem nesete plnou odpovednost.
-2.3 Je zakazano sdilet prihlasovaci udaje s tretimi osobami nebo vytvaret ucty automatizovanymi prostredky.
-2.4 Mate povinnost ihned nas informovat o jakemkoliv podezrelem pristupu k vasemu uctu na info@postio-app.cz.
+2.1 Pro používání Postio musíte vytvořit účet a poskytnout pravdivé, aktuální a úplné informace.
+2.2 Za bezpečnost svého účtu, přihlašovacích údajů a veškerých aktivit provedených pod vaším účtem nesete plnou odpovědnost.
+2.3 Je zakázáno sdílet přihlašovací údaje s třetími osobami nebo vytvářet účty automatizovanými prostředky.
+2.4 Máte povinnost ihned nás informovat o jakémkoliv podezřelém přístupu k vašemu účtu na info@postio-app.cz.
 3. PŘEDPLATNÉ A PLATBY
 3.1 Tarify
-TarifObsahFree1 propojeny ucet, az 10 prispevku/mesic, zakladni funkce. Zdarma navzdy.StarterVice propojených uctu, vyssi limity, pristup k AI funkcimProNeomezeny pocet prispevku, plna analytika, prioritni podpora
-Aktualni ceny jsou dostupne na strance Cenik (https://postio-app.cz/pricing).
-3.2 Fakturace. Predplatne se fakturuje predem (mesicne nebo rocne) dle zvoleneho obdobi.
-3.3 Platby. Platby jsou zpracovavany treti stranou (Stripe). Postio neuklada cisla platebnich karet.
-3.4 Automaticka obnova. Predplatne se automaticky obnovuje, dokud jej nezrusite. Zruseni je ucine ke konci aktualniho fakturacniho obdobi.
-3.5 Vraceni plateb. Platby za predplatne jsou nevratne, s vyjimkou pripadu vyzadovanych prislusnymi pravnimi predpisy.
-3.6 Zmena cen. Vyhrazujeme si pravo zmenit ceny. O zmene vas informujeme nejpozdeji 30 dni predem e-mailem.
+TarifObsahFree1 propojený účet, až 10 příspěvků/měsíc, základní funkce. Zdarma navždy.StarterVíce propojených účtů, vyšší limity, přístup k AI funkcímProNeomezený počet příspěvků, plná analytika, prioritní podpora
+Aktualní ceny jsou dostupné na stránce Ceník (https://postio-app.cz/pricing).
+3.2 Fakturace. Předplatné se fakturuje předem (měsíčně nebo ročně) dle zvoleného období.
+3.3 Platby. Platby jsou zpracovávány třetí stranou (Stripe). Postio neukládá čísla platebních karet.
+3.4 Automatická obnova. Předplatné se automaticky obnovuje, dokud jej nezrušíte. Zrušení je účinné ke konci aktuálního fakturačního období.
+3.5 Vrácení plateb. Platby za předplatné jsou nevratné, s výjimkou případů vyžadovaných příslušnými právními předpisy.
+3.6 Změna cen. Vyhrazujeme si právo změnit ceny. O změně vás informujeme nejpozději 30 dní předem e-mailem.
 4. FUNKCE A OMEZENÍ TARIFU
-4.1 Kazdy tarif ma stanovene limity (pocet uctu, prispevku, funkci). Prekroceni limitu muze vest k omezeni nebo vyzve k upgradu tarifu.
-4.2 Free tarif je urcen pro osobni a testovaci ucely. Pro komercni pouziti doporucujeme placeny tarif.
+4.1 Každý tarif má stanovené limity (počet účtů, příspěvků, funkcí). Překročení limitů může vést k omezení nebo výzvě k upgradu tarifu.
+4.2 Free tarif je určen pro osobní a testovací účely. Pro komerční použití doporučujeme placený tarif.
 5. PROPOJENÉ SOCIÁLNÍ SÍTĚ
-5.1 Postio funguje jako prostrednik pro publikovani na socialnich sitich prostrednictvím jejich oficialnich API. Jste povinni dodrzovat podminky kazde propojene platformy.
-5.2 Postio neodpovídá za zmeny v API socialnich siti, vypadky nebo omezeni pristupu ze strany techto platforem.
-5.3 Revokaci pristupu v nastaveni Postio nebo primo v nastaveni socialni site ukoncite propojeni. Vase drive publikovany obsah na socialnich sitich tim neni smazan.
+5.1 Postio funguje jako prostředník pro publikování na sociálních sítích prostřednictvím jejich oficiálních API. Jste povinni dodržovat podmínky každé propojené platformy.
+5.2 Postio neodpovídá za změny v API sociálních sítí, výpadky nebo omezení přístupu ze strany těchto platforem.
+5.3 Revokací přístupu v nastavení Postio nebo přímo v nastavení sociální sítě ukončíte propojení. Váš dříve publikovaný obsah na sociálních sítích tím není smazán.
 6. FUNKCIONALITY UMĚLÉ INTELIGENCE
-6.1 Postio poskytuje funkci AI Vision vyuzivajici Google Gemini API. Vystupy AI jsou generovany automaticky a neprosly lidskou kontrolou.
-6.2 Odpovidate za kontrolu, upravy a pripadne schvaleni veskereho obsahu vygenerovaneho AI pred jeho publikovanim.
-6.3 Postio neodpovidá za presnost, vhodnost nebo zakonnost obsahu vygenerovaneho AI.
-6.4 Nesmite funkce AI vyuzivat k generovani obsahu, ktery je protipravni, klamavy, nenavistny nebo jinak zavadny.
+6.1 Postio poskytuje funkci AI Vision využívající Google Gemini API. Výstupy AI jsou generovány automaticky a neprošly lidskou kontrolou.
+6.2 Odpovídáte za kontrolu, úpravy a případné schválení veškerého obsahu vygenerovaného AI před jeho publikováním.
+6.3 Postio neodpovídá za přesnost, vhodnost nebo zákonnost obsahu vygenerovaného AI.
+6.4 Nesmíte funkce AI využívat k generování obsahu, který je protiprávní, klamavý, nenávistný nebo jinak závadný.
 7. OBSAH UŽIVATELE
-7.1 Za veskery obsah, ktery prostrednictvím Postio publikujete na socialnich sitich, nesete vyhradni odpovednost.
-Prohlasujete a zarucujete, ze:
-* Mate veskera potrebna prava k obsahu, ktery publikujete,
-* Vas obsah neporusuje prava tretich stran (autorska prava, ochranne znamky, pravo na ochranu osobnosti),
-* Vas obsah neni protipravni, klamavy, obscenni, vyhruzny ani jinak nevhodny.
-7.3 Postio si vyhrazuje pravo odstranit obsah nebo omezit pristup k uctu, pokud obsah porusuje tyto Podminky.
+7.1 Za veškerý obsah, který prostřednictvím Postio publikujete na sociálních sítích, nesete výhradní odpovědnost.
+Prohlašujete a zaručujete, že:
+* Máte veškerá potřebná práva k obsahu, který publikujete,
+* Váš obsah neporušuje práva třetích stran (autorská práva, ochranné známky, právo na ochranu osobnosti),
+* Váš obsah není protiprávní, klamavý, obscénní, vyhrůžný ani jinak nevhodný.
+7.3 Postio si vyhrazuje právo odstranit obsah nebo omezit přístup k účtu, pokud obsah porušuje tyto Podmínky.
 8. OMEZENÍ POUŽÍVÁNÍ
-Je zakazano:
-* Použivat Postio k jakekoliv nelegalni cinnosti
-* Pokouset se o neopravneny pristup do systemu Postio
-* Automatizovanym zpusobem scrapeovat nebo extrahovat data z Postio
-* Prodavat, preprodavat nebo sublicencovat pristup k Postio bez naseho souhlasu
-* Zverejnovat spam, phishing nebo malware prostrednictvim Postio
-* Obchazet technicka omezeni nebo bezpecnostni opatreni
+Je zakázáno:
+* Používat Postio k jakékoliv nelegální činnosti
+* Pokoušet se o neoprávněný přístup do systému Postio
+* Automatizovaným způsobem scrapeovat nebo extrahovat data z Postio
+* Prodávat, přeprodávat nebo sublicencovat přístup k Postio bez našeho souhlasu
+* Zveřejňovat spam, phishing nebo malware prostřednictvím Postio
+* Obcházet technická omezení nebo bezpečnostní opatření
 9. DOSTUPNOST A PODPORA
-9.1 Usilujeme o maximalni dostupnost Postio, neposkytujeme vsak garantovane SLA s vyjimkou pripadu, kdy je to vyslovne sjednano.
-9.2 Zakaznicka podpora je dostupna na info@postio-app.cz. Dobu odezvy garantujeme do 2 pracovnich dnu.
-9.3 Vyhrazujeme si pravo na planovane i neplanovane odstavky za ucelem udrzby nebo aktualizaci.
+9.1 Usilujeme o maximální dostupnost Postio, neposkytujeme však garantované SLA s výjimkou případů, kdy je to výslovně sjednáno.
+9.2 Zákaznická podpora je dostupná na info@postio-app.cz. Dobu odezvy garantujeme do 2 pracovních dnů.
+9.3 Vyhrazujeme si právo na plánované i neplánované odstávky za účelem údržby nebo aktualizací.
 10. DUŠEVNÍ VLASTNICTVÍ
-10.1 Postio a veskere jeho soucasti (software, design, loga, dokumentace) jsou nasim dusevnim vlastnictvim.
-10.2 Vas obsah zostava vasim majetkem. Pouzivanim Postio nam udelujete omezenou licenci k technickemu zpracovani a prenosu vaseho obsahu za ucelem poskytovani Sluzeb.
+10.1 Postio a veškeré jeho součásti (software, design, loga, dokumentace) jsou naším duševním vlastnictvím.
+10.2 Váš obsah zůstává vaším majetkem. Používáním Postio nám udělujete omezenou licenci k technickému zpracování a přenosu vašeho obsahu za účelem poskytování Služeb.
 11. ODPOVĚDNOST A ZÁRUKY
-11.1 Postio je poskytovan 'tak, jak je' a 'jak je dostupny' bez jakychkoli zaruk.
-V maximalnim rozsahu povolenem zakony Postio neodpovídá za:
-* Ztratu dat, prijmu nebo zisku
-* Neprime nebo nasledne skody
-* Skody zpusobene vypadkem sluzeb tretich stran (socialni site, AI provideři)
-11.3 Celkova odpovednost Postio vůči vam za jakekoliv naroky neprekroci castku, kterou jste zaplatili za Postio v poslednich 12 mesicich.
+11.1 Postio je poskytován "tak, jak je" a "jak je dostupný" bez jakýchkoli záruk.
+V maximálním rozsahu povoleném zákony Postio neodpovídá za:
+* Ztrátu dat, příjmů nebo zisků
+* Nepřímé nebo následné škody
+* Škody způsobené výpadkem služeb třetích stran (sociální sítě, AI provideři)
+11.3 Celková odpovědnost Postio vůči vám za jakékoliv nároky nepřekročí částku, kterou jste zaplatili za Postio v posledních 12 měsících.
 12. UKONČENÍ ÚČTU
-12.1 Svuj ucet muzete kdykoliv smazat v nastaveni aplikace (Nastaveni -> Nebezpecna zona -> Smazat ucet).
-12.2 Vyhrazujeme si pravo pozastavit nebo ukoncit vas pristup v pripade poruseni techto Podminek.
-12.3 Po ukonceni uctu jsou vase data smazana dle Zasad ochrany osobnich udaju.
+12.1 Svůj účet můžete kdykoliv smazat v nastavení aplikace (Nastavení -> Nebezpečná zóna -> Smazat účet).
+12.2 Vyhrazujeme si právo pozastavit nebo ukončit váš přístup v případě porušení těchto Podmínek.
+12.3 Po ukončení účtu jsou vaše data smazána dle Zásad ochrany osobních údajů.
 13. ROZHODNÉ PRÁVO A ŘEŠENÍ SPORŮ
-13.1 Tyto Podminky se ridi pravem Ceske republiky.
-13.2 Spory budou reseny prednostne smirnou cestou. Pokud smirnebo reseni nebude dosazeno, jsou prislusne soudy Ceske republiky.
-13.3 Pokud jste spotrebitelem, mate pravo vyuzit mimosoudni reseni sporu prostrednictvím Ceske obchodni inspekce (coi.cz).
+13.1 Tyto Podmínky se řídí právem České republiky.
+13.2 Spory budou řešeny přednostně smírnou cestou. Pokud smírného řešení nebude dosaženo, příslušné jsou soudy České republiky.
+13.3 Pokud jste spotřebitelem, máte právo využít mimosoudní řešení sporů prostřednictvím České obchodní inspekce (coi.cz).
 14. ZMĚNY PODMÍNEK
-O podstatnych zmenach vas budeme informovat e-mailem nejpozdeji 14 dni pred jejich ucinnosti. Pokracovani v pouzivani Postio po ucinnosti zmen znamena souhlas s novymi Podminkami.
+O podstatných změnách vás budeme informovat e-mailem nejpozději 14 dní před jejich účinností. Pokračování v používání Postio po účinnosti změn znamená souhlas s novými Podmínkami.
 
 
 Kontakt: info@postio-app.cz  |  https://postio-app.cz

@@ -3,12 +3,12 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-### 🔧 Chore - Přesun cs právních dokumentů do doc/cs
+### 🔧 Fix - Light režim na právních stránkách
 
-- **Kontext**: 4 české `.txt` dokumenty byly v holém `doc/`, zatímco en/uk ve vlastních podadresářích → nejednotná struktura.
-- **Změny**: `git mv` 4 cs souborů `doc/01-04_*.txt` → `doc/cs/01-04_*.txt` (zachována historie). `src/lib/legal-docs.ts` - cs nyní čte z `doc/cs` (s `doc` jako záloha); en/uk fallback změněn z `doc` na `doc/cs`.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); smoke test loaderu (cs/en/uk vracejí správný název z nových cest).
-- **Upravené soubory**: legal-docs.ts, doc/cs/* (4 přesunuté).
+- **Kontext**: Stránky `/privacy-policy`, `/terms-of-service`, `/dpa`, `/ai-transparency-notice` měly v `LegalDocPage` natvrdo `bg-black` a `text-white` → v Light mode bílý text na bílém pozadí (neviditelné).
+- **Změny**: `src/components/marketing/legal-doc-page.tsx` - hlava i kontejner `bg-black` → `bg-background`; nadpisy `text-white` → `text-foreground`; orámování `border-white/10` → `border-border`; tlačítko Zpět `bg-white/5`/`border-white/10` → `bg-muted/50`/`border-border` (s hover `hover:bg-muted`/`hover:border-foreground/20`); odrážky `text-muted-foreground` → `text-foreground/80`. Logo používá `text-foreground` (již OK). Oprava v sdílené komponentě pokrývá všechny 4 routy najednou.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0).
+- **Upravené soubory**: legal-doc-page.tsx.
 
 ### 🔧 Feat - Překlady právních stránek EN/UK (Prompt 033, Krok 5)
 

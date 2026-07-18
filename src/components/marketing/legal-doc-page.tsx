@@ -135,7 +135,7 @@ export async function LegalDocPage({
       elements.push(
         <ul
           key={`ul-${elements.length}`}
-          className="list-disc space-y-1 pl-6 text-muted-foreground"
+          className="list-disc space-y-1 pl-6 text-foreground/80"
         >
           {items.map((item, k) => (
             <li key={k}>{item}</li>
@@ -147,7 +147,7 @@ export async function LegalDocPage({
         elements.push(
           <h2
             key={`h2-${i}`}
-            className="text-xl font-semibold text-white"
+            className="text-xl font-semibold text-foreground"
           >
             {block.text}
           </h2>,
@@ -156,7 +156,7 @@ export async function LegalDocPage({
         elements.push(
           <h3
             key={`h3-${i}`}
-            className="text-lg font-medium text-white"
+            className="text-lg font-medium text-foreground"
           >
             {block.text}
           </h3>,
@@ -176,8 +176,8 @@ export async function LegalDocPage({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-black text-foreground font-sans">
-      <header className="border-b border-white/10 bg-black/50 backdrop-blur-md px-4 py-4">
+    <div className="flex min-h-screen flex-col bg-background text-foreground font-sans">
+      <header className="border-b border-border bg-background/80 backdrop-blur-md px-4 py-4">
         <div className="mx-auto flex max-w-3xl items-center">
           <Link
             href={`/${locale}/`}
@@ -191,7 +191,7 @@ export async function LegalDocPage({
       <main className="flex-1 px-6 py-12 pb-48 lg:py-24 lg:pb-32">
         <div className="mx-auto max-w-3xl">
           <div className="space-y-3">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">
               {title}
             </h1>
             {lastUpdated && (
@@ -210,7 +210,7 @@ export async function LegalDocPage({
       <div className="flex justify-center px-6 pb-16">
         <Link
           href={`/${locale}/`}
-          className="relative z-10 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 py-3 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-white/10 hover:border-white/20 backdrop-blur-sm"
+          className="relative z-10 inline-flex items-center gap-2 rounded-2xl border border-border bg-muted/50 px-8 py-3 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted hover:border-foreground/20 backdrop-blur-sm"
         >
           {common("back")}
         </Link>

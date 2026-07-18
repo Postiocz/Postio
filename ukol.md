@@ -42,23 +42,3 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### Úkol: Mobilní patička do 2 sloupců
-**Cíl:** Na mobilu (<768px) změnit patičku z 1 sloupce na 2 sloupce vedle sebe.
-
-**Soubor:** `src/components/marketing/site-footer.tsx`
-
-**Krok 1 – Úprava gridu sekcí s odkazy:** ✅
-- Najít kontejner na řádku 81:
-  `<div className="grid grid-cols-1 gap-10 border-t border-white/10 pt-12 sm:grid-cols-2 lg:grid-cols-4">`
-- Změnit na:
-  `<div className="grid grid-cols-2 gap-10 border-t border-white/10 pt-12 md:grid-cols-4">`
-- Význam: mobil `<768px` → `grid-cols-2` (2 sloupce), `@768px+` → `md:grid-cols-4` (4 sloupce).
-  Mazá se redundantní `sm:grid-cols-2`.
-
-**Krok 2 – Otestování v prohlížeči (manuálně):**
-- Mobilní viewport `<768px`: sekce PRODUKT/PODPORA a PRÁVNÍ/APLIKACE jsou 2 sloupce vedle sebe.
-- `@768px+`: 4 sloupce.
-- Spodní lišta (logo + copyright) zůstává vycentrovaná pod sloupci (beze změny, řádek 108).
-
-**Rozsah:** 1 soubor, 1 řádek (pouze Tailwind třídy, žádná nová logika).
-

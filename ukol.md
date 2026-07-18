@@ -42,34 +42,3 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### ÚKOL: Doplnění identifikačních údajů provozovatele do právních dokumentů (cs/en/uk)
-
-**Cíl:** Doplnit identifikační údaje OSVČ do 4 právních dokumentů ve všech 3 jazykových mutacích (celkem 12 souborů).
-
-**Údaje k doplnění (OSVČ):**
-- Jméno: Václav Nykl
-- IČO: 74260138
-- Sídlo: Sokolská 464/27, Nové Město, 12000 Praha 2, Česko
-
-**Poznámka k formátování:** Těla cs dokumentů jsou psána BEZ diakritiky (např. „Spravce", „Provozovatel"). U vlastního jména „Václav Nykl" a adresy „Sokolská" diakritiku ponechám (vlastní jména), zbytek popisků sladím se stylem daného souboru. EN/UK verze v odpovídajícím jazyce a přepisu.
-
-**Kroky:**
-
-- [x] ✅ **Krok 1 – CS mutace (doc/cs, 4 soubory):** HOTOVO. Pozn.: uživatel poté ručně opraví diakritiku/spisovnost v cs textech a přepíše soubory; Claude následně zkontroluje formátování/zarovnání před Krokem 2.
-  - `01_...Zasady...txt` → sekce 2 „SPRÁVCE" (ř. 21): doplnit Jméno, IČO, Sídlo za řádek „Spravce".
-  - `02_...Obchodni_podminky.txt` → bod 1.1 (ř. 15): doplnit identifikaci provozovatele (Václav Nykl, IČO, sídlo).
-  - `03_...DPA.txt` → bod 1.1 (ř. 15): doplnit identifikaci Zpracovatele.
-  - `04_...AI.txt` → bod 1 ÚVOD (ř. 15): doplnit jméno/firmu do úvodního odstavce.
-
-- [x] ✅ **Krok 2 – EN mutace (doc/en, 4 soubory):** HOTOVO. Terminologie „ID Number (IČO)" / „Registered Office", adresa v originále + „Czech Republic".
-  - Stejná místa jako CS. Terminologie: „ID Number" (IČO), „Registered Office" (sídlo). Adresa v EN přepisu.
-  - `01` sekce 2 „DATA CONTROLLER" (ř. 20); `02` bod 1.1 (ř. 14); `03` bod 1.1 (ř. 14); `04` bod 1 INTRODUCTION (ř. 14).
-
-- [ ] **Krok 3 – UK mutace (doc/uk, 4 soubory):**
-  - Stejná místa. Terminologie UK: „Ідентифікаційний номер" (IČO), „Юридична адреса" (sídlo).
-  - `01` sekce 2 „КОНТРОЛЕР" (ř. 19); `02` bod 1.1 (ř. 13); `03` bod 1.1 (ř. 13); `04` bod 1 ВСТУП (ř. 13).
-
-- [ ] **Krok 4 – Diff a potvrzení:** Zobrazit `git diff` všech 12 souborů uživateli k potvrzení.
-
-
-

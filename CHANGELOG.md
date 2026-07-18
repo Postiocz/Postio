@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (UK, Krok 3 – dokončeno)
+
+- **Kontext**: Poslední mutace (uk). Dokončuje doplnění identifikace OSVČ provozovatele do všech 3 jazyků právních dokumentů.
+- **Změny (doc/uk)**: `01_...` sekce 2 КОНТРОЛЕР – Václav Nykl + Ідентифікаційний номер (IČO) + Юридична адреса (3 řádky). `02_...` bod 1.1 – identifikace provozovatele. `03_...` bod 1.1 – identifikace Обробника. `04_...` bod 1 ВСТУП – jméno+IČO+sídlo v závorce.
+- **Poznámka**: Terminologie „Ідентифікаційний номер (IČO)" / „Юридична адреса"; jméno a adresa latinkou v originále + „Чехія". Celý úkol (cs/en/uk) tímto hotový.
+- **Upravené soubory**: doc/uk/01–04 (4 soubory).
+
 ### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (EN, Krok 2)
 
 - **Kontext**: Navazuje na Krok 1 (cs). EN mutace potřebovaly stejnou identifikaci OSVČ provozovatele.
@@ -70,11 +77,4 @@
 - **Poznámka**: Hlavička stránky "Doporučení" ponechána beze změny (centrovaná na mobilu dle dřívějšího schválení).
 - **Upravené soubory**: referral-stats.tsx.
 
-### 🎯 Feat - Referral: UI stránka + lokalizace (Prompt 034, Krok 3+4)
-
-- **Kontext**: Krok 2 přidal menu + prázdnou routu. Chyběla plná UI stránky (statistiky, odkaz, Jak to funguje) a překlady cs/en/uk. Od uživatele schválena Varianta 1 (pouze vizuální zobrazení odměn).
-- **Změny**: `src/components/referral/referral-stats.tsx` - NOVÁ client komponenta (framer-motion, sonner toast). TOP: dvě glass karty (Celkem doporučení / Získané odměny + "Měsíce PRO tarifu zdarma"), obojí = `count(referred_by)`. MIDDLE: read-only input s odkazem + tlačítko Kopírovat (`navigator.clipboard`, ikona přepne na fajfku, `toast.success`). BOTTOM: "Jak to funguje" `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`, 4 kroky s číslovanými pastel badge (indigo/purple/pink/emerald) + glow, text-center/items-center. Design: radius 20px, glassmorphism, `useReducedMotion()` (prefers-reduced-motion), žádný em-dash. `src/app/[locale](dashboard)/settings/referrals/page.tsx` - přepsáno na server wrapper (načte `referral_code` + `count(referred_by)`, předá do `ReferralStats`); hlavní nadpis zarovnán na střed (mobil) / vlevo (desktop). `src/messages/{cs,en,uk}.json` - NOVÝ top-level namespace `referrals` (14 klíčů: totalReferrals, rewardsEarned, rewardsSub, yourLink, copy, copied, copyError, howItWorks, step1-4); osamocené `yourLink`/`totalReferrals` přesunuty z `settings`.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), JSON zprávy platné, manuální test ✅ (kopírování, animace, překlady cs/en/uk).
-- **Poznámka**: Odměny čistě vizuální (Varianta 1) - žádné reálné přidělování PRO / Stripe.
-- **Upravené soubory**: referral-stats.tsx (nová), referrals/page.tsx, cs.json, en.json, uk.json.
 

@@ -1119,5 +1119,23 @@
     "copyright": "© 2026 Postio. All rights reserved.",
     "tagline": "Plan and publish social media content with AI.",
     "madeInCz": "Made with ❤️ in the Czech Republic"
+  },
+  "email": {
+    "fromName": "Postio",
+    "fromAddress": "info@postio-app.cz",
+    "welcome": {
+      "subject": "Welcome to Postio – start planning your posts",
+      "title": "Welcome to Postio!",
+      "body": "Thanks for signing up. With Postio you can plan, publish and analyze your social media posts from one place.",
+      "cta": "Open the app",
+      "footer": "Postio – your smart AI social media planner."
+    },
+    "passwordReset": {
+      "subject": "Reset your Postio password",
+      "title": "Reset your password",
+      "body": "We received a request to reset your password. Click the button below to set a new one. The link is valid for a limited time.",
+      "cta": "Set new password",
+      "ignore": "If you didn't request a reset, you can ignore this email."
+    }
   }
 }

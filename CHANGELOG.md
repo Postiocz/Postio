@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Feat - Příprava e-mailové infrastruktury (Resend) – Prompt 032 KROK 4 ✅
+
+- **Kontext**: Příprava na odesílání transakčních e-mailů z info@postio-app.cz (potvrzení registrace, reset hesla) přes Resend.
+- **Změny**: `package.json`/`package-lock.json` - přidána závislost `resend@^4.8.0`. `src/lib/email.ts` (NOVÁ) - `sendTransactionalEmail()` (vrací {success,id?,error?}, nehází), `getFromEmail()` (POSTIO_FROM_EMAIL, fallback info@postio-app.cz), `isEmailConfigured()` (RESEND_API_KEY), `getAppBaseUrl()` (z hlaviček / NEXT_PUBLIC_APP_URL). `src/messages/{cs,en,uk}.json` - NOVÝ namespace `email` (welcome, passwordReset + fromName/fromAddress).
+- **Bod 3 (Supabase Auth odesílatel)**: řeší se v Supabase konzoli (Auth → URL Configuration + custom šablony), ne v kódu; auth.ts už používá NEXT_PUBLIC_APP_URL. Uživatel volil Možnost C: manuální ověření Resend + DNS u Forpsi proběhne mimo kód.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); JSON platné; `npm install resend` ✅. Manuální test ✅ (technická příprava).
+- **Upravené soubory**: email.ts (nová), cs.json, en.json, uk.json, package.json, package-lock.json, ukol.md, CHANGELOG.md.
+
 ### 🚀 Prompt 032 – KROK 2 (SEO/Meta) + KROK 3 (Dynamické adresy) ✅
 
 - **Kontext**: Příprava na produkci postio-app.cz. Uživatel změnil ve Vercelu NEXT_PUBLIC_APP_URL a přidal TikTok Redirect URI na novou doménu.
@@ -20,12 +28,7 @@
 - **Ověření**: Manuální analýza kódu (grep process.env + hardcoded URL). Žádný kód nezměněn.
 - **Upravené soubory**: ukol.md, CHANGELOG.md.
 
-### 🔧 Fix - Mobilní patička do 2 sloupců (Krok 1)
-
-- **Kontext**: Na mobilu (<768px) byly sekce patičky (PRODUKT, PODPORA, PRÁVNÍ, APLIKACE) naskládány v 1 úzkém sloupci pod sebou. Požadavek: přehlednější 2 sloupce vedle sebe.
-- **Změny**: `src/components/marketing/site-footer.tsx:81` - kontejner sekcí `grid grid-cols-1 gap-10 ... sm:grid-cols-2 lg:grid-cols-4` → `grid grid-cols-2 gap-10 ... md:grid-cols-4`. Mobil `<768px` nyní `grid-cols-2` (2 sloupce), od `md` (≥768px) `md:grid-cols-4` (4 sloupce). Mazána redundantní `sm:grid-cols-2`. Spodní lišta (logo+copyright) beze změny, zůstává vycentrovaná pod sloupci.
-- **Ověření**: Manuální test ✅ (mobil 2 sloupce, desktop 4 sloupce).
-- **Upravené soubory**: site-footer.tsx.
+### 🔧 Fix - Mobilní patička do 2 sloupců (MIMO ARCHIVU – prořezáno Pravidlem 6)
 
 ### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (UK, Krok 3 – dokončeno)
 

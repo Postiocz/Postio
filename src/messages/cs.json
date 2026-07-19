@@ -1119,5 +1119,23 @@
     "copyright": "© 2026 Postio. Všechna práva vyhrazena.",
     "tagline": "Plánujte a publikujte obsah na sociální sítě s AI.",
     "madeInCz": "Vytvořeno s ❤️ v České republice"
+  },
+  "email": {
+    "fromName": "Postio",
+    "fromAddress": "info@postio-app.cz",
+    "welcome": {
+      "subject": "Vítejte v Postio – začněte plánovat své příspěvky",
+      "title": "Vítejte v Postio!",
+      "body": "Děkujeme za registraci. S Postio můžete plánovat, publikovat a analyzovat příspěvky na sociálních sítích z jednoho místa.",
+      "cta": "Otevřít aplikaci",
+      "footer": "Postio – váš chytrý AI plánovač sociálních sítí."
+    },
+    "passwordReset": {
+      "subject": "Reset hesla pro Postio",
+      "title": "Resetujte své heslo",
+      "body": "Obdrželi jsme žádost o reset hesla. Klikněte na tlačítko níže pro nastavení nového hesla. Odkaz je platný omezenou dobu.",
+      "cta": "Nastavit nové heslo",
+      "ignore": "Pokud jste o reset nežádali, tento e-mail ignorujte."
+    }
   }
 }

@@ -58,7 +58,7 @@
 - Cíl: Nahradit všechna hardcoded `postio-alpha.vercel.app` voláním `NEXT_PUBLIC_APP_URL`.
 - Analýza: Jediné reálné hardcoded místo v kódu je `src/app/api/accounts/tiktok/route.ts:10` (TIKTOK_REDIRECT_URI). Ostatní sítě (X, LinkedIn, Google/YouTube) používají `${url.origin}/...` dynamicky. Pozor: TikTok redirect URI má v CLAUDE.md striktní pravidlo, že musí zůstat natvrdo na produkční adrese.
 
-**KROK 4: Příprava e-mailu**
+- [x] **KROK 4: Příprava e-mailu** ✅
 - Cíl: Připravit integraci pro odesílání transakčních e-mailů (Resend nebo jiný provider) z info@postio-app.cz.
 - Poznámka: V kódu zatím žádná e-mailová integrace není (pouze mailto: odkazy ve footeru).
 

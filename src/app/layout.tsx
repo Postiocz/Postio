@@ -1,8 +1,42 @@
 import { Inter, Playfair_Display } from "next/font/google";
-import type { Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { cookies } from "next/headers";
 import Script from "next/script";
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://postio-app.cz"),
+  title: {
+    default: "Postio – Tvůj chytrý AI plánovač sociálních sítí",
+    template: "%s | Postio",
+  },
+  description:
+    "Plánuj, publikuj a analyzuj příspěvky na Facebook, Instagram, LinkedIn a TikTok z jednoho místa s pomocí AI Vision.",
+  applicationName: "Postio",
+  openGraph: {
+    type: "website",
+    url: "https://postio-app.cz",
+    siteName: "Postio",
+    title: "Postio – Tvůj chytrý AI plánovač sociálních sítí",
+    description:
+      "Plánuj, publikuj a analyzuj příspěvky na Facebook, Instagram, LinkedIn a TikTok z jednoho místa s pomocí AI Vision.",
+    images: [
+      {
+        url: "/hero-mockup_cs.png",
+        width: 1200,
+        height: 630,
+        alt: "Postio – AI plánovač sociálních sítí",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Postio – Tvůj chytrý AI plánovač sociálních sítí",
+    description:
+      "Plánuj, publikuj a analyzuj příspěvky na Facebook, Instagram, LinkedIn a TikTok z jednoho místa s pomocí AI Vision.",
+    images: ["/hero-mockup_cs.png"],
+  },
+};
 
 const inter = Inter({
   subsets: ["latin"],

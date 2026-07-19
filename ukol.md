@@ -50,11 +50,11 @@
 - Cíl: Vypisovat seznam všech ENV proměnných, které se na Vercelu musí změnit pro ostrou doménu (NEXT_PUBLIC_APP_URL, Redirect URIs pro 6 sítí, Stripe Live klíče).
 - Analýza již provedena – viz výpis v chatu.
 
-**KROK 2: SEO a Meta tagy**
+- [x] **KROK 2: SEO a Meta tagy** ✅
 - Cíl: Nastavit finální meta tagy pro postio-app.cz v root layoutu (src/app/layout.tsx) + OpenGraph obrázek (náhled při sdílení).
 - Poznámka: layout.tsx zatím nemá `export const metadata` (žádné title/description/openGraph).
 
-**KROK 3: Dynamické adresy**
+- [x] **KROK 3: Dynamické adresy** ✅
 - Cíl: Nahradit všechna hardcoded `postio-alpha.vercel.app` voláním `NEXT_PUBLIC_APP_URL`.
 - Analýza: Jediné reálné hardcoded místo v kódu je `src/app/api/accounts/tiktok/route.ts:10` (TIKTOK_REDIRECT_URI). Ostatní sítě (X, LinkedIn, Google/YouTube) používají `${url.origin}/...` dynamicky. Pozor: TikTok redirect URI má v CLAUDE.md striktní pravidlo, že musí zůstat natvrdo na produkční adrese.
 

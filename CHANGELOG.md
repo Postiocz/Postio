@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 032 – KROK 2 (SEO/Meta) + KROK 3 (Dynamické adresy) ✅
+
+- **Kontext**: Příprava na produkci postio-app.cz. Uživatel změnil ve Vercelu NEXT_PUBLIC_APP_URL a přidal TikTok Redirect URI na novou doménu.
+- **KROK 3**: `src/app/api/accounts/tiktok/route.ts:10` - `TIKTOK_REDIRECT_URI` `postio-alpha.vercel.app` → `https://postio-app.cz/api/accounts/tiktok` (respektuje striktní výjimku z CLAUDE.md). Kontrola `src/`: žádné další `postio-alpha`; X/LinkedIn/Google/YouTube dynamické přes `${url.origin}`, Stripe/auth přes `NEXT_PUBLIC_APP_URL`.
+- **KROK 2**: `src/app/layout.tsx` - NOVÝ `export const metadata`: `metadataBase` = postio-app.cz, `title` (default + `%s | Postio` template), `description`, `openGraph` (website, og:image `/hero-mockup_cs.png` 1200×630), `twitter` card `summary_large_image`.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); manuální test ✅ (metadata i dynamické adresy v pořádku).
+- **Poznámka**: OG obrázek zatím reuse `hero-mockup_cs.png`; dedikovaný `og-image.png` možno dodělat později.
+- **Upravené soubory**: tiktok/route.ts, layout.tsx, ukol.md, CHANGELOG.md.
+
 ### 🚀 Prompt 032 – Příprava na produkční nasazení (postio-app.cz): FÁZE 1 – Plán + Audit ENV (Krok 1)
 
 - **Kontext**: Projekt stabilizovaný, cíl přestěhování z `postio-alpha.vercel.app` na `postio-app.cz`. FÁZE 1 = pouze analýza a zápis plánu do `ukol.md`, žádný kód.
@@ -77,11 +86,6 @@
 - **Ověření**: `npx tsc --noEmit` ✅, JSON platné, manuální test ✅ (cs/en/uk, Light i Dark, cookie modal + LocaleSwitcher funkční; opraven duplicitní React klíč v APLIKACE sloupci).
 - **Upravené soubory**: site-footer.tsx, cookie-settings-link.tsx (nová), cookie-consent.tsx, cs.json, en.json, uk.json.
 
-### 🔧 Fix - Čitelnost mobilní navigace v Light mode (Mimořádný úkol, Krok 1)
-
-- **Kontext**: Spodní mobilní navigace měla pozadí `bg-black/60` bez `dark:` varianty a neaktivní položky `text-zinc-500` - v Light mode šedý text/ikony na poloprůhledné černé liště = špatný kontrast, prakticky nečitelné.
-- **Změny**: `src/components/dashboard/mobile-nav.tsx` - lišta: `bg-black/60 border-t border-white/10` → `bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10` (adaptivní). Barvy položek (nav items i settings trigger): `text-indigo-500`/`text-zinc-500` → `text-indigo-600 dark:text-indigo-400` (aktivní) a `text-slate-600 dark:text-zinc-400` (neaktivní). Glow `drop-shadow` u aktivní položky zachován.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (Light i Dark mode: ikony i popisky čitelné, aktivní indigo).
-- **Upravené soubory**: mobile-nav.tsx.
+### 🔧 Fix - Čitelnost mobilní navigace v Light mode (MIMO ARCHIVU – prořezáno Pravidlem 6)
 
 

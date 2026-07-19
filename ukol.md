@@ -42,27 +42,4 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 🚀 Prompt 032 – Příprava na finální produkční nasazení (postio-app.cz)
-
-**Kontext**: Projekt je stabilizovaný a připravený na spuštění. Cílem je přestěhování z `postio-alpha.vercel.app` na produkční doménu `postio-app.cz`. Právní dokumenty (doc/*) a README již odkazují na postio-app.cz / info@postio-app.cz.
-
-- [x] **KROK 1: Audit ENV proměnných** ✅
-- Cíl: Vypisovat seznam všech ENV proměnných, které se na Vercelu musí změnit pro ostrou doménu (NEXT_PUBLIC_APP_URL, Redirect URIs pro 6 sítí, Stripe Live klíče).
-- Analýza již provedena – viz výpis v chatu.
-
-- [x] **KROK 2: SEO a Meta tagy** ✅
-- Cíl: Nastavit finální meta tagy pro postio-app.cz v root layoutu (src/app/layout.tsx) + OpenGraph obrázek (náhled při sdílení).
-- Poznámka: layout.tsx zatím nemá `export const metadata` (žádné title/description/openGraph).
-
-- [x] **KROK 3: Dynamické adresy** ✅
-- Cíl: Nahradit všechna hardcoded `postio-alpha.vercel.app` voláním `NEXT_PUBLIC_APP_URL`.
-- Analýza: Jediné reálné hardcoded místo v kódu je `src/app/api/accounts/tiktok/route.ts:10` (TIKTOK_REDIRECT_URI). Ostatní sítě (X, LinkedIn, Google/YouTube) používají `${url.origin}/...` dynamicky. Pozor: TikTok redirect URI má v CLAUDE.md striktní pravidlo, že musí zůstat natvrdo na produkční adrese.
-
-- [x] **KROK 4: Příprava e-mailu** ✅
-- Cíl: Připravit integraci pro odesílání transakčních e-mailů (Resend nebo jiný provider) z info@postio-app.cz.
-- Poznámka: V kódu zatím žádná e-mailová integrace není (pouze mailto: odkazy ve footeru).
-
-**KROK 5: Sitemap a Robots**
-- Cíl: Vygenerovat sitemap.xml a robots.txt pro indexaci Googlem.
-- Poznámka: V projektu zatím neexistuje sitemap.ts ani robots.ts.
 

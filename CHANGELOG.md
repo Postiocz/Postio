@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Feat - Sitemap + Robots (Prompt 032 KROK 5) ✅ – celý Prompt 032 hotový
+
+- **Kontext**: Poslední krok přestěhování na postio-app.cz – umožnit Google indexaci (FÁZE 1 plánu).
+- **Změny**: `src/app/sitemap.ts` (NOVÁ) - dynamická MetadataRoute.Sitemap, 15 URL (3 locale cs/en/uk × 5 cest: Landing + privacy-policy/terms-of-service/dpa/ai-transparency-notice), changeFrequency + priority (Landing 1.0, právní 0.6), lastModified. `src/app/robots.ts` (NOVÁ) - `allow: "/"` pro `*`, odkaz na `/sitemap.xml` + host postio-app.cz. Auth/dashboard routy záměrně vynechány.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test ✅ (kód v pořádku).
+- **Poznámka**: Tímto uzavřen celý Prompt 032 (Krok 1–5). Sekce úkolu smazána z ukol.md (Pravidlo 7).
+- **Upravené soubory**: sitemap.ts (nová), robots.ts (nová), ukol.md, CHANGELOG.md.
+
 ### 🔧 Feat - Příprava e-mailové infrastruktury (Resend) – Prompt 032 KROK 4 ✅
 
 - **Kontext**: Příprava na odesílání transakčních e-mailů z info@postio-app.cz (potvrzení registrace, reset hesla) přes Resend.
@@ -30,12 +38,7 @@
 
 ### 🔧 Fix - Mobilní patička do 2 sloupců (MIMO ARCHIVU – prořezáno Pravidlem 6)
 
-### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (UK, Krok 3 – dokončeno)
-
-- **Kontext**: Poslední mutace (uk). Dokončuje doplnění identifikace OSVČ provozovatele do všech 3 jazyků právních dokumentů.
-- **Změny (doc/uk)**: `01_...` sekce 2 КОНТРОЛЕР – Václav Nykl + Ідентифікаційний номер (IČO) + Юридична адреса (3 řádky). `02_...` bod 1.1 – identifikace provozovatele. `03_...` bod 1.1 – identifikace Обробника. `04_...` bod 1 ВСТУП – jméno+IČO+sídlo v závorce.
-- **Poznámka**: Terminologie „Ідентифікаційний номер (IČO)" / „Юридична адреса"; jméno a adresa latinkou v originále + „Чехія". Celý úkol (cs/en/uk) tímto hotový.
-- **Upravené soubory**: doc/uk/01–04 (4 soubory).
+### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (UK, Krok 3 – MIMO ARCHIVU, prořezáno Pravidlem 6)
 
 ### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (EN, Krok 2)
 

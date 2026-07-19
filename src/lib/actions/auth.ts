@@ -64,7 +64,9 @@ export async function emailAuthAction(
       email,
       password,
       options: {
-        emailRedirectTo: `${baseUrl}/auth/callback`,
+        // `new URL(path, base)` normalizes the slash between base and path,
+        // so a trailing-slash `NEXT_PUBLIC_APP_URL` can never produce `//auth`.
+        emailRedirectTo: new URL("/auth/callback", baseUrl).toString(),
       },
     });
 
@@ -164,12 +166,18 @@ export async function resetPasswordAction(
   // The `redirectTo` includes `type=recovery` so the callback route can tell
   // this apart from OAuth / e-mail-verification flows and forward the user to
   // the reset-password page (see Step 5 of the plan).
-  const redirectTo = `${baseUrl}/auth/callback?type=recovery&next=${encodeURIComponent(
+  // Build via `new URL` so the base/path slash is normalized (a trailing-slash
+  // `NEXT_PUBLIC_APP_URL` cannot yield `//auth`). Query is appended after.
+  const redirectTo = new URL("/auth/callback", baseUrl);
+  redirectTo.searchParams.set("type", "recovery");
+  redirectTo.searchParams.set(
+    "next",
     `/${locale}/login/reset-password`
-  )}`;
+  );
+  const redirectToUrl = redirectTo.toString();
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo,
+    redirectTo: redirectToUrl,
   });
 
   if (error) {

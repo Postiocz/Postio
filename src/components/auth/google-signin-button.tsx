@@ -31,7 +31,9 @@ export function GoogleSignInButton() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${baseUrl}/auth/callback`,
+          // `new URL` normalizes the base/path slash, so a trailing-slash
+          // `NEXT_PUBLIC_APP_URL` can never produce `//auth/callback`.
+          redirectTo: new URL("/auth/callback", baseUrl).toString(),
         },
       });
 

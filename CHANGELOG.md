@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix - Normalizace URL (odstranění dvojitého lomítka `//auth`, `//api`)
+
+- **Kontext**: Na ostré doméně `https://postio-app.cz` vznikaly návratové adresy s dvěma lomítky (např. `https://postio-app.cz//auth/callback`), pokud `NEXT_PUBLIC_APP_URL` končil lomítkem. To rozbilo YouTube i TikTok OAuth callback.
+- **Změny**: `src/lib/actions/auth.ts` – `emailAuthAction` i `resetPasswordAction` nyní skládají návratovou adresu přes `new URL(path, baseUrl)` (normalizuje lomítka) místo `\`${baseUrl}/auth/callback\``. `src/lib/email.ts` – `getAppBaseUrl()` nově garantuje `base` bez trailing slashe (`base.replace(/\/+$/, "")`). `src/components/auth/google-signin-button.tsx` – stejný vzor `new URL("/auth/callback", baseUrl)`. `src/app/auth/callback/route.ts` neměněn (používá `request.url`/`url.origin`, což nikdy nemá trailing slash).
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální kontrola: `new URL("/auth/callback", "https://postio-app.cz/")` → `https://postio-app.cz/auth/callback` (jedno lomítko).
+- **Upravené soubory**: auth.ts, email.ts, google-signin-button.tsx, CHANGELOG.md.
+
 ### 🚀 Feat - Sitemap + Robots (Prompt 032 KROK 5) ✅ – celý Prompt 032 hotový
 
 - **Kontext**: Poslední krok přestěhování na postio-app.cz – umožnit Google indexaci (FÁZE 1 plánu).
@@ -60,38 +67,4 @@
 - **Změny**: `src/components/marketing/legal-doc-page.tsx` - hlava i kontejner `bg-black` → `bg-background`; nadpisy `text-white` → `text-foreground`; orámování `border-white/10` → `border-border`; tlačítko Zpět `bg-white/5`/`border-white/10` → `bg-muted/50`/`border-border` (s hover `hover:bg-muted`/`hover:border-foreground/20`); odrážky `text-muted-foreground` → `text-foreground/80`. Logo používá `text-foreground` (již OK). Oprava v sdílené komponentě pokrývá všechny 4 routy najednou.
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0).
 - **Upravené soubory**: legal-doc-page.tsx.
-
-### 🔧 Feat - Překlady právních stránek EN/UK (Prompt 033, Krok 5)
-
-- **Kontext**: Krok 4 parsuje cs; rozhodnutí B původně "cs zdroj pro en/uk", uživatel změnil na vygenerování strojových překladů (konceptů).
-- **Změny**: `src/lib/legal-docs.ts` - `readLegalDoc(fileName, locale)` hledá postupně `doc/{locale}/{fileName}`, pak cs zálohu `doc/{fileName}`. `src/components/marketing/legal-doc-page.tsx` - lokalizovaný popisek data (cs/en/uk), regex data podporuje 3 jazyky, regex `h2` rozšířen o cyrilici (`А-ЯЄІЇҐ`). 4 soubory v `doc/en/` (01-04) + 4 v `doc/uk/` (01-04), stejné názvy jako cs, zrcadlící strukturu (POSTIO / název / URL|email / "Last updated" resp. "Останнє оновлення" / číslované sekce / `* ` odrážky).
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); smoke test parseru na ukrajinském souboru (nadpis, datum i bloky OK); manuální test ✅ (8 routů en/uk načítá překlad).
-- **Poznámka**: EN/UK jsou strojové překlady – před produkcí nutná právní kontrola.
-- **Upravené soubory**: legal-docs.ts, legal-doc-page.tsx, doc/en/* (4 nové), doc/uk/* (4 nové).
-
-### 🔧 Feat - Formátování právních rout (Prompt 033, Krok 4)
-
-- **Kontext**: Krok 3 přidal 4 routy zobrazující .txt raw (`whitespace-pre-line`). Chybělo strukturované formátování (nadpisy, odrážky, datum).
-- **Změny**: `src/components/marketing/legal-doc-page.tsx` - NOVÁ `parseLegalDoc(raw)`: extrahuje název (řádek pod `POSTIO`) → `<h1>` a `Naposledy aktualizováno: <datum>` → podtitulek; tělo (od první číslované sekce) parsuje na bloky: top-level `N.` → `<h2>`, sub-level `N.N` → `<h3>` (inline text oddělen do `<p>`), `* ` → odrážka (seskupeno do `<ul>`), ostatní → `<p>`. Duplicitní název+datum pod hlavičkou přeskočeno. Stylování `max-w-3xl`, black bg, bílá nadpisy - konzistentní s `/privacy`.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (4 routy: název+datum v hlavičce, sekce jako nadpisy, odrážky jako seznam; cs/en/uk přes LocaleSwitcher).
-- **Poznámka**: `04_...AI.txt` má řádek 17 slitou tabulku (bez oddělovačů) → vykreslena jako odstavec (parsování tabulek mimo rozsah Krok 4).
-- **Upravené soubory**: legal-doc-page.tsx.
-
-### 🔧 Feat - Právní routy (Prompt 033, Krok 3)
-
-- **Kontext**: Footer odkazuje na `/privacy-policy`, `/terms-of-service`, `/dpa`, `/ai-transparency-notice`, ale tyto routy neexistovaly - klik na ně vedl na 404.
-- **Změny**: `src/lib/legal-docs.ts` - NOVÝ reader (`fs/promises`, Node runtime, čte `doc/*.txt` přes `process.cwd()`). `src/components/marketing/legal-doc-page.tsx` - NOVÁ sdílená server komponenta (hlavička s Logem = odkaz domů jako `/privacy`, tělo dokumentu raw `whitespace-pre-line`, `<SiteFooter locale={locale} />`, tlačítko Zpět). 4 routy pod `(marketing)`: `privacy-policy`, `terms-of-service`, `dpa`, `ai-transparency-notice` (`page.tsx`), každá volá `LegalDocPage` s příslušným souborem a `runtime = "nodejs"`. Middleware: routy veřejné automaticky (nejsou `isDashboardRoute`), žádná změna.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0), manuální test ✅ (4 routy načítají text dokumentu, hlavička + footer + LocaleSwitcher funkční; cs/en/uk).
-- **Poznámka**: Krok 4 přidal parser (h2/odrážky/datum) do `legal-doc-page.tsx`; `.txt` soubory v `doc/` musejí zůstat (čtou se za běhu).
-- **Upravené soubory**: legal-docs.ts (nová), legal-doc-page.tsx (nová), privacy-policy/page.tsx (nová), terms-of-service/page.tsx (nová), dpa/page.tsx (nová), ai-transparency-notice/page.tsx (nová).
-
-### 🔧 Feat - Footer (SiteFooter) + cookie modal reopen (Prompt 033, Krok 1)
-
-- **Kontext**: Marketing web neměl profesionální patičku se sloupci odkazů. Existující `site-footer.tsx` měl jen newsletter kartu + jednoduchou lištu.
-- **Změny**: `src/components/marketing/site-footer.tsx` - přepsáno na 4 sloupce (Produkt, Podpora, Právní & GDPR, Aplikace) + zachovaná newsletter karta nahoře + spodní řádek (Logo + © + tagline | "Vytvořeno s ❤️ v ČR" | LocaleSwitcher). Odkazy `#A89FFF` → hover `#6C47FF`, nadpisy uppercase bílé, horní ohraničení `border-white/10`. `src/components/marketing/cookie-settings-link.tsx` - NOVÁ client komponenta (tlačítko dispečující `postio:open-cookie-settings`). `src/components/cookie-consent.tsx` - preferences Dialog nyní vždy namountovaný a naslouchá na uvedený event, takže "Nastavení cookies" otevře modal i po uložení souhlasu. `src/messages/{cs,en,uk}.json` - NOVÝ top-level namespace `footer`.
-- **Ověření**: `npx tsc --noEmit` ✅, JSON platné, manuální test ✅ (cs/en/uk, Light i Dark, cookie modal + LocaleSwitcher funkční; opraven duplicitní React klíč v APLIKACE sloupci).
-- **Upravené soubory**: site-footer.tsx, cookie-settings-link.tsx (nová), cookie-consent.tsx, cs.json, en.json, uk.json.
-
-### 🔧 Fix - Čitelnost mobilní navigace v Light mode (MIMO ARCHIVU – prořezáno Pravidlem 6)
-
 

@@ -85,16 +85,23 @@ export async function sendTransactionalEmail(
  * when available (so it works on any Vercel preview/production URL) and
  * falling back to NEXT_PUBLIC_APP_URL. Shared by auth flows and e-mail links
  * so every generated link points back to the canonical production domain.
+ *
+ * The returned value is guaranteed to have NO trailing slash, so callers that
+ * join it with a leading-slash path (`\`${base}/path\``) never emit a double
+ * slash (e.g. `https://postio-app.cz//auth/callback`).
  */
 export async function getAppBaseUrl(): Promise<string> {
+  let base: string;
   try {
     const { headers } = await import("next/headers");
     const h = await headers();
     const host = h.get("x-forwarded-host") ?? h.get("host");
     const proto = h.get("x-forwarded-proto") ?? "http";
-    if (host) return `${proto}://${host}`;
+    if (host) base = `${proto}://${host}`;
+    else base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   } catch {
     // `next/headers` is unavailable outside a request scope – fall through.
+    base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   }
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return base.replace(/\/+$/, "");
 }

@@ -726,11 +726,19 @@ export async function GET(request: NextRequest) {
         }
 
         if (ig && ig.id) {
-          console.log(`[Postio] NALEZEN REÁLNÝ INSTAGRAM: ${ig.username || ig.name || ig.id}`);
+          console.log(`[Postio] NALEZEN REÁLNÝ INSTAGRAM (uložen neaktivní): ${ig.username || ig.name || ig.id}`);
 
           const igName = ig.username || ig.name || pageName || "Instagram";
           const igAvatarUrl = ig.profile_picture_url ?? pageAvatarUrl ?? null;
 
+          // NOTE: Instagram discovered *via a Facebook Page* is stored as
+          // `is_active = false` (matching the Pages themselves). It must NOT
+          // be auto-activated here: doing so consumed a plan slot during the
+          // Facebook flow and then blocked the user from activating the actual
+          // Facebook Page in the selector (toggleAccountActive enforces the
+          // limit), which produced an apparent "loop" where the modal reopened.
+          // The user connects Instagram explicitly through the IG button, which
+          // runs the separate Instagram Direct Login branch (is_active = true).
           rowsToUpsert.push({
             user_id: targetUserId,
             platform: "instagram",
@@ -738,7 +746,7 @@ export async function GET(request: NextRequest) {
             access_token: pageAccessToken,
             platform_id: ig.id,
             avatar_url: igAvatarUrl,
-            is_active: true,
+            is_active: false,
             publishing_type: publishingType,
             metadata: {},
           });

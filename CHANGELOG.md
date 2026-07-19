@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix - Smyčka v modálu Facebook stránek (auto-aktivace Instagramu blokovala výběr Page)
+
+- **Kontext**: Po přechodu na produkční doménu se při propojení Facebooku otevřel modál výběru stránek (Pages), ale po kliknutí na "Uložit"/aktivaci se modál znovu objevil a FB účet se nepřidal. Podezření na NULL `account_id` bylo mylné (sloupec `account_id` existuje jen v `post_platforms`, ne v `social_accounts`).
+- **Root cause**: V `src/app/auth/callback/route.ts` se při Facebook flow pro každou stránku s propojeným IG business accountem **automaticky ukládal Instagram s `is_active: true`**. Na Free plánu (limit = 1) to sežralo jediný slot ještě během OAuth, takže následná aktivace FB stránky v modálu selhala na limitu (`toggleAccountActive` → `accountLimitErrorMessage`), selector udělal optimistic revert a stránka se vrátila → vypadalo to jako smyčka. Navíc callback na začátku deaktivuje všechny FB řádky, proto "zmizely" staré účty.
+- **Změna**: `src/app/auth/callback/route.ts` (blok IG nalezeného přes FB stránku, ~ř. 728) – `is_active: true` → `is_active: false` (uložen neaktivní, stejně jako Pages). Instagram se připojuje zvlášť přes IG tlačítko (samostatný Direct Login branch, `is_active: true`). Samostatný Instagram Direct Login branch (ř. 607) a YouTube zůstávají `is_active: true`.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Konzistence: `facebook/select` filtruje jen `platform='facebook'`, takže neaktivní IG se neobjeví v pending seznamu (žádoucí).
+- **Upravené soubory**: callback/route.ts, CHANGELOG.md.
+
 ### 🔧 Fix - Normalizace URL (odstranění dvojitého lomítka `//auth`, `//api`)
 
 - **Kontext**: Na ostré doméně `https://postio-app.cz` vznikaly návratové adresy s dvěma lomítky (např. `https://postio-app.cz//auth/callback`), pokud `NEXT_PUBLIC_APP_URL` končil lomítkem. To rozbilo YouTube i TikTok OAuth callback.
@@ -42,8 +50,6 @@
 - **Audit (výstup Kroku 1)**: `NEXT_PUBLIC_APP_URL` → `https://postio-app.cz`. TikTok má hardcoded `TIKTOK_REDIRECT_URI` (`src/app/api/accounts/tiktok/route.ts:10`) na `postio-alpha.vercel.app`; X/LinkedIn/Google/YouTube používají dynamické `${url.origin}`. Stripe: přepnout `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_CREATOR/PRO` na Live + live webhook endpoint.
 - **Ověření**: Manuální analýza kódu (grep process.env + hardcoded URL). Žádný kód nezměněn.
 - **Upravené soubory**: ukol.md, CHANGELOG.md.
-
-### 🔧 Fix - Mobilní patička do 2 sloupců (MIMO ARCHIVU – prořezáno Pravidlem 6)
 
 ### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (UK, Krok 3 – MIMO ARCHIVU, prořezáno Pravidlem 6)
 

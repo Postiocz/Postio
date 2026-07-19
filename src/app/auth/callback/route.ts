@@ -400,20 +400,29 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get("code");
   const nextParam = requestUrl.searchParams.get("next") || "/accounts";
 
-  // Extract platform hint from next param (e.g. /cs/accounts?platform=instagram)
+  // Extract platform hint. The Instagram connect flow puts `platform=instagram`
+  // as a TOP-LEVEL query param on the redirect URL (see accounts/page.tsx:
+  // `.../auth/callback?next=...&platform=instagram`), so we read it from the
+  // request URL directly. We also keep the legacy form where it is embedded
+  // inside the `next` param, for backwards compatibility.
+  const topLevelPlatform = requestUrl.searchParams.get("platform");
   let requestedPlatform: "instagram" | null = null;
-  try {
-    const decodedNext = decodeURIComponent(nextParam);
-    const urlParts = decodedNext.split("?");
-    if (urlParts.length > 1) {
-      const params = new URLSearchParams(urlParts[1]);
-      const platformParam = params.get("platform");
-      if (platformParam === "instagram") {
-        requestedPlatform = "instagram";
+  if (topLevelPlatform === "instagram") {
+    requestedPlatform = "instagram";
+  } else {
+    try {
+      const decodedNext = decodeURIComponent(nextParam);
+      const urlParts = decodedNext.split("?");
+      if (urlParts.length > 1) {
+        const params = new URLSearchParams(urlParts[1]);
+        const platformParam = params.get("platform");
+        if (platformParam === "instagram") {
+          requestedPlatform = "instagram";
+        }
       }
+    } catch {
+      // ignore parsing errors
     }
-  } catch {
-    // ignore parsing errors
   }
 
   const localeFromNext = nextParam.match(/^\/(cs|en|uk)(?:\/|$)/)?.[1];

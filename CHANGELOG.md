@@ -11,6 +11,14 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Konzistence: `facebook/select` filtruje jen `platform='facebook'`, takže neaktivní IG se neobjeví v pending seznamu (žádoucí).
 - **Upravené soubory**: callback/route.ts, CHANGELOG.md.
 
+### 🔧 Fix - Instagram se nepřipojoval samostatně (platform hint v top-level query param)
+
+- **Kontext**: Po kliku na tlačítko Instagram se otevřel Facebook OAuth, ale po odkliknutí se IG nepřidal (znovu se nabídl Facebook). Ostatní platformy (FB, YouTube, LinkedIn, X, TikTok) fungovaly.
+- **Root cause**: IG handler v `accounts/page.tsx:893` posílá `platform=instagram` jako **top-level** query param (`.../auth/callback?next=...&platform=instagram`), ale `auth/callback/route.ts` hledal `platform` **uvnitř** `next` parametru (tj. `/cs/accounts?platform=instagram`). `next` je ale pouhá lokální cesta bez query, takže `requestedPlatform` byl vždy `null` → IG Direct Login branch (route.ts ~ř. 546) se nikdy nespustil → IG se neuložil. Facebook branch ("Always fetch Facebook Pages") běží vždy bez tohoto flagu, proto fungoval.
+- **Změna**: `src/app/auth/callback/route.ts` – detekce `platform` teď čte `requestUrl.searchParams.get("platform")` z top-level URL (zpětně kompatibilní s legacy formou uvnitř `next`).
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). `normalizeNext` nemění `next` (lokální cesta), takže top-level `platform` přežije.
+- **Upravené soubory**: callback/route.ts, CHANGELOG.md.
+
 ### 🔧 Fix - Normalizace URL (odstranění dvojitého lomítka `//auth`, `//api`)
 
 - **Kontext**: Na ostré doméně `https://postio-app.cz` vznikaly návratové adresy s dvěma lomítky (např. `https://postio-app.cz//auth/callback`), pokud `NEXT_PUBLIC_APP_URL` končil lomítkem. To rozbilo YouTube i TikTok OAuth callback.

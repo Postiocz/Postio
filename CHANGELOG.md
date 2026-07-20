@@ -3,7 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-### 🚀 Prompt 035 – KROK 1: Výchozí měna přepínače podle locale ✅
+### 🚀 Prompt 035 – KROK 3+4: Multi-currency Stripe Checkout přes Lookup Keys ✅
+
+- **Kontext**: Původní `/api/stripe/checkout` používal natvrdo `STRIPE_PRICE_ID_CREATOR/PRO` (jeden priceId). Cíl: volit cenu podle vybrané měny (CZK/EUR/USD) přes Lookup Keys.
+- **KROK 3 (frontend)**: `billing-card.tsx` `handleCheckout` posílá nově `currency` (z prop) spolu s `plan`+`locale` do `/api/stripe/checkout`.
+- **KROK 4 (backend)**: `route.ts` – `PLAN_PRICE_IDS` → `LOOKUP_KEYS = { creator: "postio_creator_monthly", pro: "postio_pro_monthly" }`. Nově `stripe.prices.list({ lookup_keys: [lookupKey], active: true })` a `data.find(p => p.currency === currency)` (lowercase ISO 4217 `czk/eur/usd`). `line_items` používá `targetPrice.id`. Přidána validace `currency ∈ {czk,eur,usd}` (default `eur`) a chyba při chybějící ceně. Env `STRIPE_PRICE_ID_*` se už nečte.
+- **Ověření (docs + manuál)**: `npx tsc --noEmit` ✅. Postup v souladu se Stripe docs (lookup_keys[] array, měna filtrována až z výsledku). Manuální test ✅ (CZK checkout prošel, návrat `?success=true`). Pozn.: před testem bylo třeba vymazat zastaralý `stripe_customer_id` v DB (customer neexistoval v aktuálním Stripe účtu).
+- **Upravené soubory**: billing-card.tsx, checkout/route.ts, ukol.md, CHANGELOG.md.
 
 - **Kontext**: `CurrencySwitcher` existoval, ale v `billing-client.tsx` i `pricing-client.tsx` byl default natvrdo `"eur"` → český uživatel viděl EUR místo CZK.
 - **Změna**: `src/lib/pricing.ts` – NOVÝ helper `getDefaultCurrency(locale)` (`cs`→`czk`, jinak→`eur`). Obě client komponenty volají `useState(getDefaultCurrency(locale))` místo `"eur"`.
@@ -85,18 +91,4 @@
 - **Změny (doc/en)**: `01_...` sekce 2 DATA CONTROLLER – Václav Nykl + ID Number (IČO) + Registered Office (3 řádky). `02_...` bod 1.1 – identifikace provozovatele. `03_...` bod 1.1 – identifikace Processoru. `04_...` bod 1 INTRODUCTION – jméno+IČO+sídlo v závorce.
 - **Poznámka**: Terminologie „ID Number (IČO)" / „Registered Office"; adresa v originále + „Czech Republic". UK (Krok 3) zbývá.
 - **Upravené soubory**: doc/en/01–04 (4 soubory).
-
-### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (CS, Krok 1)
-
-- **Kontext**: Právní dokumenty (Privacy, Terms, DPA, AI Notice) neobsahovaly identifikaci OSVČ provozovatele (Václav Nykl, IČO 74260138, sídlo Sokolská 464/27, Nové Město, 12000 Praha 2, Česko).
-- **Změny (doc/cs)**: `01_...Zasady...` sekce 2 SPRÁVCE – doplněno jméno + IČO + sídlo (3 řádky). `02_...Obchodni_podminky` bod 1.1 – identifikace provozovatele. `03_...DPA` bod 1.1 – identifikace Zpracovatele. `04_...AI` bod 1 ÚVOD – jméno+IČO+sídlo v závorce.
-- **Poznámka**: Vlastní jméno/adresa s diakritikou; ostatní popisky ve stylu souboru (bez diakritiky). Diakritika/spisovnost v tělech dokumentů opraví uživatel ručně, poté Claude zkontroluje formátování před EN/UK. EN (Krok 2) a UK (Krok 3) zatím neprovedeny.
-- **Upravené soubory**: doc/cs/01–04 (4 soubory).
-
-### 🔧 Fix - Light režim na právních stránkách
-
-- **Kontext**: Stránky `/privacy-policy`, `/terms-of-service`, `/dpa`, `/ai-transparency-notice` měly v `LegalDocPage` natvrdo `bg-black` a `text-white` → v Light mode bílý text na bílém pozadí (neviditelné).
-- **Změny**: `src/components/marketing/legal-doc-page.tsx` - hlava i kontejner `bg-black` → `bg-background`; nadpisy `text-white` → `text-foreground`; orámování `border-white/10` → `border-border`; tlačítko Zpět `bg-white/5`/`border-white/10` → `bg-muted/50`/`border-border` (s hover `hover:bg-muted`/`hover:border-foreground/20`); odrážky `text-muted-foreground` → `text-foreground/80`. Logo používá `text-foreground` (již OK). Oprava v sdílené komponentě pokrývá všechny 4 routy najednou.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0).
-- **Upravené soubory**: legal-doc-page.tsx.
 

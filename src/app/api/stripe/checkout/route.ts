@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
+import type { Currency } from "@/components/marketing/currency-switcher";
 
-const PLAN_PRICE_IDS: Record<string, string | undefined> = {
-  creator: process.env.STRIPE_PRICE_ID_CREATOR,
-  pro: process.env.STRIPE_PRICE_ID_PRO,
+// Each plan maps to a single Stripe Lookup Key that carries all currency prices.
+const LOOKUP_KEYS: Record<string, string | undefined> = {
+  creator: "postio_creator_monthly",
+  pro: "postio_pro_monthly",
 };
 
 export async function POST(request: NextRequest) {
@@ -21,6 +23,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan } = body;
     const locale = body?.locale ?? "cs";
+    const currency: Currency = ["czk", "eur", "usd"].includes(body?.currency)
+      ? body.currency
+      : "eur";
 
     if (!plan || !["creator", "pro"].includes(plan)) {
       return NextResponse.json(
@@ -29,10 +34,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const priceId = PLAN_PRICE_IDS[plan];
-    if (!priceId) {
+    const lookupKey = LOOKUP_KEYS[plan];
+    if (!lookupKey) {
       return NextResponse.json(
-        { error: `Price ID not configured for plan '${plan}'. Set STRIPE_PRICE_ID_${plan.toUpperCase()} env var.` },
+        { error: `Lookup key not configured for plan '${plan}'.` },
+        { status: 500 }
+      );
+    }
+
+    // Resolve the price for the requested currency from the lookup key.
+    // The key groups every currency variant of the plan's price.
+    const prices = await stripe.prices.list({
+      lookup_keys: [lookupKey],
+      active: true,
+    });
+    const targetPrice = prices.data.find((p) => p.currency === currency);
+    if (!targetPrice) {
+      return NextResponse.json(
+        { error: `No active price for plan '${plan}' in currency '${currency}'.` },
         { status: 500 }
       );
     }
@@ -69,7 +88,7 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: targetPrice.id, quantity: 1 }],
       success_url: `${origin}/${locale}/settings/billing?success=true`,
       cancel_url: `${origin}/${locale}/settings/billing?canceled=true`,
       metadata: { user_id: user.id, plan },

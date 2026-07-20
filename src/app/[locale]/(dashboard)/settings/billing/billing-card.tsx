@@ -56,7 +56,7 @@ export function BillingCard({ plan, locale, currency = "eur", translations }: Bi
         const res = await fetch("/api/stripe/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: plan.id, locale }),
+          body: JSON.stringify({ plan: plan.id, locale, currency }),
         });
         const data = await res.json();
         if (data.url) {

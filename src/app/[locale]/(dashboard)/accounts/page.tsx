@@ -42,6 +42,10 @@ import {
   FacebookPageSelector,
   type FacebookPageDto,
 } from "@/components/facebook-page-selector";
+import {
+  InstagramAccountSelector,
+  type InstagramAccountDto,
+} from "@/components/instagram-account-selector";
 
 type PlatformId =
   | "instagram"
@@ -208,6 +212,11 @@ export default function AccountsPage() {
   // false "no pages found" toast for users who do have Pages).
   const [loadingPending, setLoadingPending] = useState(true);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  // Instagram accounts that are still inactive (pending the user's opt-in).
+  // Loaded by GET /api/accounts/instagram/select. Mirrors pendingPages.
+  const [pendingIgAccounts, setPendingIgAccounts] = useState<InstagramAccountDto[]>([]);
+  const [loadingPendingIg, setLoadingPendingIg] = useState(true);
+  const [igSelectorOpen, setIgSelectorOpen] = useState(false);
   const isDraggingRef = useRef(false);
   // Current user plan – used for client-side account-limit enforcement.
   const [userPlan, setUserPlan] = useState<"free" | "creator" | "pro">("free");
@@ -317,6 +326,29 @@ export default function AccountsPage() {
     }
   };
 
+  // Pull the list of Instagram accounts that are still inactive (discovered
+  // during the Instagram OAuth flow but not yet opted-in). Mirrors
+  // fetchPendingPages for the Instagram selector dialog.
+  const fetchPendingIgAccounts = async () => {
+    setLoadingPendingIg(true);
+    try {
+      const res = await fetch("/api/accounts/instagram/select", {
+        method: "GET",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        setPendingIgAccounts([]);
+        return;
+      }
+      const data = (await res.json()) as { accounts: InstagramAccountDto[] };
+      setPendingIgAccounts(data.accounts ?? []);
+    } catch {
+      setPendingIgAccounts([]);
+    } finally {
+      setLoadingPendingIg(false);
+    }
+  };
+
   // Load the user's plan so we can enforce the account limit client-side
   // (proactively block new connections before they hit the server).
   const fetchPlan = async () => {
@@ -329,6 +361,7 @@ export default function AccountsPage() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       fetchPendingPages();
+      fetchPendingIgAccounts();
       fetchPlan();
     }, 0);
     return () => window.clearTimeout(timeoutId);
@@ -362,6 +395,23 @@ export default function AccountsPage() {
       router.replace(window.location.pathname);
     }
   }, [searchParams, pendingPages.length, loadingPending, loading, accounts, router, t]);
+
+  // Instagram connect flow completes with `?ig=connected` (set by the
+  // callback route for the Instagram branch). Open the Instagram selector
+  // dialog so the user can pick which discovered IG account(s) to enable.
+  // Same guard pattern as the Facebook `?fb=connected` effect above.
+  useEffect(() => {
+    if (searchParams.get("ig") !== "connected") return;
+    if (pendingIgAccounts.length > 0) {
+      setIgSelectorOpen(true);
+    } else if (!loadingPendingIg && !loading) {
+      const hasIg = accounts.some((a) => a.platform === "instagram");
+      if (!hasIg) {
+        toast.info(t("noIgFound"));
+      }
+      router.replace(window.location.pathname);
+    }
+  }, [searchParams, pendingIgAccounts.length, loadingPendingIg, loading, accounts, router, t]);
 
   // ──────────────────────────────────────────────────────────────────
   // OAuth callback signal handling (YouTube + LinkedIn + generic errors)
@@ -637,6 +687,67 @@ export default function AccountsPage() {
         </div>
       )}
 
+      {/* Pending Instagram accounts – "tick which IG accounts to enable" section. */}
+      {!loadingPendingIg && pendingIgAccounts.length > 0 && (
+        <div className="max-w-2xl mx-auto bg-gradient-to-br from-pink-500/[0.07] to-purple-500/[0.07] backdrop-blur-md border border-pink-500/15 rounded-[24px] p-6 shadow-xl">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-white/10">
+              <Instagram className="h-6 w-6 text-pink-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-foreground">
+                  {t("pendingIgTitle")}
+                </h3>
+                <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-pink-500/15 border border-pink-500/20 text-xs font-medium text-pink-300">
+                  {pendingIgAccounts.length}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground/70 leading-relaxed">
+                {t("pendingIgSubtitle")}
+              </p>
+              <Button
+                type="button"
+                onClick={() => setIgSelectorOpen(true)}
+                className="mt-4 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 shadow-[0_0_20px_rgba(236,72,153,0.25)] transition-all"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {t("manageIgButton")}
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Compact preview of the first 4 pending IG accounts (avatars only) */}
+          <div className="mt-5 flex items-center gap-3">
+            <div className="flex -space-x-2">
+              {pendingIgAccounts.slice(0, 4).map((acc) => (
+                <div
+                  key={acc.id}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-white/10 overflow-hidden"
+                  title={acc.account_name}
+                >
+                  <PlatformAvatar
+                    src={acc.avatar_url}
+                    alt={acc.account_name}
+                    className="h-full w-full object-cover"
+                    fallback={<Instagram className="h-4 w-4 text-pink-300" />}
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground/60 truncate">
+              {pendingIgAccounts
+                .slice(0, 3)
+                .map((a) => a.account_name)
+                .join(", ")}
+              {pendingIgAccounts.length > 3 &&
+                ` ${t("andMore").replace("{count}", String(pendingIgAccounts.length - 3))}`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Connected accounts list - glassmorphism cards */}
       {!hasConnectedAccounts ? (
         <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
@@ -884,12 +995,16 @@ export default function AccountsPage() {
               const tiktokAuthUrl = `/api/accounts/tiktok?state=${encodeURIComponent(next)}&locale=${locale}`;
               window.location.assign(tiktokAuthUrl);
             } else if (connectModalPlatform.id === "instagram") {
-              // Instagram Direct Login – no Facebook Page required
+              // Instagram Direct Login – no Facebook Page required, but we
+              // ALSO request the `pages_*` scopes so that Instagram business
+              // accounts linked to a Facebook Page are discovered too (the
+              // callback route reads `/me/accounts` for these). Without the
+              // page scopes, only the personal IG business account shows up.
               const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: "facebook",
                 options: {
                   scopes:
-                    "public_profile,email,instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_insights,business_management",
+                    "public_profile,email,instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_insights,business_management,pages_show_list,pages_read_engagement,pages_manage_posts",
                   redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&platform=instagram`,
                   queryParams: {
                     auth_type: "rerequest",
@@ -1018,6 +1133,45 @@ export default function AccountsPage() {
           allActivated: (count) => t("allActivated", { count }),
           someFailed: (failed) => t("someFailed", { failed }),
           connectPage: t("connectPage"),
+        }}
+      />
+
+      {/* Instagram account selector dialog (tick which IG accounts to enable). */}
+      <InstagramAccountSelector
+        accounts={pendingIgAccounts}
+        open={igSelectorOpen}
+        onOpenChange={(open) => {
+          setIgSelectorOpen(open);
+          if (!open) {
+            // Clean the ?ig=connected query param when the dialog closes so
+            // a refresh does not re-open the dialog.
+            if (searchParams.get("ig") === "connected") {
+              router.replace(window.location.pathname);
+            }
+            // Refresh the active list so freshly activated IG accounts show up
+            // immediately in the connected accounts section below.
+            fetchAccounts();
+            fetchPendingIgAccounts();
+          }
+        }}
+        onChanged={() => {
+          fetchAccounts();
+          fetchPendingIgAccounts();
+        }}
+        t={{
+          title: t("igSelectorTitle"),
+          subtitle: t("igSelectorSubtitle"),
+          inactive: t("inactive"),
+          activating: t("activating"),
+          done: t("done"),
+          accountConnected: (name: string) => t("igAccountConnected", { name }),
+          errorToggle: t("errorToggle"),
+          emptyState: t("igSelectorEmpty"),
+          activateAll: (count) => t("igActivateAll", { count }),
+          activatingAll: t("igActivatingAll"),
+          allActivated: (count) => t("igAllActivated", { count }),
+          someFailed: (failed) => t("someFailed", { failed }),
+          connectAccount: t("connectAccount"),
         }}
       />
     </div>

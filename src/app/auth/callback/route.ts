@@ -551,10 +551,17 @@ export async function GET(request: NextRequest) {
       metadata: SocialAccountMetadata;
     }> = [];
 
-    // Instagram Direct Login – get user's own Instagram account via /me
+    // Instagram Direct Login – collect the user's own Instagram professional
+    // accounts. These are stored as `is_active = false` and surfaced in a
+    // dedicated Instagram selector dialog (just like Facebook Pages), so the
+    // user can explicitly pick which IG account(s) to enable. We deliberately
+    // do NOT auto-activate here, for two reasons:
+    //   1. Auto-activation during OAuth consumed the only Free-plan slot and
+    //      blocked Facebook Page selection (the old "loop" bug).
+    //   2. A user may have several IG business accounts and must opt in.
     if (requestedPlatform === "instagram") {
       try {
-        console.log("[Postio] Instagram Direct Login – hledám vlastní IG účet uživatele");
+        console.log("[Postio] Instagram Direct Login – hledám IG účty uživatele");
 
         const meData = await graphFetch<{
           id?: string;
@@ -568,7 +575,9 @@ export async function GET(request: NextRequest) {
           { fields: "id,username,name,profile_picture_url,account_type" }
         );
 
-        // Try to get Instagram user ID via /me?fields=instagram_business_account
+        // The Facebook user's personal Instagram account (if the FB login is
+        // linked to one). `instagram_business_account` only appears when the
+        // connected IG is a Business/Creator account.
         const igMeData = await graphFetch<{
           instagram_business_account?: { id: string };
         }>(
@@ -582,15 +591,14 @@ export async function GET(request: NextRequest) {
         let igName: string | null = null;
         let igAvatarUrl: string | null = null;
 
-        // If /me returned an Instagram business account context (user is an IG business account)
         if (igMeData?.instagram_business_account?.id) {
           igUserId = igMeData.instagram_business_account.id;
           console.log(`[Postio] IG Business Account nalezen přes /me: ${igUserId}`);
         }
 
-        // Fallback: use the Facebook user ID as IG user ID (works for Instagram Login for Business)
+        // Fallback: the FB user id can itself be the IG business account id
+        // (Instagram Graph "login for business" pattern).
         if (!igUserId && meData?.id) {
-          // Check if this looks like an IG account by fetching IG-specific fields
           const igDirectData = await graphFetch<InstagramBusinessResponse>(
             `/${meData.id}`,
             facebookUserToken,
@@ -605,7 +613,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Use data from /me as fallback
+        // Last resort: use /me data directly (works when /me itself is an IG
+        // business account context).
         if (!igUserId && meData?.id) {
           igUserId = meData.id;
           igUsername = meData.username ?? null;
@@ -613,17 +622,21 @@ export async function GET(request: NextRequest) {
           igAvatarUrl = meData.profile_picture_url ?? null;
         }
 
-        if (igUserId) {
+        if (igUserId && !rowsToUpsert.some((r) => r.platform === "instagram" && r.platform_id === igUserId)) {
           console.log(`[Postio] NALEZEN PŘÍMÝ INSTAGRAM: ${igUsername || igName || igUserId}`);
 
           rowsToUpsert.push({
             user_id: targetUserId,
             platform: "instagram",
             account_name: igUsername || igName || "Instagram",
-            access_token: facebookUserToken,
+            // FB user token cannot drive the IG Graph API for publishing, so
+            // we do NOT store it here. The selector activates the row but the
+            // publish motor must re-acquire a page-scoped token (Krok 4). For
+            // now we keep an empty token; activating simply enables the row.
+            access_token: "",
             platform_id: igUserId,
             avatar_url: igAvatarUrl,
-            is_active: true,
+            is_active: false,
             publishing_type: publishingType,
             metadata: {},
           });
@@ -675,21 +688,25 @@ export async function GET(request: NextRequest) {
           }
 
           if (ig && ig.id) {
-            // Only add if not already added via direct login
+            // Only add if not already added (via direct login above).
             if (!rowsToUpsert.some(r => r.platform === "instagram" && r.platform_id === ig.id)) {
               console.log(`[Postio] NALEZEN REÁLNÝ INSTAGRAM: ${ig.username || ig.name || ig.id}`);
 
               const igNamePage = ig.username || ig.name || pageName || "Instagram";
               const igAvatarUrlPage = ig.profile_picture_url ?? pageAvatarUrl ?? null;
 
+              // Stored as `is_active = false` so it shows up in the dedicated
+              // Instagram selector dialog (NOT the Facebook Pages dialog). The
+              // page-scoped token cannot drive IG publishing directly, so we
+              // leave the token empty until the publish motor re-acquires one.
               rowsToUpsert.push({
                 user_id: targetUserId,
                 platform: "instagram",
                 account_name: igNamePage,
-                access_token: pageAccessToken,
+                access_token: "",
                 platform_id: ig.id,
                 avatar_url: igAvatarUrlPage,
-                is_active: true,
+                is_active: false,
                 publishing_type: publishingType,
                 metadata: {},
               });
@@ -869,9 +886,13 @@ export async function GET(request: NextRequest) {
 
   // After a Facebook Pages OAuth flow, signal the /accounts page with
   // `?fb=connected` so it auto-opens the new "pick which Pages to enable"
-  // dialog. We only do this for the Pages flow – the Instagram direct
-  // login does not need this hint (Instagram accounts are auto-activated).
-  if (requestedPlatform !== "instagram") {
+  // dialog. For the Instagram flow we signal `?ig=connected` so the dedicated
+  // Instagram selector dialog opens instead. This keeps the Meta family
+  // consistent: each platform gets its own opt-in selection dialog.
+  if (requestedPlatform === "instagram") {
+    const separator = finalNext.includes("?") ? "&" : "?";
+    finalNext = `${finalNext}${separator}ig=connected`;
+  } else {
     const separator = finalNext.includes("?") ? "&" : "?";
     finalNext = `${finalNext}${separator}fb=connected`;
   }

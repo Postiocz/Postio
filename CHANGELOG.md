@@ -3,6 +3,18 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔧 Fix - Instagram připojení má vlastní selektor (neotvírá FB Page modál)
+
+- **Kontext**: Klik na tlačítko Instagram otevíral stejný modál jako Facebook (výběr FB stránek) a nenacházel IG účet. Příčina: IG flow volal `signInWithOAuth(provider:"facebook")` a callback ukládal IG přes `/me/accounts` (FB stránky) jako `is_active:true` + signál `?fb=connected` → otevřel FB selektor. IG účet uživatele (propojený s FB, ale ne přes Page) se nenašel.
+- **Změna**:
+  - `callback/route.ts` – Instagram větev (`requestedPlatform==="instagram"`) nyní ukládá nalezené IG účty (z `/me`, `/me/instagram_business_account` i z FB stránek) jako **`is_active:false`** do `social_accounts` a na konec přidává signál **`?ig=connected`** (místo `?fb=connected`). Zrušena auto-aktivace IG během OAuth (žere slot Free plánu).
+  - `accounts/page.tsx` – přidán načítací efekt `fetchPendingIgAccounts` (GET `/api/accounts/instagram/select`), signál `?ig=connected` otevírá nový `InstagramAccountSelector`, sekce "Nalezené Instagram účty" s avatary. IG scopes rozšířeny o `pages_show_list,pages_read_engagement,pages_manage_posts` (aby se našly i IG přes FB stránku).
+  - NOVÁ `src/app/api/accounts/instagram/select/route.ts` – vrací neaktivní IG účty (jako `facebook/select`).
+  - NOVÁ `src/components/instagram-account-selector.tsx` – glassmorphism dialog "Zaškrtněte IG účty" (kopie FB Page selectoru, růžová varianta), tlačítko "Připojit" volá `toggleAccountActive(id,true)`.
+  - i18n: přidány klíče `pendingIgTitle/Subtitle/manageIgButton/noIgFound/igSelector*` do cs/en/uk.
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0).
+- **Upravené soubory**: callback/route.ts, accounts/page.tsx, instagram/select/route.ts (nová), instagram-account-selector.tsx (nová), cs.json, en.json, uk.json, CHANGELOG.md.
+
 ### 🔧 Fix - Smyčka v modálu Facebook stránek (auto-aktivace Instagramu blokovala výběr Page)
 
 - **Kontext**: Po přechodu na produkční doménu se při propojení Facebooku otevřel modál výběru stránek (Pages), ale po kliknutí na "Uložit"/aktivaci se modál znovu objevil a FB účet se nepřidal. Podezření na NULL `account_id` bylo mylné (sloupec `account_id` existuje jen v `post_platforms`, ne v `social_accounts`).

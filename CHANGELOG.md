@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 035 – KROK 1: Výchozí měna přepínače podle locale ✅
+
+- **Kontext**: `CurrencySwitcher` existoval, ale v `billing-client.tsx` i `pricing-client.tsx` byl default natvrdo `"eur"` → český uživatel viděl EUR místo CZK.
+- **Změna**: `src/lib/pricing.ts` – NOVÝ helper `getDefaultCurrency(locale)` (`cs`→`czk`, jinak→`eur`). Obě client komponenty volají `useState(getDefaultCurrency(locale))` místo `"eur"`.
+- **Poznámka**: Krok 2 (typografie) z většiny hotov (serif na Landing, sans v app, Pravidlo 8 splněno). Free label zůstává hardcodovaný `"Free"` → řeší Krok 5 (lokalizace).
+- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test ✅ (cs→CZK, en/uk→EUR, přepínání částek OK).
+- **Upravené soubory**: pricing.ts, billing-client.tsx, pricing-client.tsx, ukol.md, CHANGELOG.md.
+
 ### 🔧 Fix - Instagram připojení má vlastní selektor (neotvírá FB Page modál)
 
 - **Kontext**: Klik na tlačítko Instagram otevíral stejný modál jako Facebook (výběr FB stránek) a nenacházel IG účet. Příčina: IG flow volal `signInWithOAuth(provider:"facebook")` a callback ukládal IG přes `/me/accounts` (FB stránky) jako `is_active:true` + signál `?fb=connected` → otevřel FB selektor. IG účet uživatele (propojený s FB, ale ne přes Page) se nenašel.
@@ -70,8 +78,6 @@
 - **Audit (výstup Kroku 1)**: `NEXT_PUBLIC_APP_URL` → `https://postio-app.cz`. TikTok má hardcoded `TIKTOK_REDIRECT_URI` (`src/app/api/accounts/tiktok/route.ts:10`) na `postio-alpha.vercel.app`; X/LinkedIn/Google/YouTube používají dynamické `${url.origin}`. Stripe: přepnout `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_CREATOR/PRO` na Live + live webhook endpoint.
 - **Ověření**: Manuální analýza kódu (grep process.env + hardcoded URL). Žádný kód nezměněn.
 - **Upravené soubory**: ukol.md, CHANGELOG.md.
-
-### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (UK, Krok 3 – MIMO ARCHIVU, prořezáno Pravidlem 6)
 
 ### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (EN, Krok 2)
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check, Crown, Sparkles, Zap } from "lucide-react";
 import { Reveal } from "@/components/marketing/reveal";
 import { CurrencySwitcher, type Currency } from "@/components/marketing/currency-switcher";
-import { formatPrice } from "@/lib/pricing";
+import { formatPrice, getDefaultCurrency } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 interface ClientPlan {
@@ -41,7 +41,7 @@ export function PricingClient({
     recommended: string;
   };
 }) {
-  const [currency, setCurrency] = useState<Currency>("eur");
+  const [currency, setCurrency] = useState<Currency>(getDefaultCurrency(locale));
 
   return (
     <>

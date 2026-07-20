@@ -6,6 +6,12 @@ export interface PriceValues {
   priceUsd: number;
 }
 
+// Resolves the default display currency from the active locale: Czech users
+// see CZK, everyone else (en/uk) defaults to EUR.
+export function getDefaultCurrency(locale: string): Currency {
+  return locale === "cs" ? "czk" : "eur";
+}
+
 // Formats a plan price for the selected currency. Free plans (amount 0) fall
 // back to the localized "Free"/"Zdarma" label. CZK/EUR use "amount symbol",
 // USD uses the leading "$" convention.

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BillingCard, type Plan } from "./billing-card";
 import { CurrencySwitcher, type Currency } from "@/components/marketing/currency-switcher";
+import { getDefaultCurrency } from "@/lib/pricing";
 
 // Client island for the billing page: owns the selected-currency state
 // and renders the switcher above the card grid. Cards stay sans-serif
@@ -22,7 +23,7 @@ export function BillingClient({
     upgrade: string;
   };
 }) {
-  const [currency, setCurrency] = useState<Currency>("eur");
+  const [currency, setCurrency] = useState<Currency>(getDefaultCurrency(locale));
 
   return (
     <>

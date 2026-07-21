@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 📧 Prompt 036 – KROK 3B: Vlastní e-mail pro reset hesla přes Resend ✅
+
+- **Kontext**: `resetPasswordAction` používala `supabase.auth.resetPasswordForEmail()` a spoléhala na Supabase vlastní email. Cíl: odesílat reset emaily vlastním Resendem z `noreply@postio-app.cz` s plnou kontrolou nad obsahem.
+- **Změna**: `auth.ts` – `resetPasswordAction` nově používá `adminClient.auth.admin.generateLink({ type: "recovery" })` k vygenerování podepsaného odkazu BEZ odeslání emailu ze Supabase. Sestaví brandovaný HTML email (Pure Black, glassmorphism, indigo CTA) i plaintext fallback. Odešle přes `sendTransactionalEmail()` s `SENDER_NOREPLY`. Přidány helpers `loadLocaleMessages()` (překlady z JSON) a `buildResetEmailHtml()`. Nové importy: `createAdminClient`, `sendTransactionalEmail`, `SENDER_NOREPLY`.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (email dorazil z noreply@postio-app.cz, branded vzhled, funkční link).
+- **Upravené soubory**: auth.ts, ukol.md, CHANGELOG.md.
+
 ### 📧 Prompt 036 – KROK 1: Systémové adresy v email.ts ✅
 
 - **Kontext**: `email.ts` podporoval pouze jeden sender (info@postio-app.cz). Potřebujeme tři systémové adresy pro odlišení technických, marketingových a obecných e-mailů.
@@ -83,12 +90,7 @@
 - **Poznámka**: Tímto uzavřen celý Prompt 032 (Krok 1–5). Sekce úkolu smazána z ukol.md (Pravidlo 7).
 - **Upravené soubory**: sitemap.ts (nová), robots.ts (nová), ukol.md, CHANGELOG.md.
 
-### 🔧 Feat - Příprava e-mailové infrastruktury (Resend) – Prompt 032 KROK 4 ✅
 
-- **Kontext**: Příprava na odesílání transakčních e-mailů z info@postio-app.cz (potvrzení registrace, reset hesla) přes Resend.
-- **Změny**: `package.json`/`package-lock.json` - přidána závislost `resend@^4.8.0`. `src/lib/email.ts` (NOVÁ) - `sendTransactionalEmail()` (vrací {success,id?,error?}, nehází), `getFromEmail()` (POSTIO_FROM_EMAIL, fallback info@postio-app.cz), `isEmailConfigured()` (RESEND_API_KEY), `getAppBaseUrl()` (z hlaviček / NEXT_PUBLIC_APP_URL). `src/messages/{cs,en,uk}.json` - NOVÝ namespace `email` (welcome, passwordReset + fromName/fromAddress).
-- **Bod 3 (Supabase Auth odesílatel)**: řeší se v Supabase konzoli (Auth → URL Configuration + custom šablony), ne v kódu; auth.ts už používá NEXT_PUBLIC_APP_URL. Uživatel volil Možnost C: manuální ověření Resend + DNS u Forpsi proběhne mimo kód.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); JSON platné; `npm install resend` ✅. Manuální test ✅ (technická příprava).
-- **Upravené soubory**: email.ts (nová), cs.json, en.json, uk.json, package.json, package-lock.json, ukol.md, CHANGELOG.md.
+
 
 

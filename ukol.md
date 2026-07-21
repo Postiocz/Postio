@@ -55,7 +55,7 @@
 
 - [x] **KROK 1: Systémové adresy v `email.ts`** — Rozšířit `SendEmailOptions` o volitelný parametr `from` a přidat konstanty/sloty pro tři adresy (`noreply@postio-app.cz`, `hello@postio-app.cz`, `info@postio-app.cz`). Upravit `sendTransactionalEmail()` aby přijímal parametr `from` (s fallbackem na `getFromEmail()`).
 
-- [ ] **KROK 3B: Vlastní e-mail pro reset hesla přes Resend** — Upravit `resetPasswordAction` v `auth.ts` tak, aby:
+- [x] **KROK 3B: Vlastní e-mail pro reset hesla přes Resend** — Upravit `resetPasswordAction` v `auth.ts` tak, aby:
   a) Vygenerovala recovery link přes Supabase Admin API (`supabase.auth.admin.generateLink()`) – vyžaduje novou env proměnnou `SUPABASE_SERVICE_ROLE_KEY`.
   b) Místo spoléhání na Supabase Auth email odeslala e-mail sama přes `sendTransactionalEmail()` z adresy `noreply@postio-app.cz` s překlady z namespace `email.passwordReset`.
   c) Zachovala stávající chování: Supabase Auth email se nepošle (deaktivovat template v Supabase konzoli nebo použít vlastní SMTP).

@@ -1,9 +1,19 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { headers, cookies } from "next/headers";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
+import {
+  sendTransactionalEmail,
+  SENDER_NOREPLY,
+} from "@/lib/email";
+
+// Locale messages for e-mail content (loaded directly instead of next-intl/server
+// because Server Actions do not share the same async context as components).
+import csMessages from "@/messages/cs.json";
+import enMessages from "@/messages/en.json";
+import ukMessages from "@/messages/uk.json";
 
 type Locale = "cs" | "en" | "uk";
 
@@ -133,12 +143,17 @@ export async function emailAuthAction(
 }
 
 // ============================================================
-// Password reset – Step 1: send the recovery e-mail
+// Password reset – Step 1: send the recovery e-mail via Resend
 // ============================================================
 // Triggered from the "Forgot password?" view in `email-signin.tsx`.
-// Supabase e-mails a magic link that lands on `/auth/callback` with
-// `?type=recovery`, which the callback route redirects to the
-// `/login/reset-password` page where the user sets a new password.
+// Instead of relying on Supabase's built-in email, we:
+//   1. Generate a recovery link via `supabase.auth.admin.generateLink()`
+//      (requires SUPABASE_SERVICE_ROLE_KEY env var).
+//   2. Send a branded e-mail ourselves through Resend from noreply@postio-app.cz.
+//
+// Why this approach: full control over the e-mail content, sender address,
+// and deliverability. The admin API lets us get the signed action_link
+// without Supabase sending the e-mail on our behalf.
 export async function resetPasswordAction(
   _prevState: ResetPasswordState,
   formData: FormData
@@ -161,13 +176,9 @@ export async function resetPasswordAction(
     return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   })();
 
-  const supabase = await createClient();
-
-  // The `redirectTo` includes `type=recovery` so the callback route can tell
-  // this apart from OAuth / e-mail-verification flows and forward the user to
-  // the reset-password page (see Step 5 of the plan).
-  // Build via `new URL` so the base/path slash is normalized (a trailing-slash
-  // `NEXT_PUBLIC_APP_URL` cannot yield `//auth`). Query is appended after.
+  // Build the redirectTo URL that the recovery link will target.
+  // The callback route checks `?type=recovery` and forwards to the
+  // reset-password page where the user sets a new password.
   const redirectTo = new URL("/auth/callback", baseUrl);
   redirectTo.searchParams.set("type", "recovery");
   redirectTo.searchParams.set(
@@ -176,12 +187,52 @@ export async function resetPasswordAction(
   );
   const redirectToUrl = redirectTo.toString();
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: redirectToUrl,
+  // Use the admin client (service_role) to generate the recovery link.
+  // This produces a signed action_link without Supabase sending any e-mail.
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: {
+      redirectTo: redirectToUrl,
+    },
   });
 
-  if (error) {
-    return { errorKey: "resetError", errorMessage: error.message, successKey: null };
+  if (error || !data?.properties?.action_link) {
+    console.error("[auth] Failed to generate recovery link:", error?.message);
+    return { errorKey: "resetError", errorMessage: null, successKey: null };
+  }
+
+  const actionLink = data.properties.action_link;
+
+  // Load locale-specific e-mail content.
+  // We import JSON messages directly instead of next-intl/server helpers
+  // because Server Actions do not share the same async context as components.
+  const messages = await loadLocaleMessages(locale);
+  const emailNs = messages.email;
+  const pwReset = emailNs.passwordReset;
+
+  const html = buildResetEmailHtml({
+    title: pwReset.title,
+    body: pwReset.body,
+    cta: pwReset.cta,
+    ignore: pwReset.ignore,
+    actionLink,
+  });
+
+  const text = `${pwReset.title}\n\n${pwReset.body}\n\n${actionLink}\n\n${pwReset.ignore}`;
+
+  const result = await sendTransactionalEmail({
+    to: email,
+    subject: pwReset.subject,
+    html,
+    text,
+    from: SENDER_NOREPLY,
+  });
+
+  if (!result.success) {
+    console.error("[auth] Failed to send reset email via Resend:", result.error);
+    return { errorKey: "resetError", errorMessage: null, successKey: null };
   }
 
   return { errorKey: null, errorMessage: null, successKey: "resetEmailSent" };
@@ -218,4 +269,127 @@ export async function updatePasswordAction(
   }
 
   return { errorKey: null, successKey: "passwordUpdated" };
+}
+
+// ============================================================
+// Helpers for the password-reset e-mail
+// ============================================================
+
+/** Load locale messages (cs/en/uk) for the e-mail templating. */
+type LocaleMessages = typeof csMessages;
+
+function loadLocaleMessages(locale: string): LocaleMessages {
+  switch (locale) {
+    case "en":
+      return enMessages;
+    case "uk":
+      return ukMessages;
+    default:
+      return csMessages;
+  }
+}
+
+/**
+ * Build a branded HTML e-mail for the password-reset flow.
+ *
+ * Design follows the Postio design system: pure-black background,
+ * glassmorphism card, indigo CTA – consistent with the app's login
+ * page look so the user immediately recognises the brand.
+ */
+function buildResetEmailHtml(params: {
+  title: string;
+  body: string;
+  cta: string;
+  ignore: string;
+  actionLink: string;
+}): string {
+  const { title, body, cta, ignore, actionLink } = params;
+
+  return `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#000;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0"
+          style="max-width:600px;width:100%;">
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom: 32px;">
+              <h1 style="font-size:36px;font-weight:800;letter-spacing:-0.02em;margin:0;color:#fff;">
+                <span style="color:#6366F1;">P</span>ostio
+              </h1>
+            </td>
+          </tr>
+          <!-- Card -->
+          <tr>
+            <td align="center">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                style="background:rgba(9,9,11,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:40px;">
+                <tr>
+                  <td align="left" style="padding-bottom:16px;">
+                    <h2 style="font-size:24px;font-weight:700;margin:0;color:#fff;">
+                      ${title}
+                    </h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="left" style="padding-bottom:24px;">
+                    <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,0.8);margin:0;">
+                      ${body}
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:24px;">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="background-color:#6366F1;border-radius:12px;padding:0;">
+                          <a href="${actionLink}"
+                            style="display:inline-block;padding:14px 32px;color:#fff;text-decoration:none;font-size:16px;font-weight:600;">
+                            ${cta}
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="left">
+                    <p style="font-size:14px;line-height:1.5;color:rgba(255,255,255,0.5);margin:0;">
+                      ${ignore}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding-top:24px;">
+              <p style="font-size:12px;color:rgba(255,255,255,0.25);margin:0;">
+                Postio &ndash; your smart AI social media planner.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }

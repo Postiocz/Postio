@@ -6,9 +6,14 @@
 //
 // Configuration (Vercel Environment Variables):
 //   RESEND_API_KEY      – API key from the Resend dashboard (required).
-//   POSTIO_FROM_EMAIL   – verified sender, e.g. "Postio <info@postio-app.cz>".
-//                         Falls back to a sandbox sender so local dev never fails
+//   POSTIO_FROM_EMAIL   – verified sender override, e.g. "Postio <info@postio-app.cz>".
+//                         Falls back to SENDER_INFO so local dev never fails
 //                         hard when the key is missing.
+//
+// System sender addresses (all verified on the postio-app.cz domain):
+//   SENDER_NOREPLY  – noreply@postio-app.cz (password resets, technical e-mails)
+//   SENDER_HELLO    – hello@postio-app.cz   (welcome, marketing)
+//   SENDER_INFO     – info@postio-app.cz    (general inquiries, default)
 
 import { Resend } from "resend";
 
@@ -20,9 +25,26 @@ export interface SendEmailOptions {
   text?: string;
   /** Optional Reply-To override (defaults to the configured sender). */
   replyTo?: string;
+  /**
+   * Optional sender override. When omitted the value from `getFromEmail()`
+   * is used, which resolves to `POSTIO_FROM_EMAIL` env var or `SENDER_INFO`.
+   * Pass one of the SENDER_* constants to send from a specific system address.
+   */
+  from?: string;
 }
 
-const DEFAULT_FROM = "Postio <info@postio-app.cz>";
+// ── System sender addresses ────────────────────────────────────────────────
+
+/** Technical e-mails: password resets, security notifications. */
+export const SENDER_NOREPLY = "Postio <noreply@postio-app.cz>";
+
+/** Welcome and marketing e-mails. */
+export const SENDER_HELLO = "Postio <hello@postio-app.cz>";
+
+/** General inquiries – default fallback. */
+export const SENDER_INFO = "Postio <info@postio-app.cz>";
+
+const DEFAULT_FROM: string = SENDER_INFO;
 
 /** Resolve the sender address, preferring an explicit env override. */
 export function getFromEmail(): string {
@@ -59,7 +81,7 @@ export async function sendTransactionalEmail(
 
   try {
     const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
+      from: options.from ?? getFromEmail(),
       to: options.to,
       subject: options.subject,
       html: options.html,

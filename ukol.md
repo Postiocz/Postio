@@ -42,3 +42,27 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
+### 📧 Prompt 036 – E-mailová architektura a Reset hesla (2026-07-21)
+
+**Stav analýzy:** Následující položky jsou již v kódu HOTOVÉ (objeveno při analýze):
+- ✅ KROK 2 (UI Zapomenuté heslo) – `email-signin.tsx` má plně funkční `mode="forgot"`
+- ✅ KROK 3 (Server Action) – `resetPasswordAction` v `auth.ts` volá `supabase.auth.resetPasswordForEmail()`
+- ✅ KROK 4 (Stránka pro nové heslo) – `reset-password/page.tsx` + `reset-password-form.tsx` existují
+- ✅ KROK 5 (Update hesla) – `updatePasswordAction` v `auth.ts` + formulář v `reset-password-form.tsx`
+- ✅ KROK 6 (i18n) – Všechny `auth.*` i `email.*` klíče jsou v cs/en/uk.json
+
+**Co reálně zbývá udělat (respektuje stávající kód):**
+
+- [x] **KROK 1: Systémové adresy v `email.ts`** — Rozšířit `SendEmailOptions` o volitelný parametr `from` a přidat konstanty/sloty pro tři adresy (`noreply@postio-app.cz`, `hello@postio-app.cz`, `info@postio-app.cz`). Upravit `sendTransactionalEmail()` aby přijímal parametr `from` (s fallbackem na `getFromEmail()`).
+
+- [ ] **KROK 3B: Vlastní e-mail pro reset hesla přes Resend** — Upravit `resetPasswordAction` v `auth.ts` tak, aby:
+  a) Vygenerovala recovery link přes Supabase Admin API (`supabase.auth.admin.generateLink()`) – vyžaduje novou env proměnnou `SUPABASE_SERVICE_ROLE_KEY`.
+  b) Místo spoléhání na Supabase Auth email odeslala e-mail sama přes `sendTransactionalEmail()` z adresy `noreply@postio-app.cz` s překlady z namespace `email.passwordReset`.
+  c) Zachovala stávající chování: Supabase Auth email se nepošle (deaktivovat template v Supabase konzoli nebo použít vlastní SMTP).
+
+- [ ] **KROK 7: Ověření TS kompilace a finální test** — `npx tsc --noEmit` a kontrola celého flow end-to-end.
+
+**Poznámky:**
+- KROK 3 v původním zadání je již implementován jako volání Supabase Auth. Nový KROK 3B přidává možnost posílat vlastní e-mail přes Resend z `noreply@postio-app.cz`.
+- `SUPABASE_SERVICE_ROLE_KEY` je třeba přidat do `.env.local` a Vercel env vars (hodnota z Supabase Dashboard → Settings → API → `service_role key`).
+- Supabase Auth template pro reset hesla je nutné v Supabase konzoli deaktivovat (Settings → Auth → Templates → Reset Password → smazat obsah), jinak Supabase pošle email dvakrát.

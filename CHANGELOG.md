@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 📧 Prompt 036 – KROK 1: Systémové adresy v email.ts ✅
+
+- **Kontext**: `email.ts` podporoval pouze jeden sender (info@postio-app.cz). Potřebujeme tři systémové adresy pro odlišení technických, marketingových a obecných e-mailů.
+- **Změna**: Přidány 3 exportované konstanty `SENDER_NOREPLY` (noreply@ – technické), `SENDER_HELLO` (hello@ – marketing), `SENDER_INFO` (info@ – výchozí). Rozšířeno `SendEmailOptions` o volitelný `from?: string`. `sendTransactionalEmail()` používá `options.from ?? getFromEmail()`. Zpětná kompatibilita zachována – žádný volající se nemění.
+- **Ověření**: `npx tsc --noEmit` ✅ (exit 0). Manuální test ✅.
+- **Upravené soubory**: email.ts, ukol.md, CHANGELOG.md.
+
 ### 🌐 Prompt 035 – KROK 5: Lokalizace přepínače měn + Free label ✅ (celý Prompt 035 hotový)
 
 - **Kontext**: Přepínač měn měl `aria-label="Měna"` natvrdo (anglický screen reader viděl češtinu) a Free plán zobrazoval hardcodované `"Free"` bez ohledu na locale.
@@ -84,12 +91,4 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); JSON platné; `npm install resend` ✅. Manuální test ✅ (technická příprava).
 - **Upravené soubory**: email.ts (nová), cs.json, en.json, uk.json, package.json, package-lock.json, ukol.md, CHANGELOG.md.
 
-### 🚀 Prompt 032 – KROK 2 (SEO/Meta) + KROK 3 (Dynamické adresy) ✅
-
-- **Kontext**: Příprava na produkci postio-app.cz. Uživatel změnil ve Vercelu NEXT_PUBLIC_APP_URL a přidal TikTok Redirect URI na novou doménu.
-- **KROK 3**: `src/app/api/accounts/tiktok/route.ts:10` - `TIKTOK_REDIRECT_URI` `postio-alpha.vercel.app` → `https://postio-app.cz/api/accounts/tiktok` (respektuje striktní výjimku z CLAUDE.md). Kontrola `src/`: žádné další `postio-alpha`; X/LinkedIn/Google/YouTube dynamické přes `${url.origin}`, Stripe/auth přes `NEXT_PUBLIC_APP_URL`.
-- **KROK 2**: `src/app/layout.tsx` - NOVÝ `export const metadata`: `metadataBase` = postio-app.cz, `title` (default + `%s | Postio` template), `description`, `openGraph` (website, og:image `/hero-mockup_cs.png` 1200×630), `twitter` card `summary_large_image`.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); manuální test ✅ (metadata i dynamické adresy v pořádku).
-- **Poznámka**: OG obrázek zatím reuse `hero-mockup_cs.png`; dedikovaný `og-image.png` možno dodělat později.
-- **Upravené soubory**: tiktok/route.ts, layout.tsx, ukol.md, CHANGELOG.md.
 

@@ -34,6 +34,7 @@ interface BillingCardProps {
     perMonth: string;
     subscribe: string;
     upgrade: string;
+    free: string;
   };
 }
 
@@ -47,7 +48,7 @@ export function BillingCard({ plan, locale, currency = "eur", translations }: Bi
   const Icon = iconMap[plan.id] || Sparkles;
   const [isPending, startTransition] = useTransition();
 
-  const { display, isFree } = formatPrice(plan, currency, "Free");
+  const { display, isFree } = formatPrice(plan, currency, translations.free);
 
   const handleCheckout = () => {
     if (plan.isCurrent) return;

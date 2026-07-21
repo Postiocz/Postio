@@ -1,6 +1,7 @@
 {
   "common": {
     "appName": "Postio",
+    "currencyLabel": "Měna",
     "save": "Uložit",
     "cancel": "Zrušit",
     "delete": "Smazat",

@@ -1,6 +1,7 @@
 {
   "common": {
     "appName": "Postio",
+    "currencyLabel": "Currency",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",

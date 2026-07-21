@@ -21,6 +21,7 @@ export function BillingClient({
     perMonth: string;
     subscribe: string;
     upgrade: string;
+    free: string;
   };
 }) {
   const [currency, setCurrency] = useState<Currency>(getDefaultCurrency(locale));

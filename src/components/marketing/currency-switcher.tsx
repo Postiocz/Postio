@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export type Currency = "czk" | "eur" | "usd";
@@ -21,10 +22,11 @@ export function CurrencySwitcher({
   onChange: (c: Currency) => void;
   className?: string;
 }) {
+  const t = useTranslations("common");
   return (
     <div
       role="radiogroup"
-      aria-label="Měna"
+      aria-label={t("currencyLabel")}
       className={cn(
         "inline-flex items-center gap-1 rounded-full border border-black/10 bg-black/[0.03] p-1 backdrop-blur-xl",
         "dark:border-white/10 dark:bg-white/5",

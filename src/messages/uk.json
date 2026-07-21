@@ -1,6 +1,7 @@
 {
   "common": {
     "appName": "Postio",
+    "currencyLabel": "Валюта",
     "save": "Зберегти",
     "cancel": "Скасувати",
     "delete": "Видалити",

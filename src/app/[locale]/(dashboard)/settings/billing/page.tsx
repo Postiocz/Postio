@@ -118,6 +118,7 @@ export default async function BillingPage({
           perMonth: t("perMonth"),
           subscribe: t("subscribe"),
           upgrade: t("upgrade"),
+          free: t("free"),
         }}
       />
     </div>

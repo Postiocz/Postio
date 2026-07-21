@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 Prompt 035 – KROK 5: Lokalizace přepínače měn + Free label ✅ (celý Prompt 035 hotový)
+
+- **Kontext**: Přepínač měn měl `aria-label="Měna"` natvrdo (anglický screen reader viděl češtinu) a Free plán zobrazoval hardcodované `"Free"` bez ohledu na locale.
+- **Změna**: `currency-switcher.tsx` – `aria-label` přes `useTranslations("common").currencyLabel`. `cs/en/uk.json` – NOVÝ klíč `common.currencyLabel` (Měna / Currency / Валюта). `billing-card.tsx` – Free label `"Free"` → `translations.free`; prop `free` přidané v `billing-client.tsx` + `page.tsx` (hodnota z `t("free")`, cs = "Zdarma"). CZK/EUR/USD kódy zůstávají nelokalizované.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (cs→"Zdarma", aria-label dle locale).
+- **Poznámka**: Tím uzavřen celý Prompt 035 (Krok 1–5). Sekce úkolu smazána z ukol.md (Pravidlo 7).
+- **Upravené soubory**: currency-switcher.tsx, billing-card.tsx, billing-client.tsx, page.tsx, cs.json, en.json, uk.json, ukol.md.
+
 ### 🚀 Prompt 035 – KROK 3+4 dokončení: 6 kombinací měn + Stripe Portal v nové kartě ✅
 
 - **Kontext**: Po přepisu na Lookup Keys padal checkout pro EUR/USD. Příčina: ceny byly založeny jako jedna cena se `currency_options` (CZK základ), ale `session.currency` parametr s nimi nespolupracoval spolehlivě.

@@ -20,7 +20,8 @@ export function ManageSubscriptionButton() {
       });
       const data = await res.json();
       if (data.url) {
-        window.location.href = data.url;
+        // Open the Stripe Customer Portal in a new tab for better UX.
+        window.open(data.url, "_blank", "noopener,noreferrer");
       }
     } catch {
       setLoading(false);

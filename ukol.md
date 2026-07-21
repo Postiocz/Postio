@@ -67,10 +67,10 @@ Stripe je nastavený přes Lookup Keys: `postio_creator_monthly` (Creator), `pos
 - Landing = serif (`pricing-client.tsx:95`), aplikace = sans-serif (`billing-card.tsx:119`) → Pravidlo 8 splněno.
 - Tento krok vyžaduje jen ověření, že po Kroku 1 se částky přepínají korektně; případná úprava typografie jen pokud by chyběla.
 
-**KROK 3 — Stripe Checkout update (frontend)** ✅
+**KROK 3 — Stripe Checkout update (frontend)** ✅ (hotovo + otestováno: CZK/EUR/USD)
 - `billing-card.tsx` `handleCheckout` (ř. 52–69): posílat do `/api/stripe/checkout` navíc `currency` (z prop) místo konkrétního priceId. `plan.id` zůstává (backend z něj odvodí lookup_key). Nový body: `{ plan, locale, currency }`.
 
-**KROK 4 — Backend logika (lookup keys)** ✅
+**KROK 4 — Backend logika (lookup keys)** ✅ (hotovo + otestováno: 6 kombinací CZK/EUR/USD)
 - `src/app/api/stripe/checkout/route.ts`: místo `PLAN_PRICE_IDS` mapy vytvořit `LOOKUP_KEYS = { creator: "postio_creator_monthly", pro: "postio_pro_monthly" }`.
 - Načíst cenu: `stripe.prices.list({ lookup_keys: [lookupKey], active: true })`, vyfiltrovat `data.find(p => p.currency === currency)` (currency přichází lowercase czk/eur/usd = platný ISO 4217 formát Stripe).
 - `line_items: [{ price: targetPrice.id, quantity: 1 }]`; validovat `currency ∈ {czk,eur,usd}`.

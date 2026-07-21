@@ -3,11 +3,12 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import type { Currency } from "@/components/marketing/currency-switcher";
 
-// Each plan maps to a single Stripe Lookup Key that carries all currency prices.
-const LOOKUP_KEYS: Record<string, string | undefined> = {
-  creator: "postio_creator_monthly",
-  pro: "postio_pro_monthly",
-};
+// Each plan+currency pair maps to its own Stripe Lookup Key, e.g.
+// "postio_creator_monthly_eur". This keeps one price per currency and avoids
+// currency_options on a single price.
+function lookupKeyFor(plan: string, currency: Currency): string {
+  return `postio_${plan}_monthly_${currency}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,21 +35,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const lookupKey = LOOKUP_KEYS[plan];
-    if (!lookupKey) {
-      return NextResponse.json(
-        { error: `Lookup key not configured for plan '${plan}'.` },
-        { status: 500 }
-      );
-    }
-
-    // Resolve the price for the requested currency from the lookup key.
-    // The key groups every currency variant of the plan's price.
+    const lookupKey = lookupKeyFor(plan, currency);
     const prices = await stripe.prices.list({
       lookup_keys: [lookupKey],
       active: true,
     });
-    const targetPrice = prices.data.find((p) => p.currency === currency);
+    const targetPrice = prices.data[0];
     if (!targetPrice) {
       return NextResponse.json(
         { error: `No active price for plan '${plan}' in currency '${currency}'.` },
@@ -64,6 +56,17 @@ export async function POST(request: NextRequest) {
       .single();
 
     let customerId = userData?.stripe_customer_id;
+
+    // If a stored customer ID exists but is no longer valid in Stripe (e.g. it
+    // was cleared/recreated elsewhere), treat it as missing and make a new one.
+    if (customerId) {
+      try {
+        const existing = await stripe.customers.retrieve(customerId);
+        if ((existing as { deleted?: boolean }).deleted) customerId = null;
+      } catch {
+        customerId = null;
+      }
+    }
 
     if (!customerId) {
       // Fetch email from auth.users via admin client
@@ -96,7 +99,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Stripe checkout error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Stripe checkout error:", msg);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

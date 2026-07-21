@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 035 – KROK 3+4 dokončení: 6 kombinací měn + Stripe Portal v nové kartě ✅
+
+- **Kontext**: Po přepisu na Lookup Keys padal checkout pro EUR/USD. Příčina: ceny byly založeny jako jedna cena se `currency_options` (CZK základ), ale `session.currency` parametr s nimi nespolupracoval spolehlivě.
+- **Řešení (změna přístupu na samostatné klíče)**: Ve Stripe založeno **6 cen**, každá s vlastním lookup keyem: `postio_creator_monthly_{czk,eur,usd}` a `postio_pro_monthly_{czk,eur,usd}` (199/8/9 Kč/€/$, 499/20/22). Backend `route.ts` složí klíč `` `postio_${plan}_monthly_${currency}` `` → `stripe.prices.list({ lookup_keys: [key] })` vrátí přesně jednu cenu; `line_items` bez `currency` (cena nese měnu sama). Odebrány debug logy. Zachována obrana proti neplatnému `stripe_customer_id` (retrieve → při chybě/delete vytvoří nového).
+- **Ověření (API + manuál)**: `npx tsc --noEmit` ✅. Přímá Stripe simulace všech 6 kombinací (creator+pro × CZK/EUR/USD) ✅; manuální test uživatele ✅ (brána otevírá správné částky).
+- **UX doplněk**: `manage-subscription-button.tsx` – Stripe Customer Portal se nově otevírá v **nové kartě** (`window.open(url, "_blank", "noopener,noreferrer")` místo `window.location.href`).
+- **Upravené soubory**: checkout/route.ts, manage-subscription-button.tsx, ukol.md, CHANGELOG.md.
+
 ### 🚀 Prompt 035 – KROK 3+4: Multi-currency Stripe Checkout přes Lookup Keys ✅
 
 - **Kontext**: Původní `/api/stripe/checkout` používal natvrdo `STRIPE_PRICE_ID_CREATOR/PRO` (jeden priceId). Cíl: volit cenu podle vybrané měny (CZK/EUR/USD) přes Lookup Keys.
@@ -76,19 +84,4 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0); manuální test ✅ (metadata i dynamické adresy v pořádku).
 - **Poznámka**: OG obrázek zatím reuse `hero-mockup_cs.png`; dedikovaný `og-image.png` možno dodělat později.
 - **Upravené soubory**: tiktok/route.ts, layout.tsx, ukol.md, CHANGELOG.md.
-
-### 🚀 Prompt 032 – Příprava na produkční nasazení (postio-app.cz): FÁZE 1 – Plán + Audit ENV (Krok 1)
-
-- **Kontext**: Projekt stabilizovaný, cíl přestěhování z `postio-alpha.vercel.app` na `postio-app.cz`. FÁZE 1 = pouze analýza a zápis plánu do `ukol.md`, žádný kód.
-- **Změny**: `ukol.md` – pod sekci ## 10. AKTUÁLNÍ ÚKOLY přidán úkol "Prompt 032" s 5 kroky (1 Audit ENV, 2 SEO/Meta, 3 Dynamické adresy, 4 E-mail, 5 Sitemap/Robots). KROK 1 označen ✅.
-- **Audit (výstup Kroku 1)**: `NEXT_PUBLIC_APP_URL` → `https://postio-app.cz`. TikTok má hardcoded `TIKTOK_REDIRECT_URI` (`src/app/api/accounts/tiktok/route.ts:10`) na `postio-alpha.vercel.app`; X/LinkedIn/Google/YouTube používají dynamické `${url.origin}`. Stripe: přepnout `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_CREATOR/PRO` na Live + live webhook endpoint.
-- **Ověření**: Manuální analýza kódu (grep process.env + hardcoded URL). Žádný kód nezměněn.
-- **Upravené soubory**: ukol.md, CHANGELOG.md.
-
-### 🔧 Feat - Identifikační údaje provozovatele v právních dokumentech (EN, Krok 2)
-
-- **Kontext**: Navazuje na Krok 1 (cs). EN mutace potřebovaly stejnou identifikaci OSVČ provozovatele.
-- **Změny (doc/en)**: `01_...` sekce 2 DATA CONTROLLER – Václav Nykl + ID Number (IČO) + Registered Office (3 řádky). `02_...` bod 1.1 – identifikace provozovatele. `03_...` bod 1.1 – identifikace Processoru. `04_...` bod 1 INTRODUCTION – jméno+IČO+sídlo v závorce.
-- **Poznámka**: Terminologie „ID Number (IČO)" / „Registered Office"; adresa v originále + „Czech Republic". UK (Krok 3) zbývá.
-- **Upravené soubory**: doc/en/01–04 (4 soubory).
 

@@ -1135,6 +1135,7 @@
   "email": {
     "fromName": "Postio",
     "fromAddress": "info@postio-app.cz",
+    "footerTagline": "Postio – your smart AI social media planner.",
     "welcome": {
       "subject": "Welcome to Postio – start planning your posts",
       "title": "Welcome to Postio!",

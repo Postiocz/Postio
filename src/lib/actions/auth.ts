@@ -205,10 +205,13 @@ export async function resetPasswordAction(
 
   const actionLink = data.properties.action_link;
 
-  // Load locale-specific e-mail content.
-  // We import JSON messages directly instead of next-intl/server helpers
-  // because Server Actions do not share the same async context as components.
-  const messages = await loadLocaleMessages(locale);
+  // Load locale-specific e-mail content matching the user's current UI
+  // language. The locale is passed from the form (derived from the URL path
+  // in `email-signin.tsx`) – this is the language the user is actively using
+  // and therefore the correct one for the e-mail. We intentionally do NOT
+  // look up `public.users.language` here because it stores a stored preference
+  // that may be outdated, while the form locale reflects the current session.
+  const messages = loadLocaleMessages(locale);
   const emailNs = messages.email;
   const pwReset = emailNs.passwordReset;
 
@@ -218,6 +221,7 @@ export async function resetPasswordAction(
     cta: pwReset.cta,
     ignore: pwReset.ignore,
     actionLink,
+    footerTagline: emailNs.footerTagline,
   });
 
   const text = `${pwReset.title}\n\n${pwReset.body}\n\n${actionLink}\n\n${pwReset.ignore}`;
@@ -302,8 +306,9 @@ function buildResetEmailHtml(params: {
   cta: string;
   ignore: string;
   actionLink: string;
+  footerTagline: string;
 }): string {
-  const { title, body, cta, ignore, actionLink } = params;
+  const { title, body, cta, ignore, actionLink, footerTagline } = params;
 
   return `<!DOCTYPE html>
 <html lang="cs">
@@ -382,7 +387,7 @@ function buildResetEmailHtml(params: {
           <tr>
             <td align="center" style="padding-top:24px;">
               <p style="font-size:12px;color:rgba(255,255,255,0.25);margin:0;">
-                Postio &ndash; your smart AI social media planner.
+                ${footerTagline}
               </p>
             </td>
           </tr>

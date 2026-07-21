@@ -1136,6 +1136,7 @@
   "email": {
     "fromName": "Postio",
     "fromAddress": "info@postio-app.cz",
+    "footerTagline": "Postio – ваш розумний AI-планувальник соцмереж.",
     "welcome": {
       "subject": "Ласкаво просимо до Postio – почніть планувати публікації",
       "title": "Ласкаво просимо до Postio!",

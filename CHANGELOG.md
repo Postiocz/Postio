@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 📧 Prompt 036-B: Lokalizace reset e-mailu dle jazyka uživatele + oprava override ✅
+
+- **Kontext**: Reset e-mail chodil vždy v češtině, i když byl uživatel na `/en/login`. Příčina: DB lookup na `public.users.language` (KROK 3B) přepsal `locale="en"` z formuláře hodnotou `"cs"` z DB.
+- **Změna**: `auth.ts` – odstraněn DB lookup `language` z `resetPasswordAction`. Používá se přímo `locale` z formuláře (odvozený z URL v `email-signin.tsx`), což je jazyk, který uživatel právě používá. `footerTagline` přidán do `cs.json`, `en.json`, `uk.json` pod `email.footerTagline`. `buildResetEmailHtml()` nyní přijímá `footerTagline` jako parametr místo hardcoded anglické patičky.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (cs/en/uk dle UI přepínače).
+- **Upravené soubory**: auth.ts, cs.json, en.json, uk.json, ukol.md, CHANGELOG.md.
+
 ### 📧 Prompt 036 – KROK 3B: Vlastní e-mail pro reset hesla přes Resend ✅
 
 - **Kontext**: `resetPasswordAction` používala `supabase.auth.resetPasswordForEmail()` a spoléhala na Supabase vlastní email. Cíl: odesílat reset emaily vlastním Resendem z `noreply@postio-app.cz` s plnou kontrolou nad obsahem.
@@ -82,13 +89,6 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální kontrola: `new URL("/auth/callback", "https://postio-app.cz/")` → `https://postio-app.cz/auth/callback` (jedno lomítko).
 - **Upravené soubory**: auth.ts, email.ts, google-signin-button.tsx, CHANGELOG.md.
 
-### 🚀 Feat - Sitemap + Robots (Prompt 032 KROK 5) ✅ – celý Prompt 032 hotový
-
-- **Kontext**: Poslední krok přestěhování na postio-app.cz – umožnit Google indexaci (FÁZE 1 plánu).
-- **Změny**: `src/app/sitemap.ts` (NOVÁ) - dynamická MetadataRoute.Sitemap, 15 URL (3 locale cs/en/uk × 5 cest: Landing + privacy-policy/terms-of-service/dpa/ai-transparency-notice), changeFrequency + priority (Landing 1.0, právní 0.6), lastModified. `src/app/robots.ts` (NOVÁ) - `allow: "/"` pro `*`, odkaz na `/sitemap.xml` + host postio-app.cz. Auth/dashboard routy záměrně vynechány.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test ✅ (kód v pořádku).
-- **Poznámka**: Tímto uzavřen celý Prompt 032 (Krok 1–5). Sekce úkolu smazána z ukol.md (Pravidlo 7).
-- **Upravené soubory**: sitemap.ts (nová), robots.ts (nová), ukol.md, CHANGELOG.md.
 
 
 

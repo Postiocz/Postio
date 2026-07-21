@@ -1135,6 +1135,7 @@
   "email": {
     "fromName": "Postio",
     "fromAddress": "info@postio-app.cz",
+    "footerTagline": "Postio – váš chytrý AI plánovač sociálních sítí.",
     "welcome": {
       "subject": "Vítejte v Postio – začněte plánovat své příspěvky",
       "title": "Vítejte v Postio!",

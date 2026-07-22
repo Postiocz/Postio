@@ -42,3 +42,21 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
+### Prompt 037 – Inicializace Admin Core (Pojízdná kancelář)
+
+Cíl: Vytvořit izolovaný, znovupoužitelný framework pro administraci (Admin Dashboard), technicky oddělený od hlavní aplikace Postio, ale sdílející databázi a autentizaci.
+
+#### Architektoní rozhodnutí
+- Admin Core bude **balíčkem ve `packages/admin-core`** (npm workspace / lokální import). Obsahuje: typy, konfigurační soubor (`admin-config.ts`), middleware/guard, a případně sdílené komponenty.
+- Frontend admina běží jako součást Next.js app routeru v `src/app/[locale]/(admin)/` — oddělená route skupina od `(dashboard)`.
+- Autentizace: využívá stávající Supabase session (`createClient` / `createAdminClient`). Role se určuje z DB sloupce `users.role`.
+- DB: přidává se sloupec `role` do `public.users` a nová tabulka `audit_logs` pro admin-only viditelnost.
+
+#### Plán kroků
+
+- ✅ **KROK 1: Příprava prostředí.** Vytvořena složka `packages/admin-core` s typy (`types.ts`), konfigurací (`admin-config.ts`) a hlavním exportem (`index.ts`). Přidán path alias `admin-core` do `tsconfig.json`.
+- ✅ **KROK 2: Admin Role v DB.** Vytvořena migrace `041_add_admin_role_and_audit_logs.sql` (sloupec `role`, tabulka `audit_logs`, RLS politiky). Aktualizovány TypeScript typy v `types.ts`.
+- ✅ **KROK 3: Admin Guard (Zabezpečení).** Implementován `checkAdminAccess()` helper v `packages/admin-core/src/guard.ts`. Vytvořen layout `src/app/[locale]/(admin)/layout.tsx` s guardem a vstupní stránka `admin/page.tsx`. Build projde.
+- [ ] **KROK 4: Admin Shell (UI).** Vytvořit základní layout adminu: Sidebar, Header s vyhledáváním uživatelů a Metric karty pro rychlý přehled (celkem uživatelů, dnešní tržby). Použij design manuály (Pure Black pozadí, 20px radius, glassmorphism).
+- [ ] **KROK 5: Modul Správa uživatelů.** První reálná tabulka se seznamem uživatelů Postia, jejich tarify a datem registrace.
+

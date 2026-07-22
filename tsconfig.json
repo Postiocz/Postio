@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "admin-core": ["./packages/admin-core/src/index.ts"]
     }
   },
   "include": [

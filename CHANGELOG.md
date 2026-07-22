@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 037 – KROK 1–3: Inicializace Admin Core (balíček, DB role, guard) ✅
+
+- **Kontext**: Potřebujeme izolovaný, znovupoužitelný framework pro administraci, oddělený od hlavní aplikace, ale sdílející DB a auth.
+- **Změny**:
+  - **packages/admin-core**: Nový balíček s typy (`types.ts` – `UserRole`, `AdminConfig`, `AdminGuardResult`), konfigurací (`admin-config.ts` – `postioAdminConfig`), guard helper (`guard.ts` – `checkAdminAccess()`), a hlavním exportem (`index.ts`). Přidán path alias `admin-core` do `tsconfig.json`.
+  - **DB migrace** (`041_add_admin_role_and_audit_logs.sql`): Přidán sloupec `role` (TEXT, default 'user', CHECK 'user'/'admin') do `public.users`. Vytvořena tabulka `audit_logs` s `user_id`, `action`, `target_table`, `target_id`, `metadata` (JSONB), `created_at`. Nastaven RLS – pouze admin může číst/vkládat/mažat audit logy.
+  - **TypeScript typy** (`types.ts`): Přidán `role` do `users.Row/Insert/Update`. Přidána tabulka `audit_logs` s kompletními typy.
+  - **Admin route** (`src/app/[locale]/(admin)/`): Layout s `checkAdminAccess()` guardem, který přesměrovává ne-adminy na `/login`. Vstupní stránka `admin/page.tsx` ukazuje počet uživatelů.
+- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (admin route `/[locale]/admin` zahrnut).
+- **Upravené soubory**: `041_add_admin_role_and_audit_logs.sql` (nová), `types.ts`, `tsconfig.json`, `packages/admin-core/src/types.ts` (nová), `packages/admin-core/src/admin-config.ts` (nová), `packages/admin-core/src/guard.ts` (nová), `packages/admin-core/src/index.ts` (nová), `packages/admin-core/package.json` (nová), `(admin)/layout.tsx` (nová), `(admin)/admin/page.tsx` (nová), `ukol.md`, `CHANGELOG.md`.
+
 ### 📬 Prompt 034 – Revize: Branded e-maily + Onboarding Checklist ✅
 
 - **Kontext**: Potvrzovací e-mail po registraci chodil v angličtině (Supabase built-in template přes Custom SMTP). Welcome e-mail nedorazil. Dashboard chyběl průvodce pro nové uživatele.

@@ -32,6 +32,7 @@ export interface Database {
           stripe_subscription_id: string | null
           subscription_status: string | null
           trial_ends_at: string | null
+          role: 'user' | 'admin'
           created_at: string
         }
         Insert: {
@@ -51,6 +52,7 @@ export interface Database {
           stripe_subscription_id?: string | null
           subscription_status?: string | null
           trial_ends_at?: string | null
+          role?: 'user' | 'admin'
           created_at?: string
         }
         Update: {
@@ -70,6 +72,36 @@ export interface Database {
           stripe_subscription_id?: string | null
           subscription_status?: string | null
           trial_ends_at?: string | null
+          role?: 'user' | 'admin'
+          created_at?: string
+        }
+      }
+      audit_logs: {
+        Row: {
+          id: string
+          user_id: string | null
+          action: string
+          target_table: string | null
+          target_id: string | null
+          metadata: Record<string, unknown>
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          action: string
+          target_table?: string | null
+          target_id?: string | null
+          metadata?: Record<string, unknown>
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          action?: string
+          target_table?: string | null
+          target_id?: string | null
+          metadata?: Record<string, unknown>
           created_at?: string
         }
       }

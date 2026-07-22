@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
+import { sendWelcomeEmail } from "@/lib/email";
 import { getAccountLimitInfo, accountLimitErrorMessage } from "@/lib/account-limit";
 
 type FacebookPagesResponse = {
@@ -398,7 +399,7 @@ export async function GET(request: NextRequest) {
   }
 
   const code = requestUrl.searchParams.get("code");
-  const nextParam = requestUrl.searchParams.get("next") || "/accounts";
+  const nextParam = requestUrl.searchParams.get("next") || "/dashboard";
 
   // Extract platform hint. The Instagram connect flow puts `platform=instagram`
   // as a TOP-LEVEL query param on the redirect URL (see accounts/page.tsx:
@@ -495,21 +496,32 @@ export async function GET(request: NextRequest) {
   const existingSession = existingSessionData.session;
   const hadExistingSession = Boolean(existingSession?.user?.id);
 
+  // ── Exchange the auth code for a session ──────────────────────────
   const { data: authData, error: authError } =
     await supabase.auth.exchangeCodeForSession(code);
 
   if (authError) {
-    const errorRedirectUrl = existingUser
-      ? new URL(`${next}${next.includes("?") ? "&" : "?"}error=${encodeURIComponent(authError.message)}`, request.url)
-      : new URL(`/${locale}/login?error=${encodeURIComponent(authError.message)}`, request.url);
-    const errorResponse = NextResponse.redirect(errorRedirectUrl);
-    response.cookies.getAll().forEach((cookie) => {
-      errorResponse.cookies.set(cookie);
-    });
-    return errorResponse;
+    // exchangeCodeForSession selhalo (typicky PKCE verifier missing).
+    // Fallback: Supabase sometimes sets the auth cookie directly in the
+    // redirect response before our callback runs.
+    const { data: fallbackSession } = await supabase.auth.getSession();
+
+    if (fallbackSession?.session?.user) {
+      // Fallback uspěl – session je v cookies, pokračujeme s ní.
+      (authData as any) = { session: fallbackSession.session };
+    } else {
+      const errorRedirectUrl = existingUser
+        ? new URL(`${next}${next.includes("?") ? "&" : "?"}error=${encodeURIComponent(authError.message)}`, request.url)
+        : new URL(`/${locale}/login?error=${encodeURIComponent(authError.message)}`, request.url);
+      const errorResponse = NextResponse.redirect(errorRedirectUrl);
+      response.cookies.getAll().forEach((cookie) => {
+        errorResponse.cookies.set(cookie);
+      });
+      return errorResponse;
+    }
   }
 
-  const oauthSession = authData?.session;
+  const oauthSession = (authData as any)?.session;
   const oauthUser = oauthSession?.user;
   const targetUserId =
     existingSession?.user?.id ?? existingUser?.id ?? oauthUser?.id ?? null;
@@ -524,12 +536,36 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Welcome e-mail for first-time OAuth signups (Google, Facebook, etc.).
+  // Detected by `!hadExistingSession` (no prior session before callback)
+  // AND user created within the last hour (brand-new account).
+  if (!hadExistingSession && oauthUser?.email && oauthUser?.created_at) {
+    const createdMs = new Date(oauthUser.created_at).getTime();
+    const isNewUser = Date.now() - createdMs < 60 * 60 * 1000;
+    if (isNewUser) {
+      try {
+        await sendWelcomeEmail(oauthUser.email, locale);
+      } catch {
+        // Ignore – must never break the callback flow.
+      }
+    }
+  }
+
   // Set when the Facebook OAuth upsert had to drop new active accounts that
   // would exceed the user's plan limit. Surfaced to the /accounts page via a
   // `?error=` query param after the redirect.
   let facebookLimitWarning: string | null = null;
 
-  if (oauthSession?.provider_token && targetUserId) {
+  // Only run Facebook/Instagram account harvesting when the user actually has
+  // a Meta identity (Facebook/Instagram OAuth). For email-only signups or
+  // Google OAuth, `provider_token` may contain a non-Meta token or be stale,
+  // so we guard on the identity list to avoid spurious Graph API errors.
+  const hasMetaIdentity = oauthUser?.identities?.some(
+    (i: { provider?: string }) =>
+      i.provider === "facebook" || i.provider === "instagram",
+  );
+
+  if (hasMetaIdentity && oauthSession?.provider_token && targetUserId) {
     const facebookUserToken = oauthSession.provider_token;
 
     let rowsToUpsert: Array<{
@@ -884,17 +920,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // After a Facebook Pages OAuth flow, signal the /accounts page with
-  // `?fb=connected` so it auto-opens the new "pick which Pages to enable"
-  // dialog. For the Instagram flow we signal `?ig=connected` so the dedicated
-  // Instagram selector dialog opens instead. This keeps the Meta family
-  // consistent: each platform gets its own opt-in selection dialog.
-  if (requestedPlatform === "instagram") {
-    const separator = finalNext.includes("?") ? "&" : "?";
-    finalNext = `${finalNext}${separator}ig=connected`;
-  } else {
-    const separator = finalNext.includes("?") ? "&" : "?";
-    finalNext = `${finalNext}${separator}fb=connected`;
+  // After a Facebook/Instagram OAuth flow, signal the /accounts page with
+  // `?fb=connected` or `?ig=connected` so it auto-opens the corresponding
+  // "pick which Pages/accounts to enable" dialog.
+  if (hasMetaIdentity) {
+    if (requestedPlatform === "instagram") {
+      const separator = finalNext.includes("?") ? "&" : "?";
+      finalNext = `${finalNext}${separator}ig=connected`;
+    } else {
+      const separator = finalNext.includes("?") ? "&" : "?";
+      finalNext = `${finalNext}${separator}fb=connected`;
+    }
   }
 
   // Surface the plan account-limit warning (if any accounts were dropped

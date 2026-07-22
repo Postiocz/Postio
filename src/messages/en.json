@@ -301,6 +301,14 @@
     "emptyStateDescription": "Start publishing to social networks. Connect your first account or create your first post.",
     "createFirstPost": "Create first post",
     "connectAccount": "Connect account",
+
+    "onboardingTitle": "Welcome to Postio!",
+    "onboardingSubtitle": "This quick guide will help you get started.",
+    "onboardingStep1": "Account created",
+    "onboardingStep2": "Connect first network",
+    "onboardingStep2Desc": "Connect Facebook, Instagram, LinkedIn, X, TikTok or YouTube.",
+    "onboardingStep3": "Create first post",
+    "onboardingStep3Desc": "Write text, add media and publish to a network.",
     "newPost": "New Post",
     "newPostDescription": "Create and schedule content",
     "viewAnalytics": "View performance metrics",
@@ -857,6 +865,7 @@
     "totalReferrals": "Total referrals",
     "rewardsEarned": "Rewards earned",
     "rewardsSub": "Months of PRO, free",
+    "rewardActive": "Active until {date}",
     "yourLink": "Your referral link",
     "copy": "Copy",
     "copied": "Link copied",
@@ -1136,6 +1145,19 @@
     "fromName": "Postio",
     "fromAddress": "info@postio-app.cz",
     "footerTagline": "Postio – your smart AI social media planner.",
+    "emailConfirmation": {
+      "subject": "Confirm your Postio registration",
+      "title": "Welcome to Postio!",
+      "body": "Click the button below to activate your account. This link is valid for a limited time.",
+      "cta": "Confirm registration",
+      "ignore": "If you didn't sign up, you can ignore this email."
+    },
+    "referralReward": {
+      "subject": "Great news! A friend joined thanks to you 🎉",
+      "title": "New member thanks to you!",
+      "body": "Your friend just signed up through your referral link. As a thank you, you've earned 30 days of PRO plan for free. Now you can enjoy unlimited posts, advanced analytics, and all premium features.",
+      "cta": "Open Postio"
+    },
     "welcome": {
       "subject": "Welcome to Postio – start planning your posts",
       "title": "Welcome to Postio!",

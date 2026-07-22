@@ -7,6 +7,7 @@ import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
 import {
   sendTransactionalEmail,
   SENDER_NOREPLY,
+  sendWelcomeEmail,
 } from "@/lib/email";
 
 // Locale messages for e-mail content (loaded directly instead of next-intl/server
@@ -70,6 +71,9 @@ export async function emailAuthAction(
   const supabase = await createClient();
 
   if (mode === "signup") {
+    // Use `supabase.auth.signUp()` which handles PKCE correctly and stores
+    // the code verifier in cookies via @supabase/ssr. The confirmation
+    // e-mail is sent by Supabase through Custom SMTP (noreply@postio-app.cz).
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -88,7 +92,7 @@ export async function emailAuthAction(
       return { errorKey: "signUpError", errorMessage: error.message, successKey: null };
     }
 
-    // Referral attribution (best-effort: never fail sign-up because of it).
+    // ── Referral attribution (best-effort) ──────────────────────────
     const refCookie = (await cookies()).get(REFERRAL_COOKIE)?.value;
     if (refCookie && data.user) {
       try {
@@ -105,6 +109,7 @@ export async function emailAuthAction(
     return { errorKey: null, errorMessage: null, successKey: "checkEmailToVerify" };
   }
 
+  // ── Sign-in branch ───────────────────────────────────────────────
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -126,6 +131,21 @@ export async function emailAuthAction(
     return { errorKey: "emailNotVerified", errorMessage: null, successKey: null };
   }
 
+  // Welcome e-mail for first-time logins (user just confirmed their email).
+  // We detect first login by checking if the account was created within the
+  // last hour – reliable for email signups and OAuth alike.
+  try {
+    if (data?.user?.email && data.user.created_at) {
+      const createdMs = new Date(data.user.created_at).getTime();
+      const isFirstLogin = Date.now() - createdMs < 60 * 60 * 1000;
+      if (isFirstLogin) {
+        await sendWelcomeEmail(data.user.email, locale);
+      }
+    }
+  } catch {
+    // Ignore – must never block login.
+  }
+
   try {
     const { data: userData } = await supabase
       .from("users")
@@ -145,15 +165,6 @@ export async function emailAuthAction(
 // ============================================================
 // Password reset – Step 1: send the recovery e-mail via Resend
 // ============================================================
-// Triggered from the "Forgot password?" view in `email-signin.tsx`.
-// Instead of relying on Supabase's built-in email, we:
-//   1. Generate a recovery link via `supabase.auth.admin.generateLink()`
-//      (requires SUPABASE_SERVICE_ROLE_KEY env var).
-//   2. Send a branded e-mail ourselves through Resend from noreply@postio-app.cz.
-//
-// Why this approach: full control over the e-mail content, sender address,
-// and deliverability. The admin API lets us get the signed action_link
-// without Supabase sending the e-mail on our behalf.
 export async function resetPasswordAction(
   _prevState: ResetPasswordState,
   formData: FormData
@@ -165,9 +176,6 @@ export async function resetPasswordAction(
     return { errorKey: "resetError", errorMessage: null, successKey: null };
   }
 
-  // Build the absolute base URL the same way as `emailAuthAction` so the
-  // recovery link points back to this exact deployment (works on localhost
-  // and on Vercel preview/production URLs alike).
   const baseUrl = await (async () => {
     const h = await headers();
     const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -176,9 +184,6 @@ export async function resetPasswordAction(
     return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   })();
 
-  // Build the redirectTo URL that the recovery link will target.
-  // The callback route checks `?type=recovery` and forwards to the
-  // reset-password page where the user sets a new password.
   const redirectTo = new URL("/auth/callback", baseUrl);
   redirectTo.searchParams.set("type", "recovery");
   redirectTo.searchParams.set(
@@ -187,8 +192,6 @@ export async function resetPasswordAction(
   );
   const redirectToUrl = redirectTo.toString();
 
-  // Use the admin client (service_role) to generate the recovery link.
-  // This produces a signed action_link without Supabase sending any e-mail.
   const adminClient = createAdminClient();
   const { data, error } = await adminClient.auth.admin.generateLink({
     type: "recovery",
@@ -205,12 +208,6 @@ export async function resetPasswordAction(
 
   const actionLink = data.properties.action_link;
 
-  // Load locale-specific e-mail content matching the user's current UI
-  // language. The locale is passed from the form (derived from the URL path
-  // in `email-signin.tsx`) – this is the language the user is actively using
-  // and therefore the correct one for the e-mail. We intentionally do NOT
-  // look up `public.users.language` here because it stores a stored preference
-  // that may be outdated, while the form locale reflects the current session.
   const messages = loadLocaleMessages(locale);
   const emailNs = messages.email;
   const pwReset = emailNs.passwordReset;
@@ -245,11 +242,6 @@ export async function resetPasswordAction(
 // ============================================================
 // Password reset – Step 2: set the new password
 // ============================================================
-// Called from the `/login/reset-password` page. At this point Supabase has
-// already exchanged the recovery code for a session (in the callback route),
-// so the user is authenticated and `updateUser` can change their password.
-// We return a `successKey` instead of doing a server redirect so the page can
-// show the "password updated" confirmation before sending the user to login.
 export async function updatePasswordAction(
   _prevState: UpdatePasswordState,
   formData: FormData
@@ -279,7 +271,6 @@ export async function updatePasswordAction(
 // Helpers for the password-reset e-mail
 // ============================================================
 
-/** Load locale messages (cs/en/uk) for the e-mail templating. */
 type LocaleMessages = typeof csMessages;
 
 function loadLocaleMessages(locale: string): LocaleMessages {
@@ -293,13 +284,6 @@ function loadLocaleMessages(locale: string): LocaleMessages {
   }
 }
 
-/**
- * Build a branded HTML e-mail for the password-reset flow.
- *
- * Design follows the Postio design system: pure-black background,
- * glassmorphism card, indigo CTA – consistent with the app's login
- * page look so the user immediately recognises the brand.
- */
 function buildResetEmailHtml(params: {
   title: string;
   body: string;

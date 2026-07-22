@@ -298,9 +298,17 @@
     "viewAll": "Zobrazit vše",
     "quickActions": "Rychlé akce",
     "emptyStateTitle": "Vítejte v Postio! 👋",
-    "emptyStateDescription": "Začněte publikovat na sociální sítě. Připojte svůj první účet nebo vytvořte první příspěvek.",
+    "emptyStateDescription": "Začněte publikovat na sociálních sítích. Připojte svůj první účet nebo vytvořte první příspěvek.",
     "createFirstPost": "Vytvořit první příspěvek",
     "connectAccount": "Propojit účet",
+
+    "onboardingTitle": "Vítá vás Postio!",
+    "onboardingSubtitle": "Tento krátký průvodce vás provede prvními kroky.",
+    "onboardingStep1": "Účet vytvořen",
+    "onboardingStep2": "Propojit první síť",
+    "onboardingStep2Desc": "Připojte Facebook, Instagram, LinkedIn, X, TikTok nebo YouTube.",
+    "onboardingStep3": "Vytvořit první příspěvek",
+    "onboardingStep3Desc": "Napište text, přidejte médiální soubor a zveřejněte na síť.",
     "newPost": "Nový příspěvek",
     "newPostDescription": "Vytvořit a naplánovat obsah",
     "viewAnalytics": "Sledovat výkon a metriky",
@@ -857,6 +865,7 @@
     "totalReferrals": "Celkem doporučení",
     "rewardsEarned": "Získané odměny",
     "rewardsSub": "Měsíce PRO tarifu zdarma",
+    "rewardActive": "Aktivní do {date}",
     "yourLink": "Váš doporučovací odkaz",
     "copy": "Kopírovat",
     "copied": "Odkaz zkopírován",
@@ -1136,6 +1145,19 @@
     "fromName": "Postio",
     "fromAddress": "info@postio-app.cz",
     "footerTagline": "Postio – váš chytrý AI plánovač sociálních sítí.",
+    "emailConfirmation": {
+      "subject": "Potvrďte registraci v Postio",
+      "title": "Vítejte v Postio!",
+      "body": "Pro aktivaci účtu klikněte na tlačítko níže. Tento odkaz je platný omezenou dobu.",
+      "cta": "Potvrdit registraci",
+      "ignore": "Pokud jste se neregistrovali, tento e-mail ignorujte."
+    },
+    "referralReward": {
+      "subject": "Skvělá zpráva! Kamarád se přidal díky tobě 🎉",
+      "title": "Nový člen díky tobě!",
+      "body": "Tvůj kamarád se právě zaregistroval přes tvůj doporučovací odkaz. Jako poděkování získáváš 30 dní PRO tarifu zdarma. Teď můžeš využívat neomezené příspěvky, pokročilou analytiku a všechny prémiové funkce.",
+      "cta": "Otevřít Postio"
+    },
     "welcome": {
       "subject": "Vítejte v Postio – začněte plánovat své příspěvky",
       "title": "Vítejte v Postio!",

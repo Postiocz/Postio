@@ -17,15 +17,19 @@ export default async function ReferralsPage({
 
   let referralCode: string | null = null;
   let totalReferrals = 0;
+  let plan: string | null = null;
+  let planExpiresAt: string | null = null;
 
   if (user) {
     const { data: userData } = await supabase
       .from("users")
-      .select("referral_code")
+      .select("referral_code, plan, plan_expires_at")
       .eq("id", user.id)
       .single();
 
     referralCode = userData?.referral_code ?? null;
+    plan = userData?.plan ?? null;
+    planExpiresAt = userData?.plan_expires_at ?? null;
 
     const { count } = await supabase
       .from("users")
@@ -47,6 +51,8 @@ export default async function ReferralsPage({
       <ReferralStats
         referralCode={referralCode}
         totalReferrals={totalReferrals}
+        plan={plan}
+        planExpiresAt={planExpiresAt}
         locale={locale}
       />
     </div>

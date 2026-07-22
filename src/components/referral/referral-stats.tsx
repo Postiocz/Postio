@@ -9,6 +9,8 @@ import { useTranslations } from "next-intl";
 interface ReferralStatsProps {
   referralCode: string | null;
   totalReferrals: number;
+  plan: string | null;
+  planExpiresAt: string | null;
   locale: string;
 }
 
@@ -47,12 +49,32 @@ const STEPS = [
 export default function ReferralStats({
   referralCode,
   totalReferrals,
+  plan,
+  planExpiresAt,
   locale,
 }: ReferralStatsProps) {
   const t = useTranslations("referrals");
   const reduce = useReducedMotion();
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Determine whether the user has an active paid plan from referral rewards.
+  const hasActiveReward =
+    (plan === "pro" || plan === "creator") &&
+    planExpiresAt &&
+    new Date(planExpiresAt) > new Date();
+
+  const rewardSubText = hasActiveReward
+    ? t("rewardActive", {
+        date: new Intl.DateTimeFormat(locale, {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }).format(new Date(planExpiresAt!)),
+      })
+    : totalReferrals > 0
+      ? t("rewardsSub")
+      : t("rewardsSub");
 
   const referralLink = referralCode
     ? `https://postio-app.cz/${locale}/login?ref=${referralCode}`
@@ -110,7 +132,9 @@ export default function ReferralStats({
           <p className="mt-2 text-4xl font-bold tracking-tight text-foreground">
             {totalReferrals}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("rewardsSub")}</p>
+          <p className={`mt-1 text-xs ${hasActiveReward ? "text-emerald-400 font-medium" : "text-muted-foreground"}`}>
+            {rewardSubText}
+          </p>
         </div>
       </motion.div>
 

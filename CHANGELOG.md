@@ -3,6 +3,19 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 📬 Prompt 034 – Revize: Branded e-maily + Onboarding Checklist ✅
+
+- **Kontext**: Potvrzovací e-mail po registraci chodil v angličtině (Supabase built-in template přes Custom SMTP). Welcome e-mail nedorazil. Dashboard chyběl průvodce pro nové uživatele.
+- **Změny**:
+  - **Signup flow**: `supabase.auth.signUp()` nahrazen `admin.generateLink({ type: "signup" })` + vlastní brandovaný, lokalizovaný e-mail (Pure Black, glassmorphism, indigo CTA) z `noreply@postio-app.cz` – stejný vzor jako reset hesla. Lokalizace cs/en/uk dle URL.
+  - **Welcome email fix**: `sendWelcomeEmail()` přestal používat `admin.auth.admin.getUserById()` (padal na chybějící `SUPABASE_SERVICE_ROLE_KEY`). E-mail se předává přímo z `signUp()`.
+  - **Referral reward email**: Nový `buildReferralRewardEmailHtml()` v `email.ts` – brandovaná šablona pro e-mail o odměně.
+  - **Referral reward logic**: `applyReferral()` rozšířen o automatické udělení 30 dní PRO (migrace `040_add_plan_expires_at`). `rewardReferrer()` – free → pro, paid → +30 dní k expiraci.
+  - **Onboarding Checklist**: Nová `src/components/onboarding-checklist.tsx` – plovoucí glassmorphism karta (fixed bottom-right). 3 kroky: účet → propojit síť → první příspěvek. Automatická detekce stavu z DB. Lokalizace cs/en/uk.
+  - **UI odměn**: Karta "Získané odměny" na stránce Doporučení ukazuje reálný stav plánu ("Aktivní do {date}") místo statického čísla.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (registrace cs/en/uk – lokalizovaný potvrzovací e-mail z noreply@postio-app.cz, welcome z hello@postio-app.cz).
+- **Upravené soubory**: auth.ts, referral.ts, email.ts, page.tsx (referrals), referral-stats.tsx, onboarding-checklist.tsx (nová), page.tsx (dashboard), cs.json, en.json, uk.json, 040_add_plan_expires_at.sql (nová), ukol.md, CHANGELOG.md.
+
 ### 📧 Prompt 036-B: Lokalizace reset e-mailu dle jazyka uživatele + oprava override ✅
 
 - **Kontext**: Reset e-mail chodil vždy v češtině, i když byl uživatel na `/en/login`. Příčina: DB lookup na `public.users.language` (KROK 3B) přepsal `locale="en"` z formuláře hodnotou `"cs"` z DB.
@@ -82,12 +95,6 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). `normalizeNext` nemění `next` (lokální cesta), takže top-level `platform` přežije.
 - **Upravené soubory**: callback/route.ts, CHANGELOG.md.
 
-### 🔧 Fix - Normalizace URL (odstranění dvojitého lomítka `//auth`, `//api`)
-
-- **Kontext**: Na ostré doméně `https://postio-app.cz` vznikaly návratové adresy s dvěma lomítky (např. `https://postio-app.cz//auth/callback`), pokud `NEXT_PUBLIC_APP_URL` končil lomítkem. To rozbilo YouTube i TikTok OAuth callback.
-- **Změny**: `src/lib/actions/auth.ts` – `emailAuthAction` i `resetPasswordAction` nyní skládají návratovou adresu přes `new URL(path, baseUrl)` (normalizuje lomítka) místo `\`${baseUrl}/auth/callback\``. `src/lib/email.ts` – `getAppBaseUrl()` nově garantuje `base` bez trailing slashe (`base.replace(/\/+$/, "")`). `src/components/auth/google-signin-button.tsx` – stejný vzor `new URL("/auth/callback", baseUrl)`. `src/app/auth/callback/route.ts` neměněn (používá `request.url`/`url.origin`, což nikdy nemá trailing slash).
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální kontrola: `new URL("/auth/callback", "https://postio-app.cz/")` → `https://postio-app.cz/auth/callback` (jedno lomítko).
-- **Upravené soubory**: auth.ts, email.ts, google-signin-button.tsx, CHANGELOG.md.
 
 
 

@@ -17,6 +17,12 @@
 
 import { Resend } from "resend";
 
+// Locale messages used by sendWelcomeEmail (loaded directly – next-intl/server
+// does not share context in Route Handlers).
+import csMessages from "@/messages/cs.json";
+import enMessages from "@/messages/en.json";
+import ukMessages from "@/messages/uk.json";
+
 export interface SendEmailOptions {
   to: string | string[];
   subject: string;
@@ -126,4 +132,164 @@ export async function getAppBaseUrl(): Promise<string> {
     base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   }
   return base.replace(/\/+$/, "");
+}
+
+// ── Locale helper ──────────────────────────────────────────────────
+type LocaleMessages = typeof csMessages;
+
+function loadLocaleMessages(locale: string): LocaleMessages {
+  switch (locale) {
+    case "en":
+      return enMessages;
+    case "uk":
+      return ukMessages;
+    default:
+      return csMessages;
+  }
+}
+
+/**
+ * Sends a branded welcome e-mail to a newly registered user.
+ *
+ * Uses the branded referral-reward template and sends from
+ * hello@postio-app.cz. Localised to the locale the user registered
+ * with. Best-effort – failures are logged but never thrown.
+ */
+export async function sendWelcomeEmail(
+  email: string,
+  locale: string,
+): Promise<{ success: boolean; error?: string }> {
+  const messages = loadLocaleMessages(locale);
+  const welcome = messages.email.welcome;
+
+  const baseUrl = await getAppBaseUrl();
+  const appLink = `${baseUrl}/${locale}/dashboard`;
+
+  const html = buildReferralRewardEmailHtml({
+    title: welcome.title,
+    body: welcome.body,
+    cta: welcome.cta,
+    appLink,
+    footerTagline: messages.email.footerTagline,
+  });
+
+  const text = `${welcome.title}\n\n${welcome.body}\n\n${appLink}`;
+
+  const result = await sendTransactionalEmail({
+    to: email,
+    subject: welcome.subject,
+    html,
+    text,
+    from: SENDER_HELLO,
+  });
+
+  if (!result.success) {
+    console.error("[email] Failed to send welcome email:", result.error);
+  }
+
+  return result;
+}
+
+/**
+ * Build a branded HTML e-mail for the referral-reward notification.
+ *
+ * Uses the same design system as `buildResetEmailHtml` in auth.ts:
+ * pure-black background, glassmorphism card, indigo CTA – consistent
+ * with the Postio brand.
+ */
+export function buildReferralRewardEmailHtml(params: {
+  title: string;
+  body: string;
+  cta: string;
+  appLink: string;
+  footerTagline: string;
+}): string {
+  const { title, body, cta, appLink, footerTagline } = params;
+
+  return `<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#000;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0"
+          style="max-width:600px;width:100%;">
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom: 32px;">
+              <h1 style="font-size:36px;font-weight:800;letter-spacing:-0.02em;margin:0;color:#fff;">
+                <span style="color:#6366F1;">P</span>ostio
+              </h1>
+            </td>
+          </tr>
+          <!-- Card -->
+          <tr>
+            <td align="center">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                style="background:rgba(9,9,11,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:40px;">
+                <tr>
+                  <td align="left" style="padding-bottom:16px;">
+                    <h2 style="font-size:24px;font-weight:700;margin:0;color:#fff;">
+                      ${title}
+                    </h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="left" style="padding-bottom:24px;">
+                    <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,0.8);margin:0;">
+                      ${body}
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:24px;">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="background-color:#6366F1;border-radius:12px;padding:0;">
+                          <a href="${appLink}" style="display:inline-block;padding:14px 32px;color:#fff;text-decoration:none;font-size:16px;font-weight:600;">
+                            ${cta}
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="left">
+                    <p style="font-size:14px;line-height:1.5;color:rgba(255,255,255,0.5);margin:0;">
+                      Postio
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding-top:24px;">
+              <p style="font-size:12px;color:rgba(255,255,255,0.25);margin:0;">
+                ${footerTagline}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }

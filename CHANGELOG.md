@@ -3,6 +3,18 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 037 – KROK 4: Admin Shell (UI) ✅
+
+- **Kontext**: Potřebujeme kompletní admin rozhraní podle design manuálů (Pure Black, 20px radius, glassmorphism).
+- **Změny**:
+  - **admin-sidebar.tsx**: Navigace s ikonami (Dashboard, Uživatelé, Příspěvky, Analytika, Nastavení), glassmorphism `bg-[#09090b]/80`, `rounded-[20px]` pro položky, aktivní stav s púlnicovým svitem.
+  - **admin-header.tsx**: Search input s ikonou, LocaleSwitcher + ThemeToggle vpravo.
+  - **metric-card.tsx**: Glassmorphism karta s ikonou, hodnotou a glow efektem. `rounded-[20px]`, `bg-[#09090b]/80`.
+  - **Admin layout**: Kompletní shell – sidebar + header + main s grid patternem a purple glowem. Pure Black pozadí.
+  - **Admin page**: 4 metric karty (Celkem uživatelů, Zaplacení, Celkem příspěvků, Dnešní tržby).
+- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅.
+- **Upravené soubory**: `admin-sidebar.tsx` (nová), `metric-card.tsx` (nová), `admin-header.tsx` (nová), `(admin)/layout.tsx` (upraven), `(admin)/admin/page.tsx` (upraven), `ukol.md`, `CHANGELOG.md`.
+
 ### 🚀 Prompt 037 – KROK 1–3: Inicializace Admin Core (balíček, DB role, guard) ✅
 
 - **Kontext**: Potřebujeme izolovaný, znovupoužitelný framework pro administraci, oddělený od hlavní aplikace, ale sdílející DB a auth.

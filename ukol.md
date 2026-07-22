@@ -57,6 +57,7 @@ Cíl: Vytvořit izolovaný, znovupoužitelný framework pro administraci (Admin 
 - ✅ **KROK 1: Příprava prostředí.** Vytvořena složka `packages/admin-core` s typy (`types.ts`), konfigurací (`admin-config.ts`) a hlavním exportem (`index.ts`). Přidán path alias `admin-core` do `tsconfig.json`.
 - ✅ **KROK 2: Admin Role v DB.** Vytvořena migrace `041_add_admin_role_and_audit_logs.sql` (sloupec `role`, tabulka `audit_logs`, RLS politiky). Aktualizovány TypeScript typy v `types.ts`.
 - ✅ **KROK 3: Admin Guard (Zabezpečení).** Implementován `checkAdminAccess()` helper v `packages/admin-core/src/guard.ts`. Vytvořen layout `src/app/[locale]/(admin)/layout.tsx` s guardem a vstupní stránka `admin/page.tsx`. Build projde.
+- ✅ **KROK 4: Admin Shell (UI).** Vytvořeny komponenty: `admin-sidebar.tsx` (navigace s ikonami), `admin-header.tsx` (search + locale/theme toggle), `metric-card.tsx` (glassmorphism karty). Aktualizován admin layout s sidebar + header + grid pattern + glow efekty. Admin stránka ukazuje 4 metric karty (uživatelé, placení, příspěvky, tržby). `npx tsc --noEmit` ✅, `npx next build` ✅.
 - [ ] **KROK 4: Admin Shell (UI).** Vytvořit základní layout adminu: Sidebar, Header s vyhledáváním uživatelů a Metric karty pro rychlý přehled (celkem uživatelů, dnešní tržby). Použij design manuály (Pure Black pozadí, 20px radius, glassmorphism).
 - [ ] **KROK 5: Modul Správa uživatelů.** První reálná tabulka se seznamem uživatelů Postia, jejich tarify a datem registrace.
 

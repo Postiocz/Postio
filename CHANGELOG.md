@@ -3,6 +3,18 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
 
+### 🚀 Prompt 042 – Kompletní implementace Admin Management + Audit Log + Lokalizace ✅
+
+- **Kontext**: Stránky Admin Management a Audit Log v `/admin/settings` byly nefunkční. Potřebovaly funkční obsah, propojení a překlady.
+- **Změny**:
+  - ✅ `admin/settings/page.tsx`: Oprava odkazů na `/${locale}/admin/settings/*` (chyběl locale prefix)
+  - ✅ `admin/settings/team/page.tsx`: Kompletní redesign s vyhledáváním dle jména/emailu/ID, filtrováním podle role, správou rolí a statistikami
+  - ✅ `admin/settings/audit-log/page.tsx`: Audit log s vyhledáváním, barevně odlišenými akcemi, rozbalovacím detailem a JOINem na users pro jména
+  - ✅ `modules/admin-core/actions.ts`: Rozšířena `getAllUsers()` o parametr `{ role }`; přidán JOIN na users v `getAuditLogs()`
+  - ✅ i18n: Nové klíče pro adminTeam a adminAuditLog (cs + en) – filtry, stavy, statistiky, typy akcí
+  - ✅ Responzivní design, glassmorphism, loading/empty states
+- **Ověření**: Manuální test ✅
+
 ### 🚀 Prompt 041 – Kompletní lokalizace Admin sekce ✅
 
 - **Kontext**: Všechny admin stránky měly texty natvrdo v češtině bez i18n.

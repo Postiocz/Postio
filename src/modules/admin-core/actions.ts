@@ -12,13 +12,16 @@ type PostPlatform = Database["public"]["Tables"]["post_platforms"]["Row"];
  * Načte VŠECHNY uživatele z DB (globální pohled pro admina).
  * Používá createAdminClient (service_role) k obcházení RLS.
  */
-export async function getAllUsers(): Promise<User[]> {
+export async function getAllUsers(options?: { role?: "user" | "admin" }): Promise<User[]> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .order("created_at", { ascending: false });
+  let query = supabase.from("users").select("*");
+
+  if (options?.role) {
+    query = query.eq("role", options.role);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) {
     console.error("Failed to fetch all users:", error);
@@ -313,15 +316,18 @@ export async function getMRR() {
 }
 
 /**
- * Načte audit logy
+ * Načte audit logy s informacemi o uživateli
  */
 export async function getAuditLogs() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("audit_logs")
-    .select("*")
+    .select(`
+      *,
+      user:users ( id, full_name )
+    `)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
   if (error) {
     console.error("Failed to fetch audit logs:", error);

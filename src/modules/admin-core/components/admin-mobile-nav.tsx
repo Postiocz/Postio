@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, FileText, CreditCard, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -33,10 +33,22 @@ const adminNavItems: AdminNavItem[] = [
     labelKey: "nav.adminUsers",
   },
   {
+    id: "posts",
+    icon: FileText,
+    path: "/admin/posts",
+    labelKey: "nav.adminPosts",
+  },
+  {
     id: "billing",
     icon: CreditCard,
-    path: "/admin/settings/billing",
+    path: "/admin/billing",
     labelKey: "nav.adminBilling",
+  },
+  {
+    id: "back",
+    icon: ArrowLeft,
+    path: "/",
+    labelKey: "nav.adminBackToApp",
   },
 ];
 
@@ -66,7 +78,7 @@ export function AdminMobileNav({ locale }: AdminMobileNavProps) {
                 whileTap={{ scale: 0.9 }}
                 className={cn(
                   "flex flex-col items-center justify-center transition-all duration-300",
-                  isActive
+                  isActive && item.id !== "back"
                     ? "text-indigo-400"
                     : "text-zinc-400"
                 )}
@@ -75,6 +87,7 @@ export function AdminMobileNav({ locale }: AdminMobileNavProps) {
                   className={cn(
                     "w-5 h-5",
                     isActive &&
+                      item.id !== "back" &&
                       "drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]"
                   )}
                 />
@@ -83,7 +96,7 @@ export function AdminMobileNav({ locale }: AdminMobileNavProps) {
                 </span>
               </motion.div>
 
-              {isActive && (
+              {isActive && item.id !== "back" && (
                 <motion.div
                   layoutId="adminActiveNav"
                   className="absolute bottom-0.5 w-1 h-1 bg-indigo-500 rounded-full"

@@ -2,8 +2,11 @@
 
 import { createAdminClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+import { stripe } from "@/lib/stripe";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
+type Post = Database["public"]["Tables"]["posts"]["Row"];
+type PostPlatform = Database["public"]["Tables"]["post_platforms"]["Row"];
 
 /**
  * Načte VŠECHNY uživatele z DB (globální pohled pro admina).
@@ -155,4 +158,175 @@ export async function updateUserRole(
   });
 
   return true;
+}
+
+/**
+ * Načte VŠECHNY příspěvky z DB (globální pohled pro admina).
+ * Včetně informací o platformách a uživateli.
+ */
+export async function getAllPosts(): Promise<
+  (Post & {
+    user?: { full_name: string | null; avatar_url: string | null } | null;
+    platforms?: PostPlatform[];
+  })[]
+> {
+  const supabase = createAdminClient();
+
+  const { data: posts, error: postsError } = await supabase
+    .from("posts")
+    .select(`
+      *,
+      user:users ( full_name, avatar_url ),
+      platforms:post_platforms ( * )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (postsError) {
+    console.error("Failed to fetch all posts:", postsError);
+    return [];
+  }
+
+  return posts ?? [];
+}
+
+/**
+ * Načte všechny aktivní předplatné ze Stripe
+ */
+export async function getAllSubscriptions() {
+  try {
+    const subscriptions = await stripe.subscriptions.list({
+      limit: 100,
+      status: "all",
+      expand: ["data.customer"],
+    });
+    return subscriptions.data;
+  } catch (error) {
+    console.error("Failed to fetch Stripe subscriptions:", error);
+    return [];
+  }
+}
+
+/**
+ * Načte všechny faktury ze Stripe
+ */
+export async function getAllInvoices() {
+  try {
+    const invoices = await stripe.invoices.list({
+      limit: 100,
+      expand: ["data.customer"],
+    });
+    return invoices.data;
+  } catch (error) {
+    console.error("Failed to fetch Stripe invoices:", error);
+    return [];
+  }
+}
+
+/**
+ * Načte globální billing statistiky
+ */
+export async function getBillingStats() {
+  const supabase = createAdminClient();
+
+  // Počet uživatelů podle tarifu
+  const [freeCount, creatorCount, proCount] = await Promise.all([
+    supabase.from("users").select("*", { count: "exact", head: true }).eq("plan", "free"),
+    supabase.from("users").select("*", { count: "exact", head: true }).eq("plan", "creator"),
+    supabase.from("users").select("*", { count: "exact", head: true }).eq("plan", "pro"),
+  ]);
+
+  return {
+    totalUsers: (freeCount.count ?? 0) + (creatorCount.count ?? 0) + (proCount.count ?? 0),
+    freeUsers: freeCount.count ?? 0,
+    creatorUsers: creatorCount.count ?? 0,
+    proUsers: proCount.count ?? 0,
+    payingUsers: (creatorCount.count ?? 0) + (proCount.count ?? 0),
+  };
+}
+
+/**
+ * Získá nové uživatele za posledních 12 měsíců
+ */
+export async function getNewUsersOverTime() {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, created_at")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Failed to fetch users over time:", error);
+    return [];
+  }
+
+  // Agregace za měsíce
+  const monthlyUsers = data.reduce((acc, user) => {
+    const date = new Date(user.created_at);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return Object.entries(monthlyUsers)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-12)
+    .map(([month, count]) => ({
+      month,
+      count,
+    }));
+}
+
+/**
+ * Získá MRR (měsíční opakované tržby) ze Stripe předplatných
+ */
+export async function getMRR() {
+  try {
+    const subscriptions = await stripe.subscriptions.list({
+      status: "active",
+      limit: 100,
+    });
+
+    // Výpočet MRR (převod na měsíční sazbu)
+    let mrr = 0;
+    subscriptions.data.forEach((sub) => {
+      const item = sub.items.data[0];
+      if (!item?.price) return;
+
+      const amount = item.price.unit_amount ?? 0;
+      const interval = item.price.recurring?.interval;
+
+      if (interval === "month") {
+        mrr += amount;
+      } else if (interval === "year") {
+        mrr += Math.round(amount / 12);
+      }
+    });
+
+    return {
+      mrr,
+      currency: subscriptions.data[0]?.currency || "czk",
+    };
+  } catch (error) {
+    console.error("Failed to fetch MRR:", error);
+    return { mrr: 0, currency: "czk" };
+  }
+}
+
+/**
+ * Načte audit logy
+ */
+export async function getAuditLogs() {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error("Failed to fetch audit logs:", error);
+    return [];
+  }
+
+  return data ?? [];
 }

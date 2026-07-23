@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -9,23 +10,27 @@ import {
   FileText,
   Settings,
   BarChart3,
+  CreditCard,
+  ArrowLeft,
 } from "lucide-react";
 
 interface AdminNavItem {
   href: string;
-  label: string;
   icon: React.ElementType;
+  labelKey: string;
 }
 
 const adminNavItems: AdminNavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Uživatelé", icon: Users },
-  { href: "/admin/posts", label: "Příspěvky", icon: FileText },
-  { href: "/admin/analytics", label: "Analytika", icon: BarChart3 },
-  { href: "/admin/settings", label: "Nastavení", icon: Settings },
+  { href: "/admin", icon: LayoutDashboard, labelKey: "nav.adminDashboard" },
+  { href: "/admin/users", icon: Users, labelKey: "nav.adminUsers" },
+  { href: "/admin/posts", icon: FileText, labelKey: "nav.adminPosts" },
+  { href: "/admin/billing", icon: CreditCard, labelKey: "nav.adminBilling" },
+  { href: "/admin/analytics", icon: BarChart3, labelKey: "nav.adminAnalytics" },
+  { href: "/admin/settings", icon: Settings, labelKey: "nav.adminSettings" },
 ];
 
 export function AdminSidebar({ locale }: { locale: string }) {
+  const t = useTranslations();
   const pathname = usePathname();
 
   const isItemActive = (href: string) => {
@@ -63,7 +68,7 @@ export function AdminSidebar({ locale }: { locale: string }) {
               )}
             >
               <item.icon className={cn("h-5 w-5", active && "text-indigo-400")} />
-              {item.label}
+              {t(item.labelKey)}
               {active && (
                 <div className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
               )}
@@ -71,6 +76,17 @@ export function AdminSidebar({ locale }: { locale: string }) {
           );
         })}
       </nav>
+
+      <div className="mt-auto pt-4">
+        <div className="h-px bg-white/10 mx-4 mb-4" />
+        <Link
+          href={`/${locale}/`}
+          className="flex items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-medium transition-all duration-200 text-gray-400 hover:bg-white/5 hover:text-white"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          {t("nav.adminBackToApp")}
+        </Link>
+      </div>
     </aside>
   );
 }

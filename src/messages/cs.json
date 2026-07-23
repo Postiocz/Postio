@@ -106,7 +106,11 @@
     "adminPanel": "Admin Panel",
     "adminDashboard": "Dashboard",
     "adminUsers": "Uživatelé",
-    "adminBilling": "Fakturace"
+    "adminPosts": "Příspěvky",
+    "adminBilling": "Fakturace",
+    "adminAnalytics": "Analytika",
+    "adminSettings": "Nastavení",
+    "adminBackToApp": "Zpět do aplikace"
   },
   "calendar": {
     "title": "Kalendář",

@@ -10,18 +10,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
 
-const locales = [
+const allLocales = [
   { code: "cs", label: "Čeština" },
   { code: "en", label: "English" },
   { code: "uk", label: "Українська" },
 ];
 
-export function LocaleSwitcher({ className }: { className?: string }) {
+export function LocaleSwitcher({ className, isAdmin = false }: { className?: string; isAdmin?: boolean }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
+  const locales = isAdmin 
+    ? allLocales.filter(l => l.code !== "uk") 
+    : allLocales;
+
   const parts = pathname.split("/").filter(Boolean);
-  const currentLocale = locales.find((l) => l.code === parts[0])?.code || "cs";
+  const currentLocale = allLocales.find((l) => l.code === parts[0])?.code || "cs";
 
   const handleChange = (newLocale: string) => {
     // Hard navigation required: next-intl loads messages server-side via getMessages().
@@ -31,7 +35,7 @@ export function LocaleSwitcher({ className }: { className?: string }) {
     window.location.href = query ? `${path}?${query}` : path;
   };
 
-  const currentLabel = locales.find((l) => l.code === currentLocale)?.label || "Čeština";
+  const currentLabel = allLocales.find((l) => l.code === currentLocale)?.label || "English";
 
   return (
     <div className={className}>

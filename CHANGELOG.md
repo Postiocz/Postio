@@ -1,7 +1,82 @@
 # Changelog
 
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
-> Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
+> Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
+
+### 🚀 Prompt 040 – Kompletní implementace Admin Core ✅
+
+- **Kontext**: Oživit existující menu položky a přidat billing modul do admin sekce.
+- **Změny**:
+  - ✅ Modul Příspěvky (globální tabulka všech příspěvků)
+  - ✅ Modul Fakturace (Stripe integrace, předplatné a faktury)
+  - ✅ Modul Analytika (grafy růstu, MRR)
+  - ✅ Modul Nastavení (Správa adminů, Audit log)
+  - ✅ Přidání odkazu "Zpět do aplikace" v desktop a mobile admin navigaci
+  - ✅ Překlady pro admin sekci (cs/en, bez ukrajiny)
+  - ✅ Oprava Stripe chyb (expand limits)
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅
+- **Upravené soubory**:
+  - src/modules/admin-core/actions.ts
+  - src/modules/admin-core/components/admin-sidebar.tsx
+  - src/modules/admin-core/components/admin-mobile-nav.tsx
+  - src/modules/admin-core/index.ts
+  - src/components/locale-switcher.tsx
+  - src/app/[locale]/(admin)/admin/posts/page.tsx
+  - src/app/[locale]/(admin)/admin/billing/page.tsx
+  - src/app/[locale]/(admin)/admin/analytics/page.tsx
+  - src/app/[locale]/(admin)/admin/settings/page.tsx
+  - src/app/[locale]/(admin)/admin/settings/audit-log/page.tsx
+  - src/app/[locale]/(admin)/admin/settings/team/page.tsx
+  - messages/cs.json, messages/en.json, messages/uk.json
+  - ukol.md, CHANGELOG.md
+
+### 🚀 Prompt 040 – KROK 3: Překlad a zpět do aplikace ✅
+
+- **Kontext**: Přeložit billing do češtiny a přidat odkaz z admina zpět do aplikace.
+- **Změny**:
+  - Přidány překladové klíče pro adminAnalytics, adminSettings, adminBackToApp
+  - Admin sidebar nyní používá i18n pro všechny popisky
+  - Přidán odkaz "Zpět do aplikace" do admin sidebaru
+  - Přidána položka "Zpět do aplikace" do mobilní admin navigace
+  - Oprava cesty pro billing v mobilní navigaci na /admin/billing
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**:
+  - messages/cs.json, messages/en.json, messages/uk.json,
+  - modules/admin-core/components/admin-sidebar.tsx,
+  - modules/admin-core/components/admin-mobile-nav.tsx,
+  - ukol.md, CHANGELOG.md
+
+### 🚀 Prompt 040 – KROK 2,5 (hotfix): Oprava Stripe expand level 4 error ✅
+
+- **Kontext**: Stripe API nepovoluje expandovat více než 4 úrovně hluboko (`data.lines.data.price.product` je 5 úrovní).
+- **Změny**:
+  - **`modules/admin-core/actions.ts`**: Odebrány hluboké expandy (zbývá pouze `data.customer` pro předplatné i faktury).
+  - **`admin/billing/page.tsx`**: Aktualizace logiky pro získání jména plánu (používá `price.nickname` nebo `price.id`).
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `modules/admin-core/actions.ts`, `admin/billing/page.tsx`.
+
+### 🚀 Prompt 040 – KROK 2,5: Oprava Stripe chyb a admin překlady ✅
+
+- **Kontext**: Stripe API vracelo chybu pro neplatný expand `data.plan` u faktur, v adminu jsme chtěl odstranit ukrajinu z přepínače jazyků.
+- **Změny**:
+  - **`modules/admin-core/actions.ts`**: Oprava expand v `getAllInvoices()` na `data.lines.data.price.product`.
+  - **`components/locale-switcher.tsx`**: Přidán `isAdmin` prop, který skrývá ukrajinu v adminu.
+  - **`modules/admin-core/components/admin-header.tsx`**: Přidání `isAdmin={true}` k `LocaleSwitcher`.
+  - **`ukol.md`**: Aktualizace úkolů.
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `modules/admin-core/actions.ts`, `components/locale-switcher.tsx`, `modules/admin-core/components/admin-header.tsx`, `ukol.md`.
+
+### 🚀 Prompt 040 – KROK 1: Modul Admin Příspěvky ✅
+
+- **Kontext**: Potřebovali jsme oživit prázdnou položku "Příspěvky" v admin sidebaru a vytvořit globální přehled všech příspěvků.
+- **Změny**:
+  - **`modules/admin-core/actions.ts`**: Přidána serverová akce `getAllPosts()` načítající všechny příspěvky včetně uživatelských informací a platforem.
+  - **`admin/posts/page.tsx`** (nová): Stránka s globální tabulkou příspěvků, responzivní (desktop tabulka, mobil karty). Zobrazuje obsah, uživatele, platformy, stav, datum vytvoření a detail tlačítko.
+  - **i18n**: Přidány klíče `nav.adminPosts` do `cs.json`, `en.json`, `uk.json`.
+  - **`admin-mobile-nav.tsx`**: Přidána položka "Příspěvky" do mobilní navigace.
+  - **`modules/admin-core/index.ts`**: Exportována akce `getAllPosts`.
+- **Ověření**: `npx tsc --noEmit` ✅.
+- **Upravené soubory**: `modules/admin-core/actions.ts`, `admin/posts/page.tsx`, `messages/cs.json`, `messages/en.json`, `messages/uk.json`, `admin-mobile-nav.tsx`, `modules/admin-core/index.ts`, `ukol.md`, `CHANGELOG.md`.
 
 ### 🚀 Prompt 039 – KROK 3: Responzivita admin/users, design polish + sidebar fix ✅
 
@@ -49,64 +124,10 @@
 
 ### 🚀 Prompt 038 – KROK 1: Modularizace Admin Core ✅
 
-- **Kontext**: Admin kód byl rozprostřelen mezi `src/app/[locale]/(admin)/admin/` a `src/components/admin/`. Potřebujeme centralizovaný modul a čistý routing.
+- **Kontext**: Admin kód byl rozprostřen mezi `src/app/[locale]/(admin)/admin/` a `src/components/admin/`. Potřebujeme centralizovaný modul a čistý routing.
 - **Změny**:
   - **Přesun do `src/modules/admin-core/`**: `actions.ts` (getAllUsers, getGlobalStats), `admin-config.ts` (appName, barvy, cesty), `index.ts` (exporty), `components/` (admin-sidebar, admin-header, metric-card).
   - **Routing fix**: `/cs/admin` → dashboard, `/cs/admin/users` → tabulka. Odstraněny provizorní redirect page.tsx.
   - **Admin config**: Nový `admin-config.ts` s centralem nastavením (Pure Black #000, 20px radius, indigo #6366F1).
 - **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin`, `/[locale]/admin/users`).
 - **Upravené soubory**: `modules/admin-core/*` (nové), `app/[locale]/(admin)/admin/page.tsx` (nová), `app/[locale]/(admin)/admin/users/page.tsx` (nová), `layout.tsx` (importy upraveny), `ukol.md`, `CHANGELOG.md`.
-
-### 🚀 Prompt 037 – KROK 5: Globální správa uživateli ✅
-
-- **Kontext**: Admin musí vidět a spravovat data VŠECH uživatelů, nikoliv jen své.
-- **Změny**:
-  - **Server action** (`admin/actions.ts`): `getAllUsers()` a `getGlobalStats()` používají `createAdminClient` (service_role) pro obcházení RLS. `getGlobalStats` vrací globální COUNT uživatelů, příspěvků a placenců.
-  - **Stránka `/admin/users`**: Kompletní tabulka všech uživatelů s sloupci: jméno, ID, tarif (badge), datum registrace, streak, role (badge). Glassmorphism `bg-[#09090b]/80`, `rounded-[20px]`.
-  - **Dashboard**: Převeden na globální statistiky přes `getGlobalStats()` místo lokálního `createClient`.
-  - **Bezpečnost**: Admin layout stále používá `checkAdminAccess()` guard — pouze admini mohou vstoupit.
-- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin/dashboard`, `/[locale]/admin/users`).
-- **Upravené soubory**: `admin/actions.ts` (nová), `admin/dashboard/page.tsx` (upraven), `admin/users/page.tsx` (nová), `ukol.md`, `CHANGELOG.md`.
-
-### 🚀 Prompt 037 – KROK 4: Admin Shell (UI) ✅
-
-- **Kontext**: Potřebujeme kompletní admin rozhraní podle design manuálů (Pure Black, 20px radius, glassmorphism).
-- **Změny**:
-  - **admin-sidebar.tsx**: Navigace s ikonami (Dashboard, Uživatelé, Příspěvky, Analytika, Nastavení), glassmorphism `bg-[#09090b]/80`, `rounded-[20px]` pro položky, aktivní stav s púlnicovým svitem.
-  - **admin-header.tsx**: Search input s ikonou, LocaleSwitcher + ThemeToggle vpravo.
-  - **metric-card.tsx**: Glassmorphism karta s ikonou, hodnotou a glow efektem. `rounded-[20px]`, `bg-[#09090b]/80`.
-  - **Admin layout**: Kompletní shell – sidebar + header + main s grid patternem a purple glowem. Pure Black pozadí.
-  - **Admin page**: 4 metric karty (Celkem uživatelů, Zaplacení, Celkem příspěvků, Dnešní tržby).
-- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅.
-- **Upravené soubory**: `admin-sidebar.tsx` (nová), `metric-card.tsx` (nová), `admin-header.tsx` (nová), `(admin)/layout.tsx` (upraven), `(admin)/admin/page.tsx` (upraven), `ukol.md`, `CHANGELOG.md`.
-
-### 🚀 Prompt 037 – KROK 1–3: Inicializace Admin Core (balíček, DB role, guard) ✅
-
-- **Kontext**: Potřebujeme izolovaný, znovupoužitelný framework pro administraci, oddělený od hlavní aplikace, ale sdílející DB a auth.
-- **Změny**:
-  - **packages/admin-core**: Nový balíček s typy (`types.ts` – `UserRole`, `AdminConfig`, `AdminGuardResult`), konfigurací (`admin-config.ts` – `postioAdminConfig`), guard helper (`guard.ts` – `checkAdminAccess()`), a hlavním exportem (`index.ts`). Přidán path alias `admin-core` do `tsconfig.json`.
-  - **DB migrace** (`041_add_admin_role_and_audit_logs.sql`): Přidán sloupec `role` (TEXT, default 'user', CHECK 'user'/'admin') do `public.users`. Vytvořena tabulka `audit_logs` s `user_id`, `action`, `target_table`, `target_id`, `metadata` (JSONB), `created_at`. Nastaven RLS – pouze admin může číst/vkládat/mažat audit logy.
-  - **TypeScript typy** (`types.ts`): Přidán `role` do `users.Row/Insert/Update`. Přidána tabulka `audit_logs` s kompletními typy.
-  - **Admin route** (`src/app/[locale]/(admin)/`): Layout s `checkAdminAccess()` guardem, který přesměrovává ne-adminy na `/login`. Vstupní stránka `admin/page.tsx` ukazuje počet uživatelů.
-- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (admin route `/[locale]/admin` zahrnut).
-- **Upravené soubory**: `041_add_admin_role_and_audit_logs.sql` (nová), `types.ts`, `tsconfig.json`, `packages/admin-core/src/types.ts` (nová), `packages/admin-core/src/admin-config.ts` (nová), `packages/admin-core/src/guard.ts` (nová), `packages/admin-core/src/index.ts` (nová), `packages/admin-core/package.json` (nová), `(admin)/layout.tsx` (nová), `(admin)/admin/page.tsx` (nová), `ukol.md`, `CHANGELOG.md`.
-
-### 📬 Prompt 034 – Revize: Branded e-maily + Onboarding Checklist ✅
-
-- **Kontext**: Potvrzovací e-mail po registraci chodil v angličtině (Supabase built-in template přes Custom SMTP). Welcome e-mail nedorazil. Dashboard chyběl průvodce pro nové uživatele.
-- **Změny**:
-  - **Signup flow**: `supabase.auth.signUp()` nahrazen `admin.generateLink({ type: "signup" })` + vlastní brandovaný, lokalizovaný e-mail (Pure Black, glassmorphism, indigo CTA) z `noreply@postio-app.cz` – stejný vzor jako reset hesla. Lokalizace cs/en/uk dle URL.
-  - **Welcome email fix**: `sendWelcomeEmail()` přestal používat `admin.auth.admin.getUserById()` (padal na chybějící `SUPABASE_SERVICE_ROLE_KEY`). E-mail se předává přímo z `signUp()`.
-  - **Referral reward email**: Nový `buildReferralRewardEmailHtml()` v `email.ts` – brandovaná šablona pro e-mail o odměně.
-  - **Referral reward logic**: `applyReferral()` rozšířen o automatické udělení 30 dní PRO (migrace `040_add_plan_expires_at`). `rewardReferrer()` – free → pro, paid → +30 dní k expiraci.
-  - **Onboarding Checklist**: Nová `src/components/onboarding-checklist.tsx` – plovoucí glassmorphism karta (fixed bottom-right). 3 kroky: účet → propojit síť → první příspěvek. Automatická detekce stavu z DB. Lokalizace cs/en/uk.
-  - **UI odměn**: Karta "Získané odměny" na stránce Doporučení ukazuje reálný stav plánu ("Aktivní do {date}") místo statického čísla.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (registrace cs/en/uk – lokalizovaný potvrzovací e-mail z noreply@postio-app.cz, welcome z hello@postio-app.cz).
-- **Upravené soubory**: auth.ts, referral.ts, email.ts, page.tsx (referrals), referral-stats.tsx, onboarding-checklist.tsx (nová), page.tsx (dashboard), cs.json, en.json, uk.json, 040_add_plan_expires_at.sql (nová), ukol.md, CHANGELOG.md.
-
-### 📧 Prompt 036-B: Lokalizace reset e-mailu dle jazyka uživatele + oprava override ✅
-
-- **Kontext**: Reset e-mail chodil vždy v češtině, i když byl uživatel na `/en/login`. Příčina: DB lookup na `public.users.language` (KROK 3B) přepsal `locale="en"` z formuláře hodnotou `"cs"` z DB.
-- **Změna**: `auth.ts` – odstraněn DB lookup `language` z `resetPasswordAction`. Používá se přímo `locale` z formuláře (odvozený z URL v `email-signin.tsx`), což je jazyk, který uživatel právě používá. `footerTagline` přidán do `cs.json`, `en.json`, `uk.json` pod `email.footerTagline`. `buildResetEmailHtml()` nyní přijímá `footerTagline` jako parametr místo hardcoded anglické patičky.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (cs/en/uk dle UI přepínače).
-- **Upravené soubory**: auth.ts, cs.json, en.json, uk.json, ukol.md, CHANGELOG.md.

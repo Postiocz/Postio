@@ -106,7 +106,11 @@
     "adminPanel": "Admin Panel",
     "adminDashboard": "Dashboard",
     "adminUsers": "Users",
-    "adminBilling": "Billing"
+    "adminPosts": "Posts",
+    "adminBilling": "Billing",
+    "adminAnalytics": "Analytics",
+    "adminSettings": "Settings",
+    "adminBackToApp": "Back to App"
   },
   "calendar": {
     "title": "Calendar",

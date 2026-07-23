@@ -58,11 +58,5 @@ Cíl: Vytvořit izolovaný, znovupoužitelný framework pro administraci (Admin 
 - ✅ **KROK 2: Admin Role v DB.** Vytvořena migrace `041_add_admin_role_and_audit_logs.sql` (sloupec `role`, tabulka `audit_logs`, RLS politiky). Aktualizovány TypeScript typy v `types.ts`.
 - ✅ **KROK 3: Admin Guard (Zabezpečení).** Implementován `checkAdminAccess()` helper v `packages/admin-core/src/guard.ts`. Vytvořen layout `src/app/[locale]/(admin)/layout.tsx` s guardem a vstupní stránka `admin/page.tsx`. Build projde.
 - ✅ **KROK 4: Admin Shell (UI).** Vytvořeny komponenty: `admin-sidebar.tsx` (navigace s ikonami), `admin-header.tsx` (search + locale/theme toggle), `metric-card.tsx` (glassmorphism karty). Aktualizován admin layout s sidebar + header + grid pattern + glow efekty. Admin stránka ukazuje 4 metric karty (uživatelé, placení, příspěvky, tržby). `npx tsc --noEmit` ✅, `npx next build` ✅.
-- [ ] **KROK 4: Admin Shell (UI).** Vytvořit základní layout adminu: Sidebar, Header s vyhledáváním uživatelů a Metric karty pro rychlý přehled (celkem uživatelů, dnešní tržby). Použij design manuály (Pure Black pozadí, 20px radius, glassmorphism).
 - ✅ **KROK 5: Globální správa uživateli.** Převeden admin na globální platformový panel. Vytvořeny server action (`actions.ts`) s `getAllUsers()` a `getGlobalStats()` používající `createAdminClient` (service_role) pro obcházení RLS. Stránka `/admin/users` ukazuje VŠECHNY uživatele s tabulkou (jméno, tarif, registrace, streak, role). Dashboard metriky opraveny na globální COUNT. `npx tsc --noEmit` ✅, `npx next build` ✅.
 
-
-### Prompt 038 – Modularizace Admin Core a Fix navigace
-
-- ✅ **KROK 1: Refactoring a Izolace.** Přesunuto veškeré admin logiky do `src/modules/admin-core/` (actions, components, admin-config, index). Vytvořen `admin-config.ts` s nastavením (appName, barvy, cesty). Opraven routing: `/cs/admin` → dashboard, `/cs/admin/users` → tabulka uživatelů. Odstraněny provizorní redirecty. `npx tsc --noEmit` ✅, `npx next build` ✅.
-- ✅ **KROK 2: Stránka Detailu uživatele.** `/admin/users/[id]` s profilem uživatele (avatar, jméno, email, role, tarif), tabulkou propojených účtů a historií příspěvků. Server action `updateUserRole()` se zápisem do `audit_logs`. Tlačítko pro změnu role (User ↔ Admin). Opraven Link s locale prefixem v tabulce. `npx tsc --noEmit` ✅, `npx next build` ✅.

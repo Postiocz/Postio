@@ -47,7 +47,7 @@ const adminNavItems: AdminNavItem[] = [
   {
     id: "back",
     icon: ArrowLeft,
-    path: "/",
+    path: "/dashboard",
     labelKey: "nav.adminBackToApp",
   },
 ];

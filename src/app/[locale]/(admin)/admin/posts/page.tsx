@@ -2,8 +2,10 @@
  * Admin – Globální správa příspěvků
  * Zobrazuje VŠECHNY příspěvky z tabulky public.posts.
  * Responzivní: tabulka na desktopu, karty na mobilu.
+ * i18n: namespace adminPostsPage
  */
 
+import { getTranslations } from "next-intl/server";
 import { getAllPosts } from "@/modules/admin-core/actions";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -16,17 +18,6 @@ export const dynamic = "force-dynamic";
 type Post = Database["public"]["Tables"]["posts"]["Row"] & {
   user?: { full_name: string | null; avatar_url: string | null } | null;
   platforms?: Database["public"]["Tables"]["post_platforms"]["Row"][];
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Návrh",
-  scheduled: "Naplánováno",
-  publishing: "Zveřejňování",
-  published: "Zveřejněno",
-  failed: "Selhalo",
-  removed_externally: "Odebráno",
-  archived: "Archivováno",
-  ready: "Připraveno",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -76,21 +67,36 @@ function getAggregatedStatus(
   return "draft";
 }
 
+function getStatusLabel(status: string, t: Awaited<ReturnType<typeof getTranslations>>): string {
+  const map: Record<string, string> = {
+    draft: t("statusDraft"),
+    scheduled: t("statusScheduled"),
+    publishing: t("statusPublishing"),
+    published: t("statusPublished"),
+    failed: t("statusFailed"),
+    removed_externally: t("statusRemoved"),
+    archived: t("statusArchived"),
+    ready: t("statusReady"),
+  };
+  return map[status] ?? status;
+}
+
 export default async function AdminPostsPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "adminPostsPage" });
   const posts = await getAllPosts();
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white md:text-3xl">Příspěvky</h1>
+        <h1 className="text-2xl font-bold text-white md:text-3xl">{t("title")}</h1>
         <p className="text-sm text-gray-400">
-          {posts.length} příspěvků celkem
+          {t("totalPosts", { count: posts.length })}
         </p>
       </div>
 
@@ -100,22 +106,22 @@ export default async function AdminPostsPage({
           <thead>
             <tr className="border-b border-white/10">
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Příspěvek
+                {t("post")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Uživatel
+                {t("user")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Platformy
+                {t("platforms")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Stav
+                {t("status")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Vytvořen
+                {t("created")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Akce
+                {t("actions")}
               </th>
             </tr>
           </thead>
@@ -133,12 +139,12 @@ export default async function AdminPostsPage({
                   <td className="px-6 py-4">
                     <div className="max-w-xs">
                       <p className="text-sm font-medium text-white truncate">
-                        {post.content || "Bez obsahu"}
+                        {post.content || t("noContent")}
                       </p>
                       {post.media_urls?.length > 0 && (
                         <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
                           <ImageIcon className="h-3 w-3" />
-                          {post.media_urls.length} médií
+                          {t("mediaCount", { count: post.media_urls.length })}
                         </p>
                       )}
                     </div>
@@ -152,7 +158,7 @@ export default async function AdminPostsPage({
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white">
-                          {post.user?.full_name ?? "Neznámý"}
+                          {post.user?.full_name ?? t("unknown")}
                         </p>
                         <p className="text-xs text-gray-500">
                           {post.user_id.slice(0, 8)}...
@@ -187,7 +193,7 @@ export default async function AdminPostsPage({
                         STATUS_COLORS[aggregatedStatus] ?? STATUS_COLORS.draft
                       }
                     >
-                      {STATUS_LABELS[aggregatedStatus] ?? aggregatedStatus}
+                      {getStatusLabel(aggregatedStatus, t)}
                     </Badge>
                   </td>
 
@@ -205,7 +211,7 @@ export default async function AdminPostsPage({
                   <td className="px-6 py-4">
                     <button className="flex items-center gap-2 rounded-[12px] px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
                       <Eye className="h-4 w-4" />
-                      Detail
+                      {t("detail")}
                     </button>
                   </td>
                 </tr>
@@ -216,7 +222,7 @@ export default async function AdminPostsPage({
 
         {posts.length === 0 && (
           <div className="py-12 text-center text-gray-500">
-            Žádné příspěvky nebyly nalezeny.
+            {t("noPosts")}
           </div>
         )}
       </div>
@@ -225,7 +231,7 @@ export default async function AdminPostsPage({
       <div className="space-y-3 md:hidden">
         {posts.length === 0 ? (
           <div className="py-12 text-center text-gray-500">
-            Žádné příspěvky nebyly nalezeny.
+            {t("noPosts")}
           </div>
         ) : (
           posts.map((post: Post) => {
@@ -244,7 +250,7 @@ export default async function AdminPostsPage({
                       STATUS_COLORS[aggregatedStatus] ?? STATUS_COLORS.draft
                     }
                   >
-                    {STATUS_LABELS[aggregatedStatus] ?? aggregatedStatus}
+                    {getStatusLabel(aggregatedStatus, t)}
                   </Badge>
                   <span className="text-xs text-gray-500">
                     {format(new Date(post.created_at), "PP", { locale: cs })}
@@ -253,7 +259,7 @@ export default async function AdminPostsPage({
 
                 {/* Row 2: Content */}
                 <p className="mt-3 text-sm font-medium text-white line-clamp-2">
-                  {post.content || "Bez obsahu"}
+                  {post.content || t("noContent")}
                 </p>
 
                 {/* Row 3: User + Platforms */}
@@ -264,7 +270,7 @@ export default async function AdminPostsPage({
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-white truncate">
-                        {post.user?.full_name ?? "Neznámý"}
+                        {post.user?.full_name ?? t("unknown")}
                       </p>
                     </div>
                   </div>
@@ -284,7 +290,7 @@ export default async function AdminPostsPage({
                 <div className="mt-3 flex justify-end">
                   <button className="flex items-center gap-2 rounded-[12px] px-3 py-1.5 text-xs text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
                     <Eye className="h-3.5 w-3.5" />
-                    Detail
+                    {t("detail")}
                   </button>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { getAllUsers, updateUserRole } from "@/modules/admin-core/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ type User = {
 };
 
 export default function AdminTeamPage() {
+  const t = useTranslations("adminTeam");
   const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
@@ -35,14 +37,14 @@ export default function AdminTeamPage() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Správa adminů</h1>
+        <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
       </div>
 
       <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <Users className="h-5 w-5 text-indigo-400" />
-            Všichni uživatelé
+            {t("allUsers")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -54,7 +56,7 @@ export default function AdminTeamPage() {
               >
                 <div className="flex flex-col">
                   <span className="text-white font-medium">
-                    {user.full_name || "Neznámý uživatel"}
+                    {user.full_name || t("unknownUser")}
                   </span>
                   <span className="text-gray-500 text-sm">{user.email}</span>
                 </div>
@@ -68,7 +70,7 @@ export default function AdminTeamPage() {
                     }
                   >
                     {user.role === "admin" ? <ShieldCheck className="w-3 h-3 mr-1" /> : null}
-                    {user.role === "admin" ? "Admin" : "User"}
+                    {user.role === "admin" ? t("admin") : t("user")}
                   </Badge>
 
                   <div className="flex gap-2">
@@ -79,7 +81,7 @@ export default function AdminTeamPage() {
                         onClick={() => handleRoleChange(user.id, "admin")}
                         className="text-indigo-400 hover:text-indigo-300 hover:bg-white/5"
                       >
-                        Nastavit jako admin
+                        {t("setAsAdmin")}
                       </Button>
                     )}
                     {user.role !== "user" && (
@@ -89,7 +91,7 @@ export default function AdminTeamPage() {
                         onClick={() => handleRoleChange(user.id, "user")}
                         className="text-gray-400 hover:text-gray-300 hover:bg-white/5"
                       >
-                        Zrušit admin
+                        {t("removeAdmin")}
                       </Button>
                     )}
                   </div>

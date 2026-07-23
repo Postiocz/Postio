@@ -1,8 +1,10 @@
 /**
  * Admin Dashboard – hlavní stránka pro administrátory
  * URL: /cs/admin
+ * i18n: namespace adminDashboard
  */
 
+import { getTranslations } from "next-intl/server";
 import { getGlobalStats } from "@/modules/admin-core/actions";
 import { MetricCard } from "@/modules/admin-core/components/metric-card";
 import {
@@ -14,40 +16,44 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "adminDashboard" });
   const stats = await getGlobalStats();
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-        <p className="text-sm text-gray-400">
-          Globální přehled platformy Postio
-        </p>
+        <h1 className="text-3xl font-bold text-white">{t("title")}</h1>
+        <p className="text-sm text-gray-400">{t("subtitle")}</p>
       </div>
 
       {/* Metric cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Celkem uživatelů"
+          title={t("totalUsers")}
           value={stats.totalUsers}
           icon={Users}
         />
         <MetricCard
-          title="Zaplacení uživatelé"
+          title={t("payingUsers")}
           value={stats.payingUsers}
           icon={CreditCard}
         />
         <MetricCard
-          title="Celkem příspěvků"
+          title={t("totalPosts")}
           value={stats.totalPosts}
           icon={FileText}
         />
         <MetricCard
-          title="Dnešní tržby"
+          title={t("todayRevenue")}
           value="—"
-          change="Figma v budoucnu"
+          change={t("futureFeature")}
           icon={TrendingUp}
         />
       </div>

@@ -3,6 +3,25 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
 
+### 🚀 Prompt 041 – Kompletní lokalizace Admin sekce ✅
+
+- **Kontext**: Všechny admin stránky měly texty natvrdo v češtině bez i18n.
+- **Změny**:
+  - ✅ 9 nových i18n namespace: adminDashboard, adminAnalyticsPage, adminBillingPage, adminSettingsPage, adminTeam, adminAuditLog, adminPostsPage, adminUsersPage, adminUserDetail
+  - ✅ Všechny admin stránky přepsány na i18n (cs + en)
+    - admin/page.tsx (dashboard)
+    - admin/analytics/page.tsx
+    - admin/billing/page.tsx
+    - admin/settings/page.tsx (včetně team a audit-log)
+    - admin/posts/page.tsx
+    - admin/users/page.tsx (včetně detailu [id])
+  - ✅ Server komponenty: getTranslations({ locale, namespace })
+  - ✅ Client komponenty: useTranslations(namespace)
+  - ✅ Oprava "Zpět do aplikace" → /${locale}/dashboard
+  - ✅ Doplnění uk.json pro typovou kompatibilitu
+- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅
+- **Upravené soubory**: messages/cs.json, en.json, uk.json, 8 admin stránek, admin-sidebar.tsx, admin-mobile-nav.tsx
+
 ### 🚀 Prompt 040 – Kompletní implementace Admin Core ✅
 
 - **Kontext**: Oživit existující menu položky a přidat billing modul do admin sekce.
@@ -122,12 +141,3 @@
 - **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin/users/[id]`).
 - **Upravené soubory**: `admin/users/[id]/page.tsx` (nová), `admin/users/page.tsx` (link opraven), `modules/admin-core/actions.ts` (nové akce), `ukol.md`, `CHANGELOG.md`.
 
-### 🚀 Prompt 038 – KROK 1: Modularizace Admin Core ✅
-
-- **Kontext**: Admin kód byl rozprostřen mezi `src/app/[locale]/(admin)/admin/` a `src/components/admin/`. Potřebujeme centralizovaný modul a čistý routing.
-- **Změny**:
-  - **Přesun do `src/modules/admin-core/`**: `actions.ts` (getAllUsers, getGlobalStats), `admin-config.ts` (appName, barvy, cesty), `index.ts` (exporty), `components/` (admin-sidebar, admin-header, metric-card).
-  - **Routing fix**: `/cs/admin` → dashboard, `/cs/admin/users` → tabulka. Odstraněny provizorní redirect page.tsx.
-  - **Admin config**: Nový `admin-config.ts` s centralem nastavením (Pure Black #000, 20px radius, indigo #6366F1).
-- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin`, `/[locale]/admin/users`).
-- **Upravené soubory**: `modules/admin-core/*` (nové), `app/[locale]/(admin)/admin/page.tsx` (nová), `app/[locale]/(admin)/admin/users/page.tsx` (nová), `layout.tsx` (importy upraveny), `ukol.md`, `CHANGELOG.md`.

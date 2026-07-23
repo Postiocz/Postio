@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { getAuditLogs } from "@/modules/admin-core/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ type AuditLog = {
 };
 
 export default function AdminAuditLogPage() {
+  const t = useTranslations("adminAuditLog");
   const [logs, setLogs] = useState<AuditLog[]>([]);
 
   useEffect(() => {
@@ -30,14 +32,14 @@ export default function AdminAuditLogPage() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Audit Log</h1>
+        <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
       </div>
 
       <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <FileText className="h-5 w-5 text-indigo-400" />
-            Historie akcí
+            {t("historyTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -54,7 +56,7 @@ export default function AdminAuditLogPage() {
                     </Badge>
                     {log.target_table && (
                       <span className="text-sm text-gray-400">
-                        Tabulka: {log.target_table}
+                        {t("table")} {log.target_table}
                       </span>
                     )}
                   </div>

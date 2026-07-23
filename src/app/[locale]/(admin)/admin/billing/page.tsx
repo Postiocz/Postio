@@ -1,8 +1,10 @@
 /**
  * Admin – Globální billing přehled
  * Zobrazuje statistiky předplatných a faktury ze Stripe
+ * i18n: namespace adminBillingPage
  */
 
+import { getTranslations } from "next-intl/server";
 import { getAllSubscriptions, getAllInvoices, getBillingStats } from "@/modules/admin-core/actions";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -27,6 +29,7 @@ export default async function AdminBillingPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: localeParam } = await params;
+  const t = await getTranslations({ locale: localeParam, namespace: "adminBillingPage" });
   const stats = await getBillingStats();
   const subscriptions = await getAllSubscriptions();
   const invoices = await getAllInvoices();
@@ -35,31 +38,29 @@ export default async function AdminBillingPage({
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white md:text-3xl">Billing</h1>
-        <p className="text-sm text-gray-400">
-          Přehled předplatných a tržeb ze Stripe
-        </p>
+        <h1 className="text-2xl font-bold text-white md:text-3xl">{t("title")}</h1>
+        <p className="text-sm text-gray-400">{t("subtitle")}</p>
       </div>
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Celkem uživatelů"
+          title={t("totalUsers")}
           value={stats.totalUsers.toString()}
           icon={Users}
         />
         <MetricCard
-          title="Free"
+          title={t("free")}
           value={stats.freeUsers.toString()}
           icon={Users}
         />
         <MetricCard
-          title="Creator"
+          title={t("creator")}
           value={stats.creatorUsers.toString()}
           icon={Zap}
         />
         <MetricCard
-          title="Pro"
+          title={t("pro")}
           value={stats.proUsers.toString()}
           icon={Crown}
         />
@@ -68,14 +69,14 @@ export default async function AdminBillingPage({
       {/* Subscriptions table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Předplatná</h2>
+          <h2 className="text-lg font-semibold text-white">{t("subscriptions")}</h2>
           <Link
             href="https://dashboard.stripe.com/subscriptions"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
           >
-            Otevřít ve Stripe <ArrowUpRight className="h-4 w-4" />
+            {t("openInStripe")} <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
 
@@ -84,16 +85,16 @@ export default async function AdminBillingPage({
             <thead>
               <tr className="border-b border-white/10">
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Zákazník
+                  {t("customer")}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Tarif
+                  {t("plan")}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Stav
+                  {t("status")}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Vytvořeno
+                  {t("created")}
                 </th>
               </tr>
             </thead>
@@ -101,7 +102,7 @@ export default async function AdminBillingPage({
               {subscriptions.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                    Žádná předplatná nebyla nalezena
+                    {t("noSubscriptions")}
                   </td>
                 </tr>
               ) : (
@@ -121,8 +122,8 @@ export default async function AdminBillingPage({
                       : null;
                   const firstItem = subscription.items.data[0];
                   const planName =
-                    firstItem?.price?.nickname || 
-                    firstItem?.price?.id || 
+                    firstItem?.price?.nickname ||
+                    firstItem?.price?.id ||
                     "Creator/Pro";
 
                   return (
@@ -133,7 +134,7 @@ export default async function AdminBillingPage({
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-white">
-                            {customerName || "Neznámý"}
+                            {customerName || t("unknown")}
                           </span>
                           <span className="text-xs text-gray-500">
                             {customerEmail || "—"}
@@ -171,14 +172,14 @@ export default async function AdminBillingPage({
       {/* Invoices table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Faktury</h2>
+          <h2 className="text-lg font-semibold text-white">{t("invoices")}</h2>
           <Link
             href="https://dashboard.stripe.com/invoices"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
           >
-            Otevřít ve Stripe <ArrowUpRight className="h-4 w-4" />
+            {t("openInStripe")} <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
 
@@ -187,19 +188,19 @@ export default async function AdminBillingPage({
             <thead>
               <tr className="border-b border-white/10">
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Číslo faktury
+                  {t("invoiceNumber")}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Zákazník
+                  {t("customer")}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Částka
+                  {t("amount")}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Stav
+                  {t("status")}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Vytvořeno
+                  {t("created")}
                 </th>
               </tr>
             </thead>
@@ -207,7 +208,7 @@ export default async function AdminBillingPage({
               {invoices.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Žádné faktury nebyly nalezeny
+                    {t("noInvoices")}
                   </td>
                 </tr>
               ) : (
@@ -242,7 +243,7 @@ export default async function AdminBillingPage({
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
                             <span className="text-sm font-medium text-white">
-                              {customerName || "Neznámý"}
+                              {customerName || t("unknown")}
                             </span>
                             <span className="text-xs text-gray-500">
                               {customerEmail || "—"}

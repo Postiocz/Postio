@@ -80,7 +80,7 @@ export function AdminSidebar({ locale }: { locale: string }) {
       <div className="mt-auto pt-4">
         <div className="h-px bg-white/10 mx-4 mb-4" />
         <Link
-          href={`/${locale}/`}
+          href={`/${locale}/dashboard`}
           className="flex items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-medium transition-all duration-200 text-gray-400 hover:bg-white/5 hover:text-white"
         >
           <ArrowLeft className="h-5 w-5" />

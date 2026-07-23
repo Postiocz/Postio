@@ -1,10 +1,11 @@
 /**
  * Admin – Detail uživatele
  * URL: /admin/users/[id]
- *
  * Design: Pure Black pozadí, 20px radius, glassmorphism, fialové akcenty.
+ * i18n: namespace adminUserDetail
  */
 
+import { getTranslations } from "next-intl/server";
 import { getUserById, getUserAccounts, getUserPosts, updateUserRole } from "@/modules/admin-core/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export default async function AdminUserDetailPage({
   params: Promise<{ locale: string; id: string }>;
 }) {
   const { locale, id } = await params;
+  const t = await getTranslations({ locale, namespace: "adminUserDetail" });
 
   // Načti data uživatele
   const user = await getUserById(id);
@@ -58,7 +60,7 @@ export default async function AdminUserDetailPage({
   if (!user) {
     return (
       <div className="flex h-[calc(100vh-200px)] items-center justify-center">
-        <p className="text-gray-500">Uživatel nebyl nalezen.</p>
+        <p className="text-gray-500">{t("userNotFound")}</p>
       </div>
     );
   }
@@ -71,15 +73,15 @@ export default async function AdminUserDetailPage({
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zpět na přehled uživatelů
+        {t("backToUsers")}
       </Link>
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Detail uživatele</h1>
+          <h1 className="text-3xl font-bold text-white">{t("title")}</h1>
           <p className="text-sm text-gray-400">
-            ID: {user.id.slice(0, 8)}...
+            {t("idLabel", { id: user.id.slice(0, 8) + "..." })}
           </p>
         </div>
 
@@ -103,12 +105,12 @@ export default async function AdminUserDetailPage({
             {user.role === "admin" ? (
               <>
                 <Shield className="mr-2 h-4 w-4" />
-                Admin
+                {t("admin")}
               </>
             ) : (
               <>
                 <Shield className="mr-2 h-4 w-4" />
-                Povýšit na admina
+                {t("promoteToAdmin")}
               </>
             )}
           </Button>
@@ -127,10 +129,10 @@ export default async function AdminUserDetailPage({
           <div className="flex-1 space-y-4">
             <div>
               <h2 className="text-2xl font-bold text-white">
-                {user.full_name ?? "Neznámý uživatel"}
+                {user.full_name ?? t("unknownUser")}
               </h2>
               <p className="text-sm text-gray-400">
-                {user.email ?? "Email není dostupný"}
+                {user.email ?? t("emailNotAvailable")}
               </p>
             </div>
 
@@ -138,13 +140,13 @@ export default async function AdminUserDetailPage({
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-300">
-                  Registrován: {format(new Date(user.created_at), "PPp", { locale: cs })}
+                  {t("registered")} {format(new Date(user.created_at), "PPp", { locale: cs })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-300">
-                  Role:{" "}
+                  {t("role")}{" "}
                   <Badge
                     className={
                       user.role === "admin"
@@ -152,14 +154,14 @@ export default async function AdminUserDetailPage({
                         : "bg-gray-500/20 text-gray-400"
                     }
                   >
-                    {user.role === "admin" ? "Admin" : "Uživatel"}
+                    {user.role === "admin" ? t("admin") : t("user")}
                   </Badge>
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-300">
-                  Tarif:{" "}
+                  {t("plan")}{" "}
                   <Badge
                     className={
                       user.plan === "pro"
@@ -169,13 +171,13 @@ export default async function AdminUserDetailPage({
                         : "bg-gray-500/20 text-gray-400"
                     }
                   >
-                    {user.plan === "free" ? "Zdarma" : user.plan === "creator" ? "Creator" : "Pro"}
+                    {user.plan === "free" ? t("freePlan") : user.plan === "creator" ? "Creator" : "Pro"}
                   </Badge>
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-300">🔥 Streak: {user.streak ?? 0}</span>
+                <span className="text-sm text-gray-300">{t("streakValue", { count: user.streak ?? 0 })}</span>
               </div>
             </div>
           </div>
@@ -187,13 +189,11 @@ export default async function AdminUserDetailPage({
         {/* Social Accounts */}
         <div className="rounded-[20px] border border-white/10 bg-[#09090b]/80 p-6 backdrop-blur-xl">
           <h3 className="mb-4 text-lg font-semibold text-white">
-            Propojené účty ({accounts.length})
+            {t("connectedAccounts", { count: accounts.length })}
           </h3>
 
           {accounts.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              Žádné propojené účty.
-            </p>
+            <p className="text-sm text-gray-500">{t("noAccounts")}</p>
           ) : (
             <div className="space-y-3">
               {accounts.map((account) => (
@@ -221,7 +221,7 @@ export default async function AdminUserDetailPage({
                         : "bg-gray-500/20 text-gray-400"
                     }
                   >
-                    {account.is_active ? "Aktivní" : "Neaktivní"}
+                    {account.is_active ? t("active") : t("inactive")}
                   </Badge>
                 </div>
               ))}
@@ -232,13 +232,11 @@ export default async function AdminUserDetailPage({
         {/* Posts History */}
         <div className="rounded-[20px] border border-white/10 bg-[#09090b]/80 p-6 backdrop-blur-xl">
           <h3 className="mb-4 text-lg font-semibold text-white">
-            Historie příspěvků ({posts.length})
+            {t("postHistory", { count: posts.length })}
           </h3>
 
           {posts.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              Žádné příspěvky nebyly nalezeny.
-            </p>
+            <p className="text-sm text-gray-500">{t("noPosts")}</p>
           ) : (
             <div className="space-y-3 max-h-80 overflow-y-auto">
               {posts.map((post) => (

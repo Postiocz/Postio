@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { getNewUsersOverTime, getMRR } from "@/modules/admin-core/actions";
 import {
   LineChart,
@@ -15,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, DollarSign } from "lucide-react";
 
 export default function AdminAnalyticsPage() {
+  const t = useTranslations("adminAnalyticsPage");
   const [userGrowth, setUserGrowth] = useState<any[]>([]);
   const [mrr, setMrr] = useState<{ mrr: number; currency: string }>({
     mrr: 0,
@@ -36,14 +38,14 @@ export default function AdminAnalyticsPage() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Analytics</h1>
+        <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-400">
-              Noví uživatelé (12 měsíců)
+              {t("newUsers")}
             </CardTitle>
             <Users className="h-5 w-5 text-indigo-400" />
           </CardHeader>
@@ -57,7 +59,7 @@ export default function AdminAnalyticsPage() {
         <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-400">
-              MRR
+              {t("mrr")}
             </CardTitle>
             <DollarSign className="h-5 w-5 text-indigo-400" />
           </CardHeader>
@@ -74,7 +76,7 @@ export default function AdminAnalyticsPage() {
         <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-400">
-              Churn Rate
+              {t("churnRate")}
             </CardTitle>
             <TrendingUp className="h-5 w-5 text-indigo-400" />
           </CardHeader>
@@ -87,7 +89,7 @@ export default function AdminAnalyticsPage() {
       <div className="grid grid-cols-1 gap-6">
         <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
           <CardHeader>
-            <CardTitle className="text-white">Růst nových uživatelů</CardTitle>
+            <CardTitle className="text-white">{t("userGrowth")}</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
             <ResponsiveContainer width="100%" height={350}>

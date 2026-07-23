@@ -1,9 +1,11 @@
 /**
- * Admin – Globální správa uživateli
+ * Admin – Globální správa uživatelů
  * Zobrazuje VŠECHNY uživatele z tabulky public.users.
  * Responzivní: tabulka na desktopu, karty na mobilu.
+ * i18n: namespace adminUsersPage
  */
 
+import { getTranslations } from "next-intl/server";
 import { getAllUsers } from "@/modules/admin-core/actions";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -30,15 +32,16 @@ export default async function AdminUsersPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "adminUsersPage" });
   const users = await getAllUsers();
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white md:text-3xl">Uživatelé</h1>
+        <h1 className="text-2xl font-bold text-white md:text-3xl">{t("title")}</h1>
         <p className="text-sm text-gray-400">
-          {users.length} uživatelů celkem
+          {t("totalUsers", { count: users.length })}
         </p>
       </div>
 
@@ -48,19 +51,19 @@ export default async function AdminUsersPage({
           <thead>
             <tr className="border-b border-white/10">
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Uživatel
+                {t("user")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Tarif
+                {t("plan")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Registrován
+                {t("registered")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Streak
+                {t("streak")}
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Role
+                {t("role")}
               </th>
             </tr>
           </thead>
@@ -81,7 +84,7 @@ export default async function AdminUsersPage({
                         href={`/${locale}/admin/users/${user.id}`}
                         className="font-medium text-white hover:text-purple-400 transition-colors"
                       >
-                        {user.full_name ?? "Neznámý"}
+                        {user.full_name ?? t("unknown")}
                       </Link>
                       <p className="text-sm text-gray-500">
                         {user.id.slice(0, 8)}...
@@ -122,7 +125,7 @@ export default async function AdminUsersPage({
                         : "bg-gray-500/20 text-gray-400"
                     }
                   >
-                    {user.role === "admin" ? "Admin" : "Uživatel"}
+                    {user.role === "admin" ? t("admin") : t("userRole")}
                   </Badge>
                 </td>
               </tr>
@@ -132,7 +135,7 @@ export default async function AdminUsersPage({
 
         {users.length === 0 && (
           <div className="py-12 text-center text-gray-500">
-            Žádní uživatelé nebyli nalezeni.
+            {t("noUsers")}
           </div>
         )}
       </div>
@@ -141,7 +144,7 @@ export default async function AdminUsersPage({
       <div className="space-y-3 md:hidden">
         {users.length === 0 ? (
           <div className="py-12 text-center text-gray-500">
-            Žádní uživatelé nebyli nalezeni.
+            {t("noUsers")}
           </div>
         ) : (
           users.map((user) => (
@@ -157,7 +160,7 @@ export default async function AdminUsersPage({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-white truncate">
-                    {user.full_name ?? "Neznámý"}
+                    {user.full_name ?? t("unknown")}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
                     {user.id}
@@ -170,7 +173,7 @@ export default async function AdminUsersPage({
                       : "bg-gray-500/20 text-gray-400 shrink-0"
                   }
                 >
-                  {user.role === "admin" ? "Admin" : "Uživatel"}
+                  {user.role === "admin" ? t("admin") : t("userRole")}
                 </Badge>
               </div>
 

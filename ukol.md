@@ -61,3 +61,8 @@ Cíl: Vytvořit izolovaný, znovupoužitelný framework pro administraci (Admin 
 - [ ] **KROK 4: Admin Shell (UI).** Vytvořit základní layout adminu: Sidebar, Header s vyhledáváním uživatelů a Metric karty pro rychlý přehled (celkem uživatelů, dnešní tržby). Použij design manuály (Pure Black pozadí, 20px radius, glassmorphism).
 - ✅ **KROK 5: Globální správa uživateli.** Převeden admin na globální platformový panel. Vytvořeny server action (`actions.ts`) s `getAllUsers()` a `getGlobalStats()` používající `createAdminClient` (service_role) pro obcházení RLS. Stránka `/admin/users` ukazuje VŠECHNY uživatele s tabulkou (jméno, tarif, registrace, streak, role). Dashboard metriky opraveny na globální COUNT. `npx tsc --noEmit` ✅, `npx next build` ✅.
 
+
+### Prompt 038 – Modularizace Admin Core a Fix navigace
+
+- ✅ **KROK 1: Refactoring a Izolace.** Přesunuto veškeré admin logiky do `src/modules/admin-core/` (actions, components, admin-config, index). Vytvořen `admin-config.ts` s nastavením (appName, barvy, cesty). Opraven routing: `/cs/admin` → dashboard, `/cs/admin/users` → tabulka uživatelů. Odstraněny provizorní redirecty. `npx tsc --noEmit` ✅, `npx next build` ✅.
+- [ ] **KROK 2: Stránka Detailu uživatele.** `/admin/users/[id]` ukazuje propojené sociální účty, příspěvky a tlačítka pro správu.

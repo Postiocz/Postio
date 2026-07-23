@@ -1,11 +1,10 @@
 /**
- * Admin Dashboard – vstupní stránka pro administrátory
- * Obsahuje globální metric karty pro přehled celé platformy.
- * Používá createAdminClient (service_role) pro globální data.
+ * Admin Dashboard – hlavní stránka pro administrátory
+ * URL: /cs/admin
  */
 
-import { getGlobalStats } from "../actions";
-import { MetricCard } from "@/components/admin/metric-card";
+import { getGlobalStats } from "@/modules/admin-core/actions";
+import { MetricCard } from "@/modules/admin-core/components/metric-card";
 import {
   Users,
   FileText,
@@ -16,7 +15,6 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  // Globální statistiky (všichni uživatelé, všichni příspěvky)
   const stats = await getGlobalStats();
 
   return (

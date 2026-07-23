@@ -7,8 +7,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { checkAdminAccess } from "admin-core";
-import { AdminSidebar } from "@/components/admin/admin-sidebar";
-import { AdminHeader } from "@/components/admin/admin-header";
+import { AdminSidebar } from "@/modules/admin-core/components/admin-sidebar";
+import { AdminHeader } from "@/modules/admin-core/components/admin-header";
 
 export const dynamic = "force-dynamic";
 

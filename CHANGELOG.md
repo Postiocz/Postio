@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 038 – KROK 1: Modularizace Admin Core ✅
+
+- **Kontext**: Admin kód byl rozprostřelen mezi `src/app/[locale]/(admin)/admin/` a `src/components/admin/`. Potřebujeme centralizovaný modul a čistý routing.
+- **Změny**:
+  - **Přesun do `src/modules/admin-core/`**: `actions.ts` (getAllUsers, getGlobalStats), `admin-config.ts` (appName, barvy, cesty), `index.ts` (exporty), `components/` (admin-sidebar, admin-header, metric-card).
+  - **Routing fix**: `/cs/admin` → dashboard, `/cs/admin/users` → tabulka. Odstraněny provizorní redirect page.tsx.
+  - **Admin config**: Nový `admin-config.ts` s centralem nastavením (Pure Black #000, 20px radius, indigo #6366F1).
+- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin`, `/[locale]/admin/users`).
+- **Upravené soubory**: `modules/admin-core/*` (nové), `app/[locale]/(admin)/admin/page.tsx` (nová), `app/[locale]/(admin)/admin/users/page.tsx` (nová), `layout.tsx` (importy upraveny), `ukol.md`, `CHANGELOG.md`.
+
 ### 🚀 Prompt 037 – KROK 5: Globální správa uživateli ✅
 
 - **Kontext**: Admin musí vidět a spravovat data VŠECH uživatelů, nikoliv jen své.
@@ -86,52 +96,4 @@
 - **Ověření (API + manuál)**: `npx tsc --noEmit` ✅. Přímá Stripe simulace všech 6 kombinací (creator+pro × CZK/EUR/USD) ✅; manuální test uživatele ✅ (brána otevírá správné částky).
 - **UX doplněk**: `manage-subscription-button.tsx` – Stripe Customer Portal se nově otevírá v **nové kartě** (`window.open(url, "_blank", "noopener,noreferrer")` místo `window.location.href`).
 - **Upravené soubory**: checkout/route.ts, manage-subscription-button.tsx, ukol.md, CHANGELOG.md.
-
-### 🚀 Prompt 035 – KROK 3+4: Multi-currency Stripe Checkout přes Lookup Keys ✅
-
-- **Kontext**: Původní `/api/stripe/checkout` používal natvrdo `STRIPE_PRICE_ID_CREATOR/PRO` (jeden priceId). Cíl: volit cenu podle vybrané měny (CZK/EUR/USD) přes Lookup Keys.
-- **KROK 3 (frontend)**: `billing-card.tsx` `handleCheckout` posílá nově `currency` (z prop) spolu s `plan`+`locale` do `/api/stripe/checkout`.
-- **KROK 4 (backend)**: `route.ts` – `PLAN_PRICE_IDS` → `LOOKUP_KEYS = { creator: "postio_creator_monthly", pro: "postio_pro_monthly" }`. Nově `stripe.prices.list({ lookup_keys: [lookupKey], active: true })` a `data.find(p => p.currency === currency)` (lowercase ISO 4217 `czk/eur/usd`). `line_items` používá `targetPrice.id`. Přidána validace `currency ∈ {czk,eur,usd}` (default `eur`) a chyba při chybějící ceně. Env `STRIPE_PRICE_ID_*` se už nečte.
-- **Ověření (docs + manuál)**: `npx tsc --noEmit` ✅. Postup v souladu se Stripe docs (lookup_keys[] array, měna filtrována až z výsledku). Manuální test ✅ (CZK checkout prošel, návrat `?success=true`). Pozn.: před testem bylo třeba vymazat zastaralý `stripe_customer_id` v DB (customer neexistoval v aktuálním Stripe účtu).
-- **Upravené soubory**: billing-card.tsx, checkout/route.ts, ukol.md, CHANGELOG.md.
-
-- **Kontext**: `CurrencySwitcher` existoval, ale v `billing-client.tsx` i `pricing-client.tsx` byl default natvrdo `"eur"` → český uživatel viděl EUR místo CZK.
-- **Změna**: `src/lib/pricing.ts` – NOVÝ helper `getDefaultCurrency(locale)` (`cs`→`czk`, jinak→`eur`). Obě client komponenty volají `useState(getDefaultCurrency(locale))` místo `"eur"`.
-- **Poznámka**: Krok 2 (typografie) z většiny hotov (serif na Landing, sans v app, Pravidlo 8 splněno). Free label zůstává hardcodovaný `"Free"` → řeší Krok 5 (lokalizace).
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Manuální test ✅ (cs→CZK, en/uk→EUR, přepínání částek OK).
-- **Upravené soubory**: pricing.ts, billing-client.tsx, pricing-client.tsx, ukol.md, CHANGELOG.md.
-
-### 🔧 Fix - Instagram připojení má vlastní selektor (neotvírá FB Page modál)
-
-- **Kontext**: Klik na tlačítko Instagram otevíral stejný modál jako Facebook (výběr FB stránek) a nenacházel IG účet. Příčina: IG flow volal `signInWithOAuth(provider:"facebook")` a callback ukládal IG přes `/me/accounts` (FB stránky) jako `is_active:true` + signál `?fb=connected` → otevřel FB selektor. IG účet uživatele (propojený s FB, ale ne přes Page) se nenašel.
-- **Změna**:
-  - `callback/route.ts` – Instagram větev (`requestedPlatform==="instagram"`) nyní ukládá nalezené IG účty (z `/me`, `/me/instagram_business_account` i z FB stránek) jako **`is_active:false`** do `social_accounts` a na konec přidává signál **`?ig=connected`** (místo `?fb=connected`). Zrušena auto-aktivace IG během OAuth (žere slot Free plánu).
-  - `accounts/page.tsx` – přidán načítací efekt `fetchPendingIgAccounts` (GET `/api/accounts/instagram/select`), signál `?ig=connected` otevírá nový `InstagramAccountSelector`, sekce "Nalezené Instagram účty" s avatary. IG scopes rozšířeny o `pages_show_list,pages_read_engagement,pages_manage_posts` (aby se našly i IG přes FB stránku).
-  - NOVÁ `src/app/api/accounts/instagram/select/route.ts` – vrací neaktivní IG účty (jako `facebook/select`).
-  - NOVÁ `src/components/instagram-account-selector.tsx` – glassmorphism dialog "Zaškrtněte IG účty" (kopie FB Page selectoru, růžová varianta), tlačítko "Připojit" volá `toggleAccountActive(id,true)`.
-  - i18n: přidány klíče `pendingIgTitle/Subtitle/manageIgButton/noIgFound/igSelector*` do cs/en/uk.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0).
-- **Upravené soubory**: callback/route.ts, accounts/page.tsx, instagram/select/route.ts (nová), instagram-account-selector.tsx (nová), cs.json, en.json, uk.json, CHANGELOG.md.
-
-### 🔧 Fix - Smyčka v modálu Facebook stránek (auto-aktivace Instagramu blokovala výběr Page)
-
-- **Kontext**: Po přechodu na produkční doménu se při propojení Facebooku otevřel modál výběru stránek (Pages), ale po kliknutí na "Uložit"/aktivaci se modál znovu objevil a FB účet se nepřidal. Podezření na NULL `account_id` bylo mylné (sloupec `account_id` existuje jen v `post_platforms`, ne v `social_accounts`).
-- **Root cause**: V `src/app/auth/callback/route.ts` se při Facebook flow pro každou stránku s propojeným IG business accountem **automaticky ukládal Instagram s `is_active: true`**. Na Free plánu (limit = 1) to sežralo jediný slot ještě během OAuth, takže následná aktivace FB stránky v modálu selhala na limitu (`toggleAccountActive` → `accountLimitErrorMessage`), selector udělal optimistic revert a stránka se vrátila → vypadalo to jako smyčka. Navíc callback na začátku deaktivuje všechny FB řádky, proto "zmizely" staré účty.
-- **Změna**: `src/app/auth/callback/route.ts` (blok IG nalezeného přes FB stránku, ~ř. 728) – `is_active: true` → `is_active: false` (uložen neaktivní, stejně jako Pages). Instagram se připojuje zvlášť přes IG tlačítko (samostatný Direct Login branch, `is_active: true`). Samostatný Instagram Direct Login branch (ř. 607) a YouTube zůstávají `is_active: true`.
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). Konzistence: `facebook/select` filtruje jen `platform='facebook'`, takže neaktivní IG se neobjeví v pending seznamu (žádoucí).
-- **Upravené soubory**: callback/route.ts, CHANGELOG.md.
-
-### 🔧 Fix - Instagram se nepřipojoval samostatně (platform hint v top-level query param)
-
-- **Kontext**: Po kliku na tlačítko Instagram se otevřel Facebook OAuth, ale po odkliknutí se IG nepřidal (znovu se nabídl Facebook). Ostatní platformy (FB, YouTube, LinkedIn, X, TikTok) fungovaly.
-- **Root cause**: IG handler v `accounts/page.tsx:893` posílá `platform=instagram` jako **top-level** query param (`.../auth/callback?next=...&platform=instagram`), ale `auth/callback/route.ts` hledal `platform` **uvnitř** `next` parametru (tj. `/cs/accounts?platform=instagram`). `next` je ale pouhá lokální cesta bez query, takže `requestedPlatform` byl vždy `null` → IG Direct Login branch (route.ts ~ř. 546) se nikdy nespustil → IG se neuložil. Facebook branch ("Always fetch Facebook Pages") běží vždy bez tohoto flagu, proto fungoval.
-- **Změna**: `src/app/auth/callback/route.ts` – detekce `platform` teď čte `requestUrl.searchParams.get("platform")` z top-level URL (zpětně kompatibilní s legacy formou uvnitř `next`).
-- **Ověření**: `npx tsc --noEmit` ✅ (EXIT 0). `normalizeNext` nemění `next` (lokální cesta), takže top-level `platform` přežije.
-- **Upravené soubory**: callback/route.ts, CHANGELOG.md.
-
-
-
-
-
-
 

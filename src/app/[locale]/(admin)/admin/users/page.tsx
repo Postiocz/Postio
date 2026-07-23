@@ -1,10 +1,9 @@
 /**
  * Admin – Globální správa uživateli
  * Zobrazuje VŠECHNY uživatele z tabulky public.users.
- * Používá createAdminClient (service_role) pro obcházení RLS.
  */
 
-import { getAllUsers } from "../actions";
+import { getAllUsers } from "@/modules/admin-core/actions";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cs } from "date-fns/locale";

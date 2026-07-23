@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 037 – KROK 5: Globální správa uživateli ✅
+
+- **Kontext**: Admin musí vidět a spravovat data VŠECH uživatelů, nikoliv jen své.
+- **Změny**:
+  - **Server action** (`admin/actions.ts`): `getAllUsers()` a `getGlobalStats()` používají `createAdminClient` (service_role) pro obcházení RLS. `getGlobalStats` vrací globální COUNT uživatelů, příspěvků a placenců.
+  - **Stránka `/admin/users`**: Kompletní tabulka všech uživatelů s sloupci: jméno, ID, tarif (badge), datum registrace, streak, role (badge). Glassmorphism `bg-[#09090b]/80`, `rounded-[20px]`.
+  - **Dashboard**: Převeden na globální statistiky přes `getGlobalStats()` místo lokálního `createClient`.
+  - **Bezpečnost**: Admin layout stále používá `checkAdminAccess()` guard — pouze admini mohou vstoupit.
+- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin/dashboard`, `/[locale]/admin/users`).
+- **Upravené soubory**: `admin/actions.ts` (nová), `admin/dashboard/page.tsx` (upraven), `admin/users/page.tsx` (nová), `ukol.md`, `CHANGELOG.md`.
+
 ### 🚀 Prompt 037 – KROK 4: Admin Shell (UI) ✅
 
 - **Kontext**: Potřebujeme kompletní admin rozhraní podle design manuálů (Pure Black, 20px radius, glassmorphism).

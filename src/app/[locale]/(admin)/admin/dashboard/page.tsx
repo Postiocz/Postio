@@ -1,9 +1,10 @@
 /**
  * Admin Dashboard – vstupní stránka pro administrátory
- * Obsahuje metric karty pro rychlý přehled.
+ * Obsahuje globální metric karty pro přehled celé platformy.
+ * Používá createAdminClient (service_role) pro globální data.
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { getGlobalStats } from "../actions";
 import { MetricCard } from "@/components/admin/metric-card";
 import {
   Users,
@@ -14,22 +15,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
-  const supabase = await createClient();
-
-  // Statistiky
-  const { count: userCount } = await supabase
-    .from("users")
-    .select("*", { count: "exact", head: true });
-
-  const { count: postCount } = await supabase
-    .from("posts")
-    .select("*", { count: "exact", head: true });
-
-  const { count: payingUserCount } = await supabase
-    .from("users")
-    .select("*", { count: "exact", head: true })
-    .in("plan", ["creator", "pro"]);
+export default async function AdminDashboardPage() {
+  // Globální statistiky (všichni uživatelé, všichni příspěvky)
+  const stats = await getGlobalStats();
 
   return (
     <div className="space-y-6">
@@ -37,7 +25,7 @@ export default async function AdminPage() {
       <div>
         <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
         <p className="text-sm text-gray-400">
-          Přehled celé platformy Postio
+          Globální přehled platformy Postio
         </p>
       </div>
 
@@ -45,17 +33,17 @@ export default async function AdminPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Celkem uživatelů"
-          value={userCount ?? 0}
+          value={stats.totalUsers}
           icon={Users}
         />
         <MetricCard
           title="Zaplacení uživatelé"
-          value={payingUserCount ?? 0}
+          value={stats.payingUsers}
           icon={CreditCard}
         />
         <MetricCard
           title="Celkem příspěvků"
-          value={postCount ?? 0}
+          value={stats.totalPosts}
           icon={FileText}
         />
         <MetricCard

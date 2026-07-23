@@ -41,23 +41,3 @@
 ---
 
 ## 10. AKTUÁLNÍ ÚKOLY
-
-### 📋 Prompt 041 – Kompletní lokalizace Admin sekce do angličtiny ✅
-
-**CÍL:** Zprovoznit i18n ve všech admin stránkách. ✅
-
-**KROK 1:** Vytvoření nových překladových namespace v cs.json + en.json ✅
-**KROK 2:** Přepis admin/page.tsx ✅
-**KROK 3:** Přepis admin/analytics/page.tsx ✅
-**KROK 4:** Přepis admin/billing/page.tsx ✅
-**KROK 5:** Přepis admin/settings/page.tsx ✅
-**KROK 6:** Přepis admin/settings/team/page.tsx ✅
-**KROK 7:** Přepis admin/settings/audit-log/page.tsx ✅
-**KROK 8:** Přepis admin/posts/page.tsx ✅
-**KROK 9:** Přepis admin/users/page.tsx ✅
-**KROK 10:** Přepis admin/users/[id]/page.tsx ✅
-**KROK 11:** Test a finalizace ✅
-- Oprava "Zpět do aplikace" (sidebar + mobile nav) ✅
-- Oprava locale předávání v server komponentách ✅
-- Doplnění uk.json pro typovou kompatibilitu ✅
-

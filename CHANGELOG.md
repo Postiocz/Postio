@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 038 – KROK 2: Detail uživatele + navigace ✅
+
+- **Kontext**: Admin panel potřeboval stránku detailu uživatele a opravu navigace mezi tabulkou a detailem.
+- **Změny**:
+  - **Stránka `/admin/users/[id]`**: Profilová karta (avatar, jméno, email, role, tarif, registrace, streak), tabulka propojených sociálních účtů (platforma, jméno, stav), historie příspěvků (náhled textu, datum, status badge).
+  - **Server action**: `getUserById()` (včetně emailu z `auth.users`), `getUserAccounts()`, `getUserPosts()`, `updateUserRole()` s audit_log záznamem.
+  - **Navigace**: Opraven Link v tabulce uživatelů — přidán `locale` prefix (`/${locale}/admin/users/${id}`).
+  - **Admin UI**: Tlačítko pro změnu role (User ↔ Admin) s okamžitým přepisem do DB a audit_log.
+- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin/users/[id]`).
+- **Upravené soubory**: `admin/users/[id]/page.tsx` (nová), `admin/users/page.tsx` (link opraven), `modules/admin-core/actions.ts` (nové akce), `ukol.md`, `CHANGELOG.md`.
+
 ### 🚀 Prompt 038 – KROK 1: Modularizace Admin Core ✅
 
 - **Kontext**: Admin kód byl rozprostřelen mezi `src/app/[locale]/(admin)/admin/` a `src/components/admin/`. Potřebujeme centralizovaný modul a čistý routing.
@@ -88,12 +99,4 @@
 - **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (cs→"Zdarma", aria-label dle locale).
 - **Poznámka**: Tím uzavřen celý Prompt 035 (Krok 1–5). Sekce úkolu smazána z ukol.md (Pravidlo 7).
 - **Upravené soubory**: currency-switcher.tsx, billing-card.tsx, billing-client.tsx, page.tsx, cs.json, en.json, uk.json, ukol.md.
-
-### 🚀 Prompt 035 – KROK 3+4 dokončení: 6 kombinací měn + Stripe Portal v nové kartě ✅
-
-- **Kontext**: Po přepisu na Lookup Keys padal checkout pro EUR/USD. Příčina: ceny byly založeny jako jedna cena se `currency_options` (CZK základ), ale `session.currency` parametr s nimi nespolupracoval spolehlivě.
-- **Řešení (změna přístupu na samostatné klíče)**: Ve Stripe založeno **6 cen**, každá s vlastním lookup keyem: `postio_creator_monthly_{czk,eur,usd}` a `postio_pro_monthly_{czk,eur,usd}` (199/8/9 Kč/€/$, 499/20/22). Backend `route.ts` složí klíč `` `postio_${plan}_monthly_${currency}` `` → `stripe.prices.list({ lookup_keys: [key] })` vrátí přesně jednu cenu; `line_items` bez `currency` (cena nese měnu sama). Odebrány debug logy. Zachována obrana proti neplatnému `stripe_customer_id` (retrieve → při chybě/delete vytvoří nového).
-- **Ověření (API + manuál)**: `npx tsc --noEmit` ✅. Přímá Stripe simulace všech 6 kombinací (creator+pro × CZK/EUR/USD) ✅; manuální test uživatele ✅ (brána otevírá správné částky).
-- **UX doplněk**: `manage-subscription-button.tsx` – Stripe Customer Portal se nově otevírá v **nové kartě** (`window.open(url, "_blank", "noopener,noreferrer")` místo `window.location.href`).
-- **Upravené soubory**: checkout/route.ts, manage-subscription-button.tsx, ukol.md, CHANGELOG.md.
 

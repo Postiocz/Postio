@@ -65,4 +65,4 @@ Cíl: Vytvořit izolovaný, znovupoužitelný framework pro administraci (Admin 
 ### Prompt 038 – Modularizace Admin Core a Fix navigace
 
 - ✅ **KROK 1: Refactoring a Izolace.** Přesunuto veškeré admin logiky do `src/modules/admin-core/` (actions, components, admin-config, index). Vytvořen `admin-config.ts` s nastavením (appName, barvy, cesty). Opraven routing: `/cs/admin` → dashboard, `/cs/admin/users` → tabulka uživatelů. Odstraněny provizorní redirecty. `npx tsc --noEmit` ✅, `npx next build` ✅.
-- [ ] **KROK 2: Stránka Detailu uživatele.** `/admin/users/[id]` ukazuje propojené sociální účty, příspěvky a tlačítka pro správu.
+- ✅ **KROK 2: Stránka Detailu uživatele.** `/admin/users/[id]` s profilem uživatele (avatar, jméno, email, role, tarif), tabulkou propojených účtů a historií příspěvků. Server action `updateUserRole()` se zápisem do `audit_logs`. Tlačítko pro změnu role (User ↔ Admin). Opraven Link s locale prefixem v tabulce. `npx tsc --noEmit` ✅, `npx next build` ✅.

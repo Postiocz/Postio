@@ -7,6 +7,7 @@ import { getAllUsers } from "@/modules/admin-core/actions";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cs } from "date-fns/locale";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,12 @@ const PLAN_COLORS: Record<string, string> = {
   pro: "bg-purple-500/20 text-purple-400",
 };
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const users = await getAllUsers();
 
   return (
@@ -70,9 +76,12 @@ export default async function AdminUsersPage() {
                       {user.full_name?.charAt(0) ?? "?"}
                     </div>
                     <div>
-                      <p className="font-medium text-white">
+                      <Link
+                        href={`/${locale}/admin/users/${user.id}`}
+                        className="font-medium text-white hover:text-purple-400"
+                      >
                         {user.full_name ?? "Neznámý"}
-                      </p>
+                      </Link>
                       <p className="text-sm text-gray-500">
                         {user.id.slice(0, 8)}...
                       </p>

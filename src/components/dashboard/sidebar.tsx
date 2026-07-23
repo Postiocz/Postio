@@ -22,6 +22,7 @@ import {
   Tag,
   MessageSquare,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,8 @@ interface SidebarProps {
     name?: string;
   } | null;
   locale: string;
+  isAdmin?: boolean;
+  adminLabel?: string;
   authT: {
     logout: string;
     upgrade: string;
@@ -77,6 +80,8 @@ export function Sidebar({
   navItems,
   user,
   locale,
+  isAdmin,
+  adminLabel,
   authT,
   settingsLabels,
   className,
@@ -326,6 +331,27 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {/* Admin panel link – only for admins */}
+      {isAdmin && adminLabel && (
+        <div className="px-4 pb-2">
+          <Link
+            href={`/${locale}/admin`}
+            className={cn(
+              "flex items-center gap-3 rounded-[20px] px-3 py-2 text-sm font-medium transition-all duration-200",
+              normalizedPathname.startsWith("/admin")
+                ? "bg-indigo-50 text-indigo-700 backdrop-blur-sm border border-indigo-200 dark:bg-white/[0.05] dark:text-foreground dark:border-white/10 dark:shadow-[inset_0_0_0_1px_rgba(var(--primary),0.2)]"
+                : "text-muted-foreground hover:bg-gray-50 hover:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
+            )}
+          >
+            <ShieldCheck className={cn("h-5 w-5", normalizedPathname.startsWith("/admin") ? "text-primary" : "text-muted-foreground")} />
+            <span>{adminLabel}</span>
+            {normalizedPathname.startsWith("/admin") && (
+              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.8)]" />
+            )}
+          </Link>
+        </div>
+      )}
 
       <div className="p-4">
         <div className="rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/60 dark:bg-card/30 backdrop-blur-md p-3">

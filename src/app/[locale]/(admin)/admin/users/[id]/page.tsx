@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { cs } from "date-fns/locale";
+import Link from "next/link";
 import {
   Users,
   Mail,
@@ -19,6 +20,7 @@ import {
   Check,
   X,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 import { revalidatePath } from "next/cache";
 
@@ -63,6 +65,15 @@ export default async function AdminUserDetailPage({
 
   return (
     <div className="space-y-6">
+      {/* Back link */}
+      <Link
+        href={`/${locale}/admin/users`}
+        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Zpět na přehled uživatelů
+      </Link>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

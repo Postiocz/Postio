@@ -21,6 +21,7 @@ import {
   LogOut,
   MessageSquare,
   Crown,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -74,6 +75,8 @@ const navItems: BottomNavItem[] = [
 
 interface MobileNavProps {
   locale: string;
+  isAdmin?: boolean;
+  adminLabel?: string;
   settingsLabels: {
     templates: string;
     analytics: string;
@@ -91,7 +94,7 @@ interface MobileNavProps {
   };
 }
 
-export default function MobileNav({ locale, settingsLabels }: MobileNavProps) {
+export default function MobileNav({ locale, isAdmin, adminLabel, settingsLabels }: MobileNavProps) {
   const pathname = usePathname();
   const t = useTranslations();
   const settingsT = useTranslations("settings");
@@ -299,6 +302,21 @@ export default function MobileNav({ locale, settingsLabels }: MobileNavProps) {
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
+
+            {/* Admin panel link – only for admins */}
+            {isAdmin && adminLabel && (
+              <>
+                <DropdownMenuSeparator className="bg-black/5 dark:bg-white/10 my-2" />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+                    <Link href={`/${locale}/admin`} className="flex items-center gap-3 px-3 py-2">
+                      <ShieldCheck className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                      <span className="text-sm font-medium">{adminLabel}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            )}
 
             <DropdownMenuSeparator className="bg-black/5 dark:bg-white/10 my-2" />
 

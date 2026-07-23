@@ -5,9 +5,13 @@ import MobileNav from "./mobile-nav";
 
 export default function MobileNavWrapper({
   locale,
+  isAdmin,
+  adminLabel,
   settingsLabels,
 }: {
   locale: string;
+  isAdmin?: boolean;
+  adminLabel?: string;
   settingsLabels: {
     templates: string;
     analytics: string;
@@ -32,5 +36,5 @@ export default function MobileNavWrapper({
 
   if (!mounted) return null;
 
-  return <MobileNav locale={locale} settingsLabels={settingsLabels} />;
+  return <MobileNav locale={locale} isAdmin={isAdmin} adminLabel={adminLabel} settingsLabels={settingsLabels} />;
 }

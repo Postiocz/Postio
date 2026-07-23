@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkAdminAccess } from "admin-core";
 import { AdminSidebar } from "@/modules/admin-core/components/admin-sidebar";
 import { AdminHeader } from "@/modules/admin-core/components/admin-header";
+import { AdminMobileNav } from "@/modules/admin-core/components/admin-mobile-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ export default async function AdminLayout({
           </div>
         </main>
       </div>
+
+      {/* Mobile bottom nav – only visible on small screens */}
+      <AdminMobileNav locale={locale} />
     </div>
   );
 }

@@ -38,17 +38,19 @@ export default async function DashboardLayout({
   }
 
   let userFullName: string | null = null;
+  let userRole: string | null = null;
 
   if (session) {
     try {
       const supabase = await createClient();
       const { data: userData } = await supabase
         .from("users")
-        .select("onboarded, full_name")
+        .select("onboarded, full_name, role")
         .eq("id", session.id)
         .single();
 
       userFullName = userData?.full_name ?? null;
+      userRole = userData?.role ?? null;
 
       if (!userData?.onboarded) {
         redirect(`/${locale}/onboarding`);
@@ -80,6 +82,8 @@ export default async function DashboardLayout({
             : null
         }
         locale={locale}
+        isAdmin={userRole === "admin"}
+        adminLabel={navT("adminPanel")}
         authT={{
           logout: authT("logout"),
           upgrade: settingsT("upgrade"),
@@ -133,6 +137,8 @@ export default async function DashboardLayout({
       <SetupGuide locale={locale} />
       <MobileNavWrapper
         locale={locale}
+        isAdmin={userRole === "admin"}
+        adminLabel={navT("adminPanel")}
         settingsLabels={{
           templates: navT("templates"),
           analytics: navT("analytics"),

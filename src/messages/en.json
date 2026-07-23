@@ -102,7 +102,11 @@
     "analytics": "Analytics",
     "settings": "Settings",
     "calendar": "Calendar",
-    "inbox": "Inbox"
+    "inbox": "Inbox",
+    "adminPanel": "Admin Panel",
+    "adminDashboard": "Dashboard",
+    "adminUsers": "Users",
+    "adminBilling": "Billing"
   },
   "calendar": {
     "title": "Calendar",

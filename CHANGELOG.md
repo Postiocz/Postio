@@ -3,6 +3,39 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 039 – KROK 3: Responzivita admin/users, design polish + sidebar fix ✅
+
+- **Kontext**: Admin tabulka uživatelů nebyla na mobilu použitelná (HTML table přetékala). Desktop admin sidebar byl neviditelný (chyběla `lg:flex` třída). Detail uživatele postrádal tlačítko zpět.
+- **Změny**:
+  - **`admin/users/page.tsx`**: Responzivní layout — desktop tabulka, mobil karty (avatar, jméno, ID, badge role/plan, streak, datum). Každá karta je klikací link na detail. Glassmorphism `bg-[#09090b]/80`, `rounded-[20px]`.
+  - **`admin/users/[id]/page.tsx`**: Přidán odkaz "Zpět na přehled uživatelů" s ikonou `ArrowLeft` nad hlavičkou.
+  - **`admin-sidebar.tsx`**: Opravena třída `hidden` → `hidden lg:flex`. Přidáno logo "Admin", opravena detekce aktivní položky (funguje i pro nested routy `/users/[id]`), přidán active dot.
+  - **`admin-mobile-nav.tsx`**: Design polish — gradientní top linka `via-indigo-500/30`, jemný fialový glow `shadow-[0_-4px_20px_rgba(99,102,241,0.06)]`.
+  - **i18n**: Všechny klíče pro admin navigaci hotové.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (responzivní tabulka, sidebar viditelný, zpět na detailu).
+- **Upravené soubory**: `admin/users/page.tsx`, `admin/users/[id]/page.tsx`, `admin-sidebar.tsx`, `admin-mobile-nav.tsx`, `ukol.md`, `CHANGELOG.md`.
+
+### 🚀 Prompt 039 – KROK 2: Spodní admin navigace (Mobil) ✅
+
+- **Kontext**: Admin sekce na mobilu neměla vlastní spodní navigaci. Zobrazovala by se hlavní app navigace, která do adminu nepatří.
+- **Změny**:
+  - **i18n**: Přidány klíče `nav.adminDashboard`, `nav.adminUsers`, `nav.adminBilling` do `cs.json`, `en.json`, `uk.json`.
+  - **`admin-mobile-nav.tsx`** (nová): Fixed bottom bar pro admin sekci na mobilech se 3 položkami — Dashboard (`LayoutDashboard`), Uživatelé (`Users`), Fakturace (`CreditCard`). Glassmorphism `bg-[#09090b]/90`, indigo active glow, framer-motion animace.
+  - **Admin layout**: Přidán `<AdminMobileNav locale={locale} />` — zobrazí se pouze v admin route group, hlavní app mobile nav se v adminu neukazuje.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (mobilní admin navigace funguje, 3 položky, aktivní stav).
+- **Upravené soubory**: `admin-mobile-nav.tsx` (nová), `(admin)/layout.tsx`, `cs.json`, `en.json`, `uk.json`, `ukol.md`, `CHANGELOG.md`.
+
+### 🚀 Prompt 039 – KROK 1: Admin odkaz v Sidebaru a mobilní navigaci ✅
+
+- **Kontext**: Admin panel neměl viditelný vstup z hlavní aplikace. Oprávnění admini neměli možnost se dostat do admin sekce přes UI.
+- **Změny**:
+  - **i18n**: Přidán klíč `nav.adminPanel` do `cs.json`, `en.json`, `uk.json`.
+  - **Sidebar (`sidebar.tsx`)**: Nové props `isAdmin` a `adminLabel`. Pod hlavní navigací se adminům zobrazí odkaz "Admin Panel" s ikonou `ShieldCheck`, aktivní stav s indigo glowem.
+  - **MobileNav (`mobile-nav.tsx`)**: Nové props `isAdmin` a `adminLabel`. V settings dropdown menu přibyla položka "Admin Panel" pro administrátory.
+  - **Dashboard layout**: Fetch `role` z `public.users` (rozšířen SELECT o `role`). Předáno `isAdmin={userRole === "admin"}` do Sidebaru i MobileNavWrapperu.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (admin vidí odkaz, běžný uživatel ne).
+- **Upravené soubory**: `sidebar.tsx`, `mobile-nav.tsx`, `mobile-nav-wrapper.tsx`, `(dashboard)/layout.tsx`, `cs.json`, `en.json`, `uk.json`, `ukol.md`, `CHANGELOG.md`.
+
 ### 🚀 Prompt 038 – KROK 2: Detail uživatele + navigace ✅
 
 - **Kontext**: Admin panel potřeboval stránku detailu uživatele a opravu navigace mezi tabulkou a detailem.
@@ -77,26 +110,3 @@
 - **Změna**: `auth.ts` – odstraněn DB lookup `language` z `resetPasswordAction`. Používá se přímo `locale` z formuláře (odvozený z URL v `email-signin.tsx`), což je jazyk, který uživatel právě používá. `footerTagline` přidán do `cs.json`, `en.json`, `uk.json` pod `email.footerTagline`. `buildResetEmailHtml()` nyní přijímá `footerTagline` jako parametr místo hardcoded anglické patičky.
 - **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (cs/en/uk dle UI přepínače).
 - **Upravené soubory**: auth.ts, cs.json, en.json, uk.json, ukol.md, CHANGELOG.md.
-
-### 📧 Prompt 036 – KROK 3B: Vlastní e-mail pro reset hesla přes Resend ✅
-
-- **Kontext**: `resetPasswordAction` používala `supabase.auth.resetPasswordForEmail()` a spoléhala na Supabase vlastní email. Cíl: odesílat reset emaily vlastním Resendem z `noreply@postio-app.cz` s plnou kontrolou nad obsahem.
-- **Změna**: `auth.ts` – `resetPasswordAction` nově používá `adminClient.auth.admin.generateLink({ type: "recovery" })` k vygenerování podepsaného odkazu BEZ odeslání emailu ze Supabase. Sestaví brandovaný HTML email (Pure Black, glassmorphism, indigo CTA) i plaintext fallback. Odešle přes `sendTransactionalEmail()` s `SENDER_NOREPLY`. Přidány helpers `loadLocaleMessages()` (překlady z JSON) a `buildResetEmailHtml()`. Nové importy: `createAdminClient`, `sendTransactionalEmail`, `SENDER_NOREPLY`.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (email dorazil z noreply@postio-app.cz, branded vzhled, funkční link).
-- **Upravené soubory**: auth.ts, ukol.md, CHANGELOG.md.
-
-### 📧 Prompt 036 – KROK 1: Systémové adresy v email.ts ✅
-
-- **Kontext**: `email.ts` podporoval pouze jeden sender (info@postio-app.cz). Potřebujeme tři systémové adresy pro odlišení technických, marketingových a obecných e-mailů.
-- **Změna**: Přidány 3 exportované konstanty `SENDER_NOREPLY` (noreply@ – technické), `SENDER_HELLO` (hello@ – marketing), `SENDER_INFO` (info@ – výchozí). Rozšířeno `SendEmailOptions` o volitelný `from?: string`. `sendTransactionalEmail()` používá `options.from ?? getFromEmail()`. Zpětná kompatibilita zachována – žádný volající se nemění.
-- **Ověření**: `npx tsc --noEmit` ✅ (exit 0). Manuální test ✅.
-- **Upravené soubory**: email.ts, ukol.md, CHANGELOG.md.
-
-### 🌐 Prompt 035 – KROK 5: Lokalizace přepínače měn + Free label ✅ (celý Prompt 035 hotový)
-
-- **Kontext**: Přepínač měn měl `aria-label="Měna"` natvrdo (anglický screen reader viděl češtinu) a Free plán zobrazoval hardcodované `"Free"` bez ohledu na locale.
-- **Změna**: `currency-switcher.tsx` – `aria-label` přes `useTranslations("common").currencyLabel`. `cs/en/uk.json` – NOVÝ klíč `common.currencyLabel` (Měna / Currency / Валюта). `billing-card.tsx` – Free label `"Free"` → `translations.free`; prop `free` přidané v `billing-client.tsx` + `page.tsx` (hodnota z `t("free")`, cs = "Zdarma"). CZK/EUR/USD kódy zůstávají nelokalizované.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (cs→"Zdarma", aria-label dle locale).
-- **Poznámka**: Tím uzavřen celý Prompt 035 (Krok 1–5). Sekce úkolu smazána z ukol.md (Pravidlo 7).
-- **Upravené soubory**: currency-switcher.tsx, billing-card.tsx, billing-client.tsx, page.tsx, cs.json, en.json, uk.json, ukol.md.
-

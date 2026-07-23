@@ -102,7 +102,11 @@
     "analytics": "Analytika",
     "settings": "Nastavení",
     "calendar": "Kalendář",
-    "inbox": "Zprávy"
+    "inbox": "Zprávy",
+    "adminPanel": "Admin Panel",
+    "adminDashboard": "Dashboard",
+    "adminUsers": "Uživatelé",
+    "adminBilling": "Fakturace"
   },
   "calendar": {
     "title": "Kalendář",

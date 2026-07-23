@@ -102,7 +102,11 @@
     "analytics": "Аналітика",
     "settings": "Налаштування",
     "calendar": "Календар",
-    "inbox": "Вхідні"
+    "inbox": "Вхідні",
+    "adminPanel": "Панель адміністратора",
+    "adminDashboard": "Дашборд",
+    "adminUsers": "Користувачі",
+    "adminBilling": "Білінг"
   },
   "calendar": {
     "title": "Календар",

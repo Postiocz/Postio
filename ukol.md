@@ -42,21 +42,4 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### Prompt 037 – Inicializace Admin Core (Pojízdná kancelář)
-
-Cíl: Vytvořit izolovaný, znovupoužitelný framework pro administraci (Admin Dashboard), technicky oddělený od hlavní aplikace Postio, ale sdílející databázi a autentizaci.
-
-#### Architektoní rozhodnutí
-- Admin Core bude **balíčkem ve `packages/admin-core`** (npm workspace / lokální import). Obsahuje: typy, konfigurační soubor (`admin-config.ts`), middleware/guard, a případně sdílené komponenty.
-- Frontend admina běží jako součást Next.js app routeru v `src/app/[locale]/(admin)/` — oddělená route skupina od `(dashboard)`.
-- Autentizace: využívá stávající Supabase session (`createClient` / `createAdminClient`). Role se určuje z DB sloupce `users.role`.
-- DB: přidává se sloupec `role` do `public.users` a nová tabulka `audit_logs` pro admin-only viditelnost.
-
-#### Plán kroků
-
-- ✅ **KROK 1: Příprava prostředí.** Vytvořena složka `packages/admin-core` s typy (`types.ts`), konfigurací (`admin-config.ts`) a hlavním exportem (`index.ts`). Přidán path alias `admin-core` do `tsconfig.json`.
-- ✅ **KROK 2: Admin Role v DB.** Vytvořena migrace `041_add_admin_role_and_audit_logs.sql` (sloupec `role`, tabulka `audit_logs`, RLS politiky). Aktualizovány TypeScript typy v `types.ts`.
-- ✅ **KROK 3: Admin Guard (Zabezpečení).** Implementován `checkAdminAccess()` helper v `packages/admin-core/src/guard.ts`. Vytvořen layout `src/app/[locale]/(admin)/layout.tsx` s guardem a vstupní stránka `admin/page.tsx`. Build projde.
-- ✅ **KROK 4: Admin Shell (UI).** Vytvořeny komponenty: `admin-sidebar.tsx` (navigace s ikonami), `admin-header.tsx` (search + locale/theme toggle), `metric-card.tsx` (glassmorphism karty). Aktualizován admin layout s sidebar + header + grid pattern + glow efekty. Admin stránka ukazuje 4 metric karty (uživatelé, placení, příspěvky, tržby). `npx tsc --noEmit` ✅, `npx next build` ✅.
-- ✅ **KROK 5: Globální správa uživateli.** Převeden admin na globální platformový panel. Vytvořeny server action (`actions.ts`) s `getAllUsers()` a `getGlobalStats()` používající `createAdminClient` (service_role) pro obcházení RLS. Stránka `/admin/users` ukazuje VŠECHNY uživatele s tabulkou (jméno, tarif, registrace, streak, role). Dashboard metriky opraveny na globální COUNT. `npx tsc --noEmit` ✅, `npx next build` ✅.
 

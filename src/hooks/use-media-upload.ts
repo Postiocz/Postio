@@ -528,6 +528,23 @@ export function useMediaUpload(
     [supabase, t],
   );
 
+  /**
+   * Add a remote image URL directly (e.g. AI-generated image from DALL-E)
+   * without going through the file upload pipeline.
+   */
+  const addImageUrl = useCallback((url: string) => {
+    setItems((prev) => [
+      ...prev,
+      {
+        id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+        url,
+        previewUrl: url,
+        kind: "image" as const,
+        status: "ready" as const,
+      },
+    ]);
+  }, []);
+
   const loadExistingUrls = useCallback((urls: string[]) => {
     setItems((prev) => {
       for (const p of prev) {
@@ -587,6 +604,7 @@ export function useMediaUpload(
     items,
     addFiles,
     removeItem,
+    addImageUrl,
     loadExistingUrls,
     getMediaUrls,
     hasUploading,

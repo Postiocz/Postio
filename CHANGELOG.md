@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
 
+### 🚀 Prompt 043 – KROK 3: AI Štětec tlačítko v editoru ✅
+
+- **Kontext**: Backend route pro generování obrázků existovala, chybělo UI propojení v editoru.
+- **Změny**:
+  - ✅ `src/hooks/use-media-upload.ts`: Přidána metoda `addImageUrl(url)` pro přímé přidání remote URL bez upload pipeline.
+  - ✅ `src/components/ai-assistant-button.tsx`: Nová položka „AI Štětec 🎨" v dropdown menu s modalem pro prompt, voláním `/api/ai/generate-image`, callbackem `onImageGenerated`.
+  - ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx`: Propojen `onImageGenerated` → `addImageUrl`.
+  - ✅ `src/components/edit-post-dialog.tsx`: Stejné propojení v dialogu pro editaci.
+  - ✅ i18n: Doplněny klíče `aiGenerateBtn`, `cancel` v sekci `ai` (cs/en/uk).
+- **Ověření**: `npx tsc --noEmit` ✅ (žádné nové chyby).
+
 ### 🚀 Prompt 043 – KROK 2: Backend route /api/ai/generate-image + i18n ✅
 
 - **Kontext**: Kreditový systém vyžadoval backend routu pro generování obrázků přes OpenAI DALL-E 3.
@@ -128,14 +139,4 @@
 - **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (responzivní tabulka, sidebar viditelný, zpět na detailu).
 - **Upravené soubory**: `admin/users/page.tsx`, `admin/users/[id]/page.tsx`, `admin-sidebar.tsx`, `admin-mobile-nav.tsx`, `ukol.md`, `CHANGELOG.md`.
 
-### 🚀 Prompt 038 – KROK 2: Detail uživatele + navigace ✅
-
-- **Kontext**: Admin panel potřeboval stránku detailu uživatele a opravu navigace mezi tabulkou a detailem.
-- **Změny**:
-  - **Stránka `/admin/users/[id]`**: Profilová karta (avatar, jméno, email, role, tarif, registrace, streak), tabulka propojených sociálních účtů (platforma, jméno, stav), historie příspěvků (náhled textu, datum, status badge).
-  - **Server action**: `getUserById()` (včetně emailu z `auth.users`), `getUserAccounts()`, `getUserPosts()`, `updateUserRole()` s audit_log záznamem.
-  - **Navigace**: Opraven Link v tabulce uživatelů — přidán `locale` prefix (`/${locale}/admin/users/${id}`).
-  - **Admin UI**: Tlačítko pro změnu role (User ↔ Admin) s okamžitým přepisem do DB a audit_log.
-- **Ověření**: `npx tsc --noEmit` ✅. `npx next build` ✅ (routes `/[locale]/admin/users/[id]`).
-- **Upravené soubory**: `admin/users/[id]/page.tsx` (nová), `admin/users/page.tsx` (link opraven), `modules/admin-core/actions.ts` (nové akce), `ukol.md`, `CHANGELOG.md`.
 

@@ -1023,7 +1023,9 @@
     "aiGeneratingImage": "Generuji obrázek...",
     "aiNoCredits": "Nedostatek AI kreditů. Upgradujte svůj plán.",
     "aiImageSuccess": "Obrázek byl úspěšně vygenerován!",
-    "aiImagePrompt": "Popište obrázek, který chcete vygenerovat..."
+    "aiGenerateBtn": "Generovat",
+    "aiImagePrompt": "Popište obrázek, který chcete vygenerovat...",
+    "cancel": "Zrušit"
   },
   "landing": {
     "nav": {

@@ -325,6 +325,7 @@ export function EditPostDialog({
     getMediaUrls,
     hasUploading,
     getInstagramIncompatibleVideos,
+    addImageUrl,
   } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
@@ -1909,6 +1910,7 @@ export function EditPostDialog({
                     });
                   }}
                   imageUrl={firstImageUrl}
+                  onImageGenerated={(url) => addImageUrl(url)}
                 />
             </div>
             <Textarea

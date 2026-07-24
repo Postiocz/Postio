@@ -1023,7 +1023,9 @@
     "aiGeneratingImage": "Generating image...",
     "aiNoCredits": "No AI credits remaining. Please upgrade your plan.",
     "aiImageSuccess": "Image successfully generated!",
-    "aiImagePrompt": "Describe the image you want to generate..."
+    "aiGenerateBtn": "Generate",
+    "aiImagePrompt": "Describe the image you want to generate...",
+    "cancel": "Cancel"
   },
   "landing": {
     "nav": {

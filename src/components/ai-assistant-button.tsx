@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Sparkles, Wand2, Scissors, Hash, Loader2, ImagePlus } from "lucide-react";
+import { Sparkles, Wand2, Scissors, Hash, Loader2, ImagePlus, Brush } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,7 @@ interface AIAssistantButtonProps {
   onContentReplace: (text: string) => void;
   onTagsAdd: (tags: string[]) => void;
   imageUrl?: string | null;
+  onImageGenerated?: (imageUrl: string) => void;
 }
 
 export function AIAssistantButton({
@@ -23,11 +24,14 @@ export function AIAssistantButton({
   onContentReplace,
   onTagsAdd,
   imageUrl,
+  onImageGenerated,
 }: AIAssistantButtonProps) {
   // #14 — Own i18n instead of props drilling (was 9 tAi props)
   const t = useTranslations("ai");
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [showImagePrompt, setShowImagePrompt] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState("");
 
   const handleTextAction = useCallback(
     async (action: "improve" | "shorten" | "hashtags") => {
@@ -115,8 +119,46 @@ export function AIAssistantButton({
     }
   }, [content, imageUrl, onContentReplace, t]);
 
+  const handleGenerateImage = useCallback(async () => {
+    if (!imagePrompt.trim()) {
+      toast.info(t("aiEmptyContent"));
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/ai/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: imagePrompt.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        if (response.status === 402) {
+          toast.error(t("aiNoCredits"));
+        } else {
+          toast.error(data.error || t("aiError"));
+        }
+        return;
+      }
+
+      onImageGenerated?.(data.imageUrl);
+      setImagePrompt("");
+      setShowImagePrompt(false);
+      toast.success(t("aiImageSuccess"));
+    } catch {
+      toast.error(t("aiError"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [imagePrompt, onImageGenerated, t]);
+
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -176,7 +218,71 @@ export function AIAssistantButton({
           <ImagePlus className="h-4 w-4 text-amber-400" />
           <span>{t("generateFromImage")}</span>
         </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => { setShowImagePrompt(true); setOpen(false); }}
+          className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
+        >
+          <Brush className="h-4 w-4 text-violet-400" />
+          <span>{t("generateImage")}</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+      {/* AI Image Generation prompt input */}
+    {showImagePrompt && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div
+          className="w-full max-w-md rounded-[20px] border border-white/10 bg-card/80 backdrop-blur-xl p-6 shadow-2xl space-y-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Brush className="h-5 w-5 text-violet-400" />
+            {t("generateImage")}
+          </h3>
+          <textarea
+            value={imagePrompt}
+            onChange={(e) => setImagePrompt(e.target.value)}
+            placeholder={t("aiImagePrompt")}
+            className="w-full min-h-[120px] resize-y rounded-xl border border-white/10 bg-black/20 p-3 text-sm focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleGenerateImage();
+              }
+              if (e.key === "Escape") {
+                setShowImagePrompt(false);
+                setImagePrompt("");
+              }
+            }}
+          />
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => { setShowImagePrompt(false); setImagePrompt(""); }}
+              className="text-sm text-muted-foreground/60 hover:text-foreground transition-colors"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateImage}
+              disabled={isLoading || !imagePrompt.trim()}
+              className="bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl px-4 py-2 text-sm font-medium shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{t("aiGeneratingImage")}</span>
+                </>
+              ) : (
+                <span>{t("aiGenerateBtn")}</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

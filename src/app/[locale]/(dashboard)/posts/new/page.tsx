@@ -208,7 +208,7 @@ export default function NewPostPage() {
     fileOptimized: t("fileOptimized"),
     compressionError: t("compressionError"),
   };
-  const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading, getInstagramIncompatibleVideos } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
+  const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading, getInstagramIncompatibleVideos, addImageUrl } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
   const firstImageUrl = useMemo(() => {
@@ -603,6 +603,7 @@ export default function NewPostPage() {
                   });
                 }}
                 imageUrl={firstImageUrl}
+                onImageGenerated={(url) => addImageUrl(url)}
               />
             </div>
             <Textarea

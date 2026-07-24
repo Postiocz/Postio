@@ -6,6 +6,14 @@
 
 
 
+### 🚀 Prompt 044 – KROK 5: SEO a OpenGraph Finalizace ✅
+
+- **Kontext**: OpenGraph metadata byla jen v češtině a chyběla lokalizace pro en/uk.
+- **Změny**:
+  - ✅ `src/app/[locale]/layout.tsx': Přidána `generateMetadata` s lokalizovaným OpenGraph/Twitter title, description a obrazkem (`hero-mockup_{locale}.png`).
+  - ✅ `src/app/layout.tsx': Odstraněna tvrdě kódovaná OG metadata (přesunuta do locale layoutu).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
+
 ### 🚀 Prompt 044 – KROK 1: Produkční UI a hlášky ✅
 
 - **Kontext**: V překladech se vyskytovaly technické názvy ("Sandbox") a duplicitní záznamy.
@@ -92,14 +100,3 @@
   - ✅ `src/components/edit-post-dialog.tsx`: Stejné propojení v dialogu pro editaci.
   - ✅ i18n: Doplněny klíče `aiGenerateBtn`, `cancel` v sekci `ai` (cs/en/uk).
 - **Ověření**: `npx tsc --noEmit` ✅ (žádné nové chyby).
-
-### 🚀 Prompt 043 – KROK 2: Backend route /api/ai/generate-image + i18n ✅
-
-- **Kontext**: Kreditový systém vyžadoval backend routu pro generování obrázků přes OpenAI DALL-E 3.
-- **Změny**:
-  - ✅ `src/app/api/ai/generate-image/route.ts`: POST route s auth kontrolou, ověřením `ai_credits`, voláním DALL-E 3 API, odečtením kreditu po úspěchu.
-  - ✅ Error handling: 401 (unauth), 400 (chybějící prompt), 402 (žádné kredity), 503 (API key nenastaven), 500 (obecná chyba).
-  - ✅ Edge runtime pro rychlost.
-- **Změny i18n**:
-    - ✅ `messages/cs.json`, `en.json`, `uk.json`: Doplněny klíče `generateImage`, `aiGeneratingImage`, `aiNoCredits`, `aiImageSuccess`, `aiImagePrompt`.
-  - **Ověření**: JSON validace ✅, `npx tsc --noEmit` ✅ (žádné nové chyby).

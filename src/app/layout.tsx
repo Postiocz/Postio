@@ -13,29 +13,7 @@ export const metadata: Metadata = {
   description:
     "Plánuj, publikuj a analyzuj příspěvky na Facebook, Instagram, LinkedIn a TikTok z jednoho místa s pomocí AI Vision.",
   applicationName: "Postio",
-  openGraph: {
-    type: "website",
-    url: "https://postio-app.cz",
-    siteName: "Postio",
-    title: "Postio – Tvůj chytrý AI plánovač sociálních sítí",
-    description:
-      "Plánuj, publikuj a analyzuj příspěvky na Facebook, Instagram, LinkedIn a TikTok z jednoho místa s pomocí AI Vision.",
-    images: [
-      {
-        url: "/hero-mockup_cs.png",
-        width: 1200,
-        height: 630,
-        alt: "Postio – AI plánovač sociálních sítí",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Postio – Tvůj chytrý AI plánovač sociálních sítí",
-    description:
-      "Plánuj, publikuj a analyzuj příspěvky na Facebook, Instagram, LinkedIn a TikTok z jednoho místa s pomocí AI Vision.",
-    images: ["/hero-mockup_cs.png"],
-  },
+  // Locale-aware OpenGraph & Twitter metadata is set in [locale]/layout.tsx
 };
 
 const inter = Inter({

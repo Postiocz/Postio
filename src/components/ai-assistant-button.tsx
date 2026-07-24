@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 interface AIAssistantButtonProps {
   content: string;
@@ -56,10 +57,10 @@ export function AIAssistantButton({
 
         const data = await response.json();
 
-        console.log("🤖 AI API Response:", { ok: response.ok, status: response.status, data });
+        logger.debug("🤖 AI API Response:", { ok: response.ok, status: response.status, data });
 
         if (!response.ok || !data.success) {
-          console.error("🤖 AI API Error:", data.error || "Unknown error");
+          logger.error("🤖 AI API Error:", data.error || "Unknown error");
           throw new Error(data.error || t("aiError"));
         }
 
@@ -106,10 +107,10 @@ export function AIAssistantButton({
 
       const data = await response.json();
 
-      console.log("🤖 AI Vision API Response:", { ok: response.ok, status: response.status, data });
+      logger.debug("🤖 AI Vision API Response:", { ok: response.ok, status: response.status, data });
 
       if (!response.ok || !data.success) {
-        console.error("🤖 AI Vision API Error:", data.error || "Unknown error");
+        logger.error("🤖 AI Vision API Error:", data.error || "Unknown error");
         throw new Error(data.error || t("aiError"));
       }
 

@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { getValidYouTubeAccessToken } from "@/lib/actions/publish-youtube";
+import { logger } from "@/lib/logger";
 
 /**
  * Fetch a breakdown of posts by internal tags for the analytics page.
@@ -339,7 +340,7 @@ export async function syncAnalyticsInsights(): Promise<{
       // Get access token for this platform
       const account = accountByPlatform.get(pp.platform);
       if (!account || !account.access_token) {
-        console.log(`[Analytics] Skipping ${pp.platform} for post ${postId}: no active account or token`);
+        logger.debug(`[Analytics] Skipping ${pp.platform} for post ${postId}: no active account or token`);
         skipped++;
         continue;
       }
@@ -361,22 +362,22 @@ export async function syncAnalyticsInsights(): Promise<{
           });
         } else if (pp.platform === "twitter") {
           // B6: X placeholder
-          console.log(`[Analytics] TODO: X/Twitter insights not implemented — skipping post ${postId}`);
+          logger.debug(`[Analytics] TODO: X/Twitter insights not implemented — skipping post ${postId}`);
           skipped++;
           continue;
         } else if (pp.platform === "linkedin") {
           // B7: LinkedIn placeholder
-          console.log(`[Analytics] TODO: LinkedIn insights not implemented — skipping post ${postId}`);
+          logger.debug(`[Analytics] TODO: LinkedIn insights not implemented — skipping post ${postId}`);
           skipped++;
           continue;
         } else if (pp.platform === "tiktok") {
           // B8: TikTok placeholder
-          console.log(`[Analytics] TODO: TikTok insights not implemented — skipping post ${postId}`);
+          logger.debug(`[Analytics] TODO: TikTok insights not implemented — skipping post ${postId}`);
           skipped++;
           continue;
         }
       } catch (err) {
-        console.error(`[Analytics] Error fetching ${pp.platform} for post ${postId}:`, err);
+        logger.error(`[Analytics] Error fetching ${pp.platform} for post ${postId}:`, err);
         errors++;
         continue;
       }
@@ -430,7 +431,7 @@ export async function syncAnalyticsInsights(): Promise<{
       );
 
     if (upsertErr) {
-      console.error(`[Analytics] Upsert failed for post ${postId}:`, upsertErr.message);
+      logger.error(`[Analytics] Upsert failed for post ${postId}:`, upsertErr.message);
       errors++;
     }
   }
@@ -443,7 +444,7 @@ export async function syncAnalyticsInsights(): Promise<{
       .in("id", [...updatedRows]);
 
     if (syncUpdateErr) {
-      console.error("[Analytics] Failed to update last_sync_at:", syncUpdateErr.message);
+      logger.error("[Analytics] Failed to update last_sync_at:", syncUpdateErr.message);
     }
   }
 
@@ -478,7 +479,7 @@ async function fetchMetaInsights(params: {
     const response = await fetch(url, { headers: { Accept: "application/json" } });
 
     if (!response.ok) {
-      console.warn(`[Analytics] Meta API ${response.status} for ${platform}/${externalId}`);
+      logger.warn(`[Analytics] Meta API ${response.status} for ${platform}/${externalId}`);
       return null;
     }
 
@@ -515,7 +516,7 @@ async function fetchMetaInsights(params: {
       saves: metricMap.get("saved_posts") ?? 0,
     };
   } catch (err) {
-    console.error(`[Analytics] Meta API error for ${platform}/${externalId}:`, err);
+    logger.error(`[Analytics] Meta API error for ${platform}/${externalId}:`, err);
     return null;
   }
 }
@@ -533,7 +534,7 @@ async function fetchYouTubeInsights(params: {
   // Get valid (possibly refreshed) access token
   const tokenResult = await getValidYouTubeAccessToken({ account });
   if (!tokenResult.success || !tokenResult.accessToken) {
-    console.warn(`[Analytics] YouTube token error: ${(tokenResult as { error: string }).error}`);
+    logger.warn(`[Analytics] YouTube token error: ${(tokenResult as { error: string }).error}`);
     return null;
   }
 
@@ -548,7 +549,7 @@ async function fetchYouTubeInsights(params: {
     });
 
     if (!response.ok) {
-      console.warn(`[Analytics] YouTube API ${response.status} for video ${videoId}`);
+      logger.warn(`[Analytics] YouTube API ${response.status} for video ${videoId}`);
       return null;
     }
 
@@ -566,7 +567,7 @@ async function fetchYouTubeInsights(params: {
       saves: 0,
     };
   } catch (err) {
-    console.error(`[Analytics] YouTube API error for video ${videoId}:`, err);
+    logger.error(`[Analytics] YouTube API error for video ${videoId}:`, err);
     return null;
   }
 }

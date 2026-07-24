@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error("Missing STRIPE_WEBHOOK_SECRET env var");
+      logger.error("Missing STRIPE_WEBHOOK_SECRET env var");
       return NextResponse.json(
         { error: "Webhook secret not configured" },
         { status: 500 }
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     try {
       event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
     } catch (err) {
-      console.error("Stripe webhook signature verification failed:", err);
+      logger.error("Stripe webhook signature verification failed:", err);
       return NextResponse.json(
         { error: "Invalid signature" },
         { status: 400 }
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
         const subscriptionId = session.subscription as string | null;
 
         if (!userId || !plan) {
-          console.error("Missing user_id or plan in session metadata");
+          logger.error("Missing user_id or plan in session metadata");
           break;
         }
 
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
         }
 
         await supabase.from("users").update(updateData).eq("id", userId);
-        console.log(`User ${userId} upgraded to ${plan}`);
+        logger.debug(`User upgraded to ${plan}`);
         break;
       }
 
@@ -82,12 +83,12 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        console.log(`Unhandled Stripe event type: ${event.type}`);
+        logger.debug(`Unhandled Stripe event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Stripe webhook error:", error);
+    logger.error("Stripe webhook error:", error);
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 }

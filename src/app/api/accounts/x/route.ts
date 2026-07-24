@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isNewAccountAllowed, accountLimitErrorMessage } from "@/lib/account-limit";
+import { logger } from "@/lib/logger";
 
 const X_AUTH_URL = "https://twitter.com/i/oauth2/authorize";
 const X_TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
   const clientSecret = process.env.TWITTER_CLIENT_SECRET ?? process.env.X_API_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error("[X OAuth] Missing TWITTER_CLIENT_ID or TWITTER_CLIENT_SECRET in env");
+    logger.error("[X OAuth] Missing TWITTER_CLIENT_ID or TWITTER_CLIENT_SECRET in env");
     return NextResponse.redirect(new URL(redirectOnError, request.url));
   }
 
@@ -100,11 +101,7 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("code_challenge_method", "S256");
     redirectUrl.searchParams.set("access_type", "offline");
 
-    console.log("[X OAuth] Redirecting to X authorize", {
-      redirect_uri: redirectUri,
-      state: stateParam,
-      authorize_url: redirectUrl.toString(),
-    });
+    logger.debug("[X OAuth] Redirecting to X authorize");
 
     // Store PKCE verifier and state in httpOnly cookies.
     // Twitter only returns `code` and `state` on callback – it does NOT
@@ -137,7 +134,7 @@ export async function GET(request: NextRequest) {
     const state = cookies.get("x_oauth_state")?.value;
 
     if (!codeVerifier) {
-      console.error("[X OAuth] Missing x_code_verifier cookie – PKCE flow broken");
+      logger.error("[X OAuth] Missing x_code_verifier cookie – PKCE flow broken");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -152,11 +149,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Debug logging – log token exchange request
-    console.log("[X OAuth] Token exchange request", {
-      code: code?.slice(0, 10) + "...",
+    logger.debug("[X OAuth] Token exchange request", {
       has_code_verifier: !!codeVerifier,
-      code_verifier_length: codeVerifier?.length ?? 0,
-      redirect_uri: redirectUri,
     });
 
     const tokenRes = await fetch(X_TOKEN_URL, {
@@ -171,7 +165,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok) {
       const text = await tokenRes.text().catch(() => "");
-      console.error(`[X OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
+      logger.error(`[X OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -188,14 +182,13 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in;
 
     if (!accessToken) {
-      console.error("[X OAuth] No access_token in response");
+      logger.error("[X OAuth] No access_token in response");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
-    console.log("[X OAuth] Token received", {
+    logger.debug("[X OAuth] Token received", {
       tokenType: tokenData.token_type,
       expiresIn,
-      scope: tokenData.scope,
       hasRefreshToken: !!refreshToken,
     });
 
@@ -209,7 +202,7 @@ export async function GET(request: NextRequest) {
 
     if (!userRes.ok) {
       const text = await userRes.text().catch(() => "");
-      console.error(`[X OAuth] /2/users/me failed: ${userRes.status} ${text}`);
+      logger.error(`[X OAuth] /2/users/me failed: ${userRes.status} ${text}`);
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -225,7 +218,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (!userData?.data?.id) {
-      console.error("[X OAuth] No user data in response");
+      logger.error("[X OAuth] No user data in response");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -241,7 +234,7 @@ export async function GET(request: NextRequest) {
     const { data: authData, error: authError } = await supabase.auth.getUser();
 
     if (authError || !authData?.user) {
-      console.error("[X OAuth] User not authenticated");
+      logger.error("[X OAuth] User not authenticated");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -266,7 +259,7 @@ export async function GET(request: NextRequest) {
       platformId,
     );
     if (!xAllowed) {
-      console.error("[X OAuth] Account limit reached:", xInfo);
+      logger.error("[X OAuth] Account limit reached:", xInfo);
       const limitErrorUrl = new URL(`/${locale}/accounts`, request.url);
       limitErrorUrl.searchParams.set("error", accountLimitErrorMessage(xInfo));
       return NextResponse.redirect(limitErrorUrl);
@@ -296,13 +289,11 @@ export async function GET(request: NextRequest) {
       );
 
     if (dbError) {
-      console.error("[X OAuth] DB upsert error:", dbError);
+      logger.error("[X OAuth] DB upsert error:", dbError);
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
-    console.log(
-      `[X OAuth] Successfully connected @${username ?? platformId} (${platformId}) for user ${userId}`
-    );
+    logger.debug(`[X OAuth] Successfully connected @${username ?? "user"}`);
 
     // ── Step 7: Redirect back to dashboard & clear PKCE cookies ────
     const successResponse = NextResponse.redirect(new URL(redirectOnSuccess, request.url));
@@ -323,7 +314,7 @@ export async function GET(request: NextRequest) {
     });
     return successResponse;
   } catch (error) {
-    console.error("[X OAuth] Unexpected error:", error);
+    logger.error("[X OAuth] Unexpected error:", error);
     return NextResponse.redirect(new URL(redirectOnError, request.url));
   }
 }

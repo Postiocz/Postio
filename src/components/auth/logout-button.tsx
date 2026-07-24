@@ -4,6 +4,7 @@ import React from "react";
 import { LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 
 export function LogoutButton() {
   const t = useTranslations("common");
@@ -15,7 +16,7 @@ export function LogoutButton() {
       const locale = window.location.pathname.split("/")[1] || "cs";
       window.location.href = `/${locale}/login`;
     } catch (error) {
-      console.error("Logout error:", error);
+      logger.error("Logout error:", error);
     }
   };
 

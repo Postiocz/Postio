@@ -37,6 +37,7 @@ import {
   TikTok,
 } from "@/components/ui/social-icons";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
+import { logger } from "@/lib/logger";
 import { TagPicker } from "@/components/tag-picker";
 import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/components/post-preview";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1120,7 +1121,7 @@ export function EditPostDialog({
       });
 
       if (result.success) {
-        console.log("handlePublishAdditional: úspěšně publikováno na", targetPlatform);
+        logger.debug("handlePublishAdditional: úspěšně publikováno na", targetPlatform);
         toast.success(t("additionalPublishSuccess") ?? `Příspěvek byl publikován na ${targetPlatform}!`);
         if (result.data?.warningCode === "tiktok_private_only") {
           toast.info(t("tiktokPrivateOnlyNotice"));
@@ -1219,7 +1220,7 @@ export function EditPostDialog({
         const publishResult = await publishPost({ postId });
 
       if (publishResult.success) {
-        console.log("handlePublishNow: úspěšně publikováno, publishResult:", publishResult);
+        logger.debug("handlePublishNow: úspěšně publikováno, publishResult:", publishResult);
         toast.success("Příspěvek byl úspěšně publikován!");
         if (publishResult.data?.warningCode === "tiktok_private_only") {
           toast.info(t("tiktokPrivateOnlyNotice"));

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isNewAccountAllowed, accountLimitErrorMessage } from "@/lib/account-limit";
+import { logger } from "@/lib/logger";
 import crypto from "crypto";
 
 const TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize";
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
   const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
 
   if (!clientKey || !clientSecret) {
-    console.error("[TikTok OAuth] Missing TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET");
+    logger.error("[TikTok OAuth] Missing TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET");
     const errorMsg = "TikTok API není nakonfigurováno. Chybí TIKTOK_CLIENT_KEY nebo TIKTOK_CLIENT_SECRET.";
     return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
   }
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("code_challenge", codeChallenge);
     redirectUrl.searchParams.set("code_challenge_method", "S256");
 
-    console.log("[TikTok OAuth] Redirect URL:", redirectUrl.toString());
+    logger.debug("[TikTok OAuth] Redirecting to TikTok authorize");
     
     const response = NextResponse.redirect(redirectUrl.toString());
     
@@ -139,12 +140,12 @@ export async function GET(request: NextRequest) {
     const storedCodeVerifier = request.cookies.get("tiktok_code_verifier")?.value;
     
     if (!storedState || !returnedState || storedState !== returnedState) {
-      console.error("[TikTok OAuth] State mismatch or missing");
+      logger.error("[TikTok OAuth] State mismatch or missing");
       return NextResponse.redirect(new URL(errorRedirect("Neplatný stav OAuth požadavku"), request.url));
     }
     
     if (!storedCodeVerifier) {
-      console.error("[TikTok OAuth] Missing code verifier");
+      logger.error("[TikTok OAuth] Missing code verifier");
       return NextResponse.redirect(new URL(errorRedirect("Chybí ověřovací kód"), request.url));
     }
     
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok) {
       const text = await tokenRes.text().catch(() => "");
-      console.error(`[TikTok OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
+      logger.error(`[TikTok OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
       const errorMsg = `Výměna autorizačního kódu selhala: ${tokenRes.status} ${text || "Neznámá chyba"}`;
       return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
     }
@@ -181,7 +182,7 @@ export async function GET(request: NextRequest) {
     const openId = tokenData.open_id;
 
     if (!accessToken) {
-      console.error("[TikTok OAuth] No access_token in response");
+      logger.error("[TikTok OAuth] No access_token in response");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -196,7 +197,7 @@ export async function GET(request: NextRequest) {
 
     if (!userInfoRes.ok) {
       const text = await userInfoRes.text().catch(() => "");
-      console.error(`[TikTok OAuth] /user/info failed: ${userInfoRes.status} ${text}`);
+      logger.error(`[TikTok OAuth] /user/info failed: ${userInfoRes.status} ${text}`);
       const errorMsg = `Načítání uživatelských dat selhalo: ${userInfoRes.status} ${text || "Neznámá chyba"}`;
       return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
     }
@@ -216,7 +217,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (userInfoPayload.error?.message || !userInfoPayload.data?.user) {
-      console.error(`[TikTok OAuth] /user/info returned error: ${userInfoPayload.error?.message}`);
+      logger.error(`[TikTok OAuth] /user/info returned error: ${userInfoPayload.error?.message}`);
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -227,7 +228,7 @@ export async function GET(request: NextRequest) {
     const { data: authData, error: authError } = await supabase.auth.getUser();
 
     if (authError || !authData?.user) {
-      console.error("[TikTok OAuth] User not authenticated");
+      logger.error("[TikTok OAuth] User not authenticated");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -239,7 +240,7 @@ export async function GET(request: NextRequest) {
     const platformId = userProfile.open_id ?? openId;
 
     if (!platformId) {
-       console.error("[TikTok OAuth] No open_id found for user");
+       logger.error("[TikTok OAuth] No open_id found for user");
        return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -253,7 +254,7 @@ export async function GET(request: NextRequest) {
       platformId,
     );
     if (!tiktokAllowed) {
-      console.error("[TikTok OAuth] Account limit reached:", tiktokInfo);
+      logger.error("[TikTok OAuth] Account limit reached:", tiktokInfo);
       return NextResponse.redirect(
         new URL(errorRedirect(accountLimitErrorMessage(tiktokInfo)), request.url)
       );
@@ -290,12 +291,12 @@ export async function GET(request: NextRequest) {
       );
 
     if (dbError) {
-      console.error("[TikTok OAuth] DB upsert error:", dbError);
+      logger.error("[TikTok OAuth] DB upsert error:", dbError);
       const errorMsg = `Uložení účtu do databáze selhalo: ${dbError.message || "Neznámá chyba"}`;
       return NextResponse.redirect(new URL(errorRedirect(errorMsg), request.url));
     }
 
-    console.log(`[TikTok OAuth] Successfully connected ${accountName} (${platformId}) for user ${userId}`);
+    logger.debug(`[TikTok OAuth] Successfully connected ${accountName}`);
 
     // ── Step 6: Redirect back to dashboard ───────────────────────────
     const response = NextResponse.redirect(new URL(redirectOnSuccess, request.url));
@@ -307,7 +308,7 @@ export async function GET(request: NextRequest) {
     
     return response;
   } catch (error) {
-    console.error("[TikTok OAuth] Unexpected error:", error);
+    logger.error("[TikTok OAuth] Unexpected error:", error);
     return NextResponse.redirect(new URL(redirectOnError, request.url));
   }
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 /**
  * POSTIO – LinkedIn publisher helpers
@@ -145,7 +146,7 @@ async function exchangeRefreshToken(refreshToken: string): Promise<
     if (!res.ok || !payload.access_token) {
       const reason =
         payload.error_description || payload.error || `HTTP ${res.status}`;
-      console.error("[LinkedIn] refresh_token exchange failed:", {
+      logger.error("[LinkedIn] refresh_token exchange failed:", {
         status: res.status,
         reason,
         payload,
@@ -164,7 +165,7 @@ async function exchangeRefreshToken(refreshToken: string): Promise<
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[LinkedIn] refresh_token network error:", msg);
+    logger.error("[LinkedIn] refresh_token network error:", msg);
     return {
       success: false,
       error: `LinkedIn token refresh network error: ${msg}`,
@@ -213,7 +214,7 @@ export async function getValidLinkedInAccessToken(params: {
     };
   }
 
-  console.log("[LinkedIn] refreshing access token", {
+  logger.debug("[LinkedIn] refreshing access token", {
     accountId: account.id,
     expiresAt: account.token_expires_at,
   });
@@ -246,7 +247,7 @@ export async function getValidLinkedInAccessToken(params: {
     .eq("id", account.id);
 
   if (updateError) {
-    console.error("[LinkedIn] failed to persist refreshed token:", updateError.message);
+    logger.error("[LinkedIn] failed to persist refreshed token:", updateError.message);
     // Non-fatal: return the token anyway, the publish call would still work,
     // we just lose the persistence benefit until the next request.
   }
@@ -349,7 +350,7 @@ async function registerLinkedInImageAsset(params: {
 
   if (!registerRes.ok) {
     const text = await registerRes.text().catch(() => "");
-    console.error("[LinkedIn] assets.registerUpload failed:", {
+    logger.error("[LinkedIn] assets.registerUpload failed:", {
       status: registerRes.status,
       text,
     });
@@ -421,7 +422,7 @@ async function registerLinkedInImageAsset(params: {
 
   if (!uploadRes.ok) {
     const text = await uploadRes.text().catch(() => "");
-    console.error("[LinkedIn] asset binary upload failed:", {
+    logger.error("[LinkedIn] asset binary upload failed:", {
       status: uploadRes.status,
       text,
     });
@@ -600,7 +601,7 @@ async function publishToLinkedIn(params: {
     },
   };
 
-  console.log("[LinkedIn] sending ugcPosts payload (member-autored, no distribution):", {
+  logger.debug("[LinkedIn] sending ugcPosts payload (member-autored, no distribution):", {
     author: authorUrn,
     lifecycleState: "PUBLISHED",
     visibility: "PUBLIC",
@@ -612,7 +613,6 @@ async function publishToLinkedIn(params: {
   // DEBUG 2026-06-20: log the FULL payload (not just summary fields) so
   // we can compare against the official docs and see if anything is
   // missing/wrong. Remove this once the root cause is confirmed.
-  console.log("[LinkedIn] DEBUG full ugcPosts payload:", JSON.stringify(payload, null, 2));
 
   // 201 Created. Add Linkedin-Version header for 2026+ API versions –
   // the official share-on-linkedin docs do not mention it for /v2/ugcPosts,
@@ -649,57 +649,12 @@ async function publishToLinkedIn(params: {
     // link gives a 404, the post was NOT actually persisted (the API
     // accepted the request but LinkedIn created a hidden/draft version).
     const linkedInUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(externalId)}`;
-    console.log("[LinkedIn] ✅ publish success:", {
+    logger.debug("[LinkedIn] ✅ publish success:", {
       externalId,
       author: authorUrn,
       mediaCategory,
       linkedInUrl,
     });
-
-    // DEBUG 2026-06-20: dump all response headers + body for diagnosis.
-    // If the response body has LinkedIn-specific warnings (e.g. "post
-    // scheduled for review", "draft state"), we want to see them.
-    const respHeaders: Record<string, string> = {};
-    res.headers.forEach((v, k) => { respHeaders[k] = v; });
-    const respBody = await res.text().catch(() => "");
-    console.log("[LinkedIn] DEBUG full 201 response:", {
-      status: res.status,
-      headers: respHeaders,
-      body: respBody,
-      externalId,
-    });
-
-    console.log("[LinkedIn] ✅ publish success:", {
-      externalId,
-      author: authorUrn,
-      mediaCategory,
-    });
-
-    // DEBUG 2026-06-20: try to fetch the just-published post back from
-    // LinkedIn. If LinkedIn created the post in a hidden/draft state
-    // (which is what the user is reporting), this call should return
-    // something other than the post itself, or fail. We log the result
-    // without blocking the success path.
-    try {
-      const verifyRes = await fetch(
-        `${LINKEDIN_UGC_POSTS_URL}/${encodeURIComponent(externalId)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "X-Restli-Protocol-Version": LINKEDIN_RESTLI_VERSION,
-          },
-          cache: "no-store",
-        },
-      );
-      const verifyBody = await verifyRes.text().catch(() => "");
-      console.log("[LinkedIn] DEBUG GET ugcPosts/{id} after publish:", {
-        status: verifyRes.status,
-        bodyPreview: verifyBody.slice(0, 800),
-      });
-    } catch (verifyErr) {
-      console.warn("[LinkedIn] DEBUG verify fetch threw:", verifyErr);
-    }
 
     return { success: true, externalId };
   }
@@ -709,7 +664,7 @@ async function publishToLinkedIn(params: {
   const reason =
     errPayload.message ||
     `LinkedIn ugcPosts failed (HTTP ${res.status})`;
-  console.error("[LinkedIn] publish failed:", {
+  logger.error("[LinkedIn] publish failed:", {
     status: res.status,
     payload: errPayload,
   });
@@ -750,7 +705,7 @@ export async function publishToLinkedInAction(params: {
 
   // 0) Duplicate-upload guard (belt-and-suspenders).
   if (typeof existingExternalId === "string" && existingExternalId.trim()) {
-    console.warn(
+    logger.warn(
       `[publishToLinkedInAction] Refusing duplicate publish – post already has LinkedIn external_id=${existingExternalId}`,
     );
     return {
@@ -776,35 +731,6 @@ export async function publishToLinkedInAction(params: {
   }
 
   const accessToken = tokenResult.accessToken;
-
-  // DEBUG 2026-06-20: introspect the LinkedIn access token via
-  // /v2/userinfo. This tells us:
-  //   - the OpenID `sub` of the authenticated member (must match
-  //     account.platform_id, otherwise we publish on behalf of someone
-  //     else or the post is created on an empty member profile),
-  //   - the `scope` the token was issued with (must include
-  //     `w_member_social` for member-autored posts).
-  // We log only safe fields (never the token itself).
-  try {
-    const userInfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "X-Restli-Protocol-Version": LINKEDIN_RESTLI_VERSION,
-      },
-      cache: "no-store",
-    });
-    const userInfoBody = await userInfoRes.text().catch(() => "");
-    console.log("[LinkedIn] DEBUG /v2/userinfo:", {
-      status: userInfoRes.status,
-      bodyPreview: userInfoBody.slice(0, 600),
-      expectedSub: account.platform_id,
-      subMatches:
-        account.platform_id &&
-        userInfoBody.includes(`"sub":"${account.platform_id}"`),
-    });
-  } catch (uiErr) {
-    console.warn("[LinkedIn] DEBUG /v2/userinfo threw:", uiErr);
-  }
 
   // 3) Build the final caption – LinkedIn supports plain text only, no
   //    separate hashtag/location fields. We embed them into the share

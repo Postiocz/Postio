@@ -1,2 +1,3 @@
 [functions.process-scheduled-posts]
 verify_jwt = false
+# CRON_SECRET must be set in Supabase Dashboard -> Edge Functions -> process-scheduled-posts -> Environment Variables

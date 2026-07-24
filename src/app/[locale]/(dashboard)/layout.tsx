@@ -27,7 +27,7 @@ export default async function DashboardLayout({
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    console.log("CURRENT USER:", user?.id);
+    console.log("CURRENT USER:", user?.id ? "authenticated" : "none");
     session = user;
   } catch {
     supabaseAvailable = false;

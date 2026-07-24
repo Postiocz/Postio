@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isNewAccountAllowed, accountLimitErrorMessage } from "@/lib/account-limit";
+import { logger } from "@/lib/logger";
 
 const LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error("[LinkedIn OAuth] Missing LINKEDIN_CLIENT_ID or LINKEDIN_CLIENT_SECRET");
+    logger.error("[LinkedIn OAuth] Missing LINKEDIN_CLIENT_ID or LINKEDIN_CLIENT_SECRET");
     return NextResponse.redirect(
       new URL(redirectOnError, request.url)
     );
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok) {
       const text = await tokenRes.text().catch(() => "");
-      console.error(`[LinkedIn OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
+      logger.error(`[LinkedIn OAuth] Token exchange failed: ${tokenRes.status} ${text}`);
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
     const accessToken = tokenData.access_token;
     const refreshToken = tokenData.refresh_token ?? null;
     if (!accessToken) {
-      console.error("[LinkedIn OAuth] No access_token in response");
+      logger.error("[LinkedIn OAuth] No access_token in response");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
 
     if (!userInfoRes.ok) {
       const text = await userInfoRes.text().catch(() => "");
-      console.error(`[LinkedIn OAuth] /userinfo failed: ${userInfoRes.status} ${text}`);
+      logger.error(`[LinkedIn OAuth] /userinfo failed: ${userInfoRes.status} ${text}`);
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
     const { data: authData, error: authError } = await supabase.auth.getUser();
 
     if (authError || !authData?.user) {
-      console.error("[LinkedIn OAuth] User not authenticated");
+      logger.error("[LinkedIn OAuth] User not authenticated");
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
       platformId,
     );
     if (!linkedinAllowed) {
-      console.error("[LinkedIn OAuth] Account limit reached:", linkedinInfo);
+      logger.error("[LinkedIn OAuth] Account limit reached:", linkedinInfo);
       return NextResponse.redirect(
         new URL(errorRedirect(accountLimitErrorMessage(linkedinInfo)), request.url)
       );
@@ -202,16 +203,16 @@ export async function GET(request: NextRequest) {
       );
 
     if (dbError) {
-      console.error("[LinkedIn OAuth] DB upsert error:", dbError);
+      logger.error("[LinkedIn OAuth] DB upsert error:", dbError);
       return NextResponse.redirect(new URL(redirectOnError, request.url));
     }
 
-    console.log(`[LinkedIn OAuth] Successfully connected ${accountName} (${platformId}) for user ${userId}`);
+    logger.debug(`[LinkedIn OAuth] Successfully connected ${accountName}`);
 
     // ── Step 6: Redirect back to dashboard ───────────────────────────
     return NextResponse.redirect(new URL(redirectOnSuccess, request.url));
   } catch (error) {
-    console.error("[LinkedIn OAuth] Unexpected error:", error);
+    logger.error("[LinkedIn OAuth] Unexpected error:", error);
     return NextResponse.redirect(new URL(redirectOnError, request.url));
   }
 }

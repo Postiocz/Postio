@@ -12,6 +12,7 @@ import {
   isTikTokSandboxPrivateOnlyError,
   TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
 } from "@/lib/tiktok-publish-errors";
+import { logger } from "@/lib/logger";
 
 const LOCALES = ["cs", "en", "uk"] as const;
 
@@ -201,7 +202,7 @@ async function waitForInstagramContainerReady(params: {
       }
 
       const code = getContainerStatusCode(payload);
-      console.log("⏳ IG container status:", {
+      logger.debug("⏳ IG container status:", {
         creationId,
         attempt,
         elapsedMs: elapsed,
@@ -230,7 +231,7 @@ async function waitForInstagramContainerReady(params: {
       }
     } catch (e) {
       // Transient network error – log and keep polling until timeout.
-      console.warn("⚠️ IG status poll network error:", {
+      logger.warn("⚠️ IG status poll network error:", {
         creationId,
         attempt,
         message: e instanceof Error ? e.message : String(e),
@@ -278,7 +279,7 @@ async function publishToInstagram(params: {
   }
 
   // --- Phase 1: Create Media Container ---
-  console.log("Vytvářím IG kontejner...", {
+  logger.debug("Vytvářím IG kontejner...", {
     igUserId,
     mediaType,
     mediaUrl,
@@ -307,7 +308,7 @@ async function publishToInstagram(params: {
   const containerPayload = (await containerRes.json().catch(async () => ({
     raw: await containerRes.text().catch(() => ""),
   }))) as FacebookPublishResponse;
-  console.log("META RESPONSE (IG container):", containerPayload);
+  logger.debug("META RESPONSE (IG container):", containerPayload);
 
   const containerErr = getGraphErrorMessage(containerPayload);
   if (containerErr) {
@@ -319,7 +320,7 @@ async function publishToInstagram(params: {
     return { success: false, error: "IG container creation returned no ID." };
   }
 
-  console.log("IG kontejner vytvořen, creation_id:", creationId);
+  logger.debug("IG kontejner vytvořen, creation_id:", creationId);
 
   // For images, a short static wait is enough (Instagram processes JPEGs in
   // a few seconds and the previous 3 s `setTimeout` worked reliably).
@@ -327,7 +328,7 @@ async function publishToInstagram(params: {
   // `FINISHED` – the previous hard-coded 10 s wait was too short and caused
   // Meta error `(#9007) Media ID is not available` on `media_publish`.
   if (mediaType === "video") {
-    console.log("⏳ Čekám na zpracování IG videa (polling status_code)...");
+    logger.debug("⏳ Čekám na zpracování IG videa (polling status_code)...");
     const ready = await waitForInstagramContainerReady({
       creationId,
       accessToken,
@@ -335,13 +336,13 @@ async function publishToInstagram(params: {
     if (!ready.success) {
       return { success: false, error: ready.error };
     }
-    console.log("✅ IG video kontejner je připraven k publikaci.");
+    logger.debug("✅ IG video kontejner je připraven k publikaci.");
   } else {
     await new Promise((r) => setTimeout(r, 3_000));
   }
 
   // --- Phase 2: Publish Container ---
-  console.log("Publikuji IG kontejner...", { creationId });
+  logger.debug("Publikuji IG kontejner...", { creationId });
 
   const publishBody = new URLSearchParams();
   publishBody.set("creation_id", creationId);
@@ -357,7 +358,7 @@ async function publishToInstagram(params: {
   const publishPayload = (await publishRes.json().catch(async () => ({
     raw: await publishRes.text().catch(() => ""),
   }))) as FacebookPublishResponse;
-  console.log("🔥 META RESPONSE (IG publish):", publishPayload);
+  logger.debug("🔥 META RESPONSE (IG publish):", publishPayload);
 
   const publishErr = getGraphErrorMessage(publishPayload);
   if (publishErr) {
@@ -369,7 +370,7 @@ async function publishToInstagram(params: {
   const publishedId = getGraphResponseId(publishPayload);
 
   if (publishedId) {
-    console.log("🔥 IG PUBLISH SUCCESS, media_id:", publishedId);
+    logger.debug("🔥 IG PUBLISH SUCCESS, media_id:", publishedId);
 
     // Phase 3: Fetch the shortcode for the shareable URL.
     // Instagram URLs use shortcodes like /p/CxYzABCDE/, not numeric IDs.
@@ -383,7 +384,7 @@ async function publishToInstagram(params: {
     });
 
     if (shortcode) {
-      console.log("🔥 IG shortcode:", shortcode);
+      logger.debug("🔥 IG shortcode:", shortcode);
       // Store as "shortcode|media_id" — buildLiveUrl extracts the shortcode,
       // deleteFromMeta extracts the media_id.
       return { success: true, externalId: `${shortcode}|${publishedId}` };
@@ -391,14 +392,14 @@ async function publishToInstagram(params: {
 
     // Fallback: store just the numeric ID if shortcode fetch failed.
     // buildLiveUrl and deleteFromMeta have fallbacks for this case.
-    console.warn("⚠️ IG shortcode fetch failed – storing media_id only:", publishedId);
+    logger.warn("⚠️ IG shortcode fetch failed – storing media_id only:", publishedId);
     return { success: true, externalId: publishedId };
   }
 
   // Fallback: if media_publish returned OK but no 'id', use creation_id.
   // This can happen with certain Meta API versions. creation_id is still usable
   // for deletion via Graph API.
-  console.warn("⚠️ IG publish returned no 'id' – falling back to creation_id:", creationId);
+  logger.warn("⚠️ IG publish returned no 'id' – falling back to creation_id:", creationId);
   return { success: true, externalId: creationId };
 }
 
@@ -426,13 +427,13 @@ async function fetchInstagramShortcode(params: {
     const payload = await res.json().catch(() => ({}));
     const errMsg = getGraphErrorMessage(payload);
     if (errMsg) {
-      console.warn("[IG shortcode] Graph API error fetching user media:", errMsg);
+      logger.warn("[IG shortcode] Graph API error fetching user media:", errMsg);
       return null;
     }
 
     const data = (payload as Record<string, unknown>).data as Record<string, unknown>[] | undefined;
     if (!Array.isArray(data)) {
-      console.warn("[IG shortcode] No data array in response");
+      logger.warn("[IG shortcode] No data array in response");
       return null;
     }
 
@@ -445,15 +446,15 @@ async function fetchInstagramShortcode(params: {
       const permalink = String(match.permalink);
       const extracted = extractShortcodeFromPermalink(permalink);
       if (extracted) {
-        console.log("[IG shortcode] Found in user media feed:", extracted, "from", permalink);
+        logger.debug("[IG shortcode] Found in user media feed:", extracted, "from", permalink);
         return extracted;
       }
     }
 
-    console.warn("[IG shortcode] Post not found in recent media or no permalink");
+    logger.warn("[IG shortcode] Post not found in recent media or no permalink");
     return null;
   } catch (err) {
-    console.error("[IG shortcode] Network error:", err);
+    logger.error("[IG shortcode] Network error:", err);
     return null;
   }
 }
@@ -486,15 +487,15 @@ async function resolveInstagramMediaId(params: {
     const payload = await res.json().catch(() => ({}));
     const data = (payload as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (!data || Object.keys(data).length === 0) {
-      console.warn("[IG resolve] No data returned for shortcode:", params.shortcode);
+      logger.warn("[IG resolve] No data returned for shortcode:", params.shortcode);
       return null;
     }
     // Response format: { data: { "<media-id>": { ... } } }
     const mediaId = Object.keys(data)[0];
-    console.log("[IG resolve] Resolved shortcode → media_id:", mediaId);
+    logger.debug("[IG resolve] Resolved shortcode → media_id:", mediaId);
     return mediaId ?? null;
   } catch (err) {
-    console.error("[IG resolve] Network error:", err);
+    logger.error("[IG resolve] Network error:", err);
     return null;
   }
 }
@@ -943,18 +944,18 @@ export async function publishPost(input: { postId: string }): Promise<{
       body.set("description", finalCaption);
       body.set("access_token", fbAccount.access_token);
 
-      console.log("ODESÍLÁM VIDEO NA FACEBOOK...", { platform_id: fbAccount.platform_id, mediaUrl });
+      logger.debug("ODESÍLÁM VIDEO NA FACEBOOK...", { platform_id: fbAccount.platform_id, mediaUrl });
       const res = await fetch(`${base}/videos`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
       const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
-      console.log("META RESPONSE (video):", payload);
+      logger.debug("META RESPONSE (video):", payload);
 
       const errMsg = getGraphErrorMessage(payload);
       if (errMsg) throw new Error(errMsg);
       facebookPostId = getGraphResponseId(payload);
 
     } else if (mediaType === "photo" && photoUrls.length > 1) {
-      console.log("Nahrávám galerii s počtem fotek:", photoUrls.length);
-      console.log("ODESÍLÁM GALERII FOTEK NA FACEBOOK...", { platform_id: fbAccount.platform_id, count: photoUrls.length });
+      logger.debug("Nahrávám galerii s počtem fotek:", photoUrls.length);
+      logger.debug("ODESÍLÁM GALERII FOTEK NA FACEBOOK...", { platform_id: fbAccount.platform_id, count: photoUrls.length });
 
       const mediaIds: string[] = [];
       for (let i = 0; i < photoUrls.length; i++) {
@@ -971,7 +972,7 @@ export async function publishPost(input: { postId: string }): Promise<{
         });
 
         const uploadPayload = (await uploadRes.json().catch(async () => ({ raw: await uploadRes.text().catch(() => "") }))) as FacebookPublishResponse;
-        console.log(`META UPLOAD photo ${i + 1}:`, uploadPayload);
+        logger.debug(`META UPLOAD photo ${i + 1}:`, uploadPayload);
 
         const uploadErr = getGraphErrorMessage(uploadPayload);
         if (uploadErr) throw new Error(`Upload photo ${i + 1} failed: ${uploadErr}`);
@@ -986,7 +987,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       feedBody.set("attached_media", JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))));
       feedBody.set("access_token", fbAccount.access_token);
 
-      console.log("PUBLIKUJI GALERII...", { mediaIds });
+      logger.debug("PUBLIKUJI GALERII...", { mediaIds });
       const feedRes = await fetch(`${base}/feed`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -995,7 +996,7 @@ export async function publishPost(input: { postId: string }): Promise<{
       });
 
       const feedPayload = (await feedRes.json().catch(async () => ({ raw: await feedRes.text().catch(() => "") }))) as FacebookPublishResponse;
-      console.log("META RESPONSE (gallery feed):", feedPayload);
+      logger.debug("META RESPONSE (gallery feed):", feedPayload);
 
       const feedErr = getGraphErrorMessage(feedPayload);
       if (feedErr) throw new Error(feedErr);
@@ -1007,10 +1008,10 @@ export async function publishPost(input: { postId: string }): Promise<{
       body.set("caption", finalCaption);
       body.set("access_token", fbAccount.access_token);
 
-      console.log("ODESÍLÁM FOTO NA FACEBOOK...", { platform_id: fbAccount.platform_id, mediaUrl: photoUrls[0] });
+      logger.debug("ODESÍLÁM FOTO NA FACEBOOK...", { platform_id: fbAccount.platform_id, mediaUrl: photoUrls[0] });
       const res = await fetch(`${base}/photos`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
       const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
-      console.log("META RESPONSE (photo):", payload);
+      logger.debug("META RESPONSE (photo):", payload);
 
       const errMsg = getGraphErrorMessage(payload);
       if (errMsg) throw new Error(errMsg);
@@ -1021,10 +1022,10 @@ export async function publishPost(input: { postId: string }): Promise<{
       body.set("message", finalCaption);
       body.set("access_token", fbAccount.access_token);
 
-      console.log("ODESÍLÁM TEXT NA FACEBOOK...", { platform_id: fbAccount.platform_id });
+      logger.debug("ODESÍLÁM TEXT NA FACEBOOK...", { platform_id: fbAccount.platform_id });
       const res = await fetch(`${base}/feed`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
       const payload = (await res.json().catch(async () => ({ raw: await res.text().catch(() => "") }))) as FacebookPublishResponse;
-      console.log("META RESPONSE (text):", payload);
+      logger.debug("META RESPONSE (text):", payload);
 
       const errMsg = getGraphErrorMessage(payload);
       if (errMsg) throw new Error(errMsg);
@@ -1039,7 +1040,7 @@ export async function publishPost(input: { postId: string }): Promise<{
     return { success: true, data: { externalId: facebookPostId, platform: "facebook" } };
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : "Unknown error while publishing to Facebook.";
-    console.error("FACEBOOK PUBLISH ERROR:", errorMessage);
+    logger.error("FACEBOOK PUBLISH ERROR:", errorMessage);
 
     await handlePublishError(supabase, userId, postId, errorMessage, "facebook", targetAccountId);
     return { success: false, error: errorMessage };
@@ -1126,8 +1127,8 @@ async function handlePublishSuccess(
 ) {
   const publishedAt = new Date().toISOString();
 
-  console.log(`✅ ZAPISUJI ÚSPĚCH DO DB: ${platform} pro post ${postId}`);
-  console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> published`);
+  logger.debug(`ZAPISUJI ÚSPĚCH DO DB: ${platform} pro post ${postId}`);
+  logger.debug(`Aktualizuji post_platforms ${platform} -> published`);
 
   let ppQuery = supabase
     .from("post_platforms")
@@ -1144,7 +1145,7 @@ async function handlePublishSuccess(
   const { error: ppError } = await ppQuery;
 
   if (ppError) {
-    console.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
+    logger.error("handlePublishSuccess: Failed to update post_platforms:", ppError.message);
   }
 
   revalidatePath("/", "layout");
@@ -1166,7 +1167,7 @@ async function handleManualReady(
   platform: string,
   accountId?: string | null,
 ) {
-  console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> ready (manuální účet)`);
+  logger.debug(`Aktualizuji post_platforms ${platform} -> ready (manuální účet)`);
 
   let ppQuery = supabase
     .from("post_platforms")
@@ -1183,7 +1184,7 @@ async function handleManualReady(
   const { error: ppError } = await ppQuery;
 
   if (ppError) {
-    console.error("handleManualReady: Failed to update post_platforms:", ppError.message);
+    logger.error("handleManualReady: Failed to update post_platforms:", ppError.message);
   }
 
   revalidatePath("/", "layout");
@@ -1201,7 +1202,7 @@ async function handlePublishError(
   accountId?: string | null,
 ) {
   if (platform) {
-    console.log(`🚀 ARCHITEKTURA: Aktualizuji post_platforms ${platform} -> failed`);
+    logger.debug(`Aktualizuji post_platforms ${platform} -> failed`);
     let ppQuery = supabase
       .from("post_platforms")
       .update({
@@ -1215,7 +1216,7 @@ async function handlePublishError(
     const { error: ppError } = await ppQuery;
 
     if (ppError) {
-      console.error("handlePublishError: Failed to update post_platforms:", ppError.message);
+      logger.error("handlePublishError: Failed to update post_platforms:", ppError.message);
     }
   }
 
@@ -1329,7 +1330,7 @@ export async function updateRemotePostAction(input: {
   body.set(paramName, input.newContent);
   body.set("access_token", accessToken);
 
-  console.log(`Remote editing post on ${targetPlatform}:`, { externalId, paramName });
+  logger.debug(`Remote editing post on ${targetPlatform}:`, { externalId, paramName });
 
   const res = await fetch(graphUrl, {
     method: "POST",
@@ -1341,7 +1342,7 @@ export async function updateRemotePostAction(input: {
   const payload = (await res.json().catch(async () => ({
     raw: await res.text().catch(() => ""),
   }))) as FacebookPublishResponse;
-  console.log(`META RESPONSE (remote edit ${targetPlatform}):`, payload);
+  logger.debug(`META RESPONSE (remote edit ${targetPlatform}):`, payload);
 
   const errMsg = getGraphErrorMessage(payload);
   if (errMsg) {
@@ -1475,9 +1476,8 @@ export async function updateOnPlatformAction(input: {
     .order("created_at", { ascending: false })
     .limit(1);
 
-  console.log(`[TOKEN LOOKUP] platform: ${input.platform}, user: ${user.id}`);
-  console.log(`[TOKEN LOOKUP] accounts:`, JSON.stringify(accounts?.map(a => ({ platform_id: a.platform_id, account_name: a.account_name, tokenLast10: a.access_token?.slice(-10) })), null, 2));
-  console.log(`[TOKEN LOOKUP] error:`, accError);
+  logger.debug(`[TOKEN LOOKUP] platform: ${input.platform}`);
+  logger.debug(`[TOKEN LOOKUP] error:`, accError);
 
   if (!accounts?.[0]?.access_token) {
     return {
@@ -1499,7 +1499,7 @@ export async function updateOnPlatformAction(input: {
         let resolvedExternalId = externalId;
         if (!externalId.includes("_") && accountPlatformId) {
           resolvedExternalId = `${accountPlatformId}_${externalId}`;
-          console.log(`[FB UPDATE] external_id bez podtržítka, sestavuji: ${resolvedExternalId}`);
+          logger.debug(`[FB UPDATE] external_id bez podtržítka, sestavuji: ${resolvedExternalId}`);
         }
 
         // The access_token from social_accounts IS the Page Access Token
@@ -1509,19 +1509,17 @@ export async function updateOnPlatformAction(input: {
         const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(resolvedExternalId)}`;
 
         // Log exact request details before sending to Meta
-        console.log(`[FB UPDATE] === Požadavek na Facebook ===`);
-        console.log(`[FB UPDATE] URL: ${graphUrl}`);
-        console.log(`[FB UPDATE] Method: POST`);
-        console.log(`[FB UPDATE] external_id (raw): ${externalId}`);
-        console.log(`[FB UPDATE] resolvedExternalId: ${resolvedExternalId}`);
-        console.log(`[FB UPDATE] pageAccessToken (last 12): ${pageAccessToken.slice(-12)}`);
-        console.log(`[FB UPDATE] message: ${input.newContent.slice(0, 100)}...`);
+        logger.debug(`[FB UPDATE] URL: ${graphUrl}`);
+        logger.debug(`[FB UPDATE] Method: POST`);
+        logger.debug(`[FB UPDATE] external_id (raw): ${externalId}`);
+        logger.debug(`[FB UPDATE] resolvedExternalId: ${resolvedExternalId}`);
+        logger.debug(`[FB UPDATE] message: ${input.newContent.slice(0, 100)}...`);
 
         const body = new URLSearchParams();
         body.set("message", input.newContent);
         body.set("access_token", pageAccessToken);
 
-        console.log(`[FB UPDATE] Body (urlencoded): ${body.toString().replace(pageAccessToken, "TOKEN_REDACTED")}`);
+        logger.debug(`[FB UPDATE] Body (urlencoded): ${body.toString().replace(pageAccessToken, "TOKEN_REDACTED")}`);
 
         const res = await fetch(graphUrl, {
           method: "POST",
@@ -1533,7 +1531,7 @@ export async function updateOnPlatformAction(input: {
         const payload = (await res.json().catch(async () => ({
           raw: await res.text().catch(() => ""),
         }))) as FacebookPublishResponse;
-        console.log(`[FB UPDATE] META RESPONSE:`, payload);
+        logger.debug(`[FB UPDATE] META RESPONSE:`, payload);
 
         const errMsg = getGraphErrorMessage(payload);
         if (errMsg) {
@@ -1548,7 +1546,7 @@ export async function updateOnPlatformAction(input: {
         // Body: { "text": { "content": newContent } }
         // Header: Authorization: Bearer {accessToken}
         // LinkedIn tokens expire in 60 days – check token_expires_at before calling.
-        console.warn(`LinkedIn update placeholder – platform: ${input.platform}, post: ${input.postId}`);
+        logger.warn(`LinkedIn update placeholder – platform: ${input.platform}, post: ${input.postId}`);
         return {
           success: false as const,
           error: "Úprava na LinkedIn zatím není implementována.",
@@ -1558,7 +1556,7 @@ export async function updateOnPlatformAction(input: {
       case "youtube": {
         // TODO: YouTube Data API v3 – videos().update({ id, part, requestBody })
         // requestBody: { snippet: { description: newContent } }
-        console.warn(`YouTube update placeholder – platform: ${input.platform}, post: ${input.postId}`);
+        logger.warn(`YouTube update placeholder – platform: ${input.platform}, post: ${input.postId}`);
         return {
           success: false as const,
           error: "Úprava na YouTube zatím není implementována.",
@@ -1570,7 +1568,7 @@ export async function updateOnPlatformAction(input: {
         // TODO: X/Twitter API v2 – PUT /2/tweets/{external_id}
         // Body: { "text": newContent }
         // Note: X API may require the media metadata to be preserved in the update.
-        console.warn(`Twitter/X update placeholder – platform: ${input.platform}, post: ${input.postId}`);
+        logger.warn(`Twitter/X update placeholder – platform: ${input.platform}, post: ${input.postId}`);
         return {
           success: false as const,
           error: "Úprava na X (Twitter) zatím není implementována.",
@@ -1744,7 +1742,7 @@ export async function deleteFromMeta(input: {
       .eq("id", targetRow.id);
 
     if (archiveError) {
-      console.error(
+      logger.error(
         `[deleteFromMeta] LinkedIn archive failed for post ${input.postId}:`,
         archiveError,
       );
@@ -1752,7 +1750,7 @@ export async function deleteFromMeta(input: {
     }
 
 
-    console.log(
+    logger.debug(
       `[deleteFromMeta] LinkedIn row archived (no API DELETE) for post ${input.postId}`,
     );
 
@@ -1794,11 +1792,11 @@ export async function deleteFromMeta(input: {
       .eq("id", targetRow.id);
 
     if (archiveError) {
-      console.error(`[deleteFromMeta] TikTok archive failed for post ${input.postId}:`, archiveError);
+      logger.error(`[deleteFromMeta] TikTok archive failed for post ${input.postId}:`, archiveError);
       return { success: false, cannotDeleteViaApi: true, error: archiveError.message };
     }
 
-    console.log(`[deleteFromMeta] TikTok row archived (no API DELETE) for post ${input.postId}`);
+    logger.debug(`[deleteFromMeta] TikTok row archived (no API DELETE) for post ${input.postId}`);
 
     revalidateAllLocales("/calendar");
     revalidateAllLocales("/posts");
@@ -1818,7 +1816,7 @@ export async function deleteFromMeta(input: {
   const externalId = targetRow?.external_id ?? null;
 
   if (!externalId) {
-    console.log(`deleteFromMeta: Na platformě ${platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
+    logger.debug(`deleteFromMeta: Na platformě ${platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
   }
 
   // Verify the target platform is in published_platforms
@@ -1868,7 +1866,7 @@ export async function deleteFromMeta(input: {
     const accessToken = accounts[0].access_token;
     const tweetDeleteUrl = `https://api.twitter.com/2/tweets/${encodeURIComponent(externalId)}`;
 
-    console.log(`[deleteFromMeta] Deleting tweet ${externalId} via X API v2`);
+    logger.debug(`[deleteFromMeta] Deleting tweet ${externalId} via X API v2`);
 
     try {
       const res = await fetch(tweetDeleteUrl, {
@@ -1883,13 +1881,13 @@ export async function deleteFromMeta(input: {
         const data = (await res.json().catch(() => ({}))) as {
           data?: { deleted?: boolean };
         };
-        console.log("[deleteFromMeta] ✅ Tweet deleted:", {
+        logger.debug("[deleteFromMeta] ✅ Tweet deleted:", {
           externalId,
           response: data?.data,
         });
       } else {
         const errText = await res.text().catch(() => "");
-        console.error(`[deleteFromMeta] X delete failed (${res.status}):`, errText.slice(0, 300));
+        logger.error(`[deleteFromMeta] X delete failed (${res.status}):`, errText.slice(0, 300));
 
         // If X says the tweet doesn't exist, treat as success.
         if (
@@ -1897,7 +1895,7 @@ export async function deleteFromMeta(input: {
           errText.toLowerCase().includes("not found") ||
           res.status === 404
         ) {
-          console.log("[deleteFromMeta] Tweet already deleted on X – treating as success.");
+          logger.debug("[deleteFromMeta] Tweet already deleted on X – treating as success.");
           const now = new Date().toISOString();
           await supabase
             .from("post_platforms")
@@ -1922,7 +1920,7 @@ export async function deleteFromMeta(input: {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("[deleteFromMeta] X delete network error:", msg);
+      logger.error("[deleteFromMeta] X delete network error:", msg);
       return {
         success: false,
         error: `Síťová chyba při mazání tweetu: ${msg}`,
@@ -1961,19 +1959,19 @@ export async function deleteFromMeta(input: {
       if (pipeIdx > 0) {
         // "shortcode|media_id" — use the media_id part directly
         deleteId = externalId.slice(pipeIdx + 1);
-        console.log(`[IG delete] Extracted media_id from "${externalId}": ${deleteId}`);
+        logger.debug(`[IG delete] Extracted media_id from "${externalId}": ${deleteId}`);
       } else if (!/^\d+$/.test(externalId)) {
         // Plain shortcode — resolve via Graph API
-        console.log(`[IG delete] external_id je shortcode (${externalId}), resolvuji na media_id...`);
+        logger.debug(`[IG delete] external_id je shortcode (${externalId}), resolvuji na media_id...`);
         const resolvedMediaId = await resolveInstagramMediaId({
           shortcode: externalId,
           accessToken,
         });
         if (resolvedMediaId) {
           deleteId = resolvedMediaId;
-          console.log(`[IG delete] Resolved shortcode → media_id: ${deleteId}`);
+          logger.debug(`[IG delete] Resolved shortcode → media_id: ${deleteId}`);
         } else {
-          console.warn(`[IG delete] Nelze resolvovat shortcode ${externalId} na media_id. Zkousím přímo.`);
+          logger.warn(`[IG delete] Nelze resolvovat shortcode ${externalId} na media_id. Zkousím přímo.`);
         }
       }
       // If it's all digits, use as-is (old format — already a media_id)
@@ -1981,9 +1979,8 @@ export async function deleteFromMeta(input: {
 
     const graphUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(deleteId)}`;
 
-    console.log(`>>> START MAZÁNÍ Z PLATFORMY: ${platform}`);
-    console.log(`>>> POUŽITÉ ID: ${deleteId}`);
-    console.log(`>>> POUŽITÝ TOKEN (last 10): ${accessToken.slice(-10)}`);
+    logger.debug(`>>> START MAZÁNÍ Z PLATFORMY: ${platform}`);
+    logger.debug(`>>> POUŽITÉ ID: ${deleteId}`);
 
     try {
       const body = new URLSearchParams();
@@ -1999,7 +1996,7 @@ export async function deleteFromMeta(input: {
       const resData = await res.json().catch(async () => ({
         raw: await res.text().catch(() => ""),
       }));
-      console.log(`>>> META RESPONSE (${platform}):`, JSON.stringify(resData, null, 2));
+      logger.debug(`>>> META RESPONSE (${platform}):`, JSON.stringify(resData, null, 2));
 
       const errMsg = getGraphErrorMessage(resData);
       if (errMsg) {
@@ -2012,7 +2009,7 @@ export async function deleteFromMeta(input: {
             String(resData).toLowerCase().includes("does not exist"));
 
         if (isObjectNotFound) {
-          console.log(`>>> Object not found on ${platform} – post already deleted on platform. Treating as success.`);
+          logger.debug(`>>> Object not found on ${platform} – post already deleted on platform. Treating as success.`);
           // Mark as removed_externally since the post is already gone on the platform
           const now = new Date().toISOString();
           await supabase
@@ -2030,7 +2027,7 @@ export async function deleteFromMeta(input: {
 
           return { success: true, cannotDeleteViaApi: true };
         } else {
-          console.error(`>>> CHYBA při mazání na ${platform}: ${errMsg}`);
+          logger.error(`>>> CHYBA při mazání na ${platform}: ${errMsg}`);
           // API deletion not supported (e.g. Instagram) – soft-archive the row
           // so the user keeps a greyed-out icon as proof of past publication.
           // The post still exists on the platform; the user must delete it manually.
@@ -2048,13 +2045,13 @@ export async function deleteFromMeta(input: {
                 .eq("id", targetRow.id);
 
               if (archiveError) {
-                console.error(
+                logger.error(
                   `[deleteFromMeta] Instagram archive failed for post ${input.postId}:`,
                   archiveError,
                 );
               }
 
-              console.log(
+              logger.debug(
                 `[deleteFromMeta] Instagram row archived (no API DELETE) for post ${input.postId}`,
               );
             }
@@ -2077,16 +2074,16 @@ export async function deleteFromMeta(input: {
 
       // Úspěšné smazání – Graph API vrací {"success": true} pro Facebook
       // nebo {"id": "..."} pro Instagram
-      console.log(`>>> Smazání z ${platform} ÚSPĚŠNÉ`);
+      logger.debug(`>>> Smazání z ${platform} ÚSPĚŠNÉ`);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "Neznámá síťová chyba.";
-      console.error(`>>> VÝJIMEKA při mazání na ${platform}: ${errorMessage}`);
+      logger.error(`>>> VÝJIMEKA při mazání na ${platform}: ${errorMessage}`);
       // Network error – do NOT mark as removed_externally.
       // The post may still exist on the platform. Let syncPublishedPosts verify via GET.
       return { success: false, cannotDeleteViaApi: true, error: `Síťová chyba při mazání z ${platform}. Zkuste to znovu.` };
     }
   } else {
-    console.log(`>>> externalId chybí pro ${platform} – přeskočíme API volání`);
+    logger.debug(`>>> externalId chybí pro ${platform} – přeskočíme API volání`);
     // No externalId – do NOT mark as removed_externally.
     // We cannot verify the post status without an ID.
     return { success: false, cannotDeleteViaApi: true, error: `Chybí ID pro smazání z ${platform}.` };
@@ -2176,7 +2173,7 @@ export async function publishAdditionalPlatforms(input: {
       platformRow.external_id.trim(),
   );
   if (alreadyPublishedRow) {
-    console.warn(
+    logger.warn(
       `[publishAdditionalPlatforms] Refusing duplicate upload – post ${input.postId} already on ${input.platform} with external_id=${alreadyPublishedRow.external_id}`,
     );
     return {
@@ -2201,7 +2198,7 @@ export async function publishAdditionalPlatforms(input: {
   // Prompt 026 (Krok 4.2): also store the specific account_id so the row
   // is linked to the chosen account (enables 2+ accounts of one platform).
   if (!allPlatformNames.includes(input.platform)) {
-    console.log(`⚠️ Platform ${input.platform} not in post_platforms – creating entry first`);
+    logger.debug(`Platform ${input.platform} not in post_platforms – creating entry first`);
     await supabase
       .from("post_platforms")
       .insert({
@@ -2670,7 +2667,7 @@ export async function markAsPublishedManual(input: {
   const { error: ppError } = await ppQuery;
 
   if (ppError) {
-    console.error("markAsPublishedManual: Failed to update post_platforms:", ppError.message);
+    logger.error("markAsPublishedManual: Failed to update post_platforms:", ppError.message);
     return { success: false, error: ppError.message };
   }
 

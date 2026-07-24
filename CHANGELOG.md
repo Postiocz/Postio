@@ -6,6 +6,25 @@
 
 
 
+### 🚀 Prompt 044 – KROK 4: Ochrana soukromí a logů ✅
+
+- **Kontext**: Produkční aplikace vypisovala do konzole prohlížeče citlivá data (tokeny, user IDs). Risk pro App Review demo video.
+- **Změny**:
+  - ✅ `src/lib/logger.ts`: Nová produkční logger utility – `debug`/`warn` jsou potlačeny v produkci, `error`/`info` prochází vždy.
+  - ✅ Kritické token logy odstraněny: `publish.ts` (token last-10/12 chars), `publish-linkedin.ts` (celé payload dumpy odstraněny).
+  - ✅ Klientské komponenty: 15× `console.log` → `logger.debug` (potlačeno v produkci).
+  - ✅ OAuth routy: X, TikTok, LinkedIn, Stripe – `console.log`/`error` → `logger` s odstraněním auth kódů a user ID.
+  - ✅ Bezpečnostní fix: `layout.tsx` již neloguje `user.id` do konzole prohlížeče.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
+
+### 🚀 Prompt 044 – KROK 2: Příprava pro externí Plánovač (Cron Bypass) ✅
+
+- **Kontext**: Edge funkce `process-scheduled-posts` potřebovala podporu pro externí cron trigger (cron-job.org) jako náhradu za chybějící Vercel/Supabase cron na free tieru.
+- **Změny**:
+  - ✅ `supabase/functions/process-scheduled-posts/index.ts': Přidány helpery `getCronSecret()` a `checkCronSecret()` pro ověření `Authorization: Bearer [CRON_SECRET]` hlavičky. CRON_SECRET je kontrolován jako první auth metoda; pokud není nastaven, funkce funguje zpětně kompatibilně.
+  - ✅ `supabase/config.toml': Přidán komentář o nutnosti nastavit `CRON_SECRET` v Supabase Dashboard.
+- **Ověření**: Externí cron-job.org vrací 200 OK ✅.
+
 ### 🚀 Prompt 043-C – KROK 7: Lokalizace (i18n) – kreditové hlášky ✅
 
 - **Kontext**: Chybové hlášky o nedostatku X kreditů byly natvrdo v češtině. Chyběly i18n klíče pro UI hlášky.

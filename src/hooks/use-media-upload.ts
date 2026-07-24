@@ -12,6 +12,7 @@ import {
   ABSOLUTE_HARD_LIMIT,
   MIN_VIDEO_DIMENSION,
 } from "@/lib/constants";
+import { logger } from "@/lib/logger";
 
 type MediaUploadItem = {
   id: string;
@@ -270,7 +271,7 @@ export function useMediaUpload(
         });
 
       if (error) {
-        console.error("Upload error:", error);
+        logger.error("Upload error:", error);
         return null;
       }
 
@@ -479,7 +480,7 @@ export function useMediaUpload(
                 toast.error(t.uploadError);
               }
             } catch (err) {
-              console.error("Upload pipeline error:", err);
+              logger.error("Upload pipeline error:", err);
               setItems((current) =>
                 current.map((c) =>
                   c.id === item.id ? { ...c, status: "error" } : c,

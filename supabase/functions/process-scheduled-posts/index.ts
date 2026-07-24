@@ -1,6 +1,29 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.6.3";
 
+/**
+ * Reads and caches the CRON_SECRET env var.
+ * Returns null if not set (auth falls through to existing methods for backward compat).
+ */
+function getCronSecret(): string | null {
+  return Deno.env.get("CRON_SECRET")?.trim() || null;
+}
+
+/**
+ * Checks if the request carries a valid CRON_SECRET in the Authorization header.
+ * Returns true if CRON_SECRET is configured and matches.
+ */
+function checkCronSecret(request: Request): boolean {
+  const secret = getCronSecret();
+  if (!secret) return false; // CRON_SECRET not configured – skip check
+
+  const header =
+    request.headers.get("authorization") ?? request.headers.get("Authorization");
+  if (!header) return false;
+
+  return header === `Bearer ${secret}`;
+}
+
 function getApiKey(request: Request): string | null {
   const apiKey = request.headers.get("apikey") ?? request.headers.get("Apikey");
   return apiKey?.trim() || null;
@@ -1819,7 +1842,10 @@ Deno.serve(async (request: Request) => {
   const token = getBearerToken(request);
 
   try {
-    if (apiKey) {
+    // CRON_SECRET check first — for external cron triggers (cron-job.org etc.)
+    if (checkCronSecret(request)) {
+      console.log("process-scheduled-posts auth ok (cron_secret)");
+    } else if (apiKey) {
       if (!keyMatchesAny({ provided: apiKey, expected: expectedKeys })) {
         throw new Error("API key mismatch");
       }

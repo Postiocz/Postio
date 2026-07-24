@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
+import { logger } from "@/lib/logger";
 
 const isSupabaseConfigured =
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -38,7 +39,7 @@ export function GoogleSignInButton() {
       });
 
       if (error) {
-        console.error("Sign in error:", error);
+        logger.error("Sign in error:", error);
         setErrorMessage(error.message);
       }
     } catch (e) {

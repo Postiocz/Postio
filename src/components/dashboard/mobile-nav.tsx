@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 
 type BottomNavItem = {
   id: string;
@@ -135,7 +136,7 @@ export default function MobileNav({ locale, isAdmin, adminLabel, settingsLabels 
       await supabase.auth.signOut();
       window.location.href = `/${locale}/login`;
     } catch (error) {
-      console.error("Logout error:", error);
+      logger.error("Logout error:", error);
     }
   };
 

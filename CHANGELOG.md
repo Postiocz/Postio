@@ -3,6 +3,27 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
 
+
+### 🚀 Prompt 043-C – KROK 5: UI Indikátory kreditů v Editoru ✅
+
+- **Kontext**: Uživatelé neviděli zbývající kredity pro AI obrázky a X posty. Chyběla vizuální indikace v editoru.
+- **Změny**:
+  - ✅ `src/app/api/accounts/route.ts': GET vrací `{ accounts, credits }` s `ai_credits` a `twitter_auto_credits`.
+  - ✅ `src/components/ai-assistant-button.tsx': Nová prop `aiCredits`, badge 🎨 u „Generovat obrázek" v dropdown menu (text-[10px]).
+  - ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx': Načtení kreditů z API, badge ⚡ u Twitter platformy, předání `aiCredits` do AIAssistantButton.
+  - ✅ `src/components/edit-post-dialog.tsx': Stejné indikátory jako v new/page.tsx.
+- **Ověření**: `npx tsc --noEmit` ✅ (žádné nové chyby, pouze 4 pre-existing).
+
+### 🚀 Prompt 043 – KROK 4: Upgrade odesílání na X — kredity + API ✅
+
+- **Kontext**: Platící uživatelé (Creator/Pro) s `twitter_auto_credits` mohou používat automatické odesílání na X. OAuth route `/api/accounts/x` existovala, chybělo UI propojení a kontrola kreditů.
+- **Změny**:
+  - ✅ `src/components/x-connect-modal.tsx`: Povolena sekce "Automatické odesílání (API)" — tlačítko redirectuje na X OAuth, badge "1 kredit/post".
+  - ✅ `src/app/[locale]/(dashboard)/accounts/page.tsx`: Přidán handler `handleXAutoConnect` pro OAuth redirect, předán jako `onAutoConnect` do `XConnectModal`.
+  - ✅ `src/lib/actions/publish.ts`: Kontrola `twitter_auto_credits` před voláním X API (v `publishPost` i `publishAdditionalPlatforms`). Odečet 1 kreditu po úspěšném publikování.
+  - ✅ i18n (cs/en/uk): Nové klíče `autoCreditCost`, aktualizovány `autoDesc`, `autoButton`.
+- **Ověření**: `npx tsc --noEmit` ✅ (žádné nové chyby, pouze 4 pre-existing).
+
 ### 🚀 Prompt 043 – KROK 3: AI Štětec tlačítko v editoru ✅
 
 - **Kontext**: Backend route pro generování obrázků existovala, chybělo UI propojení v editoru.
@@ -106,37 +127,3 @@
   - modules/admin-core/components/admin-sidebar.tsx,
   - modules/admin-core/components/admin-mobile-nav.tsx,
   - ukol.md, CHANGELOG.md
-
-### 🚀 Prompt 040 – KROK 2,5 (hotfix): Oprava Stripe expand level 4 error ✅
-
-- **Kontext**: Stripe API nepovoluje expandovat více než 4 úrovně hluboko (`data.lines.data.price.product` je 5 úrovní).
-- **Změny**:
-  - **`modules/admin-core/actions.ts`**: Odebrány hluboké expandy (zbývá pouze `data.customer` pro předplatné i faktury).
-  - **`admin/billing/page.tsx`**: Aktualizace logiky pro získání jména plánu (používá `price.nickname` nebo `price.id`).
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `modules/admin-core/actions.ts`, `admin/billing/page.tsx`.
-
-### 🚀 Prompt 040 – KROK 2,5: Oprava Stripe chyb a admin překlady ✅
-
-- **Kontext**: Stripe API vracelo chybu pro neplatný expand `data.plan` u faktur, v adminu jsme chtěl odstranit ukrajinu z přepínače jazyků.
-- **Změny**:
-  - **`modules/admin-core/actions.ts`**: Oprava expand v `getAllInvoices()` na `data.lines.data.price.product`.
-  - **`components/locale-switcher.tsx`**: Přidán `isAdmin` prop, který skrývá ukrajinu v adminu.
-  - **`modules/admin-core/components/admin-header.tsx`**: Přidání `isAdmin={true}` k `LocaleSwitcher`.
-  - **`ukol.md`**: Aktualizace úkolů.
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `modules/admin-core/actions.ts`, `components/locale-switcher.tsx`, `modules/admin-core/components/admin-header.tsx`, `ukol.md`.
-
-### 🚀 Prompt 039 – KROK 3: Responzivita admin/users, design polish + sidebar fix ✅
-
-- **Kontext**: Admin tabulka uživatelů nebyla na mobilu použitelná (HTML table přetékala). Desktop admin sidebar byl neviditelný (chyběla `lg:flex` třída). Detail uživatele postrádal tlačítko zpět.
-- **Změny**:
-  - **`admin/users/page.tsx`**: Responzivní layout — desktop tabulka, mobil karty (avatar, jméno, ID, badge role/plan, streak, datum). Každá karta je klikací link na detail. Glassmorphism `bg-[#09090b]/80`, `rounded-[20px]`.
-  - **`admin/users/[id]/page.tsx`**: Přidán odkaz "Zpět na přehled uživatelů" s ikonou `ArrowLeft` nad hlavičkou.
-  - **`admin-sidebar.tsx`**: Opravena třída `hidden` → `hidden lg:flex`. Přidáno logo "Admin", opravena detekce aktivní položky (funguje i pro nested routy `/users/[id]`), přidán active dot.
-  - **`admin-mobile-nav.tsx`**: Design polish — gradientní top linka `via-indigo-500/30`, jemný fialový glow `shadow-[0_-4px_20px_rgba(99,102,241,0.06)]`.
-  - **i18n**: Všechny klíče pro admin navigaci hotové.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (responzivní tabulka, sidebar viditelný, zpět na detailu).
-- **Upravené soubory**: `admin/users/page.tsx`, `admin/users/[id]/page.tsx`, `admin-sidebar.tsx`, `admin-mobile-nav.tsx`, `ukol.md`, `CHANGELOG.md`.
-
-

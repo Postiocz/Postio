@@ -604,9 +604,9 @@
       "manualButton": "Uložit manuální účet",
       "saving": "Ukládám…",
       "autoTitle": "Automatické odesílání",
-      "autoDesc": "Plně automatické publikování přes X API (vyžaduje placený přístup).",
-      "autoComingSoon": "Připravujeme",
-      "autoButton": "Automatické odesílání",
+      "autoDesc": "Plně automatické publikování přes X API. Spotřebuje 1 kredit za příspěvek – kredity získáváš s plánem Creator nebo Pro.",
+      "autoCreditCost": "1 kredit/post",
+      "autoButton": "Automatické odesílání (API)",
       "error": "Nepodařilo se připojit účet",
       "manualSaved": "Manuální X účet byl uložen."
     },

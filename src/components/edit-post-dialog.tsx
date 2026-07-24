@@ -163,6 +163,9 @@ export function EditPostDialog({
   const [content, setContent] = useState("");
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [allAccounts, setAllAccounts] = useState<AccountInfo[]>([]);
+  // KROK 5 (Prompt 043-C): User credits for UI indicators.
+  const [aiCredits, setAiCredits] = useState(0);
+  const [twitterAutoCredits, setTwitterAutoCredits] = useState(0);
   const [scheduledAt, setScheduledAt] = useState("");
   const [status, setStatus] = useState<string>("draft");
   const [location, setLocation] = useState("");
@@ -281,8 +284,12 @@ export function EditPostDialog({
       try {
         const res = await fetch("/api/accounts");
         if (res.ok) {
-          const data = (await res.json()) as { accounts?: AccountInfo[] };
-          if (!cancelled) setAllAccounts(data.accounts ?? []);
+          const data = (await res.json()) as { accounts?: AccountInfo[]; credits?: { ai_credits: number; twitter_auto_credits: number } };
+          if (!cancelled) {
+            setAllAccounts(data.accounts ?? []);
+            setAiCredits(data.credits?.ai_credits ?? 0);
+            setTwitterAutoCredits(data.credits?.twitter_auto_credits ?? 0);
+          }
         }
       } catch {
         // non-fatal – account picker shows empty state
@@ -1911,6 +1918,7 @@ export function EditPostDialog({
                   }}
                   imageUrl={firstImageUrl}
                   onImageGenerated={(url) => addImageUrl(url)}
+                  aiCredits={aiCredits}
                 />
             </div>
             <Textarea
@@ -2154,6 +2162,15 @@ export function EditPostDialog({
                                   {platformLabel}
                                 </span>
                               </div>
+                              {/* KROK 5: Twitter auto-credits indicator */}
+                              {platformId === "twitter" && (
+                                <span className={cn(
+                                  "ml-auto text-[10px]",
+                                  twitterAutoCredits > 0 ? "text-muted-foreground/50" : "text-destructive/40"
+                                )}>
+                                  ⚡{twitterAutoCredits}
+                                </span>
+                              )}
                             </div>
                             {/* Account chips */}
                             <div className="flex flex-row flex-wrap gap-1.5">

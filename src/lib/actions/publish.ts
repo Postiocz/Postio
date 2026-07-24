@@ -848,6 +848,32 @@ export async function publishPost(input: { postId: string }): Promise<{
       };
     }
 
+    // KROK 4 (Prompt 043): Check twitter_auto_credits before calling X API.
+    // Each automatic post consumes 1 credit. Users on Creator/Pro plans
+    // get credits; Free users must use manual mode.
+    const { data: creditRow } = await supabaseAdmin
+      .from("users")
+      .select("twitter_auto_credits")
+      .eq("id", userId)
+      .single();
+    const availableCredits = (creditRow as { twitter_auto_credits?: number } | null)
+      ?.twitter_auto_credits ?? 0;
+
+    if (availableCredits <= 0) {
+      const noCreditsError =
+        "Nemáš dostatek X kreditů pro automatické odesílání. " +
+        "Použij manuální režim (zdarma) nebo si vylepši plán na Creator/Pro.";
+      await handlePublishError(
+        supabase,
+        userId,
+        postId,
+        noCreditsError,
+        "twitter",
+        targetAccountId,
+      );
+      return { success: false, error: noCreditsError };
+    }
+
     const existingTwExternalId = null;
 
     const result = await publishToTwitterAction({
@@ -879,6 +905,14 @@ export async function publishPost(input: { postId: string }): Promise<{
       "twitter",
       targetAccountId,
     );
+
+    // KROK 4 (Prompt 043): Decrement twitter_auto_credits on success.
+    // Best-effort – failure does NOT revert the published tweet.
+    await supabaseAdmin
+      .from("users")
+      .update({ twitter_auto_credits: availableCredits - 1 })
+      .eq("id", userId);
+
     return {
       success: true,
       data: { externalId: result.externalId, platform: "twitter" },
@@ -2405,6 +2439,30 @@ export async function publishAdditionalPlatforms(input: {
       };
     }
 
+    // KROK 4 (Prompt 043): Check twitter_auto_credits before calling X API.
+    const { data: creditRow } = await supabaseAdmin
+      .from("users")
+      .select("twitter_auto_credits")
+      .eq("id", user.id)
+      .single();
+    const availableCredits = (creditRow as { twitter_auto_credits?: number } | null)
+      ?.twitter_auto_credits ?? 0;
+
+    if (availableCredits <= 0) {
+      const noCreditsError =
+        "Nemáš dostatek X kreditů pro automatické odesílání. " +
+        "Použij manuální režim (zdarma) nebo si vylepši plán na Creator/Pro.";
+      await handlePublishError(
+        supabase,
+        user.id,
+        post.id,
+        noCreditsError,
+        "twitter",
+        targetAccountId,
+      );
+      return { success: false, error: noCreditsError };
+    }
+
     const existingTwExternalId = null;
 
     const result = await publishToTwitterAction({
@@ -2436,6 +2494,13 @@ export async function publishAdditionalPlatforms(input: {
       "twitter",
       targetAccountId,
     );
+
+    // KROK 4 (Prompt 043): Decrement twitter_auto_credits on success.
+    await supabaseAdmin
+      .from("users")
+      .update({ twitter_auto_credits: availableCredits - 1 })
+      .eq("id", user.id);
+
     return {
       success: true,
       data: { externalId: result.externalId, platform: "twitter" },

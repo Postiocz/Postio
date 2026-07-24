@@ -19,6 +19,8 @@ interface XConnectModalProps {
   onOpenChange: (open: boolean) => void;
   // Resolves once the manual X account has been saved (called by the page).
   onManualConnect: (username: string) => Promise<void>;
+  // OAuth redirect for automatic (API) publishing.
+  onAutoConnect: () => void;
 }
 
 /**
@@ -34,6 +36,7 @@ export function XConnectModal({
   open,
   onOpenChange,
   onManualConnect,
+  onAutoConnect,
 }: XConnectModalProps) {
   const t = useTranslations("accounts");
   const [username, setUsername] = useState("");
@@ -138,23 +141,24 @@ export function XConnectModal({
             </div>
           </div>
 
-          {/* Automatic option (disabled / coming soon) */}
+          {/* Automatic option (API) — requires credits */}
           <div className="px-6 sm:px-8 pb-6">
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 opacity-60">
+            <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-semibold text-foreground/70">
+                <Sparkles className="h-4 w-4 text-indigo-400" />
+                <span className="text-sm font-semibold text-foreground">
                   {t("xConnect.autoTitle")}
                 </span>
-                <span className="ml-auto inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {t("xConnect.autoComingSoon")}
+                <span className="ml-auto inline-flex items-center rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium text-indigo-300">
+                  {t("xConnect.autoCreditCost")}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground/60 leading-relaxed">
+              <p className="text-xs text-muted-foreground/70 leading-relaxed mb-3">
                 {t("xConnect.autoDesc")}
               </p>
               <Button
-                disabled
-                className="mt-3 w-full py-3 text-base font-semibold rounded-xl bg-white/5 text-muted-foreground cursor-not-allowed"
+                onClick={onAutoConnect}
+                className="mt-3 w-full py-3 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all"
               >
                 {t("xConnect.autoButton")}
               </Button>

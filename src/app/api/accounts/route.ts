@@ -39,7 +39,7 @@ function sanitizeSocialAccount(row: SocialAccountRow) {
   };
 }
 
-// GET /api/accounts - return sanitized connected accounts for the current user
+// GET /api/accounts - return sanitized connected accounts + user credits for the current user
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -63,8 +63,20 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // KROK 5 (Prompt 043-C): Fetch user credits for UI indicators.
+    const { data: userData } = await supabase
+      .from("users")
+      .select("ai_credits, twitter_auto_credits")
+      .eq("id", user.id)
+      .single();
+
+    const credits = {
+      ai_credits: (userData as { ai_credits?: number } | null)?.ai_credits ?? 0,
+      twitter_auto_credits: (userData as { twitter_auto_credits?: number } | null)?.twitter_auto_credits ?? 0,
+    };
+
     const accounts = ((data ?? []) as SocialAccountRow[]).map(sanitizeSocialAccount);
-    return NextResponse.json({ accounts });
+    return NextResponse.json({ accounts, credits });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

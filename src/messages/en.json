@@ -604,9 +604,9 @@
       "manualButton": "Save manual account",
       "saving": "Saving…",
       "autoTitle": "Automatic publishing",
-      "autoDesc": "Fully automatic publishing via the X API (requires a paid plan).",
-      "autoComingSoon": "Coming soon",
-      "autoButton": "Automatic publishing",
+      "autoDesc": "Fully automatic publishing via the X API. Uses 1 credit per post – credits come with the Creator or Pro plan.",
+      "autoCreditCost": "1 credit/post",
+      "autoButton": "Automatic publishing (API)",
       "error": "Failed to connect the account",
       "manualSaved": "Manual X account saved."
     },

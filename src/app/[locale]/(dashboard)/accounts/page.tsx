@@ -526,6 +526,16 @@ export default function AccountsPage() {
     toast.success(t("xConnect.manualSaved"));
   }
 
+  // KROK 4 (Prompt 043): Redirect to X OAuth 2.0 with PKCE for automatic (API) publishing.
+  // The route at `/api/accounts/x` handles the full OAuth flow server-side.
+  function handleXAutoConnect() {
+    const localeMatch = window.location.pathname.match(/\/(cs|en|uk)(?:\/|$)/);
+    const locale = localeMatch?.[1] ?? "cs";
+    const next = window.location.pathname || "/accounts";
+    const xAuthUrl = `/api/accounts/x?state=${encodeURIComponent(next)}&locale=${locale}`;
+    window.location.assign(xAuthUrl);
+  }
+
   if (loading) return <div className="text-muted-foreground">{t("loading")}</div>;
 
   const hasConnectedAccounts = accounts.some((a) => a.is_active);
@@ -1081,11 +1091,12 @@ export default function AccountsPage() {
         />
       )}
 
-      {/* Hybrid X decision modal (Prompt 031-X, Krok 1) */}
+      {/* Hybrid X decision modal (Prompt 031-X, Krok 1) — KROK 4: auto connect enabled */}
       <XConnectModal
         open={showXModal}
         onOpenChange={(open) => setShowXModal(open)}
         onManualConnect={handleXManualConnect}
+        onAutoConnect={handleXAutoConnect}
       />
 
       {/* Facebook Page selector dialog (tick which Pages to enable). */}

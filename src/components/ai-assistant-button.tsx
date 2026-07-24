@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 import { Sparkles, Wand2, Scissors, Hash, Loader2, ImagePlus, Brush } from "lucide-react";
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ interface AIAssistantButtonProps {
   onTagsAdd: (tags: string[]) => void;
   imageUrl?: string | null;
   onImageGenerated?: (imageUrl: string) => void;
+  aiCredits?: number;
 }
 
 export function AIAssistantButton({
@@ -25,6 +27,7 @@ export function AIAssistantButton({
   onTagsAdd,
   imageUrl,
   onImageGenerated,
+  aiCredits,
 }: AIAssistantButtonProps) {
   // #14 — Own i18n instead of props drilling (was 9 tAi props)
   const t = useTranslations("ai");
@@ -224,7 +227,16 @@ export function AIAssistantButton({
           className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
         >
           <Brush className="h-4 w-4 text-violet-400" />
-          <span>{t("generateImage")}</span>
+          <span className="flex-1">{t("generateImage")}</span>
+          {/* KROK 5: AI credits indicator */}
+          {aiCredits !== undefined && (
+            <span className={cn(
+              "text-[10px] font-medium",
+              aiCredits > 0 ? "text-muted-foreground/50" : "text-destructive/50"
+            )}>
+              🎨{aiCredits}
+            </span>
+          )}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

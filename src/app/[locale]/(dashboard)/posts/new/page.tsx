@@ -75,6 +75,9 @@ export default function NewPostPage() {
   const [content, setContent] = useState("");
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [allAccounts, setAllAccounts] = useState<AccountInfo[]>([]);
+  // KROK 5 (Prompt 043-C): User credits for UI indicators.
+  const [aiCredits, setAiCredits] = useState(0);
+  const [twitterAutoCredits, setTwitterAutoCredits] = useState(0);
 
   // Account-based selection (Prompt 028 Krok 1): selectedPlatforms is derived
   // from the chosen account IDs, keeping backward compatibility with the
@@ -127,8 +130,12 @@ export default function NewPostPage() {
       try {
         const res = await fetch("/api/accounts");
         if (res.ok) {
-          const data = (await res.json()) as { accounts?: AccountInfo[] };
-          if (!cancelled) setAllAccounts(data.accounts ?? []);
+          const data = (await res.json()) as { accounts?: AccountInfo[]; credits?: { ai_credits: number; twitter_auto_credits: number } };
+          if (!cancelled) {
+            setAllAccounts(data.accounts ?? []);
+            setAiCredits(data.credits?.ai_credits ?? 0);
+            setTwitterAutoCredits(data.credits?.twitter_auto_credits ?? 0);
+          }
         }
       } catch {
         // non-fatal – account picker shows empty state
@@ -604,6 +611,7 @@ export default function NewPostPage() {
                 }}
                 imageUrl={firstImageUrl}
                 onImageGenerated={(url) => addImageUrl(url)}
+                aiCredits={aiCredits}
               />
             </div>
             <Textarea
@@ -824,6 +832,15 @@ export default function NewPostPage() {
                               <span className="text-xs font-medium text-muted-foreground/80">
                                 {platformLabel}
                               </span>
+                              {/* KROK 5: Twitter auto-credits indicator */}
+                              {platformId === "twitter" && (
+                                <span className={cn(
+                                  "ml-auto text-[10px]",
+                                  twitterAutoCredits > 0 ? "text-muted-foreground/50" : "text-destructive/40"
+                                )}>
+                                  ⚡{twitterAutoCredits}
+                                </span>
+                              )}
                             </div>
                             <div className="flex flex-row flex-wrap gap-1.5">
                               {accounts.map((account) => {

@@ -1018,7 +1018,12 @@
     "aiError": "Error generating AI content.",
     "aiEmptyContent": "Write some text first.",
     "generateFromImage": "Generate from image ✨",
-    "aiNoImage": "Upload an image first."
+    "aiNoImage": "Upload an image first.",
+    "generateImage": "AI Brush 🎨",
+    "aiGeneratingImage": "Generating image...",
+    "aiNoCredits": "No AI credits remaining. Please upgrade your plan.",
+    "aiImageSuccess": "Image successfully generated!",
+    "aiImagePrompt": "Describe the image you want to generate..."
   },
   "landing": {
     "nav": {

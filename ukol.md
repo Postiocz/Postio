@@ -52,7 +52,7 @@
     * `ai_credits` (kolik zbývá AI obrázků).
     * `twitter_auto_credits` (kolik zbývá automatických postů na X).
     * Nastavit výchozí hodnoty (Free: 0, Creator: 10, Pro: 50). ✅
-  - [x] KROK 2: Integrace OpenAI DALL-E 3. Vytvořit backend routu `/api/ai/generate-image`. Před generováním ověřit `ai_credits`, po úspěchu odečíst. ✅
+  - [x] KROK 2: Integrace OpenAI DALL-E 3 + i18n překlady. Backend routa `/api/ai/generate-image` + lokalizace hlášek (cs/en/uk). ✅
   - [ ] KROK 3: AI Tlačítko v Editoru. Přidat vedle AI Pomocníka ikonku "AI Štětec". Po kliknutí jednoduchý input pro prompt, obrázek se přidá do příloh.
   - [ ] KROK 4: Upgrade odesílání na X. Platící uživatelé (Creator/Pro) s `twitter_auto_credits` mohou "Automatické odesílání". `publish.ts` zavolá X API v2.
   - [ ] KROK 5: UI Indikátory kreditů. Zobrazit v editoru/profilu zbývající AI obrázky a automatické X posty.

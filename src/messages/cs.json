@@ -1018,7 +1018,12 @@
     "aiError": "Chyba při generování AI obsahu.",
     "aiEmptyContent": "Nejprve napište nějaký text.",
     "generateFromImage": "Generovat z obrázku ✨",
-    "aiNoImage": "Nejprve nahrajte obrázek."
+    "aiNoImage": "Nejprve nahrajte obrázek.",
+    "generateImage": "AI Štětec 🎨",
+    "aiGeneratingImage": "Generuji obrázek...",
+    "aiNoCredits": "Nedostatek AI kreditů. Upgradujte svůj plán.",
+    "aiImageSuccess": "Obrázek byl úspěšně vygenerován!",
+    "aiImagePrompt": "Popište obrázek, který chcete vygenerovat..."
   },
   "landing": {
     "nav": {

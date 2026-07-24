@@ -3,14 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
 
-### 🚀 Prompt 043 – KROK 2: Backend route /api/ai/generate-image ✅
+### 🚀 Prompt 043 – KROK 2: Backend route /api/ai/generate-image + i18n ✅
 
 - **Kontext**: Kreditový systém vyžadoval backend routu pro generování obrázků přes OpenAI DALL-E 3.
 - **Změny**:
   - ✅ `src/app/api/ai/generate-image/route.ts`: POST route s auth kontrolou, ověřením `ai_credits`, voláním DALL-E 3 API, odečtením kreditu po úspěchu.
   - ✅ Error handling: 401 (unauth), 400 (chybějící prompt), 402 (žádné kredity), 503 (API key nenastaven), 500 (obecná chyba).
   - ✅ Edge runtime pro rychlost.
-- **Ověření**: Kód review ✅.
+- **Změny i18n**:
+    - ✅ `messages/cs.json`, `en.json`, `uk.json`: Doplněny klíče `generateImage`, `aiGeneratingImage`, `aiNoCredits`, `aiImageSuccess`, `aiImagePrompt`.
+  - **Ověření**: JSON validace ✅, `npx tsc --noEmit` ✅ (žádné nové chyby).
 
 ### 🚀 Prompt 043 – KROK 1: DB migrace AI + Twitter kredity ✅
 
@@ -114,18 +116,6 @@
 - **Ověření**: `npx tsc --noEmit` ✅.
 - **Upravené soubory**: `modules/admin-core/actions.ts`, `components/locale-switcher.tsx`, `modules/admin-core/components/admin-header.tsx`, `ukol.md`.
 
-### 🚀 Prompt 040 – KROK 1: Modul Admin Příspěvky ✅
-
-- **Kontext**: Potřebovali jsme oživit prázdnou položku "Příspěvky" v admin sidebaru a vytvořit globální přehled všech příspěvků.
-- **Změny**:
-  - **`modules/admin-core/actions.ts`**: Přidána serverová akce `getAllPosts()` načítající všechny příspěvky včetně uživatelských informací a platforem.
-  - **`admin/posts/page.tsx`** (nová): Stránka s globální tabulkou příspěvků, responzivní (desktop tabulka, mobil karty). Zobrazuje obsah, uživatele, platformy, stav, datum vytvoření a detail tlačítko.
-  - **i18n**: Přidány klíče `nav.adminPosts` do `cs.json`, `en.json`, `uk.json`.
-  - **`admin-mobile-nav.tsx`**: Přidána položka "Příspěvky" do mobilní navigace.
-  - **`modules/admin-core/index.ts`**: Exportována akce `getAllPosts`.
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**: `modules/admin-core/actions.ts`, `admin/posts/page.tsx`, `messages/cs.json`, `messages/en.json`, `messages/uk.json`, `admin-mobile-nav.tsx`, `modules/admin-core/index.ts`, `ukol.md`, `CHANGELOG.md`.
-
 ### 🚀 Prompt 039 – KROK 3: Responzivita admin/users, design polish + sidebar fix ✅
 
 - **Kontext**: Admin tabulka uživatelů nebyla na mobilu použitelná (HTML table přetékala). Desktop admin sidebar byl neviditelný (chyběla `lg:flex` třída). Detail uživatele postrádal tlačítko zpět.
@@ -137,27 +127,6 @@
   - **i18n**: Všechny klíče pro admin navigaci hotové.
 - **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (responzivní tabulka, sidebar viditelný, zpět na detailu).
 - **Upravené soubory**: `admin/users/page.tsx`, `admin/users/[id]/page.tsx`, `admin-sidebar.tsx`, `admin-mobile-nav.tsx`, `ukol.md`, `CHANGELOG.md`.
-
-### 🚀 Prompt 039 – KROK 2: Spodní admin navigace (Mobil) ✅
-
-- **Kontext**: Admin sekce na mobilu neměla vlastní spodní navigaci. Zobrazovala by se hlavní app navigace, která do adminu nepatří.
-- **Změny**:
-  - **i18n**: Přidány klíče `nav.adminDashboard`, `nav.adminUsers`, `nav.adminBilling` do `cs.json`, `en.json`, `uk.json`.
-  - **`admin-mobile-nav.tsx`** (nová): Fixed bottom bar pro admin sekci na mobilech se 3 položkami — Dashboard (`LayoutDashboard`), Uživatelé (`Users`), Fakturace (`CreditCard`). Glassmorphism `bg-[#09090b]/90`, indigo active glow, framer-motion animace.
-  - **Admin layout**: Přidán `<AdminMobileNav locale={locale} />` — zobrazí se pouze v admin route group, hlavní app mobile nav se v adminu neukazuje.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (mobilní admin navigace funguje, 3 položky, aktivní stav).
-- **Upravené soubory**: `admin-mobile-nav.tsx` (nová), `(admin)/layout.tsx`, `cs.json`, `en.json`, `uk.json`, `ukol.md`, `CHANGELOG.md`.
-
-### 🚀 Prompt 039 – KROK 1: Admin odkaz v Sidebaru a mobilní navigaci ✅
-
-- **Kontext**: Admin panel neměl viditelný vstup z hlavní aplikace. Oprávnění admini neměli možnost se dostat do admin sekce přes UI.
-- **Změny**:
-  - **i18n**: Přidán klíč `nav.adminPanel` do `cs.json`, `en.json`, `uk.json`.
-  - **Sidebar (`sidebar.tsx`)**: Nové props `isAdmin` a `adminLabel`. Pod hlavní navigací se adminům zobrazí odkaz "Admin Panel" s ikonou `ShieldCheck`, aktivní stav s indigo glowem.
-  - **MobileNav (`mobile-nav.tsx`)**: Nové props `isAdmin` a `adminLabel`. V settings dropdown menu přibyla položka "Admin Panel" pro administrátory.
-  - **Dashboard layout**: Fetch `role` z `public.users` (rozšířen SELECT o `role`). Předáno `isAdmin={userRole === "admin"}` do Sidebaru i MobileNavWrapperu.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuální test ✅ (admin vidí odkaz, běžný uživatel ne).
-- **Upravené soubory**: `sidebar.tsx`, `mobile-nav.tsx`, `mobile-nav-wrapper.tsx`, `(dashboard)/layout.tsx`, `cs.json`, `en.json`, `uk.json`, `ukol.md`, `CHANGELOG.md`.
 
 ### 🚀 Prompt 038 – KROK 2: Detail uživatele + navigace ✅
 

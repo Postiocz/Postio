@@ -13,11 +13,25 @@
 
 ## ✨ Unikátní funkce
 
-- 🧠 **AI Vision (Gemini)** – Automaticky generujte popisky a koncepty příspěvků z obrázků
+- 🧠 **AI Vision (Gemini)** – Automaticky generujte popisky, koncepty příspěvků a **AI obrázky (DALL-E 3)**
+- 🎨 **Kreditový systém** – Každý tarif má své limity: AI obrázky a X auto-posty (Creator 10/10, Pro 50/50)
 - 🌐 **Multi-platform Publishing** – Publikujte na Facebook, Instagram, LinkedIn, YouTube, X a TikTok najednou
 - 📱 **High-Fidelity Previews** – Precizní náhledy toho, jak příspěvek bude vypadat na každé síti
 - ⏰ **Auto-Queue** – Automatické naplánování příspěvků na optimální čas
 - 📊 **Reálná Analytika** – Detailní metriky výkonu z přímo z sociálních sítí
+
+
+---
+
+## 💳 Plány a limity
+
+| | Free | Creator | Pro |
+|---|---|---|---|
+| **Cena** | Zdarma | 199 Kč / 8 € / 9 $ | 499 Kč / 20 € / 22 $ |
+| **Sociální účty** | 1 | 5 | ∞ |
+| **Příspěvky/měsíc** | 10 | ∞ | ∞ |
+| **AI obrázky** | 0/měsíc | 10/měsíc | 50/měsíc |
+| **X auto-posty** | 0/měsíc | 10/měsíc | 50/měsíc |
 
 ---
 
@@ -29,6 +43,7 @@
 | **UI & Styling** | [React 19](https://react.dev), [TypeScript](https://www.typescriptlang.org), [Tailwind CSS v4](https://tailwindcss.com) |
 | **Komponenty** | [shadcn/ui](https://ui.shadcn.com), [Radix UI](https://www.radix-ui.com), [Lucide React](https://lucide.dev) |
 | **Backend & DB** | [Supabase](https://supabase.com) (Auth, PostgreSQL, Storage) |
+| **AI** | [OpenAI DALL-E 3](https://openai.com), [Google Gemini](https://deepmind.google/gemini) |
 | **i18n** | [next-intl](https://next-intl-docs.vercel.app) |
 | **Animace** | [Framer Motion](https://www.framer.com/motion) |
 | **Grafy** | [Recharts](https://recharts.org) |
@@ -111,7 +126,7 @@ Projekt využívá model **Post + Platform Instances**:
 | **Instagram** | ✅ | ❌ | ✅ |
 | **LinkedIn** | ✅ | ❌ | ✅ |
 | **YouTube** | ✅ | ✅ | ✅ |
-| **X (Twitter)** | ✅ | ❌ | ✅ |
+| **X (Twitter)** | ✅ (s kredity) | ❌ | ✅ |
 | **TikTok** | ✅ | ❌ | ❌ |
 
 ---

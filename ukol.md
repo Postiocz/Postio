@@ -41,20 +41,3 @@
 ---
 
 ## 10. AKTUÁLNÍ ÚKOLY
-
-### 🚀 Prompt 043 – Implementace AI generování obrázků a limitů pro platformu X
-
-- **Cíl**: Připravit aplikaci na ostrý start zavedením "kreditního" systému pro drahé funkce (AI obrázky a automatické X odesílání).
-- **Striktní pravidlo (ctx-size 81920)**: Po dokončení každého kroku okamžitě označit krok jako hotový ([x]/✅) + zapsat do CHANGELOG.md + smazat sekci kroku z ukol.md + provést `git add -A` a `git commit`. Pak se zastavit a čekat na další pokyn.
-- **Striktní pravidlo (překlady)**: Před dokončením každého kroku aktivně zkontrolovat, že všechny nové textové řetězce mají překlady v cs, en i uk. Pokud krok zavádí nové UI hlášky, doplnit chybějící i18n klíče ve všech třech jazycích.
-- **Kroky**:
-  - [x] KROK 1: DB Rozšíření (Limity). Vytvořit SQL migraci pro tabulku `users`. Přidat sloupce:
-    * `ai_credits` (kolik zbývá AI obrázků).
-    * `twitter_auto_credits` (kolik zbývá automatických postů na X).
-    * Nastavit výchozí hodnoty (Free: 0, Creator: 10, Pro: 50). ✅
-  - [x] KROK 2: Integrace OpenAI DALL-E 3 + i18n překlady. Backend routa `/api/ai/generate-image` + lokalizace hlášek (cs/en/uk). ✅
-  - [x] KROK 3: AI Tlačítko v Editoru. Přidat vedle AI Pomocníka ikonku "AI Štětec". Po kliknutí jednoduchý input pro prompt, obrázek se přidá do příloh. ✅
-  - [x] KROK 4: Upgrade odesílání na X. Platící uživatelé (Creator/Pro) s `twitter_auto_credits` mohou "Automatické odesílání". `publish.ts` zavolá X API v2. ✅
-  - [x] KROK 5: UI Indikátory v Editoru. Zobrazit aktuální `ai_credits` u AI Štětce a `twitter_auto_credits` u volby automatického X odesílání. Použij vkusný, malý font (text-xs). ✅
-  - [x] KROK 6: Aktualizace Ceníků. Do datové struktury tarifů (Free/Creator/Pro) přidej nové řádky s limity pro AI obrázky a X posty. Ujisti se, že se tyto řádky zobrazí v kartách na obou místech (Landing Page i Fakturace). ✅
-  - [x] KROK 7: Lokalizace (i18n). Doplň klíče pro tyto nové řádky ceníku a UI hlášky do cs, en, uk. ✅

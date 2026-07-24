@@ -609,6 +609,7 @@
       "autoDesc": "Plně automatické publikování přes X API. Spotřebuje 1 kredit za příspěvek – kredity získáváš s plánem Creator nebo Pro.",
       "autoCreditCost": "1 kredit/post",
       "autoButton": "Automatické odesílání (API)",
+      "noCredits": "Nemáš dostatek X kreditů pro automatické odesílání. Použij manuální režim (zdarma) nebo si vylepši plán na Creator/Pro.",
       "error": "Nepodařilo se připojit účet",
       "manualSaved": "Manuální X účet byl uložen."
     },

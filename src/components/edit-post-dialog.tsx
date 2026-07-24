@@ -86,8 +86,10 @@ function resolveLocalizedPublishError(params: {
   error?: string;
   errorCode?: string;
   t: (key: string) => string;
+  /** Accounts namespace translations for platform-specific messages. */
+  ta?: (key: string) => string;
 }): string {
-  const { error, errorCode, t } = params;
+  const { error, errorCode, t, ta } = params;
 
   if (
     errorCode === TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE ||
@@ -97,6 +99,11 @@ function resolveLocalizedPublishError(params: {
       t("tiktokSandboxPrivateOnlyError") ??
       DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS
     );
+  }
+
+  // KROK 7: Localized X credits error.
+  if (error && error.includes("Nemáš dostatek X kreditů") && ta) {
+    return ta("xConnect.noCredits");
   }
 
   return error ?? t("errorSaving");
@@ -156,6 +163,7 @@ export function EditPostDialog({
 }: EditPostDialogProps) {
   // #14 — Own i18n instead of props drilling (was 30+ tLabels + 9 tAi props)
   const t = useTranslations("posts");
+  const ta = useTranslations("accounts");
   const isEdit = !!post?.id;
   const router = useRouter();
   const previewPlaceholderName = t("previewPlaceholderName") ?? "Postio";
@@ -1059,6 +1067,7 @@ export function EditPostDialog({
         error: result.error,
         errorCode: result.errorCode,
         t,
+        ta,
       });
       setError(localizedError);
       toast.error(localizedError);

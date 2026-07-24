@@ -51,8 +51,10 @@ function resolvePublishErrorMessage(params: {
   error?: string;
   errorCode?: string;
   t: (key: string) => string;
+  /** Accounts namespace translations for platform-specific messages. */
+  ta?: (key: string) => string;
 }): string {
-  const { error, errorCode, t } = params;
+  const { error, errorCode, t, ta } = params;
 
   if (
     errorCode === TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE ||
@@ -64,12 +66,18 @@ function resolvePublishErrorMessage(params: {
     );
   }
 
-  return error ?? "Publikování selhalo.";
+  // KROK 7: Localized X credits error.
+  if (error && error.includes("Nemáš dostatek X kreditů") && ta) {
+    return ta("xConnect.noCredits");
+  }
+
+  return error ?? t("errorSaving") ?? "Publikování selhalo.";
 }
 
 export default function NewPostPage() {
   const t = useTranslations("posts");
   const td = useTranslations("dashboard");
+  const ta = useTranslations("accounts");
    const router = useRouter();
   const { locale } = useParams();
   const [content, setContent] = useState("");
@@ -458,6 +466,7 @@ export default function NewPostPage() {
         error: publishResult.error,
         errorCode: publishResult.errorCode,
         t,
+        ta,
       });
       setError(msg);
       toast.error(msg);

@@ -609,6 +609,7 @@
       "autoDesc": "Fully automatic publishing via the X API. Uses 1 credit per post – credits come with the Creator or Pro plan.",
       "autoCreditCost": "1 credit/post",
       "autoButton": "Automatic publishing (API)",
+      "noCredits": "You don't have enough X credits for automatic publishing. Use manual mode (free) or upgrade to Creator/Pro.",
       "error": "Failed to connect the account",
       "manualSaved": "Manual X account saved."
     },

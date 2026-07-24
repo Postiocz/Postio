@@ -5,6 +5,16 @@
 
 
 
+
+### 🚀 Prompt 043-C – KROK 7: Lokalizace (i18n) – kreditové hlášky ✅
+
+- **Kontext**: Chybové hlášky o nedostatku X kreditů byly natvrdo v češtině. Chyběly i18n klíče pro UI hlášky.
+- **Změny**:
+  - ✅ i18n (cs/en/uk): Nový klíč `xConnect.noCredits` v namespace `accounts`.
+  - ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx': `resolvePublishErrorMessage` kontroluje X kredit error a vrací lokalizovanou hlášku.
+  - ✅ `src/components/edit-post-dialog.tsx': Stejná logika v `resolveLocalizedPublishError`.
+- **Ověření**: `npx tsc --noEmit` ✅ (4 pre-existing).
+
 ### 🚀 Prompt 043-C – KROK 6: Aktualizace Ceníků ✅
 
 - **Kontext**: Ceníky neukazovaly limity pro AI obrázky a X posty. Uživatelé neměli přehled, kolik kreditů jejich tarif obsahuje.
@@ -63,34 +73,3 @@
   - ✅ `supabase/migrations/042_add_ai_and_twitter_credits.sql`: Přidány sloupce `ai_credits` a `twitter_auto_credits` (integer, default 0).
   - ✅ UPDATE existujících uživatelů: Creator → 10/10, Pro → 50/50.
 - **Ověření**: Migrace aplikována do Supabase ✅.
-
-### 🚀 Prompt 042 – Kompletní implementace Admin Management + Audit Log + Lokalizace ✅
-
-- **Kontext**: Stránky Admin Management a Audit Log v `/admin/settings` byly nefunkční. Potřebovaly funkční obsah, propojení a překlady.
-- **Změny**:
-  - ✅ `admin/settings/page.tsx`: Oprava odkazů na `/${locale}/admin/settings/*` (chyběl locale prefix)
-  - ✅ `admin/settings/team/page.tsx`: Kompletní redesign s vyhledáváním dle jména/emailu/ID, filtrováním podle role, správou rolí a statistikami
-  - ✅ `admin/settings/audit-log/page.tsx`: Audit log s vyhledáváním, barevně odlišenými akcemi, rozbalovacím detailem a JOINem na users pro jména
-  - ✅ `modules/admin-core/actions.ts`: Rozšířena `getAllUsers()` o parametr `{ role }`; přidán JOIN na users v `getAuditLogs()`
-  - ✅ i18n: Nové klíče pro adminTeam a adminAuditLog (cs + en) – filtry, stavy, statistiky, typy akcí
-  - ✅ Responzivní design, glassmorphism, loading/empty states
-- **Ověření**: Manuální test ✅
-
-### 🚀 Prompt 041 – Kompletní lokalizace Admin sekce ✅
-
-- **Kontext**: Všechny admin stránky měly texty natvrdo v češtině bez i18n.
-- **Změny**:
-  - ✅ 9 nových i18n namespace: adminDashboard, adminAnalyticsPage, adminBillingPage, adminSettingsPage, adminTeam, adminAuditLog, adminPostsPage, adminUsersPage, adminUserDetail
-  - ✅ Všechny admin stránky přepsány na i18n (cs + en)
-    - admin/page.tsx (dashboard)
-    - admin/analytics/page.tsx
-    - admin/billing/page.tsx
-    - admin/settings/page.tsx (včetně team a audit-log)
-    - admin/posts/page.tsx
-    - admin/users/page.tsx (včetně detailu [id])
-  - ✅ Server komponenty: getTranslations({ locale, namespace })
-  - ✅ Client komponenty: useTranslations(namespace)
-  - ✅ Oprava "Zpět do aplikace" → /${locale}/dashboard
-  - ✅ Doplnění uk.json pro typovou kompatibilitu
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅
-- **Upravené soubory**: messages/cs.json, en.json, uk.json, 8 admin stránek, admin-sidebar.tsx, admin-mobile-nav.tsx

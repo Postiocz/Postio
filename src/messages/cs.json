@@ -1270,6 +1270,7 @@
     "maxRecords": "(max 200)",
     "actionPromoted": "Povýšení na admina",
     "actionDemoted": "Odebrán admin",
+    "actionCreditsUpdated": "Úprava kreditů",
     "actionLogin": "Přihlášení",
     "actionCreate": "Vytvoření",
     "actionUpdate": "Úprava",
@@ -1357,6 +1358,12 @@
     "user": "Uživatel",
     "userNotFound": "Uživatel nebyl nalezen.",
     "idLabel": "ID: {id}",
-    "streakValue": "🔥 Streak: {count}"
+    "streakValue": "🔥 Streak: {count}",
+    "creditsManagement": "Správa kreditů",
+    "aiCreditsLabel": "AI kredity",
+    "aiCreditsHint": "Počet zbývajících AI generování obrázků",
+    "twitterCreditsLabel": "X (Twitter) kredity",
+    "twitterCreditsHint": "Počet zbývajících automatických postů na X",
+    "saveCredits": "Uložit kredity"
   }
 }

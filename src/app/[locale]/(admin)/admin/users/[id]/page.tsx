@@ -6,9 +6,11 @@
  */
 
 import { getTranslations } from "next-intl/server";
-import { getUserById, getUserAccounts, getUserPosts, updateUserRole } from "@/modules/admin-core/actions";
+import { getUserById, getUserAccounts, getUserPosts, updateUserRole, updateUserCredits } from "@/modules/admin-core/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { cs } from "date-fns/locale";
 import Link from "next/link";
@@ -22,6 +24,7 @@ import {
   X,
   RefreshCw,
   ArrowLeft,
+  Coins,
 } from "lucide-react";
 import { revalidatePath } from "next/cache";
 
@@ -182,6 +185,66 @@ export default async function AdminUserDetailPage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Credits Management - Prompt 044-REVISED KROK 2 */}
+      <div className="rounded-[20px] border border-white/10 bg-[#09090b]/80 p-6 backdrop-blur-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <Coins className="h-5 w-5 text-purple-400" />
+          <h3 className="text-lg font-semibold text-white">{t("creditsManagement")}</h3>
+        </div>
+
+        <form
+          action={async (formData: FormData) => {
+            "use server";
+            const aiCredits = parseInt(formData.get("ai_credits") as string, 10) || 0;
+            const twitterCredits = parseInt(formData.get("twitter_auto_credits") as string, 10) || 0;
+            await updateUserCredits(id, { ai_credits: aiCredits, twitter_auto_credits: twitterCredits });
+            revalidatePath(`/${locale}/admin/users/${id}`);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="ai_credits" className="text-sm text-gray-300">
+                {t("aiCreditsLabel")}
+              </Label>
+              <Input
+                type="number"
+                id="ai_credits"
+                name="ai_credits"
+                defaultValue={user.ai_credits ?? 0}
+                min={0}
+                className="bg-white/5 border-white/10 text-white"
+              />
+              <p className="text-xs text-gray-500">{t("aiCreditsHint")}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="twitter_auto_credits" className="text-sm text-gray-300">
+                {t("twitterCreditsLabel")}
+              </Label>
+              <Input
+                type="number"
+                id="twitter_auto_credits"
+                name="twitter_auto_credits"
+                defaultValue={user.twitter_auto_credits ?? 0}
+                min={0}
+                className="bg-white/5 border-white/10 text-white"
+              />
+              <p className="text-xs text-gray-500">{t("twitterCreditsHint")}</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              {t("saveCredits")}
+            </Button>
+          </div>
+        </form>
       </div>
 
       {/* Two-column layout: Accounts + Posts */}

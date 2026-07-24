@@ -33,6 +33,8 @@ export interface Database {
           subscription_status: string | null
           trial_ends_at: string | null
           role: 'user' | 'admin'
+          ai_credits: number
+          twitter_auto_credits: number
           created_at: string
         }
         Insert: {
@@ -53,6 +55,8 @@ export interface Database {
           subscription_status?: string | null
           trial_ends_at?: string | null
           role?: 'user' | 'admin'
+          ai_credits?: number
+          twitter_auto_credits?: number
           created_at?: string
         }
         Update: {
@@ -73,6 +77,8 @@ export interface Database {
           subscription_status?: string | null
           trial_ends_at?: string | null
           role?: 'user' | 'admin'
+          ai_credits?: number
+          twitter_auto_credits?: number
           created_at?: string
         }
       }

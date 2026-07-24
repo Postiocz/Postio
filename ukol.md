@@ -57,7 +57,7 @@
     - `src/app/[locale]/(dashboard)/accounts/page.tsx` – tlačítka propojení
     - Editor (posts/new, edit-post-dialog) – výběr platforem
 
-- [ ] **KROK 2: Admin Credit Manager**
+- [x] **KROK 2: Admin Credit Manager** ✅
   - V admin modulu v detailu uživatele (`/admin/users/[id]`) přidat sekci "Správa kreditů".
   - **Požadavky**:
     - Zobrazení aktuálních hodnot `ai_credits` a `twitter_auto_credits`.

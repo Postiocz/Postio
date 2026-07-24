@@ -1271,6 +1271,7 @@
     "maxRecords": "(max 200)",
     "actionPromoted": "Promoted to admin",
     "actionDemoted": "Admin removed",
+    "actionCreditsUpdated": "Кредити оновлено",
     "actionLogin": "Login",
     "actionCreate": "Creation",
     "actionUpdate": "Update",
@@ -1358,6 +1359,12 @@
     "user": "User",
     "userNotFound": "User not found.",
     "idLabel": "ID: {id}",
-    "streakValue": "🔥 Streak: {count}"
+    "streakValue": "🔥 Streak: {count}",
+    "creditsManagement": "Управління кредитами",
+    "aiCreditsLabel": "AI кредити",
+    "aiCreditsHint": "Кількість залишилися AI генерацій зображень",
+    "twitterCreditsLabel": "X (Twitter) кредити",
+    "twitterCreditsHint": "Кількість залишилися автоматичних постів на X",
+    "saveCredits": "Зберегти кредити"
   }
 }

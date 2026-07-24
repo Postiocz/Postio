@@ -22,7 +22,8 @@ import {
   LogIn,
   FileEdit,
   Trash2,
-  Settings
+  Settings,
+  Coins
 } from "lucide-react";
 
 type AuditLog = {
@@ -57,6 +58,7 @@ export default function AdminAuditLogPage() {
   const getActionStyle = (action: string) => {
     if (action.includes("role_changed_to_admin")) return { icon: ShieldCheck, color: "bg-indigo-600", label: t("actionPromoted") };
     if (action.includes("role_changed_to_user")) return { icon: UserCheck, color: "bg-gray-600", label: t("actionDemoted") };
+    if (action.includes("credits_updated")) return { icon: Coins, color: "bg-amber-600", label: t("actionCreditsUpdated") };
     if (action.includes("login")) return { icon: LogIn, color: "bg-emerald-600", label: t("actionLogin") };
     if (action.includes("create")) return { icon: FileEdit, color: "bg-blue-600", label: t("actionCreate") };
     if (action.includes("update") || action.includes("edit")) return { icon: FileEdit, color: "bg-amber-600", label: t("actionUpdate") };

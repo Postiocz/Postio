@@ -228,6 +228,62 @@ export async function updateUserRole(
 }
 
 /**
+ * Prompt 044-REVISED KROK 2: Admin Credit Manager
+ * Updates user's ai_credits and twitter_auto_credits.
+ * Logs the change to audit_logs with old/new values.
+ */
+export async function updateUserCredits(
+  userId: string,
+  credits: { ai_credits: number; twitter_auto_credits: number }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = createAdminClient();
+
+  // First, get current values for audit log
+  const { data: currentUser, error: fetchError } = await supabase
+    .from("users")
+    .select("ai_credits, twitter_auto_credits")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError || !currentUser) {
+    return { success: false, error: "User not found" };
+  }
+
+  const oldAi = currentUser.ai_credits ?? 0;
+  const oldTwitter = currentUser.twitter_auto_credits ?? 0;
+
+  // Update credits
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({
+      ai_credits: credits.ai_credits,
+      twitter_auto_credits: credits.twitter_auto_credits,
+    })
+    .eq("id", userId);
+
+  if (updateError) {
+    console.error("Failed to update user credits:", updateError);
+    return { success: false, error: updateError.message };
+  }
+
+  // Log to audit_logs
+  await supabase.from("audit_logs").insert({
+    user_id: userId,
+    action: "credits_updated",
+    target_table: "users",
+    target_id: userId,
+    metadata: {
+      old_ai_credits: oldAi,
+      new_ai_credits: credits.ai_credits,
+      old_twitter_credits: oldTwitter,
+      new_twitter_credits: credits.twitter_auto_credits,
+    },
+  });
+
+  return { success: true };
+}
+
+/**
  * Načte VŠECHNY příspěvky z DB (globální pohled pro admina).
  * Včetně informací o platformách a uživateli.
  */

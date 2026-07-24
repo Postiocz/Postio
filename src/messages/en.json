@@ -1270,6 +1270,7 @@
     "maxRecords": "(max 200)",
     "actionPromoted": "Promoted to admin",
     "actionDemoted": "Admin removed",
+    "actionCreditsUpdated": "Credits updated",
     "actionLogin": "Login",
     "actionCreate": "Creation",
     "actionUpdate": "Update",
@@ -1357,6 +1358,12 @@
     "user": "User",
     "userNotFound": "User not found.",
     "idLabel": "ID: {id}",
-    "streakValue": "🔥 Streak: {count}"
+    "streakValue": "🔥 Streak: {count}",
+    "creditsManagement": "Credit Management",
+    "aiCreditsLabel": "AI Credits",
+    "aiCreditsHint": "Number of remaining AI image generations",
+    "twitterCreditsLabel": "X (Twitter) Credits",
+    "twitterCreditsHint": "Number of remaining automatic X posts",
+    "saveCredits": "Save Credits"
   }
 }

@@ -4,6 +4,17 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 044-REVISED – KROK 2: Admin Credit Manager ✅
+
+- **Kontext**: Admin potřebuje manuálně spravovat kredity uživatelů (AI obrázky, X posty).
+- **Změny**:
+  - ✅ `src/modules/admin-core/actions.ts`: Nová funkce `updateUserCredits()` s zápisem do `audit_logs`.
+  - ✅ `src/app/[locale]/(admin)/admin/users/[id]/page.tsx`: UI sekce "Správa kreditů" s inputy a tlačítkem.
+  - ✅ `src/lib/supabase/types.ts`: Přidány typy `ai_credits` a `twitter_auto_credits`.
+  - ✅ `src/app/[locale]/(admin)/admin/settings/audit-log/page.tsx`: Podpora překladu pro akci `credits_updated`.
+  - ✅ i18n (cs/en/uk): Nové klíče `creditsManagement`, `aiCreditsLabel`, `twitterCreditsLabel`, `actionCreditsUpdated`.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 044-REVISED – KROK 1: Launch Guard ✅
 
 - **Kontext**: Před prvním launchem je třeba skrýt sandbox platformy (TikTok, Facebook, Instagram) před běžnými uživateli.

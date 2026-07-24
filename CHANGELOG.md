@@ -6,6 +6,15 @@
 
 
 
+### 🚀 Prompt 044 – KROK 1: Produkční UI a hlášky ✅
+
+- **Kontext**: V překladech se vyskytovaly technické názvy ("Sandbox") a duplicitní záznamy.
+- **Změny**:
+  - ✅ Přejmenován klíč `tiktokSandboxPrivateOnlyError` → `tiktokUnauditedPrivateOnlyError` (cs/en/uk).
+  - ✅ Odstraněny duplicitní TikTok bloky v `cs.json`, `en.json`, `uk.json`.
+  - ✅ Aktualizovány reference ve 3 komponentách (edit-post-dialog, posts/new, posts/[id]).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
+
 ### 🚀 Prompt 044 – KROK 3: Admin System Check ✅
 
 - **Kontext**: Před ostrým startem chyběl přehledný dashboard pro kontrolu stavu API připojení (Stripe, OpenAI, TikTok atd.).
@@ -94,11 +103,3 @@
 - **Změny i18n**:
     - ✅ `messages/cs.json`, `en.json`, `uk.json`: Doplněny klíče `generateImage`, `aiGeneratingImage`, `aiNoCredits`, `aiImageSuccess`, `aiImagePrompt`.
   - **Ověření**: JSON validace ✅, `npx tsc --noEmit` ✅ (žádné nové chyby).
-
-### 🚀 Prompt 043 – KROK 1: DB migrace AI + Twitter kredity ✅
-
-- **Kontext**: Kreditový systém pro drahé funkce (AI obrázky, auto X posty) vyžadoval nové sloupce v tabulce `users`.
-- **Změny**:
-  - ✅ `supabase/migrations/042_add_ai_and_twitter_credits.sql`: Přidány sloupce `ai_credits` a `twitter_auto_credits` (integer, default 0).
-  - ✅ UPDATE existujících uživatelů: Creator → 10/10, Pro → 50/50.
-- **Ověření**: Migrace aplikována do Supabase ✅.

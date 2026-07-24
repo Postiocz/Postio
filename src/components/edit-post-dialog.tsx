@@ -97,7 +97,7 @@ function resolveLocalizedPublishError(params: {
     isTikTokSandboxPrivateOnlyError(error)
   ) {
     return (
-      t("tiktokSandboxPrivateOnlyError") ??
+      t("tiktokUnauditedPrivateOnlyError") ??
       DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS
     );
   }

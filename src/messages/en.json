@@ -110,6 +110,7 @@
     "adminBilling": "Billing",
     "adminAnalytics": "Analytics",
     "adminSettings": "Settings",
+    "adminSystemCheck": "System Check",
     "adminBackToApp": "Back to App"
   },
   "calendar": {
@@ -1314,6 +1315,24 @@
     "statusRemoved": "Removed",
     "statusArchived": "Archived",
     "statusReady": "Ready"
+  },
+  "adminSystemCheckPage": {
+    "title": "System Check",
+    "subtitle": "Connection status to external API services",
+    "connectionStatus": "Connection Status",
+    "service": "Service",
+    "status": "Status",
+    "connected": "Connected",
+    "notConnected": "Not Connected",
+    "stripe": "Stripe (payments)",
+    "openai": "OpenAI (AI images)",
+    "gemini": "Google Gemini (AI content)",
+    "tiktok": "TikTok API",
+    "linkedin": "LinkedIn API",
+    "twitter": "X / Twitter API",
+    "google": "Google OAuth (YouTube)",
+    "supabase": "Supabase",
+    "cronSecret": "CRON_SECRET (external scheduler)"
   },
   "adminUsersPage": {
     "title": "Users",

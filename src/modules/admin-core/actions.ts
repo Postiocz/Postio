@@ -8,6 +8,70 @@ type User = Database["public"]["Tables"]["users"]["Row"];
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 type PostPlatform = Database["public"]["Tables"]["post_platforms"]["Row"];
 
+/** Status check result for a single service. */
+export interface ServiceStatus {
+  key: string;
+  label: string;
+  connected: boolean;
+  detail?: string;
+}
+
+/**
+ * Checks availability of all external API keys / services.
+ * Returns an array of status objects – purely env-based, no external pings.
+ */
+export async function getSystemStatus(): Promise<ServiceStatus[]> {
+  const checks: ServiceStatus[] = [
+    {
+      key: "stripe",
+      label: "Stripe (payments)",
+      connected: !!process.env.STRIPE_SECRET_KEY,
+    },
+    {
+      key: "openai",
+      label: "OpenAI (AI images)",
+      connected: !!process.env.OPENAI_API_KEY,
+    },
+    {
+      key: "gemini",
+      label: "Google Gemini (AI content)",
+      connected: !!process.env.GOOGLE_GEMINI_API_KEY,
+    },
+    {
+      key: "tiktok",
+      label: "TikTok API",
+      connected: !!(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET),
+    },
+    {
+      key: "linkedin",
+      label: "LinkedIn API",
+      connected: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
+    },
+    {
+      key: "twitter",
+      label: "X / Twitter API",
+      connected: !!(process.env.TWITTER_CLIENT_ID || process.env.X_API_KEY),
+    },
+    {
+      key: "google",
+      label: "Google OAuth (YouTube)",
+      connected: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    },
+    {
+      key: "supabase",
+      label: "Supabase",
+      connected: !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    },
+    {
+      key: "cronSecret",
+      label: "CRON_SECRET (external scheduler)",
+      connected: !!process.env.CRON_SECRET,
+    },
+  ];
+
+  return checks;
+}
+
 /**
  * Načte VŠECHNY uživatele z DB (globální pohled pro admina).
  * Používá createAdminClient (service_role) k obcházení RLS.

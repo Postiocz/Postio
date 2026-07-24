@@ -48,6 +48,6 @@
 
 - [ ] **KROK 1: Produkční UI a hlášky** — Projít soubory překladů (cs, en, uk) a UI komponenty. Odstranit/zrenovovat zmínky o "Sandboxu" v klíči `tiktokSandboxPrivateOnlyError` a odstranit duplicitní záznamy v messages souborech. Nahradit profesionálními hláškami pro koncové uživatele.
 - [x] **KROK 2: Příprava pro externí Plánovač (Cron Bypass)** ✅ — Upravit Supabase Edge funkci `process-scheduled-posts` tak, aby vyžadovala v hlavičce `Authorization: Bearer [CRON_SECRET]`. Vypsat URL adresu a hlavičku pro nastavení v externím budíku (cron-job.org).
-- [ ] **KROK 3: Admin System Check** — Vytvořit stránku `/admin/system-check` s přehledným zobrazením stavu připojení k API (Stripe, OpenAI, TikTok, Meta) – indikace "Připojeno/Nepřipojeno".
+- [x] **KROK 3: Admin System Check** ✅ — Vytvořit stránku `/admin/system-check` s přehledným zobrazením stavu připojení k API (Stripe, OpenAI, TikTok, Meta) – indikace "Připojeno/Nepřipojeno".
 - [x] **KROK 4: Ochrana soukromí a logů** ✅ — Zajistit, aby v produkčním prostředí aplikace nevypisovala do konzole prohlížeče citlivá data (tokeny, user IDs). Vytvořit globální logging wrapper nebo production guard.
 - [ ] **KROK 5: SEO a OpenGraph Finalizace** — Ověřit funkčnost sitemapy a robots.txt na ostré doméně. Zajistit bezchybné meta tagy v layoutu.

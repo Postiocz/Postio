@@ -12,6 +12,7 @@ import {
   BarChart3,
   CreditCard,
   ArrowLeft,
+  Activity,
 } from "lucide-react";
 
 interface AdminNavItem {
@@ -27,6 +28,7 @@ const adminNavItems: AdminNavItem[] = [
   { href: "/admin/billing", icon: CreditCard, labelKey: "nav.adminBilling" },
   { href: "/admin/analytics", icon: BarChart3, labelKey: "nav.adminAnalytics" },
   { href: "/admin/settings", icon: Settings, labelKey: "nav.adminSettings" },
+  { href: "/admin/system-check", icon: Activity, labelKey: "nav.adminSystemCheck" },
 ];
 
 export function AdminSidebar({ locale }: { locale: string }) {

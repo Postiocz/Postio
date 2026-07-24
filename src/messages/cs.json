@@ -110,6 +110,7 @@
     "adminBilling": "Fakturace",
     "adminAnalytics": "Analytika",
     "adminSettings": "Nastavení",
+    "adminSystemCheck": "System Check",
     "adminBackToApp": "Zpět do aplikace"
   },
   "calendar": {
@@ -1314,6 +1315,24 @@
     "statusRemoved": "Odebráno",
     "statusArchived": "Archivováno",
     "statusReady": "Připraveno"
+  },
+  "adminSystemCheckPage": {
+    "title": "System Check",
+    "subtitle": "Stav připojení k externím API službám",
+    "connectionStatus": "Stav připojení",
+    "service": "Služba",
+    "status": "Status",
+    "connected": "Připojeno",
+    "notConnected": "Nepřipojeno",
+    "stripe": "Stripe (platby)",
+    "openai": "OpenAI (AI obrázky)",
+    "gemini": "Google Gemini (AI obsah)",
+    "tiktok": "TikTok API",
+    "linkedin": "LinkedIn API",
+    "twitter": "X / Twitter API",
+    "google": "Google OAuth (YouTube)",
+    "supabase": "Supabase",
+    "cronSecret": "CRON_SECRET (externí plánovač)"
   },
   "adminUsersPage": {
     "title": "Uživatelé",

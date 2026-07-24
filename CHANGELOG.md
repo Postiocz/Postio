@@ -6,6 +6,16 @@
 
 
 
+### 🚀 Prompt 044 – KROK 3: Admin System Check ✅
+
+- **Kontext**: Před ostrým startem chyběl přehledný dashboard pro kontrolu stavu API připojení (Stripe, OpenAI, TikTok atd.).
+- **Změny**:
+  - ✅ `src/modules/admin-core/actions.ts': Nová funkce `getSystemStatus()` kontrolující všech 9 API služeb.
+  - ✅ `src/app/[locale]/(admin)/admin/system-check/page.tsx': Nová stránka `/admin/system-check` s přehledem "Připojeno/Nepřipojeno" a vizuálními indikátory.
+  - ✅ `src/modules/admin-core/components/admin-sidebar.tsx': Přidán odkaz "System Check" do admin navigace.
+  - ✅ i18n (cs/en/uk): Nový namespace `adminSystemCheckPage` se všemi překlady.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
+
 ### 🚀 Prompt 044 – KROK 4: Ochrana soukromí a logů ✅
 
 - **Kontext**: Produkční aplikace vypisovala do konzole prohlížeče citlivá data (tokeny, user IDs). Risk pro App Review demo video.

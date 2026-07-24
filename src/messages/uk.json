@@ -110,6 +110,7 @@
     "adminBilling": "Білінг",
     "adminAnalytics": "Аналітика",
     "adminSettings": "Налаштування",
+    "adminSystemCheck": "Перевірка системи",
     "adminBackToApp": "Повернутися до застосунку"
   },
   "calendar": {
@@ -1314,6 +1315,24 @@
     "statusRemoved": "Removed",
     "statusArchived": "Archived",
     "statusReady": "Ready"
+  },
+  "adminSystemCheckPage": {
+    "title": "Перевірка системи",
+    "subtitle": "Статус підключення до зовнішніх API сервісів",
+    "connectionStatus": "Статус підключення",
+    "service": "Сервіс",
+    "status": "Статус",
+    "connected": "Підключено",
+    "notConnected": "Не підключено",
+    "stripe": "Stripe (платежі)",
+    "openai": "OpenAI (AI зображення)",
+    "gemini": "Google Gemini (AI контент)",
+    "tiktok": "TikTok API",
+    "linkedin": "LinkedIn API",
+    "twitter": "X / Twitter API",
+    "google": "Google OAuth (YouTube)",
+    "supabase": "Supabase",
+    "cronSecret": "CRON_SECRET (зовнішній планувальник)"
   },
   "adminUsersPage": {
     "title": "Users",

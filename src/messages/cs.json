@@ -651,7 +651,8 @@
     "tokenExpiredStatus": "Vypršel",
     "tokenExpiringStatus": "Vyprší brzy",
     "reconnect": "Znovu připojit",
-    "accountLimitReached": "Dosáhli jste limitu účtů pro váš tarif. Přejděte na vyšší plán v Nastavení."
+    "accountLimitReached": "Dosáhli jste limitu účtů pro váš tarif. Přejděte na vyšší plán v Nastavení.",
+    "sandboxDisabledTooltip": "Právě probíhá schvalování sítě. K dispozici do několika dnů."
   },
   "templates": {
     "title": "Šablony",

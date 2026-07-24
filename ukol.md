@@ -41,3 +41,48 @@
 ---
 
 ## 10. AKTUÁLNÍ ÚKOLY
+
+### Prompt 044-REVISED – Launch Guard a Admin Credit Management
+
+**Cíl**: Učesat aplikaci pro první reálné uživatele – vizuální zámky pro sandbox platformy, správa kreditů v adminu, a ochrana soukromí.
+
+---
+
+- [x] **KROK 1: Launch Guard (Vizuální zámky)** ✅
+  - U platforem v režimu Sandbox (TikTok, Facebook, Instagram) přidat v sekci Účty i v Editoru vkusný odznáček "BETA".
+  - **Logika**:
+    - Pokud je přihlášený uživatel `admin`, vše funguje normálně.
+    - Pokud je běžný uživatel, propojení bude `disabled` s tooltipem: *"Právě probíhá schvalování sítě. K dispozici do několika dní."*
+  - **Místa implementace**:
+    - `src/app/[locale]/(dashboard)/accounts/page.tsx` – tlačítka propojení
+    - Editor (posts/new, edit-post-dialog) – výběr platforem
+
+- [ ] **KROK 2: Admin Credit Manager**
+  - V admin modulu v detailu uživatele (`/admin/users/[id]`) přidat sekci "Správa kreditů".
+  - **Požadavky**:
+    - Zobrazení aktuálních hodnot `ai_credits` a `twitter_auto_credits`.
+    - Input pole pro ruční úpravu + tlačítko "Uložit".
+    - Server action pro update kreditů s zápisem do `audit_logs` (action: `credits_updated`, metadata: `{ old_ai, new_ai, old_twitter, new_twitter }`).
+  - **Místa implementace**:
+    - `src/app/[locale]/(admin)/admin/users/[id]/page.tsx` – UI sekce
+    - `src/modules/admin-core/actions.ts` – server action `updateUserCredits()`
+    - i18n: nové klíče v namespace `adminUserDetail`
+
+- [ ] **KROK 3: Ochrana logů a soukromí**
+  - Implementovat globální guard, který v produkčním režimu (`postio-app.cz` nebo `VERCEL_ENV=production`) zabrání vypisování `console.log` s citlivými daty.
+  - **Požadavky**:
+    - Využít existující `src/lib/logger.ts` (již implementováno v Prompt 044 KROK 4).
+    - Audit zbývajících `console.log` volání v kódu a jejich nahrazení za `logger.debug`/`logger.info`.
+    - Filtrování citlivých dat (tokeny, user IDs) v logovacích voláních.
+  - **Místa implementace**:
+    - Globální vyhledání `console.log`/`console.warn` v client komponentách a API routes.
+    - Nahrazení za `logger.debug` (potlačeno v produkci) nebo odstranění.
+
+- [ ] **KROK 4: Lokalizace a Feedback**
+  - Přidat do patičky aplikace (footer) nebo do menu jednoduchý odkaz "Zpětná vazba".
+  - **Požadavky**:
+    - Odkaz otevře mailto: `info@postio-app.cz`.
+    - Příprava pro budoucí feedback modul (zatím jen odkaz).
+  - **Místa implementace**:
+    - Footer komponenta (pokud existuje) nebo dashboard layout.
+    - i18n: klíč `feedback` v namespace `common`.

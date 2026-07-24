@@ -6,6 +6,7 @@ import type { ComponentType } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,6 +17,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Trash2,
   PlusCircle,
@@ -63,6 +70,13 @@ type Platform = {
   dragShadow: string;
   iconHoverClassName: string;
 };
+
+/**
+ * Platforms in Sandbox mode (Prompt 044-REVISED KROK 1).
+ * These platforms show a "BETA" badge and are disabled for non-admin users.
+ * Admin users can connect them normally (for testing before public launch).
+ */
+const SANDBOX_PLATFORMS: Set<PlatformId> = new Set(["tiktok", "facebook", "instagram"]);
 
 const DEFAULT_PLATFORMS: Platform[] = [
   {
@@ -220,6 +234,8 @@ export default function AccountsPage() {
   const isDraggingRef = useRef(false);
   // Current user plan – used for client-side account-limit enforcement.
   const [userPlan, setUserPlan] = useState<"free" | "creator" | "pro">("free");
+  // Prompt 044-REVISED KROK 1: User role for Launch Guard (admin bypass).
+  const [userRole, setUserRole] = useState<"user" | "admin">("user");
 
   const platformById = useMemo(() => {
     return new Map(platforms.map((p) => [p.id, p]));
@@ -351,10 +367,14 @@ export default function AccountsPage() {
 
   // Load the user's plan so we can enforce the account limit client-side
   // (proactively block new connections before they hit the server).
+  // Also loads user role for Launch Guard (Prompt 044-REVISED KROK 1).
   const fetchPlan = async () => {
-    const { data } = await supabase.from("users").select("plan").single();
+    const { data } = await supabase.from("users").select("plan, role").single();
     if (data?.plan) {
       setUserPlan(data.plan as "free" | "creator" | "pro");
+    }
+    if (data?.role) {
+      setUserRole(data.role as "user" | "admin");
     }
   };
 
@@ -561,78 +581,111 @@ export default function AccountsPage() {
           <h2 className="text-sm font-medium uppercase tracking-widest text-muted-foreground/40">
             {t("connect")}
           </h2>
-          <Reorder.Group
+          <TooltipProvider delayDuration={150}>
+            <Reorder.Group
               axis="y"
               values={platforms}
               onReorder={setPlatforms}
               as="div"
               className="flex flex-wrap justify-center gap-4"
             >
-              {platforms.map((platform) => (
-                <Reorder.Item
-                  key={platform.id}
-                  value={platform}
-                  as="button"
-                  type="button"
-                  drag
-                  onDragStart={() => {
-                    isDraggingRef.current = true;
-                  }}
-                  onDragEnd={() => {
-                    window.setTimeout(() => {
-                      isDraggingRef.current = false;
-                    }, 0);
-                  }}
-                  onClick={() => {
-                    if (isDraggingRef.current) return;
-                    // Proactively block NEW connections when the user is at
-                    // their plan's account limit. Reconnecting an already
-                    // connected (active) account is always allowed because it
-                    // does not increase the connected-account count.
-                    const alreadyConnected = accounts.some(
-                      (a) => a.platform === platform.id && a.is_active
-                    );
-                    if (isAtAccountLimit && !alreadyConnected) {
-                      toast.error(t("accountLimitReached"));
-                      return;
-                    }
-                    // X uses the hybrid decision modal (Prompt 031-X) instead of
-                    // the generic OAuth modal. Automatic publishing stays hidden
-                    // there for now; the OAuth code is retained in the codebase.
-                    if (platform.id === "twitter") {
-                      setShowXModal(true);
-                      return;
-                    }
-                    // All platforms connect through the universal OAuth modal.
-                    setConnectModalPlatform({
-                      id: platform.id,
-                      name: getPlatformLabel(platform.id),
-                      icon: platform.icon,
-                    });
-                    setShowConnectModal(true);
-                  }}
-                  whileDrag={{
-                    scale: 1.06,
-                    boxShadow: platform.dragShadow,
-                    zIndex: 50,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 700,
-                    damping: 40,
-                    mass: 0.5,
-                  }}
-                  className={`group relative flex h-28 w-28 flex-col items-center justify-center gap-3 rounded-[20px] border border-white/5 bg-card/40 backdrop-blur-md transition-colors will-change-transform cursor-grab active:cursor-grabbing touch-none ${platform.borderHoverClassName} ${platform.hoverGlowClassName}`}
-                >
-                  <platform.icon
-                    className={`h-6 w-6 text-muted-foreground transition-colors ${platform.iconHoverClassName}`}
-                  />
-                  <span className="text-xs font-medium text-muted-foreground transition-colors group-hover:text-white">
-                    {getPlatformLabel(platform.id)}
-                  </span>
-                </Reorder.Item>
-              ))}
+              {platforms.map((platform) => {
+                // Prompt 044-REVISED KROK 1: Launch Guard
+                const isSandboxPlatform = SANDBOX_PLATFORMS.has(platform.id);
+                const isAdmin = userRole === "admin";
+                const isDisabled = isSandboxPlatform && !isAdmin;
+
+                return (
+                <Tooltip key={platform.id}>
+                  <TooltipTrigger asChild>
+                    <Reorder.Item
+                      value={platform}
+                      as="button"
+                      type="button"
+                      drag={!isDisabled}
+                      onDragStart={() => {
+                        if (isDisabled) return;
+                        isDraggingRef.current = true;
+                      }}
+                      onDragEnd={() => {
+                        window.setTimeout(() => {
+                          isDraggingRef.current = false;
+                        }, 0);
+                      }}
+                      onClick={() => {
+                        if (isDraggingRef.current) return;
+                        // Prompt 044-REVISED KROK 1: Block sandbox platforms for non-admin
+                        if (isDisabled) {
+                          return;
+                        }
+                        // Proactively block NEW connections when the user is at
+                        // their plan's account limit. Reconnecting an already
+                        // connected (active) account is always allowed because it
+                        // does not increase the connected-account count.
+                        const alreadyConnected = accounts.some(
+                          (a) => a.platform === platform.id && a.is_active
+                        );
+                        if (isAtAccountLimit && !alreadyConnected) {
+                          toast.error(t("accountLimitReached"));
+                          return;
+                        }
+                        // X uses the hybrid decision modal (Prompt 031-X) instead of
+                        // the generic OAuth modal. Automatic publishing stays hidden
+                        // there for now; the OAuth code is retained in the codebase.
+                        if (platform.id === "twitter") {
+                          setShowXModal(true);
+                          return;
+                        }
+                        // All platforms connect through the universal OAuth modal.
+                        setConnectModalPlatform({
+                          id: platform.id,
+                          name: getPlatformLabel(platform.id),
+                          icon: platform.icon,
+                        });
+                        setShowConnectModal(true);
+                      }}
+                      whileDrag={!isDisabled ? {
+                        scale: 1.06,
+                        boxShadow: platform.dragShadow,
+                        zIndex: 50,
+                      } : undefined}
+                      transition={{
+                        type: "spring",
+                        stiffness: 700,
+                        damping: 40,
+                        mass: 0.5,
+                      }}
+                      className={`group relative flex h-28 w-28 flex-col items-center justify-center gap-3 rounded-[20px] border border-white/5 bg-card/40 backdrop-blur-md transition-colors will-change-transform touch-none ${
+                        isDisabled
+                          ? "opacity-50 cursor-not-allowed"
+                          : "cursor-grab active:cursor-grabbing"
+                      } ${!isDisabled ? `${platform.borderHoverClassName} ${platform.hoverGlowClassName}` : ""}`}
+                      disabled={isDisabled}
+                    >
+                      <platform.icon
+                        className={`h-6 w-6 text-muted-foreground transition-colors ${!isDisabled ? platform.iconHoverClassName : ""}`}
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs font-medium text-muted-foreground transition-colors ${!isDisabled ? "group-hover:text-white" : ""}`}>
+                          {getPlatformLabel(platform.id)}
+                        </span>
+                        {isSandboxPlatform && (
+                          <Badge className="bg-purple-500/20 text-purple-400 text-[9px] px-1.5 py-0.5 rounded-full font-medium">
+                            BETA
+                          </Badge>
+                        )}
+                      </div>
+                    </Reorder.Item>
+                  </TooltipTrigger>
+                  {isDisabled && (
+                    <TooltipContent side="top" className="max-w-[200px] text-center">
+                      <p>{t("sandboxDisabledTooltip")}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );})}
             </Reorder.Group>
+          </TooltipProvider>
           </div>
       </div>
 

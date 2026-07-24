@@ -651,7 +651,8 @@
     "tokenExpiredStatus": "Expired",
     "tokenExpiringStatus": "Expiring soon",
     "reconnect": "Reconnect",
-    "accountLimitReached": "You have reached the account limit for your plan. Upgrade your plan in Settings."
+    "accountLimitReached": "You have reached the account limit for your plan. Upgrade your plan in Settings.",
+    "sandboxDisabledTooltip": "Network approval in progress. Available in a few days."
   },
   "templates": {
     "title": "Templates",

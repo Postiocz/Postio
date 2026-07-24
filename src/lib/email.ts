@@ -16,6 +16,7 @@
 //   SENDER_INFO     – info@postio-app.cz    (general inquiries, default)
 
 import { Resend } from "resend";
+import { logger } from "@/lib/logger";
 
 // Locale messages used by sendWelcomeEmail (loaded directly – next-intl/server
 // does not share context in Route Handlers).
@@ -76,9 +77,8 @@ export async function sendTransactionalEmail(
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
-    console.warn(
-      "[email] RESEND_API_KEY is not set – skipping transactional e-mail to:",
-      options.to,
+    logger.warn(
+      "[email] RESEND_API_KEY is not set – skipping transactional e-mail"
     );
     return { success: true };
   }

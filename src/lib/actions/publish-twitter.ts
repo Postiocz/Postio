@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 /**
  * POSTIO – Twitter (X) publisher helpers
@@ -170,7 +171,7 @@ export async function getValidTwitterAccessToken(params: {
     };
   }
 
-  console.log("[X/Twitter] refreshing access token", {
+  logger.debug("[X/Twitter] refreshing access token", {
     accountId: account.id,
     expiresAt: account.token_expires_at,
   });
@@ -304,7 +305,7 @@ async function uploadMediaToX(params: {
       };
     }
 
-    console.log("[X/Twitter] ✅ media uploaded:", { mediaId });
+    logger.debug("[X/Twitter] media uploaded:", { mediaId });
     return { success: true, mediaId };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -356,7 +357,7 @@ async function publishTweetToX(params: {
     try {
       const srcRes = await fetch(imageUrl, { cache: "no-store" });
       if (!srcRes.ok) {
-        console.warn("[X/Twitter] failed to download image:", {
+        logger.warn("[X/Twitter] failed to download image:", {
           url: imageUrl,
           status: srcRes.status,
         });
@@ -364,7 +365,7 @@ async function publishTweetToX(params: {
       }
       imageBuffer = await srcRes.arrayBuffer();
     } catch (e) {
-      console.warn("[X/Twitter] network error downloading image:", e);
+      logger.warn("[X/Twitter] network error downloading image:", e);
       continue;
     }
 
@@ -395,7 +396,7 @@ async function publishTweetToX(params: {
     };
   }
 
-  console.log("[X/Twitter] sending tweet:", {
+  logger.debug("[X/Twitter] sending tweet:", {
     contentLength: truncatedContent.length,
     mediaIds,
   });
@@ -424,7 +425,7 @@ async function publishTweetToX(params: {
         };
       }
 
-      console.log("[X/Twitter] ✅ tweet published:", {
+      logger.info("[X/Twitter] tweet published:", {
         tweetId,
         tweetUrl: `https://x.com/i/status/${tweetId}`,
       });

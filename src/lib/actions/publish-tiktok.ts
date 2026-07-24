@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 import {
   isTikTokSandboxPrivateOnlyError,
   TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
@@ -445,7 +446,7 @@ async function waitForTikTokPublishComplete(params: {
         };
       }
     } catch (error) {
-      console.warn("[TikTok status/fetch] transient poll error:", error);
+      logger.warn("[TikTok status/fetch] transient poll error:", error);
     }
 
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
@@ -511,7 +512,7 @@ async function publishToTikTok(params: {
     },
   };
 
-  console.log("TIKTOK PAYLOAD:", body);
+  logger.debug("TIKTOK PAYLOAD:", body);
 
   const initRes = await fetch(TIKTOK_PUBLISH_INIT_URL, {
     method: "POST",

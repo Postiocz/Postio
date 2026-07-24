@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 /**
  * POSTIO – YouTube publisher helpers
@@ -177,7 +178,7 @@ export async function getValidYouTubeAccessToken(params: {
     };
   }
 
-  console.log("[YouTube] refreshing access token", {
+  logger.debug("[YouTube] refreshing access token", {
     accountId: account.id,
     expiresAt: account.token_expires_at,
   });
@@ -352,7 +353,7 @@ async function publishToYouTube(params: {
     };
   }
 
-  console.log("[YouTube] ✅ upload success:", {
+  logger.debug("[YouTube] upload success:", {
     videoId: finalPayload.id,
     title: finalPayload.snippet?.title,
     uploadStatus: finalPayload.status?.uploadStatus,

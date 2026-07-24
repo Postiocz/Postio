@@ -7,6 +7,7 @@ import SetupGuide from "@/components/dashboard/setup-guide";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function DashboardLayout({
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    console.log("CURRENT USER:", user?.id ? "authenticated" : "none");
+    logger.debug("Dashboard layout: user authenticated check");
     session = user;
   } catch {
     supabaseAvailable = false;

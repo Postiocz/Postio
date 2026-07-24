@@ -5,6 +5,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
 import { sendWelcomeEmail } from "@/lib/email";
 import { getAccountLimitInfo, accountLimitErrorMessage } from "@/lib/account-limit";
+import { logger } from "@/lib/logger";
 
 type FacebookPagesResponse = {
   data?: Array<{
@@ -92,15 +93,13 @@ async function handleYouTubeCallback(request: NextRequest): Promise<NextResponse
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state") || "/accounts";
 
-  // 🔍 DEBUG: Začínám zpracování YouTube callbacku
-  console.log("🔍 DEBUG: Začínám zpracování YouTube callbacku");
+  logger.debug("[YouTube OAuth] Starting callback processing");
 
-  // 🔍 DEBUG: Query parametry – všechny co Google poslal zpět
   const allParams: Record<string, string> = {};
   url.searchParams.forEach((value, key) => {
     allParams[key] = value;
   });
-  console.log("🔍 DEBUG: Query parametry:", allParams);
+  logger.debug("[YouTube OAuth] Query params received");
 
   // Derive locale from the `state` redirect path (set by /api/auth/google).
   // Fallback chain matches the rest of the file: referer → "cs".
@@ -179,11 +178,11 @@ async function handleYouTubeCallback(request: NextRequest): Promise<NextResponse
   const refreshToken = tokenData.refresh_token;
   const expiresIn = tokenData.expires_in;
 
-  // 🔍 DEBUG: Access Token získán
-  console.log("🔍 DEBUG: Access Token získán:", accessToken ? "ano" : "ne");
-  console.log("🔍 DEBUG: Refresh Token získán:", refreshToken ? "ano" : "ne");
-  console.log("🔍 DEBUG: Expires in (s):", expiresIn ?? "neuvedeno");
-  console.log("🔍 DEBUG: Scope:", tokenData.scope ?? "neuvedeno");
+  logger.debug("[YouTube OAuth] Token exchange completed", {
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    expiresIn,
+  });
 
   if (!accessToken) {
     console.error("[YouTube OAuth] No access_token in response");
@@ -210,11 +209,7 @@ async function handleYouTubeCallback(request: NextRequest): Promise<NextResponse
 
   const channels = (await channelsRes.json()) as YouTubeChannelsResponse;
 
-  // 🔍 DEBUG: Kompletní odpověď z YouTube API (channels list)
-  console.log(
-    "🔍 DEBUG: Odpověď z YouTube API (channels list):",
-    JSON.stringify(channels, null, 2)
-  );
+  logger.debug("[YouTube OAuth] Channels API response received");
 
   const channel = channels.items?.[0];
 
@@ -296,8 +291,8 @@ async function handleYouTubeCallback(request: NextRequest): Promise<NextResponse
     );
   }
 
-  console.log(
-    `[YouTube OAuth] Connected channel "${channelTitle}" (${channelId}) for user ${user.id}`
+  logger.info(
+    `[YouTube OAuth] Connected channel "${channelTitle}" (${channelId}) for user ${user.id.slice(0, 8)}...`
   );
 
   // ── Step 5: Redirect back to /accounts ─────────────────────────
@@ -597,7 +592,7 @@ export async function GET(request: NextRequest) {
     //   2. A user may have several IG business accounts and must opt in.
     if (requestedPlatform === "instagram") {
       try {
-        console.log("[Postio] Instagram Direct Login – hledám IG účty uživatele");
+        logger.debug("[Postio] Instagram Direct Login – searching for IG accounts");
 
         const meData = await graphFetch<{
           id?: string;
@@ -629,7 +624,7 @@ export async function GET(request: NextRequest) {
 
         if (igMeData?.instagram_business_account?.id) {
           igUserId = igMeData.instagram_business_account.id;
-          console.log(`[Postio] IG Business Account nalezen přes /me: ${igUserId}`);
+          logger.debug(`[Postio] IG Business Account found via /me`);
         }
 
         // Fallback: the FB user id can itself be the IG business account id
@@ -659,7 +654,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (igUserId && !rowsToUpsert.some((r) => r.platform === "instagram" && r.platform_id === igUserId)) {
-          console.log(`[Postio] NALEZEN PŘÍMÝ INSTAGRAM: ${igUsername || igName || igUserId}`);
+          logger.debug(`[Postio] Found direct Instagram account`);
 
           rowsToUpsert.push({
             user_id: targetUserId,
@@ -677,10 +672,10 @@ export async function GET(request: NextRequest) {
             metadata: {},
           });
         } else {
-          console.log("[Postio] Instagram Direct Login: nelze najít IG účet uživatele");
+          logger.debug("[Postio] Instagram Direct Login: cannot find user IG account");
         }
       } catch (e) {
-        console.log("[Postio] Chyba Instagram Direct Login:", e);
+        logger.debug("[Postio] Instagram Direct Login error:", e);
       }
     }
 
@@ -709,7 +704,7 @@ export async function GET(request: NextRequest) {
           const igId = page.instagram_business_account?.id;
           if (!igId) continue;
 
-          console.log(`[Postio] Hledám Instagram pro stránku: ${pageName}`);
+          logger.debug(`[Postio] Searching Instagram for page: ${pageName}`);
 
           let ig: InstagramBusinessResponse | null = null;
           try {
@@ -719,14 +714,14 @@ export async function GET(request: NextRequest) {
               { fields: "id,username,name,profile_picture_url" }
             );
           } catch (e) {
-            console.log(`[Postio] Chyba při dotazu na IG pro stránku ${pageName}:`, e);
+            logger.debug(`[Postio] Error querying IG for page ${pageName}`);
             ig = null;
           }
 
           if (ig && ig.id) {
             // Only add if not already added (via direct login above).
             if (!rowsToUpsert.some(r => r.platform === "instagram" && r.platform_id === ig.id)) {
-              console.log(`[Postio] NALEZEN REÁLNÝ INSTAGRAM: ${ig.username || ig.name || ig.id}`);
+              logger.debug(`[Postio] Found real Instagram: ${ig.username || ig.name || ig.id}`);
 
               const igNamePage = ig.username || ig.name || pageName || "Instagram";
               const igAvatarUrlPage = ig.profile_picture_url ?? pageAvatarUrl ?? null;
@@ -773,7 +768,7 @@ export async function GET(request: NextRequest) {
         const igId = page.instagram_business_account?.id;
         if (!igId) continue;
 
-        console.log(`[Postio] Hledám Instagram pro stránku: ${pageName}`);
+        logger.debug(`[Postio] Searching Instagram for page: ${pageName}`);
 
         let ig: InstagramBusinessResponse | null = null;
         try {
@@ -783,12 +778,12 @@ export async function GET(request: NextRequest) {
             { fields: "id,username,name,profile_picture_url" }
           );
         } catch (e) {
-          console.log(`[Postio] Chyba při dotazu na IG pro stránku ${pageName}:`, e);
+          logger.debug(`[Postio] Error querying IG for page ${pageName}`);
           ig = null;
         }
 
         if (ig && ig.id) {
-          console.log(`[Postio] NALEZEN REÁLNÝ INSTAGRAM (uložen neaktivní): ${ig.username || ig.name || ig.id}`);
+          logger.debug(`[Postio] Found real Instagram (saved inactive): ${ig.username || ig.name || ig.id}`);
 
           const igName = ig.username || ig.name || pageName || "Instagram";
           const igAvatarUrl = ig.profile_picture_url ?? pageAvatarUrl ?? null;
@@ -813,11 +808,11 @@ export async function GET(request: NextRequest) {
             metadata: {},
           });
         } else {
-          console.log(`[Postio] Instagram pro stránku ${pageName} nebyl nalezen nebo API vrátilo prázdnou odpověď.`);
+          logger.debug(`[Postio] Instagram for page ${pageName} not found or API returned empty response.`);
         }
       }
     } catch (e) {
-      console.log("[Postio] Chyba při načítání FB Pages:", e);
+      logger.debug("[Postio] Error loading FB Pages:", e);
     }
 
     // Before upserting the freshly fetched set of Pages, make sure that
@@ -838,13 +833,13 @@ export async function GET(request: NextRequest) {
         .eq("platform", "facebook");
 
       if (deactivateError) {
-        console.log(
-          "[Postio] CHYBA při deaktivaci starých FB účtů:",
+        logger.debug(
+          "[Postio] Error deactivating old FB accounts:",
           deactivateError
         );
       }
     } catch (e) {
-      console.log("[Postio] Neočekávaná chyba při deaktivaci starých FB účtů:", e);
+      logger.debug("[Postio] Unexpected error deactivating old FB accounts:", e);
     }
 
     if (rowsToUpsert.length > 0) {
@@ -887,7 +882,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      console.log(`[Postio] Ukládám ${rowsToUpsert.length} účtů do social_accounts:`, rowsToUpsert.map(r => `${r.platform}:${r.account_name}(${r.platform_id})`));
+      logger.debug(`[Postio] Saving ${rowsToUpsert.length} accounts to social_accounts`);
       const { data: upsertData, error: upsertError } = await supabaseAdmin
         .from("social_accounts")
         .upsert(rowsToUpsert, {
@@ -895,9 +890,9 @@ export async function GET(request: NextRequest) {
         })
         .select();
       if (upsertError) {
-        console.log("[Postio] CHYBA UPERTU social_accounts:", upsertError);
+        logger.debug("[Postio] UPSERT error social_accounts:", upsertError);
       } else {
-        console.log("[Postio] Úspěšně uloženo/aktualizováno účtů:", Array.isArray(upsertData) ? upsertData.length : 1);
+        logger.debug("[Postio] Successfully saved/updated accounts:", Array.isArray(upsertData) ? upsertData.length : 1);
       }
     }
   }

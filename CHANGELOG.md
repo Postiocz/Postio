@@ -4,6 +4,19 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 044-REVISED – KROK 3: Ochrana logů a soukromí ✅
+
+- **Kontext**: Produkční aplikace nesmí vypisovat citlivá data do konzole prohlížeče.
+- **Změny**:
+  - ✅ `src/app/auth/callback/route.ts`: 15+ `console.log` → `logger.debug`/`logger.info`.
+  - ✅ `src/app/[locale]/(dashboard)/layout.tsx`: `console.log` → `logger.debug`.
+  - ✅ `src/lib/email.ts`: `console.warn` → `logger.warn`.
+  - ✅ `src/lib/image-compression.ts`: 3× `console.warn` → `logger.warn`/`logger.info`.
+  - ✅ `src/lib/actions/publish-twitter.ts`: 6× `console.log`/`console.warn` → `logger`.
+  - ✅ `src/lib/actions/publish-youtube.ts`: 2× `console.log` → `logger`.
+  - ✅ `src/lib/actions/publish-tiktok.ts`: 2× `console.warn`/`console.log` → `logger`.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 044-REVISED – KROK 2: Admin Credit Manager ✅
 
 - **Kontext**: Admin potřebuje manuálně spravovat kredity uživatelů (AI obrázky, X posty).

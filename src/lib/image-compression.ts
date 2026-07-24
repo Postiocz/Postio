@@ -14,6 +14,7 @@
  */
 
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 /** Files larger than this are considered "large" and will be compressed. */
 export const COMPRESSION_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -165,7 +166,7 @@ export async function compressImageIfNeeded(
   try {
     img = await loadImage(file);
   } catch (err) {
-    console.warn("[Postio] compressImageIfNeeded: failed to decode image", err);
+    logger.warn("[Postio] compressImageIfNeeded: failed to decode image", err);
     return { file, compressed: false, originalSize, finalSize: originalSize };
   } finally {
     // loadImage keeps the URL alive for the canvas; it is revoked after encoding.
@@ -197,7 +198,7 @@ export async function compressImageIfNeeded(
         break;
       }
     } catch (err) {
-      console.warn("[Postio] compressImageIfNeeded: encoding failed", err);
+      logger.warn("[Postio] compressImageIfNeeded: encoding failed", err);
     }
   }
 
@@ -205,7 +206,7 @@ export async function compressImageIfNeeded(
   if (img.src) URL.revokeObjectURL(img.src);
 
   if (!bestBlob) {
-    console.warn("[Postio] compressImageIfNeeded: no blob produced, returning original");
+    logger.warn("[Postio] compressImageIfNeeded: no blob produced, returning original");
     return { file, compressed: false, originalSize, finalSize: originalSize };
   }
 
@@ -222,7 +223,7 @@ export async function compressImageIfNeeded(
   const originalMB = (originalSize / (1024 * 1024)).toFixed(2);
   const newMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
   // eslint-disable-next-line no-console
-  console.log(
+  logger.info(
     `📸 Optimalizace: Původní velikost ${originalMB} MB -> Nová velikost ${newMB} MB`,
   );
 

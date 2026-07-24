@@ -68,7 +68,7 @@
     - `src/modules/admin-core/actions.ts` – server action `updateUserCredits()`
     - i18n: nové klíče v namespace `adminUserDetail`
 
-- [ ] **KROK 3: Ochrana logů a soukromí**
+- [x] **KROK 3: Ochrana logů a soukromí** ✅
   - Implementovat globální guard, který v produkčním režimu (`postio-app.cz` nebo `VERCEL_ENV=production`) zabrání vypisování `console.log` s citlivými daty.
   - **Požadavky**:
     - Využít existující `src/lib/logger.ts` (již implementováno v Prompt 044 KROK 4).

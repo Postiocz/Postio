@@ -4,6 +4,16 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
 
 
+
+### 🚀 Prompt 043-C – KROK 6: Aktualizace Ceníků ✅
+
+- **Kontext**: Ceníky neukazovaly limity pro AI obrázky a X posty. Uživatelé neměli přehled, kolik kreditů jejich tarif obsahuje.
+- **Změny**:
+  - ✅ i18n (cs/en/uk): Nové klíče `aiImages`, `xAutoPosts` v namespace `landing.pricing` a `dashboard`.
+  - ✅ `src/components/marketing/pricing-section.tsx': Do všech tří tarifů (Free/Creator/Pro) přidány řádky AI obrázky a X automatické posty.
+  - ✅ `src/app/[locale]/(dashboard)/settings/billing/page.tsx': Stejné řádky na stránce Fakturace.
+- **Ověření**: `npx tsc --noEmit` ✅ (4 pre-existing).
+
 ### 🚀 Prompt 043-C – KROK 5: UI Indikátory kreditů v Editoru ✅
 
 - **Kontext**: Uživatelé neviděli zbývající kredity pro AI obrázky a X posty. Chyběla vizuální indikace v editoru.
@@ -84,46 +94,3 @@
   - ✅ Doplnění uk.json pro typovou kompatibilitu
 - **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅
 - **Upravené soubory**: messages/cs.json, en.json, uk.json, 8 admin stránek, admin-sidebar.tsx, admin-mobile-nav.tsx
-
-### 🚀 Prompt 040 – Kompletní implementace Admin Core ✅
-
-- **Kontext**: Oživit existující menu položky a přidat billing modul do admin sekce.
-- **Změny**:
-  - ✅ Modul Příspěvky (globální tabulka všech příspěvků)
-  - ✅ Modul Fakturace (Stripe integrace, předplatné a faktury)
-  - ✅ Modul Analytika (grafy růstu, MRR)
-  - ✅ Modul Nastavení (Správa adminů, Audit log)
-  - ✅ Přidání odkazu "Zpět do aplikace" v desktop a mobile admin navigaci
-  - ✅ Překlady pro admin sekci (cs/en, bez ukrajiny)
-  - ✅ Oprava Stripe chyb (expand limits)
-- **Ověření**: `npx tsc --noEmit` ✅, manuální test ✅
-- **Upravené soubory**:
-  - src/modules/admin-core/actions.ts
-  - src/modules/admin-core/components/admin-sidebar.tsx
-  - src/modules/admin-core/components/admin-mobile-nav.tsx
-  - src/modules/admin-core/index.ts
-  - src/components/locale-switcher.tsx
-  - src/app/[locale]/(admin)/admin/posts/page.tsx
-  - src/app/[locale]/(admin)/admin/billing/page.tsx
-  - src/app/[locale]/(admin)/admin/analytics/page.tsx
-  - src/app/[locale]/(admin)/admin/settings/page.tsx
-  - src/app/[locale]/(admin)/admin/settings/audit-log/page.tsx
-  - src/app/[locale]/(admin)/admin/settings/team/page.tsx
-  - messages/cs.json, messages/en.json, messages/uk.json
-  - ukol.md, CHANGELOG.md
-
-### 🚀 Prompt 040 – KROK 3: Překlad a zpět do aplikace ✅
-
-- **Kontext**: Přeložit billing do češtiny a přidat odkaz z admina zpět do aplikace.
-- **Změny**:
-  - Přidány překladové klíče pro adminAnalytics, adminSettings, adminBackToApp
-  - Admin sidebar nyní používá i18n pro všechny popisky
-  - Přidán odkaz "Zpět do aplikace" do admin sidebaru
-  - Přidána položka "Zpět do aplikace" do mobilní admin navigace
-  - Oprava cesty pro billing v mobilní navigaci na /admin/billing
-- **Ověření**: `npx tsc --noEmit` ✅.
-- **Upravené soubory**:
-  - messages/cs.json, messages/en.json, messages/uk.json,
-  - modules/admin-core/components/admin-sidebar.tsx,
-  - modules/admin-core/components/admin-mobile-nav.tsx,
-  - ukol.md, CHANGELOG.md

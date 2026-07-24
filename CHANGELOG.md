@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0).
 
+### 🚀 Prompt 043 – KROK 1: DB migrace AI + Twitter kredity ✅
+
+- **Kontext**: Kreditový systém pro drahé funkce (AI obrázky, auto X posty) vyžadoval nové sloupce v tabulce `users`.
+- **Změny**:
+  - ✅ `supabase/migrations/042_add_ai_and_twitter_credits.sql`: Přidány sloupce `ai_credits` a `twitter_auto_credits` (integer, default 0).
+  - ✅ UPDATE existujících uživatelů: Creator → 10/10, Pro → 50/50.
+- **Ověření**: Migrace aplikována do Supabase ✅.
+
 ### 🚀 Prompt 042 – Kompletní implementace Admin Management + Audit Log + Lokalizace ✅
 
 - **Kontext**: Stránky Admin Management a Audit Log v `/admin/settings` byly nefunkční. Potřebovaly funkční obsah, propojení a překlady.

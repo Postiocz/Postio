@@ -62,8 +62,9 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       console.error("OpenAI API error:", err);
+      const errPayload = err as { error?: { message?: string } };
       return NextResponse.json(
-        { error: "Failed to generate image", details: (err as Record<string, string>)?.error?.message || "Unknown error" },
+        { error: "Failed to generate image", details: errPayload?.error?.message ?? "Unknown error" },
         { status: response.status }
       );
     }

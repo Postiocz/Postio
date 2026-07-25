@@ -104,6 +104,8 @@
     "calendar": "Calendar",
     "inbox": "Inbox",
     "adminPanel": "Admin Panel",
+    "feedback": "Feedback",
+    "feedbackTooltip": "Share your thoughts or report an issue",
     "adminDashboard": "Dashboard",
     "adminUsers": "Users",
     "adminPosts": "Posts",
@@ -1365,5 +1367,21 @@
     "twitterCreditsLabel": "X (Twitter) Credits",
     "twitterCreditsHint": "Number of remaining automatic X posts",
     "saveCredits": "Save Credits"
+  },
+  "feedback": {
+    "title": "Feedback",
+    "description": "Your feedback helps us improve Postio. Thank you!",
+    "typeLabel": "Feedback type",
+    "typeBug": "Bug / Issue",
+    "typeFeature": "Feature request",
+    "typeOther": "Other",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Describe your idea or issue...",
+    "messageRequired": "Message is required",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "submitting": "Submitting...",
+    "submitSuccess": "Thank you! Your feedback has been submitted.",
+    "submitError": "Failed to submit feedback. Please try again."
   }
 }

@@ -23,9 +23,16 @@ import {
   MessageSquare,
   Settings,
   ShieldCheck,
+  MessageCircle,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   dashboard: LayoutDashboard,
@@ -73,6 +80,9 @@ interface SidebarProps {
     organizationLabel: string;
     featuresLabel: string;
   };
+  feedbackLabel?: string;
+  feedbackTooltip?: string;
+  onFeedbackClick?: () => void;
   className?: string;
 }
 
@@ -84,6 +94,9 @@ export function Sidebar({
   adminLabel,
   authT,
   settingsLabels,
+  feedbackLabel,
+  feedbackTooltip,
+  onFeedbackClick,
   className,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -369,6 +382,27 @@ export function Sidebar({
             </div>
           </div>
         </div>
+
+        {/* Feedback link – Prompt 044-REVISED KROK 4 */}
+        {feedbackLabel && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onFeedbackClick}
+                  className="mt-2 flex items-center gap-3 rounded-[20px] px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-gray-50 hover:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground transition-all duration-200 w-full"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>{feedbackLabel}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>{feedbackTooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
     </aside>
   );

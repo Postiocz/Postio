@@ -78,11 +78,36 @@
     - Globální vyhledání `console.log`/`console.warn` v client komponentách a API routes.
     - Nahrazení za `logger.debug` (potlačeno v produkci) nebo odstranění.
 
-- [ ] **KROK 4: Lokalizace a Feedback**
-  - Přidat do patičky aplikace (footer) nebo do menu jednoduchý odkaz "Zpětná vazba".
-  - **Požadavky**:
-    - Odkaz otevře mailto: `info@postio-app.cz`.
-    - Příprava pro budoucí feedback modul (zatím jen odkaz).
+- [ ] **KROK 4: Feedback Modul** (částečně hotovo – odkaz v sidebaru ✅)
+  - Přidat do sidebaru odkaz "Zpětná vazba" s tooltipem.
+  - Rozšířit na plnohodnotný Feedback Modul s databází a admin rozhraním.
   - **Místa implementace**:
-    - Footer komponenta (pokud existuje) nebo dashboard layout.
-    - i18n: klíč `feedback` v namespace `common`.
+    - `src/components/dashboard/sidebar.tsx` – odkaz s tooltipem ✅
+    - i18n: klíč `feedback` v namespace `nav` ✅
+
+- [ ] **KROK 4.1: DB Migrace**
+  - Vytvoř tabulku `public.feedback` (id, user_id, message, type [bug, feature, other], status [new, read, resolved], created_at).
+  - Přidat RLS politiky (uživatelé vkládají vlastní feedback, admin čte vše).
+  - **Místo implementace**:
+    - `supabase/migrations/XXX_create_feedback_table.sql`
+
+- [x] **KROK 4.2: UI Formulář** ✅
+  - Místo otevírání e-mailu otevři po kliknutí na "Zpětná vazba" modální dialog (Glassmorphism).
+  - Formulář: výběr typu (bug, feature, other) + text zprávy.
+  - **Místa implementace**:
+    - `src/components/feedback-modal.tsx` – nová komponenta
+    - `src/components/dashboard/sidebar.tsx` – integrace modalu
+    - i18n: nové klíče v namespace `feedback`
+
+- [ ] **KROK 4.3: Server Action**
+  - Vytvoř akci pro bezpečné uložení feedbacku do databáze.
+  - **Místa implementace**:
+    - `src/lib/actions/feedback.ts` – nový soubor s `submitFeedback()`
+
+- [ ] **KROK 4.4: Admin View**
+  - Vytvoř stránku `/admin/feedback` pro globální přehled doručených zpráv.
+  - Přístupné jen pro adminy.
+  - **Místa implementace**:
+    - `src/app/[locale]/(admin)/admin/feedback/page.tsx` – nová stránka
+    - `src/modules/admin-core/components/admin-sidebar.tsx` – odkaz do navigace
+    - i18n: namespace `adminFeedbackPage`

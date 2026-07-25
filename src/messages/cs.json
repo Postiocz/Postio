@@ -104,6 +104,8 @@
     "calendar": "Kalendář",
     "inbox": "Zprávy",
     "adminPanel": "Admin Panel",
+    "feedback": "Zpětná vazba",
+    "feedbackTooltip": "Napište nám svůj názor nebo nahlaste problém",
     "adminDashboard": "Dashboard",
     "adminUsers": "Uživatelé",
     "adminPosts": "Příspěvky",
@@ -1365,5 +1367,21 @@
     "twitterCreditsLabel": "X (Twitter) kredity",
     "twitterCreditsHint": "Počet zbývajících automatických postů na X",
     "saveCredits": "Uložit kredity"
+  },
+  "feedback": {
+    "title": "Zpětná vazba",
+    "description": "Vaše zpětná vazba nám pomůže vylepšit Postio. Děkujeme!",
+    "typeLabel": "Typ zpětné vazby",
+    "typeBug": "Chyba / Bug",
+    "typeFeature": "Návrh funkce",
+    "typeOther": "Ostatní",
+    "messageLabel": "Zpráva",
+    "messagePlaceholder": "Popište svůj nápad nebo problém...",
+    "messageRequired": "Zpráva je povinná",
+    "cancel": "Zrušit",
+    "submit": "Odeslat",
+    "submitting": "Odesílám...",
+    "submitSuccess": "Děkujeme! Vaše zpětná vazba byla odeslána.",
+    "submitError": "Nepodařilo se odeslat zpětnou vazbu. Zkuste to prosím znovu."
   }
 }

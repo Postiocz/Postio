@@ -4,6 +4,18 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 044-REVISED – KROK 4.2: Feedback Modal UI ✅
+
+- **Kontext**: Uživatelé potřebují snadný způsob, jak poslat zpětnou vazbu přímo z aplikace.
+- **Změny**:
+  - ✅ `src/components/feedback-modal.tsx`: Nový Glassmorphism modal s formulářem (typ + zpráva).
+  - ✅ `src/components/dashboard/sidebar.tsx`: Tooltip u odkazu "Zpětná vazba", změna z mailto na modal.
+  - ✅ `src/components/dashboard/feedback-sidebar-wrapper.tsx`: Client wrapper pro integraci modalu.
+  - ✅ `src/lib/actions/feedback.ts`: Server action `submitFeedback()`.
+  - ✅ `src/components/ui/select.tsx`: Přidána chybějící Select komponenta.
+  - ✅ i18n (cs/en/uk): Nový namespace `feedback` s překlady pro modal.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 044-REVISED – KROK 3: Ochrana logů a soukromí ✅
 
 - **Kontext**: Produkční aplikace nesmí vypisovat citlivá data do konzole prohlížeče.
@@ -82,31 +94,3 @@
   - ✅ `supabase/functions/process-scheduled-posts/index.ts`: Přidány helpery `getCronSecret()` a `checkCronSecret()` pro ověření `Authorization: Bearer [CRON_SECRET]` hlavičky. CRON_SECRET je kontrolován jako první auth metoda; pokud není nastaven, funkce funguje zpětně kompatibilně.
   - ✅ `supabase/config.toml`: Přidán komentář o nutnosti nastavit `CRON_SECRET` v Supabase Dashboard.
 - **Ověření**: Externí cron-job.org vrací 200 OK ✅.
-
-### 🚀 Prompt 043-C – KROK 7: Lokalizace (i18n) – kreditové hlášky ✅
-
-- **Kontext**: Chybové hlášky o nedostatku X kreditů byly natvrdo v češtině. Chyběly i18n klíče pro UI hlášky.
-- **Změny**:
-  - ✅ i18n (cs/en/uk): Nový klíč `xConnect.noCredits` v namespace `accounts`.
-  - ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx`: `resolvePublishErrorMessage` kontroluje X kredit error a vrací lokalizovanou hlášku.
-  - ✅ `src/components/edit-post-dialog.tsx`: Stejná logika v `resolveLocalizedPublishError`.
-- **Ověření**: `npx tsc --noEmit` ✅ (4 pre-existing).
-
-### 🚀 Prompt 043-C – KROK 6: Aktualizace Ceníků ✅
-
-- **Kontext**: Ceníky neukazovaly limity pro AI obrázky a X posty. Uživatelé neměli přehled, kolik kreditů jejich tarif obsahuje.
-- **Změny**:
-  - ✅ i18n (cs/en/uk): Nové klíče `aiImages`, `xAutoPosts` v namespace `landing.pricing` a `dashboard`.
-  - ✅ `src/components/marketing/pricing-section.tsx`: Do všech tří tarifů (Free/Creator/Pro) přidány řádky AI obrázky a X automatické posty.
-  - ✅ `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: Stejné řádky na stránce Fakturace.
-- **Ověření**: `npx tsc --noEmit` ✅ (4 pre-existing).
-
-### 🚀 Prompt 043-C – KROK 5: UI Indikátory kreditů v Editoru ✅
-
-- **Kontext**: Uživatelé neviděli zbývající kredity pro AI obrázky a X posty. Chyběla vizuální indikace v editoru.
-- **Změny**:
-  - ✅ `src/app/api/accounts/route.ts`: GET vrací `{ accounts, credits }` s `ai_credits` a `twitter_auto_credits`.
-  - ✅ `src/components/ai-assistant-button.tsx`: Nová prop `aiCredits`, badge 🎨 u „Generovat obrázek" v dropdown menu (text-[10px]).
-  - ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx`: Načtení kreditů z API, badge ⚡ u Twitter platformy, předání `aiCredits` do AIAssistantButton.
-  - ✅ `src/components/edit-post-dialog.tsx`: Stejné indikátory jako v new/page.tsx.
-- **Ověření**: `npx tsc --noEmit` ✅ (žádné nové chyby, pouze 4 pre-existing).

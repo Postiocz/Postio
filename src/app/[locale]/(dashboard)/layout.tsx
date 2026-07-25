@@ -1,7 +1,8 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import MobileNavWrapper from "@/components/dashboard/mobile-nav-wrapper";
-import { Sidebar } from "@/components/dashboard/sidebar";
+import { FeedbackSidebarWrapper } from "@/components/dashboard/feedback-sidebar-wrapper";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { Logo } from "@/components/ui/logo";
 import SetupGuide from "@/components/dashboard/setup-guide";
 import { getTranslations } from "next-intl/server";
@@ -71,8 +72,8 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-background font-sans">
-      {/* Desktop Sidebar */}
-      <Sidebar
+      {/* Desktop Sidebar with Feedback Modal */}
+      <FeedbackSidebarWrapper
         navItems={navItems}
         user={
           session?.email
@@ -104,6 +105,8 @@ export default async function DashboardLayout({
           organizationLabel: settingsT("organizationLabel"),
           featuresLabel: settingsT("featuresLabel"),
         }}
+        feedbackLabel={navT("feedback")}
+        feedbackTooltip={navT("feedbackTooltip")}
         className="hidden lg:flex"
       />
 

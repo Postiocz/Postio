@@ -104,6 +104,8 @@
     "calendar": "Календар",
     "inbox": "Вхідні",
     "adminPanel": "Панель адміністратора",
+    "feedback": "Зворотний зв'язок",
+    "feedbackTooltip": "Поділіться думками або повідомте про проблему",
     "adminDashboard": "Дашборд",
     "adminUsers": "Користувачі",
     "adminPosts": "Публікації",
@@ -1366,5 +1368,21 @@
     "twitterCreditsLabel": "X (Twitter) кредити",
     "twitterCreditsHint": "Кількість залишилися автоматичних постів на X",
     "saveCredits": "Зберегти кредити"
+  },
+  "feedback": {
+    "title": "Зворотний зв'язок",
+    "description": "Ваш відгук допоможе нам покращити Postio. Дякуємо!",
+    "typeLabel": "Тип відгуку",
+    "typeBug": "Помилка / Баг",
+    "typeFeature": "Пропозиція функції",
+    "typeOther": "Інше",
+    "messageLabel": "Повідомлення",
+    "messagePlaceholder": "Опишіть свою ідею або проблему...",
+    "messageRequired": "Повідомлення обов'язкове",
+    "cancel": "Скасувати",
+    "submit": "Надіслати",
+    "submitting": "Надсилаю...",
+    "submitSuccess": "Дякуємо! Ваш відгук надіслано.",
+    "submitError": "Не вдалося надіслати відгук. Спробуйте ще раз."
   }
 }

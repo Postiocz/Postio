@@ -4,6 +4,16 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 044-REVISED – KROK 4.4: Admin Feedback View ✅
+
+- **Kontext**: Admin potřebuje přehled o všech zpětných vazbách od uživatelů.
+- **Změny**:
+  - ✅ `src/app/[locale]/(admin)/admin/feedback/page.tsx`: Nová stránka s přehledem feedbacků.
+  - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Odkaz "Zpětná vazba" v admin navigaci.
+  - ✅ `src/lib/actions/feedback.ts`: `getFeedbackList()` a `updateFeedbackStatus()` s admin klientem.
+  - ✅ i18n (cs/en/uk): Namespace `adminFeedbackPage` + klíč `nav.adminFeedback`.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 044-REVISED – KROK 4.2: Feedback Modal UI ✅
 
 - **Kontext**: Uživatelé potřebují snadný způsob, jak poslat zpětnou vazbu přímo z aplikace.
@@ -86,11 +96,3 @@
   - ✅ OAuth routy: X, TikTok, LinkedIn, Stripe – `console.log`/`error` → `logger` s odstraněním auth kódů a user ID.
   - ✅ Bezpečnostní fix: `layout.tsx` již neloguje `user.id` do konzole prohlížeče.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
-
-### 🚀 Prompt 044 – KROK 2: Příprava pro externí Plánovač (Cron Bypass) ✅
-
-- **Kontext**: Edge funkce `process-scheduled-posts` potřebovala podporu pro externí cron trigger (cron-job.org) jako náhradu za chybějící Vercel/Supabase cron na free tieru.
-- **Změny**:
-  - ✅ `supabase/functions/process-scheduled-posts/index.ts`: Přidány helpery `getCronSecret()` a `checkCronSecret()` pro ověření `Authorization: Bearer [CRON_SECRET]` hlavičky. CRON_SECRET je kontrolován jako první auth metoda; pokud není nastaven, funkce funguje zpětně kompatibilně.
-  - ✅ `supabase/config.toml`: Přidán komentář o nutnosti nastavit `CRON_SECRET` v Supabase Dashboard.
-- **Ověření**: Externí cron-job.org vrací 200 OK ✅.

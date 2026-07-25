@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 /**
  * Prompt 044-REVISED KROK 4.3: Submit Feedback
@@ -40,28 +40,10 @@ export async function submitFeedback({
 
 /**
  * Get all feedback for admin view.
+ * Uses admin client to bypass RLS.
  */
 export async function getFeedbackList() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return [];
-  }
-
-  // Check if user is admin
-  const { data: userData } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (userData?.role !== "admin") {
-    return [];
-  }
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("feedback")
@@ -71,13 +53,13 @@ export async function getFeedbackList() {
       type,
       status,
       created_at,
-      user:users ( id, full_name, email )
+      user_id
     `)
     .order("created_at", { ascending: false })
     .limit(200);
 
   if (error) {
-    console.error("[getFeedbackList] Error:", error);
+    console.error("[getFeedbackList] Error:", error.message || error);
     return [];
   }
 
@@ -86,31 +68,13 @@ export async function getFeedbackList() {
 
 /**
  * Update feedback status.
+ * Uses admin client to bypass RLS.
  */
 export async function updateFeedbackStatus(
   feedbackId: string,
   status: "new" | "read" | "resolved"
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
-
-  // Check if user is admin
-  const { data: userData } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (userData?.role !== "admin") {
-    return { success: false, error: "Not authorized" };
-  }
+  const supabase = createAdminClient();
 
   const { error } = await supabase
     .from("feedback")

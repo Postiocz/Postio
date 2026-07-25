@@ -13,6 +13,7 @@ import {
   CreditCard,
   ArrowLeft,
   Activity,
+  MessageCircle,
 } from "lucide-react";
 
 interface AdminNavItem {
@@ -25,6 +26,7 @@ const adminNavItems: AdminNavItem[] = [
   { href: "/admin", icon: LayoutDashboard, labelKey: "nav.adminDashboard" },
   { href: "/admin/users", icon: Users, labelKey: "nav.adminUsers" },
   { href: "/admin/posts", icon: FileText, labelKey: "nav.adminPosts" },
+  { href: "/admin/feedback", icon: MessageCircle, labelKey: "nav.adminFeedback" },
   { href: "/admin/billing", icon: CreditCard, labelKey: "nav.adminBilling" },
   { href: "/admin/analytics", icon: BarChart3, labelKey: "nav.adminAnalytics" },
   { href: "/admin/settings", icon: Settings, labelKey: "nav.adminSettings" },

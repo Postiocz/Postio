@@ -104,7 +104,7 @@
   - **Místa implementace**:
     - `src/lib/actions/feedback.ts` – nový soubor s `submitFeedback()`
 
-- [ ] **KROK 4.4: Admin View**
+- [x] **KROK 4.4: Admin View** ✅
   - Vytvoř stránku `/admin/feedback` pro globální přehled doručených zpráv.
   - Přístupné jen pro adminy.
   - **Místa implementace**:

@@ -113,6 +113,7 @@
     "adminAnalytics": "Analytika",
     "adminSettings": "Nastavení",
     "adminSystemCheck": "System Check",
+    "adminFeedback": "Zpětná vazba",
     "adminBackToApp": "Zpět do aplikace"
   },
   "calendar": {
@@ -1383,5 +1384,19 @@
     "submitting": "Odesílám...",
     "submitSuccess": "Děkujeme! Vaše zpětná vazba byla odeslána.",
     "submitError": "Nepodařilo se odeslat zpětnou vazbu. Zkuste to prosím znovu."
+  },
+  "adminFeedbackPage": {
+    "title": "Zpětná vazba",
+    "totalFeedback": "{count} záznamů",
+    "noFeedback": "Zatím žádná zpětná vazba",
+    "unknownUser": "Neznámý uživatel",
+    "type_bug": "Chyba",
+    "type_feature": "Návrh",
+    "type_other": "Ostatní",
+    "status_new": "Nové",
+    "status_read": "Přečteno",
+    "status_resolved": "Vyřešeno",
+    "markRead": "Označit přečtené",
+    "markResolved": "Vyřešit"
   }
 }

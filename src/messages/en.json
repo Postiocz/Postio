@@ -113,6 +113,7 @@
     "adminAnalytics": "Analytics",
     "adminSettings": "Settings",
     "adminSystemCheck": "System Check",
+    "adminFeedback": "Feedback",
     "adminBackToApp": "Back to App"
   },
   "calendar": {
@@ -1383,5 +1384,19 @@
     "submitting": "Submitting...",
     "submitSuccess": "Thank you! Your feedback has been submitted.",
     "submitError": "Failed to submit feedback. Please try again."
+  },
+  "adminFeedbackPage": {
+    "title": "Feedback",
+    "totalFeedback": "{count} items",
+    "noFeedback": "No feedback yet",
+    "unknownUser": "Unknown user",
+    "type_bug": "Bug",
+    "type_feature": "Feature",
+    "type_other": "Other",
+    "status_new": "New",
+    "status_read": "Read",
+    "status_resolved": "Resolved",
+    "markRead": "Mark as read",
+    "markResolved": "Resolve"
   }
 }

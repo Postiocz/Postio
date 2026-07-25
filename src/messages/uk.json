@@ -113,6 +113,7 @@
     "adminAnalytics": "Аналітика",
     "adminSettings": "Налаштування",
     "adminSystemCheck": "Перевірка системи",
+    "adminFeedback": "Зворотний зв'язок",
     "adminBackToApp": "Повернутися до застосунку"
   },
   "calendar": {
@@ -1384,5 +1385,19 @@
     "submitting": "Надсилаю...",
     "submitSuccess": "Дякуємо! Ваш відгук надіслано.",
     "submitError": "Не вдалося надіслати відгук. Спробуйте ще раз."
+  },
+  "adminFeedbackPage": {
+    "title": "Зворотний зв'язок",
+    "totalFeedback": "{count} записів",
+    "noFeedback": "Поки немає відгуків",
+    "unknownUser": "Невідомий користувач",
+    "type_bug": "Помилка",
+    "type_feature": "Пропозиція",
+    "type_other": "Інше",
+    "status_new": "Нове",
+    "status_read": "Прочитано",
+    "status_resolved": "Вирішено",
+    "markRead": "Позначити прочитаним",
+    "markResolved": "Вирішити"
   }
 }

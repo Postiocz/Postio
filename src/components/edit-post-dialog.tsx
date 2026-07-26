@@ -453,6 +453,27 @@ export function EditPostDialog({
       tiktokVideoRequired: t("tiktokVideoRequired") ?? "TikTok vyžaduje video",
       placeholderName: t("previewPlaceholderName") ?? "Postio",
       captionHint: t("previewCaptionHint") ?? "Sem napište text příspěvku…",
+      now: t("previewNow") ?? "Právě teď",
+      actionLike: t("previewActionLike") ?? "Líbí se mi",
+      actionComment: t("previewActionComment") ?? "Komentovat",
+      actionShare: t("previewActionShare") ?? "Sdílet",
+      actionRepost: t("previewActionRepost") ?? "Přeposlat",
+      actionSend: t("previewActionSend") ?? "Odeslat",
+      actionSubscribe: t("previewActionSubscribe") ?? "Odebírat",
+      actionDislike: t("previewActionDislike") ?? "Nelíbí",
+      actionBookmark: t("previewActionBookmark") ?? "Záložka",
+      professionalDegree: t("previewProfessionalDegree") ?? "Professional · 1. stupeň",
+      likesCount: t("previewLikesCount") ?? "0 líbenek",
+      subscribersCount: t("previewSubscribersCount") ?? "0 odběratelů",
+      viewsNow: t("previewViewsNow") ?? "0 zhlédnutí · právě teď",
+      commentShareStats: t("previewCommentShareStats") ?? "0 komentářů · 0 sdílení",
+      commentStats: t("previewCommentStats") ?? "0 komentářů",
+      originalSound: t("previewOriginalSound") ?? "původní zvuk - {name}",
+      repostsLabel: t("previewRepostsLabel") ?? "Reposty",
+      viewsLabel: t("previewViewsLabel") ?? "Zobrazení",
+      twitterSource: t("previewTwitterSource") ?? "X Web App",
+      repliesLabel: t("previewRepliesLabel") ?? "Odpovědi",
+      mediaAlt: t("previewMediaAlt") ?? "Náhled média",
     }),
     [t],
   );
@@ -1463,7 +1484,7 @@ export function EditPostDialog({
                   <p className="truncate text-[13px] font-semibold text-[#e4e6eb]">{profile?.displayName ?? ""}</p>
                   <p className="flex items-center gap-1 text-[10px] text-[#b0b3b8]">
                     {location ? <span>{location} · </span> : null}
-                    <span>Právě teď</span>
+                    <span>{t("previewNow") ?? "Právě teď"}</span>
                     <span aria-hidden> · 🌐</span>
                   </p>
                 </div>
@@ -1484,21 +1505,21 @@ export function EditPostDialog({
                   </span>
                   0
                 </span>
-                <span>0 komentářů · 0 sdílení</span>
+                <span>{t("previewCommentShareStats") ?? "0 komentářů · 0 sdílení"}</span>
               </div>
               <div className="my-1.5 border-t border-white/5" />
               <div className="grid grid-cols-3 gap-1 text-[11px] font-medium text-[#b0b3b8]">
                 <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
                   <span aria-hidden className="text-base">👍</span>
-                  Líbí se mi
+                  {t("previewActionLike") ?? "Líbí se mi"}
                 </span>
                 <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
                   <span aria-hidden className="text-base">💬</span>
-                  Komentář
+                  {t("previewActionComment") ?? "Komentář"}
                 </span>
                 <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
                   <span aria-hidden className="text-base">↗</span>
-                  Sdílet
+                  {t("previewActionShare") ?? "Sdílet"}
                 </span>
               </div>
             </article>
@@ -1526,7 +1547,7 @@ export function EditPostDialog({
               <span aria-hidden className="cursor-default">✈️</span>
               <span aria-hidden className="ml-auto cursor-default text-lg">🔖</span>
             </div>
-            <div className="px-3 pb-0.5 text-[13px] font-semibold">0 líbenek</div>
+            <div className="px-3 pb-0.5 text-[13px] font-semibold">{t("previewLikesCount") ?? "0 líbenek"}</div>
             <div className="px-3 pb-3 text-[13px]">
               {content.trim() ? (
                 <p className="whitespace-pre-wrap break-words leading-relaxed">
@@ -1551,9 +1572,9 @@ export function EditPostDialog({
                 <AvatarInline url={profile?.avatarUrl ?? null} name={profile?.displayName ?? ""} size={36} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-semibold text-[#e4e6eb]">{profile?.displayName ?? ""}</p>
-                  <p className="truncate text-[10px] text-[#b0b3b8]">Professional · 1. stupen</p>
+                  <p className="truncate text-[10px] text-[#b0b3b8]">{t("previewProfessionalDegree") ?? "Professional · 1. stupeň"}</p>
                   <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#b0b3b8]">
-                    <span>Právě teď</span>
+                    <span>{t("previewNow") ?? "Právě teď"}</span>
                     <span aria-hidden>·</span>
                     <span aria-hidden>🌐</span>
                   </p>
@@ -1574,25 +1595,25 @@ export function EditPostDialog({
               )}
               <div className="flex items-center justify-between px-2.5 pb-0.5 pt-1.5 text-[10px] text-[#b0b3b8]">
                 <span aria-hidden>👍❤️👏 0</span>
-                <span>0 komentářů</span>
+                <span>{t("previewCommentStats") ?? "0 komentářů"}</span>
               </div>
               <div className="mx-2.5 border-t border-white/5" />
               <div className="grid grid-cols-4 gap-1 px-1.5 py-1 text-[10px] font-medium text-[#b0b3b8]">
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">👍</span>
-                  <span>To se mi líbí</span>
+                  <span>{t("previewActionLike") ?? "To se mi líbí"}</span>
                 </span>
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">💬</span>
-                  <span>Komentovat</span>
+                  <span>{t("previewActionComment") ?? "Komentovat"}</span>
                 </span>
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">🔁</span>
-                  <span>Přeposlat</span>
+                  <span>{t("previewActionRepost") ?? "Přeposlat"}</span>
                 </span>
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">✈️</span>
-                  <span>Odeslat</span>
+                  <span>{t("previewActionSend") ?? "Odeslat"}</span>
                 </span>
               </div>
             </article>
@@ -1617,12 +1638,12 @@ export function EditPostDialog({
               <AvatarInline url={profile?.avatarUrl ?? null} name={profile?.displayName ?? ""} size={28} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-medium text-white">{profile?.displayName ?? ""}</p>
-                <p className="text-[10px] text-white/60">0 subscribers</p>
+                <p className="text-[10px] text-white/60">{t("previewSubscribersCount") ?? "0 subscribers"}</p>
               </div>
-              <span className="rounded-full bg-[#FF0000] px-2.5 py-0.5 text-[10px] font-semibold text-white">Subscribe</span>
+              <span className="rounded-full bg-[#FF0000] px-2.5 py-0.5 text-[10px] font-semibold text-white">{t("previewActionSubscribe") ?? "Subscribe"}</span>
             </div>
             <div className="mx-3 mt-2 rounded-xl bg-white/[0.06] p-2 text-[11px] text-white/85">
-              <p className="font-medium text-white/70">0 views · just now</p>
+              <p className="font-medium text-white/70">{t("previewViewsNow") ?? "0 views · just now"}</p>
               {content.trim() && (
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-relaxed">{content}</p>
               )}
@@ -1630,15 +1651,15 @@ export function EditPostDialog({
             <div className="flex items-center justify-around px-3 py-2 text-[10px] text-white/80">
               <span className="flex flex-col items-center gap-0.5">
                 <span aria-hidden className="text-sm leading-none">👍</span>
-                <span>Like</span>
+                <span>{t("previewActionLike") ?? "Like"}</span>
               </span>
               <span className="flex flex-col items-center gap-0.5">
                 <span aria-hidden className="text-sm leading-none">👎</span>
-                <span>Dislike</span>
+                <span>{t("previewActionDislike") ?? "Dislike"}</span>
               </span>
               <span className="flex flex-col items-center gap-0.5">
                 <span aria-hidden className="text-sm leading-none">↗</span>
-                <span>Share</span>
+                <span>{t("previewActionShare") ?? "Share"}</span>
               </span>
             </div>
           </article>
@@ -1707,7 +1728,7 @@ export function EditPostDialog({
                       <circle cx="6" cy="18" r="3"></circle>
                       <circle cx="18" cy="16" r="3"></circle>
                     </svg>
-                    <span className="truncate">původní zvuk - {profile?.displayName ?? "user"}</span>
+                    <span className="truncate">{`${t("previewOriginalSound") ?? "původní zvuk"} - ${profile?.displayName ?? "user"}`}</span>
                   </div>
                 </div>
 
@@ -1787,7 +1808,7 @@ export function EditPostDialog({
             <div className="px-3 text-[14px] text-[#71767b]">
               {new Intl.DateTimeFormat("cs", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "long", year: "numeric" }).format(new Date()).replace("at", "·")}
               <span className="mx-1">·</span>
-              <span>Twitter Web App</span>
+              <span>{t("previewTwitterSource") ?? "X Web App"}</span>
             </div>
 
             <div className="px-3 pt-1">
@@ -1804,11 +1825,11 @@ export function EditPostDialog({
 
             <div className="mx-3 mt-1.5 flex items-center gap-1 text-[13px] text-[#71767b]">
               <span className="font-medium text-[#e7e9ea]">0</span>
-              <span className="mr-2">Reposts</span>
+              <span className="mr-2">{t("previewRepostsLabel") ?? "Reposts"}</span>
               <span className="font-medium text-[#e7e9ea]">0</span>
-              <span className="mr-2">Likes</span>
+              <span className="mr-2">{t("previewActionLike") ?? "Likes"}</span>
               <span className="font-medium text-[#e7e9ea]">0</span>
-              <span>Views</span>
+              <span>{t("previewViewsLabel") ?? "Views"}</span>
             </div>
 
             <div className="mx-3 my-1 border-t border-[#2f3336]" />

@@ -4,6 +4,18 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 046B – Lokalizace statických textů v náhledech ✅
+
+- **Kontext**: Desítky hardcoded textů v náhledových komponentách ignorovaly přepnutí jazyka (cs/en/uk).
+- **Změny**:
+  - ✅ i18n (cs/en/uk): 21 nových klíčů v namespace `posts` (previewNow, previewActionLike/Share/Comment atd.)
+  - ✅ `src/components/post-preview.tsx`: Všechny hardcoded texty (FB, IG, YT, LI, TT, TW) nahrazeny za `labels` props.
+  - ✅ `src/components/preview-dialog.tsx`: Nový `previewLabels` useMemo s `t()`, přidán `labels` parametr do `renderPreviewForPlatform`.
+  - ✅ `src/components/edit-post-dialog.tsx`: Hardcoded texty v `renderPlatformPreview` nahrazeny za `t()`.
+  - ✅ `src/components/calendar/hover-preview.tsx`: Přidáno `useTranslations`, nahrazen alt text.
+  - ✅ Fix: `previewOriginalSound` v JSON zbaven `{name}` placeholderu (FORMATTING_ERROR).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 046 – Twitter/X High-Fidelity Preview ✅
 
 - **Kontext**: V náhledovém systému chyběla podpora pro Twitter/X – chyběla záložka, komponenta i vizuální simulace.
@@ -94,15 +106,4 @@
   - ✅ `src/app/[locale]/(admin)/admin/system-check/page.tsx`: Nová stránka `/admin/system-check` s přehledem "Připojeno/Nepřipojeno" a vizuálními indikátory.
   - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Přidán odkaz "System Check" do admin navigace.
   - ✅ i18n (cs/en/uk): Nový namespace `adminSystemCheckPage` se všemi překlady.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
-
-### 🚀 Prompt 044 – KROK 4: Ochrana soukromí a logů ✅
-
-- **Kontext**: Produkční aplikace vypisovala do konzole prohlížeče citlivá data (tokeny, user IDs). Risk pro App Review demo video.
-- **Změny**:
-  - ✅ `src/lib/logger.ts`: Nová produkční logger utility – `debug`/`warn` jsou potlačeny v produkci, `error`/`info` prochází vždy.
-  - ✅ Kritické token logy odstraněny: `publish.ts` (token last-10/12 chars), `publish-linkedin.ts` (celé payload dumpy odstraněny).
-  - ✅ Klientské komponenty: 15× `console.log` → `logger.debug` (potlačeno v produkci).
-  - ✅ OAuth routy: X, TikTok, LinkedIn, Stripe – `console.log`/`error` → `logger` s odstraněním auth kódů a user ID.
-  - ✅ Bezpečnostní fix: `layout.tsx` již neloguje `user.id` do konzole prohlížeče.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).

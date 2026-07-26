@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Play } from "lucide-react";
 import NextImage from "next/image";
+import { useTranslations } from "next-intl";
 import type { Post } from "@/types/calendar";
 import { PlatformIconMap } from "./post-calendar-chip";
 
@@ -27,6 +28,7 @@ const getPlatformColor = (platformId: string): string => {
 };
 
 export function HoverPreview({ hoveredPost, hoverPosition, getPostDisplayDate, locale }: HoverPreviewProps) {
+  const t = useTranslations("posts");
   return (
     <AnimatePresence>
       {hoveredPost && (
@@ -67,7 +69,7 @@ export function HoverPreview({ hoveredPost, hoverPosition, getPostDisplayDate, l
                   ) : (
                     <NextImage
                       src={firstMedia ?? ""}
-                      alt="Media preview"
+                      alt={t("previewMediaAlt") ?? "Media preview"}
                       width={384}
                       height={216}
                       className="w-full h-full object-cover"

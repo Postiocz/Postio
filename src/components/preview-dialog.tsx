@@ -230,6 +230,34 @@ export function PreviewDialog({
     }));
   }, [post?.media_urls]);
 
+  // Localized labels for the high-fidelity preview renderers
+  const previewLabels = useMemo(
+    () => ({
+      now: t("previewNow") ?? "Právě teď",
+      actionLike: t("previewActionLike") ?? "Líbí se mi",
+      actionComment: t("previewActionComment") ?? "Komentovat",
+      actionShare: t("previewActionShare") ?? "Sdílet",
+      actionRepost: t("previewActionRepost") ?? "Přeposlat",
+      actionSend: t("previewActionSend") ?? "Odeslat",
+      actionSubscribe: t("previewActionSubscribe") ?? "Odebírat",
+      actionDislike: t("previewActionDislike") ?? "Nelíbí",
+      actionBookmark: t("previewActionBookmark") ?? "Záložka",
+      professionalDegree: t("previewProfessionalDegree") ?? "Professional · 1. stupeň",
+      likesCount: t("previewLikesCount") ?? "0 líbenek",
+      subscribersCount: t("previewSubscribersCount") ?? "0 odběratelů",
+      viewsNow: t("previewViewsNow") ?? "0 zhlédnutí · právě teď",
+      commentShareStats: t("previewCommentShareStats") ?? "0 komentářů · 0 sdílení",
+      commentStats: t("previewCommentStats") ?? "0 komentářů",
+      originalSound: t("previewOriginalSound") ?? "původní zvuk - {name}",
+      repostsLabel: t("previewRepostsLabel") ?? "Reposty",
+      viewsLabel: t("previewViewsLabel") ?? "Zobrazení",
+      twitterSource: t("previewTwitterSource") ?? "X Web App",
+      repliesLabel: t("previewRepliesLabel") ?? "Odpovědi",
+      mediaAlt: t("previewMediaAlt") ?? "Náhled média",
+    }),
+    [t],
+  );
+
   // Tab label resolver
   const getTabLabel = useCallback(
     (p: PreviewPlatform): string => {
@@ -318,6 +346,7 @@ export function PreviewDialog({
                 post.location,
                 t("previewCaptionHint"),
                 t("previewNoMedia"),
+                previewLabels,
               )}
             </div>
           ) : (
@@ -496,6 +525,7 @@ function renderPreviewForPlatform(
   location: string | null,
   captionHintLabel: string,
   noMediaLabel: string,
+  labels: Record<string, string>,
 ) {
   switch (platform) {
     case "facebook":
@@ -511,7 +541,7 @@ function renderPreviewForPlatform(
                   </p>
                   <p className="flex items-center gap-1 text-[9px] text-[#b0b3b8]">
                     {location ? <span>{location} · </span> : null}
-                    <span>Právě teď</span>
+                    <span>{labels.now}</span>
                     <span aria-hidden> · 🌐</span>
                   </p>
                 </div>
@@ -534,21 +564,21 @@ function renderPreviewForPlatform(
                   </span>
                   0
                 </span>
-                <span>0 komentářů · 0 sdílení</span>
+                <span>{labels.commentShareStats}</span>
               </div>
               <div className="my-1 border-t border-white/5" />
               <div className="grid grid-cols-3 gap-0.5 text-[10px] font-medium text-[#b0b3b8]">
                 <span className="flex items-center justify-center gap-1 py-0.5 rounded-md hover:bg-white/5 transition-colors cursor-default">
                   <span aria-hidden className="text-sm">👍</span>
-                  Líbí se mi
+                  {labels.actionLike}
                 </span>
                 <span className="flex items-center justify-center gap-1 py-0.5 rounded-md hover:bg-white/5 transition-colors cursor-default">
                   <span aria-hidden className="text-sm">💬</span>
-                  Komentář
+                  {labels.actionComment}
                 </span>
                 <span className="flex items-center justify-center gap-1 py-0.5 rounded-md hover:bg-white/5 transition-colors cursor-default">
                   <span aria-hidden className="text-sm">↗</span>
-                  Sdílet
+                  {labels.actionShare}
                 </span>
               </div>
             </article>
@@ -575,7 +605,7 @@ function renderPreviewForPlatform(
               <span aria-hidden className="cursor-default">✈️</span>
               <span aria-hidden className="ml-auto cursor-default text-base">🔖</span>
             </div>
-            <div className="px-2.5 pb-0.5 text-[12px] font-semibold">0 líbenek</div>
+            <div className="px-2.5 pb-0.5 text-[12px] font-semibold">{labels.likesCount}</div>
             <div className="px-2.5 pb-2.5 text-[12px]">
               {content.trim() ? (
                 <p className="whitespace-pre-wrap break-words leading-relaxed">
@@ -610,17 +640,17 @@ function renderPreviewForPlatform(
                 <p className="truncate text-[12px] font-medium text-white">
                   {profile.displayName}
                 </p>
-                <p className="text-[9px] text-white/60">0 subscribers</p>
+                <p className="text-[9px] text-white/60">{labels.subscribersCount}</p>
               </div>
               <span
                 aria-hidden
                 className="rounded-full bg-[#FF0000] px-2 py-0.5 text-[9px] font-semibold text-white"
               >
-                Subscribe
+                {labels.actionSubscribe}
               </span>
             </div>
             <div className="mx-2.5 mt-1.5 rounded-xl bg-white/[0.06] p-1.5 text-[10px] text-white/85">
-              <p className="font-medium text-white/70">0 views · just now</p>
+              <p className="font-medium text-white/70">{labels.viewsNow}</p>
               {content.trim() ? (
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
                   {content}
@@ -630,15 +660,15 @@ function renderPreviewForPlatform(
             <div className="flex items-center justify-around px-2.5 py-1.5 text-[9px] text-white/80">
               <span className="flex flex-col items-center gap-0.5">
                 <span aria-hidden className="text-sm leading-none">👍</span>
-                <span>Like</span>
+                <span>{labels.actionLike}</span>
               </span>
               <span className="flex flex-col items-center gap-0.5">
                 <span aria-hidden className="text-sm leading-none">👎</span>
-                <span>Dislike</span>
+                <span>{labels.actionDislike}</span>
               </span>
               <span className="flex flex-col items-center gap-0.5">
                 <span aria-hidden className="text-sm leading-none">↗</span>
-                <span>Share</span>
+                <span>{labels.actionShare}</span>
               </span>
             </div>
           </article>
@@ -657,10 +687,10 @@ function renderPreviewForPlatform(
                     {profile.displayName}
                   </p>
                   <p className="truncate text-[9px] text-[#b0b3b8]">
-                    Professional · 1. stupen
+                    {labels.professionalDegree}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 text-[9px] text-[#b0b3b8]">
-                    <span>Právě teď</span>
+                    <span>{labels.now}</span>
                     <span aria-hidden>·</span>
                     <span aria-hidden>🌐</span>
                   </p>
@@ -685,25 +715,25 @@ function renderPreviewForPlatform(
               ) : null}
               <div className="flex items-center justify-between px-2 pb-0.5 pt-1 text-[9px] text-[#b0b3b8]">
                 <span aria-hidden>👍❤️👏 0</span>
-                <span>0 komentářů</span>
+                <span>{labels.commentStats}</span>
               </div>
               <div className="mx-2 border-t border-white/5" />
               <div className="grid grid-cols-4 gap-0.5 px-1 py-0.5 text-[9px] font-medium text-[#b0b3b8]">
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">👍</span>
-                  <span>To se mi líbí</span>
+                  {labels.actionLike}
                 </span>
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">💬</span>
-                  <span>Komentovat</span>
+                  {labels.actionComment}
                 </span>
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">🔁</span>
-                  <span>Přeposlat</span>
+                  {labels.actionRepost}
                 </span>
                 <span className="flex flex-col items-center gap-0.5 py-0.5">
                   <span aria-hidden className="text-sm leading-none">✈️</span>
-                  <span>Odeslat</span>
+                  {labels.actionSend}
                 </span>
               </div>
             </article>
@@ -772,7 +802,7 @@ function renderPreviewForPlatform(
                       <circle cx="6" cy="18" r="3"></circle>
                       <circle cx="18" cy="16" r="3"></circle>
                     </svg>
-                    <span className="truncate">původní zvuk - {profile.displayName}</span>
+                    <span className="truncate">{`${labels.originalSound ?? "původní zvuk"} - ${profile.displayName}`}</span>
                   </div>
                 </div>
 
@@ -861,7 +891,7 @@ function renderPreviewForPlatform(
             <div className="px-3 text-[14px] text-[#71767b]">
               {new Intl.DateTimeFormat("cs", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "long", year: "numeric" }).format(new Date()).replace("at", "·")}
               <span className="mx-1">·</span>
-              <span>Twitter Web App</span>
+              <span>{labels.twitterSource}</span>
             </div>
 
             {/* Tweet text */}
@@ -881,11 +911,11 @@ function renderPreviewForPlatform(
             {/* Stats row */}
             <div className="mx-3 mt-1.5 flex items-center gap-1 text-[13px] text-[#71767b]">
               <span className="font-medium text-[#e7e9ea]">0</span>
-              <span className="mr-2">Reposts</span>
+              <span className="mr-2">{labels.repostsLabel}</span>
               <span className="font-medium text-[#e7e9ea]">0</span>
-              <span className="mr-2">Likes</span>
+              <span className="mr-2">{labels.actionLike}</span>
               <span className="font-medium text-[#e7e9ea]">0</span>
-              <span>Views</span>
+              <span>{labels.viewsLabel}</span>
             </div>
 
             <div className="mx-3 my-1 border-t border-[#2f3336]" />

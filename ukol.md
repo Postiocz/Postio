@@ -41,20 +41,3 @@
 ---
 
 ## 10. AKTUÁLNÍ ÚKOLY
-
-### 🚀 Prompt 046 – Implementace High-Fidelity náhledu pro Twitter/X
-
-**Cíl:** Vytvořit věrný vizuální náhled tweetu a zapojit ho do celého náhledového systému (editor, modál "Oko", detail postu).
-
-**Analýza (dokončeno):**
-- `post-preview.tsx` – typ `Platform` nemá `"twitter"`, chybí Twitter komponenta a props
-- `preview-dialog.tsx` – `PREVIEWABLE_PLATFORMS` neobsahuje twitter, chybí v rendereru
-- `edit-post-dialog.tsx` – chybí `twitterProfile` state a `twitterTab` v labelech, chybí v `availablePreviewPlatforms`
-- `buildLiveUrl()` – již podporuje `twitter`/`x` ✅
-- i18n – chybí `previewTwitterTab` klíč ve všech 3 jazycích
-
-- [x] **KROK 1:** Vytvoření TwitterPreview komponenty v `post-preview.tsx` – věrný vzhled tweetu (X dark mode, avatar, handle @user, médium, interakční lišta Reply/Retweet/Like/Views).
-- [x] **KROK 2:** Přidání Twitteru do typu `Platform`, `PLATFORM_ACCENTS`, `availablePlatforms` a `labels` v `post-preview.tsx` + `twitterProfile` prop + zapojení do render logiky.
-- [x] **KROK 3:** Přidání Twitteru do `preview-dialog.tsx` – `PREVIEWABLE_PLATFORMS`, `PLATFORM_ACCENTS`, `PLATFORM_LABELS`, `profiles` state, Supabase dotaz, `getTabLabel`, `renderPreviewForPlatform` switch case.
-- [x] **KROK 4:** Přidání Twitteru do `edit-post-dialog.tsx` – `twitterProfile` state/loading, `twitterTab` label, `availablePreviewPlatforms`, `renderPlatformPreview` switch case.
-- [x] **KROK 5:** Lokalizace – přidání `previewTwitterTab: "X (Twitter)"` do `cs.json`, `en.json`, `uk.json` v namespace `posts` (obě sekce: detail i preview dialog).

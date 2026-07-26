@@ -204,6 +204,7 @@ export function EditPostDialog({
   const [youtubeProfile, setYoutubeProfile] = useState<PostPreviewProfile | null>(null);
   const [linkedinProfile, setLinkedinProfile] = useState<PostPreviewProfile | null>(null);
   const [tiktokProfile, setTiktokProfile] = useState<PostPreviewProfile | null>(null);
+  const [twitterProfile, setTwitterProfile] = useState<PostPreviewProfile | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -225,10 +226,6 @@ export function EditPostDialog({
   // (platform-specific display name + avatar). The social account takes
   // priority because it reflects the actual page/username/channel that will be
   // shown on the network; the `users` row is a graceful fallback.
-  //
-  // We pull FB / IG / YT / LinkedIn in a single round trip; we deliberately
-  // do NOT pull Twitter/X or TikTok because those platforms don't have a
-  // preview renderer yet. Add them here when their previews land.
   useEffect(() => {
     if (!userId || !open) return;
     let cancelled = false;
@@ -245,7 +242,7 @@ export function EditPostDialog({
             .select("platform, account_name, avatar_url")
             .eq("user_id", userId)
             .eq("is_active", true)
-            .in("platform", ["facebook", "instagram", "youtube", "linkedin", "tiktok"]),
+            .in("platform", ["facebook", "instagram", "youtube", "linkedin", "tiktok", "twitter"]),
         ]);
         if (cancelled) return;
         const fallbackName = userRes.data?.full_name ?? previewPlaceholderName;
@@ -255,6 +252,7 @@ export function EditPostDialog({
         const yt = accountsRes.data?.find((a) => a.platform === "youtube");
         const li = accountsRes.data?.find((a) => a.platform === "linkedin");
         const tt = accountsRes.data?.find((a) => a.platform === "tiktok");
+        const tw = accountsRes.data?.find((a) => a.platform === "twitter");
         setFacebookProfile({
           displayName: fb?.account_name ?? fallbackName,
           avatarUrl: fb?.avatar_url ?? fallbackAvatar,
@@ -274,6 +272,10 @@ export function EditPostDialog({
         setTiktokProfile({
           displayName: tt?.account_name ?? fallbackName,
           avatarUrl: tt?.avatar_url ?? fallbackAvatar,
+        });
+        setTwitterProfile({
+          displayName: tw?.account_name ?? fallbackName,
+          avatarUrl: tw?.avatar_url ?? fallbackAvatar,
         });
       } catch {
         // non-fatal – preview falls back to placeholder name
@@ -446,6 +448,7 @@ export function EditPostDialog({
       youtubeTab: t("previewYoutubeTab") ?? "YouTube",
       linkedinTab: t("previewLinkedinTab") ?? "LinkedIn",
       tiktokTab: t("previewTikTokTab") ?? "TikTok",
+      twitterTab: t("previewTwitterTab") ?? "X",
       noMedia: t("previewNoMedia") ?? "Žádná média",
       tiktokVideoRequired: t("tiktokVideoRequired") ?? "TikTok vyžaduje video",
       placeholderName: t("previewPlaceholderName") ?? "Postio",
@@ -461,22 +464,22 @@ export function EditPostDialog({
   //  2. `post.platforms` – platforms persisted on the post row
   //  3. `post.post_platforms` – platform rows already created (incl. published)
   // The list is then mapped to the subset of platforms that PostPreview
-  // knows how to render today (FB / IG / YT / LinkedIn / TikTok). Other platforms are
-  // deliberately filtered out until their previews are implemented.
+  // knows how to render today.
   const availablePreviewPlatforms = useMemo<
-    Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok">
+    Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok" | "twitter">
   >(() => {
     const all = new Set<string>([
       ...selectedPlatforms,
       ...(post?.platforms ?? []),
       ...(post?.post_platforms ?? []).map((p) => p.platform),
     ]);
-    const order: Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok"> = [
+    const order: Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok" | "twitter"> = [
       "facebook",
       "instagram",
       "youtube",
       "linkedin",
       "tiktok",
+      "twitter",
     ];
     return order.filter((id) => all.has(id));
   }, [selectedPlatforms, post?.platforms, post?.post_platforms]);
@@ -1444,6 +1447,7 @@ export function EditPostDialog({
       youtube: youtubeProfile,
       linkedin: linkedinProfile,
       tiktok: tiktokProfile,
+      twitter: twitterProfile,
     };
     const profile = profileMap[platformId as keyof typeof profileMap]
       ?? { displayName: t("previewPlaceholderName") ?? "Postio" };
@@ -1756,6 +1760,69 @@ export function EditPostDialog({
                 </div>
               </div>
             </div>
+          </article>
+        </div>
+      );
+    }
+
+    if (platformId === "twitter") {
+      const handle = `@${(profile?.displayName ?? "user").replace(/\s+/g, "").toLowerCase()}`;
+      return (
+        <div className="flex h-full flex-col bg-black text-[#e7e9ea]">
+          <article className="flex h-full flex-col overflow-y-auto postio-scrollbar">
+            {/* Header */}
+            <header className="flex items-start gap-2.5 px-3 pt-2.5 pb-1">
+              <AvatarInline url={profile?.avatarUrl ?? null} name={profile?.displayName ?? ""} size={36} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="truncate text-[14px] font-bold text-[#e7e9ea]">{profile?.displayName ?? ""}</span>
+                  <svg className="h-[18px] w-[18px] flex-shrink-0 text-[#1d9bf0]" viewBox="0 0 22 22" fill="currentColor">
+                    <path d="M20.396 11c-.063-.214-.188-.57-.312-.813.5-.688.656-1.542.375-2.344-.281-.781-.906-1.375-1.656-1.614-.25-.083-.531-.125-.844-.125h-.271c-.135-.49-.324-1.016-.583-1.51-.614-1.177-1.615-2.135-2.937-2.682-.656-.271-1.354-.416-2.083-.416-.729 0-1.427.145-2.083.416-1.322.547-2.323 1.505-2.937 2.682-.26.494-.448 1.02-.583 1.51h-.271c-.313 0-.594.042-.844.125-.75.239-1.375.833-1.656 1.614-.281.802-.125 1.656.375 2.344-.124.244-.249.599-.312.813-.374 1.505-.124 3.083.791 4.385.906 1.302 2.333 2.12 3.937 2.26.104.01.208.01.312.01.625 0 1.375-.083 2.083-.427 1.385.672 2.979.531 4.208-.26 1.125-.739 1.906-1.927 2.177-3.271.083-.344.083-.708.083-1.042 0-.333 0-.666-.083-1.01z" />
+                  </svg>
+                </div>
+                <p className="truncate text-[14px] text-[#71767b]">{handle}</p>
+              </div>
+            </header>
+
+            <div className="px-3 text-[14px] text-[#71767b]">
+              {new Intl.DateTimeFormat("cs", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "long", year: "numeric" }).format(new Date()).replace("at", "·")}
+              <span className="mx-1">·</span>
+              <span>Twitter Web App</span>
+            </div>
+
+            <div className="px-3 pt-1">
+              {content.trim() ? (
+                <p className="whitespace-pre-wrap break-words text-[14px] leading-normal text-[#e7e9ea]">{content}</p>
+              ) : (
+                <p className="text-[14px] italic text-[#71767b]">{t("previewCaptionHint") ?? "Sem napište text příspěvku…"}</p>
+              )}
+            </div>
+
+            <div className="mx-3 mt-2 overflow-hidden rounded-2xl border border-[#2f3336] bg-black">
+              <PreviewMediaArea media={previewMedia} aspect="feed" />
+            </div>
+
+            <div className="mx-3 mt-1.5 flex items-center gap-1 text-[13px] text-[#71767b]">
+              <span className="font-medium text-[#e7e9ea]">0</span>
+              <span className="mr-2">Reposts</span>
+              <span className="font-medium text-[#e7e9ea]">0</span>
+              <span className="mr-2">Likes</span>
+              <span className="font-medium text-[#e7e9ea]">0</span>
+              <span>Views</span>
+            </div>
+
+            <div className="mx-3 my-1 border-t border-[#2f3336]" />
+
+            <div className="flex items-center justify-between px-3 py-0.5 max-w-[440px]">
+              <XInlineBtn icon="💬" />
+              <XInlineBtn icon="🔁" />
+              <XInlineBtn icon="♥" />
+              <XInlineBtn icon="👁" />
+              <XInlineBtn icon="🔖" />
+              <XInlineBtn icon="↗" />
+            </div>
+
+            <div className="mx-3 mt-1 border-t border-[#2f3336]" />
           </article>
         </div>
       );
@@ -2448,6 +2515,7 @@ export function EditPostDialog({
               youtubeProfile={youtubeProfile}
               linkedinProfile={linkedinProfile}
               tiktokProfile={tiktokProfile}
+              twitterProfile={twitterProfile}
               availablePlatforms={availablePreviewPlatforms}
               location={location}
               labels={previewLabels}
@@ -2654,5 +2722,19 @@ export function EditPostDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------
+// X/Twitter inline action button (simple emoji icon)
+// ---------------------------------------------------------------------
+
+function XInlineBtn({ icon }: { icon: string }) {
+  return (
+    <div className="group flex items-center gap-0.5 text-[13px] text-[#71767b] transition-colors duration-200 hover:text-[#1d9bf0]">
+      <div className="flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-200 group-hover:bg-[#1d9bf0]/10">
+        <span className="text-sm">{icon}</span>
+      </div>
+    </div>
   );
 }

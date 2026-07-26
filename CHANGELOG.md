@@ -4,6 +4,14 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 046 – KROK 1-3: Twitter/X High-Fidelity Preview ✅
+
+- **Kontext**: V náhledovém systému chyběla podpora pro Twitter/X – chyběla záložka, komponenta i vizuální simulace.
+- **Změny**:
+  - ✅ `src/components/post-preview.tsx`: Nová `TwitterPreview` komponenta (X dark mode, avatar, verified badge, handle, media `object-contain`, interakční lišta Reply/Retweet/Like/Views/Bookmark/Share). Typ `Platform` rozšířen o `"twitter"`, přidán `twitterProfile` prop, `PLATFORM_ACCENTS` a render logika.
+  - ✅ `src/components/preview-dialog.tsx`: `PREVIEWABLE_PLATFORMS` rozšířeno o `"twitter"`, nový case v `renderPreviewForPlatform` s věrným tweet vizuálem, `XToolbarBtn` helper.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
+
 ### 🚀 Prompt 044-REVISED – KROK 4.4: Admin Feedback View ✅
 
 - **Kontext**: Admin potřebuje přehled o všech zpětných vazbách od uživatelů.

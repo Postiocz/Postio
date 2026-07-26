@@ -50,7 +50,7 @@ export interface PreviewProfile {
   avatarUrl?: string | null;
 }
 
-type PreviewPlatform = "facebook" | "instagram" | "youtube" | "linkedin" | "tiktok";
+type PreviewPlatform = "facebook" | "instagram" | "youtube" | "linkedin" | "tiktok" | "twitter";
 
 // ---------------------------------------------------------------------
 // Platform icon map
@@ -73,6 +73,7 @@ const PREVIEWABLE_PLATFORMS: PreviewPlatform[] = [
   "youtube",
   "linkedin",
   "tiktok",
+  "twitter",
 ];
 
 // Per-platform brand accents
@@ -82,6 +83,7 @@ const PLATFORM_ACCENTS: Record<PreviewPlatform, string> = {
   youtube: "#FF0000",
   linkedin: "#0A66C2",
   tiktok: "#00f2fe", // TikTok cyan
+  twitter: "#1d9bf0", // X/Twitter blue
 };
 
 // Platform display labels (used when no translations are passed)
@@ -91,6 +93,7 @@ const PLATFORM_LABELS: Record<PreviewPlatform, string> = {
   youtube: "YouTube",
   linkedin: "LinkedIn",
   tiktok: "TikTok",
+  twitter: "X",
 };
 
 // ---------------------------------------------------------------------
@@ -128,6 +131,7 @@ export function PreviewDialog({
     youtube: null,
     linkedin: null,
     tiktok: null,
+    twitter: null,
   });
   const [profilesLoaded, setProfilesLoaded] = useState(false);
 
@@ -235,6 +239,7 @@ export function PreviewDialog({
         youtube: t("previewYoutubeTab") ?? PLATFORM_LABELS.youtube,
         linkedin: t("previewLinkedinTab") ?? PLATFORM_LABELS.linkedin,
         tiktok: t("previewTikTokTab") ?? PLATFORM_LABELS.tiktok,
+        twitter: t("previewTwitterTab") ?? PLATFORM_LABELS.twitter,
       };
       return map[p];
     },
@@ -825,7 +830,120 @@ function renderPreviewForPlatform(
       );
     }
 
+    // Twitter (X) – dark mode tweet card: avatar, handle, content, media, X-style toolbar
+    case "twitter": {
+      const handle = `@${(profile.displayName ?? "user").replace(/\s+/g, "").toLowerCase()}`;
+      return (
+        <div className="flex flex-col min-h-0 bg-black text-[#e7e9ea]">
+          <article className="flex-1 overflow-visible">
+            {/* Header: avatar + name + verified badge + handle */}
+            <header className="flex items-start gap-2.5 px-3 pt-2.5 pb-1">
+              <AvatarInline url={profile.avatarUrl} name={profile.displayName} size={36} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="truncate text-[14px] font-bold text-[#e7e9ea]">
+                    {profile.displayName}
+                  </span>
+                  <svg className="h-[18px] w-[18px] flex-shrink-0 text-[#1d9bf0]" viewBox="0 0 22 22" fill="currentColor">
+                    <path d="M20.396 11c-.063-.214-.188-.57-.312-.813.5-.688.656-1.542.375-2.344-.281-.781-.906-1.375-1.656-1.614-.25-.083-.531-.125-.844-.125h-.271c-.135-.49-.324-1.016-.583-1.51-.614-1.177-1.615-2.135-2.937-2.682-.656-.271-1.354-.416-2.083-.416-.729 0-1.427.145-2.083.416-1.322.547-2.323 1.505-2.937 2.682-.26.494-.448 1.02-.583 1.51h-.271c-.313 0-.594.042-.844.125-.75.239-1.375.833-1.656 1.614-.281.802-.125 1.656.375 2.344-.124.244-.249.599-.312.813-.374 1.505-.124 3.083.791 4.385.906 1.302 2.333 2.12 3.937 2.26.104.01.208.01.312.01.625 0 1.375-.083 2.083-.427 1.385.672 2.979.531 4.208-.26 1.125-.739 1.906-1.927 2.177-3.271.083-.344.083-.708.083-1.042 0-.333 0-.666-.083-1.01z" />
+                  </svg>
+                </div>
+                <p className="truncate text-[14px] text-[#71767b]">{handle}</p>
+              </div>
+              <button type="button" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[#71767b] transition-colors hover:bg-[#1d9bf0]/10 hover:text-[#1d9bf0]" tabIndex={-1} aria-hidden>
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" />
+                </svg>
+              </button>
+            </header>
+
+            {/* Timestamp */}
+            <div className="px-3 text-[14px] text-[#71767b]">
+              {new Intl.DateTimeFormat("cs", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "long", year: "numeric" }).format(new Date()).replace("at", "·")}
+              <span className="mx-1">·</span>
+              <span>Twitter Web App</span>
+            </div>
+
+            {/* Tweet text */}
+            <div className="px-3 pt-1">
+              {content.trim() ? (
+                <p className="whitespace-pre-wrap break-words text-[14px] leading-normal text-[#e7e9ea]">{content}</p>
+              ) : (
+                <p className="text-[14px] italic text-[#71767b]">{captionHintLabel}</p>
+              )}
+            </div>
+
+            {/* Media */}
+            <div className="mx-3 mt-2 overflow-hidden rounded-2xl border border-[#2f3336] bg-black">
+              <PreviewMediaArea media={media} aspect="feed" noMediaLabel={noMediaLabel} />
+            </div>
+
+            {/* Stats row */}
+            <div className="mx-3 mt-1.5 flex items-center gap-1 text-[13px] text-[#71767b]">
+              <span className="font-medium text-[#e7e9ea]">0</span>
+              <span className="mr-2">Reposts</span>
+              <span className="font-medium text-[#e7e9ea]">0</span>
+              <span className="mr-2">Likes</span>
+              <span className="font-medium text-[#e7e9ea]">0</span>
+              <span>Views</span>
+            </div>
+
+            <div className="mx-3 my-1 border-t border-[#2f3336]" />
+
+            {/* X-style toolbar */}
+            <div className="flex items-center justify-between px-3 py-0.5 max-w-[440px]">
+              <XToolbarBtn icon={
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none"><path d="M1.751 10.623a4.76 4.76 0 014.1-4.636 26.05 26.05 0 013.588-.22h.374a.23.23 0 01.187.23v1.605c0 .715.065 1.417.552 1.944.11.12.251.19.404.19.29 0 .56-.196.56-.562V5.997c0-.563-.244-.83-.55-1.076-.364-.295-.906-.42-1.498-.42-2.63 0-5.033.548-6.603 1.801C1.196 7.6.34 9.275.002 11.073a.735.735 0 00.73.851h.251a.7.7 0 00.702-.647c.029-.22.045-.445.066-.654z" fill="currentColor"/><path d="M5.137 13.944v-1.596a.23.23 0 01.23-.23h.046c.793 0 1.324-1.025.837-2.016-.487-.991-1.563-1.074-1.912-1.214-.188-.077-.201-.198-.201-.364V6.426c0-.166.013-.288.201-.365.35-.14 1.426-.223 1.912-1.214.487-.991-.044-2.015-.837-2.015h-.046a.23.23 0 01-.23-.23V1.01c0-.166.013-.288.201-.364C6.022.35 7.858 0 9.878 0c3.22 0 5.683.997 7.196 2.542 1.347 1.376 1.982 3.207 1.98 5.182v.008c0 1.973-.635 3.8-1.98 5.173-1.513 1.54-3.976 2.534-7.197 2.534l-.827.002c-.576.22-1.095.524-1.541.89a.674.674 0 01-.801.053c-.328-.22-.57-.653-.57-1.15l-.001-.559-.061-.054a4.076 4.076 0 01-1.8-2.848c-.083-.511-.069-.955.001-1.266z" fill="currentColor"/></svg>
+              } hoverColor="#1d9bf0" />
+              <XToolbarBtn icon={
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none"><path d="M4.5 3.75v10.5a1.75 1.75 0 001.75 1.75h3.5v2.25c0 .691.462 1.018.79.95.083-.017.152-.046.216-.1l4.25-3.672a.5.5 0 00.244-.428v-2.046A1.75 1.75 0 0013.5 10.5h-2.5a1.75 1.75 0 00-1.75 1.75v.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19.5 20.25V9.75a1.75 1.75 0 00-1.75-1.75h-3.5V5.75c0-.691-.462-1.018-.79-.95a.498.498 0 00-.216.1L9.244 8.572a.5.5 0 00-.244.428v.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              } hoverColor="#00ba7c" />
+              <XToolbarBtn icon={
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none"><path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.263.368-.263-.368c-1.211-1.65-2.668-2.22-3.89-2.16-1.04.047-2.08.566-2.85 1.652-.755 1.067-.994 2.443-.536 3.79.453 1.327 1.353 2.625 2.47 3.803 1.1 1.16 2.4 2.123 3.79 2.853 1.39-.73 2.69-1.693 3.79-2.853 1.117-1.178 2.017-2.476 2.47-3.803.458-1.347.219-2.723-.536-3.79-.77-1.086-1.81-1.605-2.85-1.652z" stroke="currentColor" strokeWidth="1.5"/></svg>
+              } hoverColor="#f91880" />
+              <XToolbarBtn icon={
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none"><path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.75 0V9h2v12h-2z" fill="currentColor"/></svg>
+              } hoverColor="#1d9bf0" />
+              <XToolbarBtn icon={
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none"><path d="M4 4.5A2.5 2.5 0 016.5 2h11A2.5 2.5 0 0120 4.5v17.07a.5.5 0 01-.77.42l-6.23-3.89a.5.5 0 00-.5 0l-6.23 3.89a.5.5 0 01-.77-.42V4.5z" stroke="currentColor" strokeWidth="1.5"/></svg>
+              } hoverColor="#1d9bf0" />
+              <XToolbarBtn icon={
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none"><path d="M17.53 7.47l-5-5a.749.749 0 00-1.06 0l-5 5a.749.749 0 101.06 1.06l3.72-3.72V15a.75.75 0 001.5 0V4.81l3.72 3.72a.749.749 0 101.06-1.06z" fill="currentColor"/><path d="M19.75 17.25v3.5a1.75 1.75 0 01-1.75 1.75H6a1.75 1.75 0 01-1.75-1.75v-3.5" stroke="currentColor" strokeWidth="1.5"/></svg>
+              } hoverColor="#1d9bf0" />
+            </div>
+
+            <div className="mx-3 mt-1 border-t border-[#2f3336]" />
+          </article>
+        </div>
+      );
+    }
+
     default:
       return null;
   }
+}
+
+// ---------------------------------------------------------------------
+// X/Twitter toolbar action button (circular hover with branded color)
+// ---------------------------------------------------------------------
+
+function XToolbarBtn({
+  icon,
+  hoverColor,
+}: {
+  icon: React.ReactNode;
+  hoverColor: string;
+}) {
+  return (
+    <div
+      className="group flex items-center gap-0.5 text-[13px] text-[#71767b] transition-colors duration-200"
+      style={{ "--hover-color": hoverColor } as React.CSSProperties}
+    >
+      <div className="flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-200 group-hover:bg-[color-mix(in_srgb,var(--hover-color)_10%,transparent)]">
+        <div className="transition-colors duration-200 group-hover:text-[var(--hover-color)]">
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
 }

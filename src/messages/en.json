@@ -114,7 +114,8 @@
     "adminSettings": "Settings",
     "adminSystemCheck": "System Check",
     "adminFeedback": "Feedback",
-    "adminBackToApp": "Back to App"
+    "adminBackToApp": "Back to App",
+    "adminOther": "Other"
   },
   "calendar": {
     "title": "Calendar",
@@ -1250,7 +1251,8 @@
     "adminManagement": "Admin Management",
     "adminManagementDesc": "Manage user roles and permissions.",
     "auditLog": "Audit Log",
-    "auditLogDesc": "View the history of events and actions in the system."
+    "auditLogDesc": "View the history of events and actions in the system.",
+    "backToMenu": "Back to menu"
   },
   "adminTeam": {
     "title": "Admin Management",

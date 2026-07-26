@@ -4,15 +4,34 @@ import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText } from "lucide-react";
+import { Users, FileText, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function AdminSettingsPage() {
   const t = useTranslations("adminSettingsPage");
   const params = useParams();
   const locale = params.locale as string;
+  const router = useRouter();
+
+  const handleBackToMenu = () => {
+    // Navigate to admin dashboard and trigger the menu to open
+    // We'll use a query param to signal the menu should open
+    router.push(`/${locale}/admin?menu=open`);
+  };
 
   return (
     <div className="space-y-6 p-6">
+      {/* Back button for mobile */}
+      <div className="lg:hidden mb-4">
+        <button
+          onClick={handleBackToMenu}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">{t("backToMenu")}</span>
+        </button>
+      </div>
+
       <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link href={`/${locale}/admin/settings/team`}>

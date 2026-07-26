@@ -114,7 +114,8 @@
     "adminSettings": "Налаштування",
     "adminSystemCheck": "Перевірка системи",
     "adminFeedback": "Зворотний зв'язок",
-    "adminBackToApp": "Повернутися до застосунку"
+    "adminBackToApp": "Повернутися до застосунку",
+    "adminOther": "Інше"
   },
   "calendar": {
     "title": "Календар",
@@ -1247,11 +1248,12 @@
     "noInvoices": "No invoices found"
   },
   "adminSettingsPage": {
-    "title": "Settings",
-    "adminManagement": "Admin Management",
-    "adminManagementDesc": "Manage user roles and permissions.",
-    "auditLog": "Audit Log",
-    "auditLogDesc": "View the history of events and actions in the system."
+    "title": "Налаштування",
+    "adminManagement": "Управління адмінами",
+    "adminManagementDesc": "Керуйте ролями та дозволами користувачів.",
+    "auditLog": "Журнал аудиту",
+    "auditLogDesc": "Переглянути історію подій та дій у системі.",
+    "backToMenu": "Повернутися до меню"
   },
   "adminTeam": {
     "title": "Admin Management",

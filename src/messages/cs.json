@@ -114,7 +114,8 @@
     "adminSettings": "Nastavení",
     "adminSystemCheck": "System Check",
     "adminFeedback": "Zpětná vazba",
-    "adminBackToApp": "Zpět do aplikace"
+    "adminBackToApp": "Zpět do aplikace",
+    "adminOther": "Ostatní"
   },
   "calendar": {
     "title": "Kalendář",
@@ -1250,7 +1251,8 @@
     "adminManagement": "Správa adminů",
     "adminManagementDesc": "Spravujte uživatelské role a oprávnění.",
     "auditLog": "Audit log",
-    "auditLogDesc": "Zobrazit historii událostí a akcí v systému."
+    "auditLogDesc": "Zobrazit historii událostí a akcí v systému.",
+    "backToMenu": "Zpět do menu"
   },
   "adminTeam": {
     "title": "Správa adminů",

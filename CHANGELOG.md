@@ -4,6 +4,17 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 047 – Mobilní admin menu s dropdownem ✅
+
+- **Kontext**: Mobilní lišta adminu měla jen 5 fixních ikon, chyběly odkazy na Analytiku, Zpětnou vazbu a System Check.
+- **Změny**:
+  - ✅ `src/modules/admin-core/components/admin-mobile-nav.tsx`: Přidáno dropdown menu "Ostatní" s přehledem všech dalších funkcí.
+  - ✅ `src/app/[locale]/(admin)/admin/settings/page.tsx`: Přidáno tlačítko "Zpět do menu" pro mobilní zobrazení.
+  - ✅ `src/components/ui/sheet.tsx`: Nová Sheet komponenta (vytvořena, nepoužita - nahrazeno DropdownMenu).
+  - ✅ i18n (cs/en/uk): Nové klíče `nav.adminOther`, `backToMenu`, opraveny překlady v uk.json.
+  - ✅ Dropdown menu se automaticky otevře při navigaci z `/admin/settings` přes query param `?menu=open`.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 046B – Lokalizace statických textů v náhledech ✅
 
 - **Kontext**: Desítky hardcoded textů v náhledových komponentách ignorovaly přepnutí jazyka (cs/en/uk).

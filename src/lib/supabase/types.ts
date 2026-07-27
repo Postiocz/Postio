@@ -373,6 +373,109 @@ export interface Database {
           updated_at?: string
         }
       }
+      feedback: {
+        Row: {
+          id: string
+          user_id: string | null
+          message: string
+          type: 'bug' | 'feature' | 'other'
+          status: 'new' | 'read' | 'resolved'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          message: string
+          type?: 'bug' | 'feature' | 'other'
+          status?: 'new' | 'read' | 'resolved'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          message?: string
+          type?: 'bug' | 'feature' | 'other'
+          status?: 'new' | 'read' | 'resolved'
+          created_at?: string
+        }
+      }
+      pricing_plans: {
+        Row: {
+          id: string
+          name: string
+          type: 'free' | 'creator' | 'pro'
+          price_czk: number
+          price_eur: number
+          price_usd: number
+          ai_credits: number
+          twitter_credits: number
+          max_accounts: number
+          max_posts_per_month: number | null
+          stripe_price_id_czk: string | null
+          stripe_price_id_eur: string | null
+          stripe_price_id_usd: string | null
+          is_active: boolean
+          is_master_template: boolean
+          is_visible: boolean
+          is_custom: boolean
+          max_subscriptions: number | null
+          current_subscriptions: number
+          name_en: string | null
+          name_uk: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          type: 'free' | 'creator' | 'pro'
+          price_czk?: number
+          price_eur?: number
+          price_usd?: number
+          ai_credits?: number
+          twitter_credits?: number
+          max_accounts?: number
+          max_posts_per_month?: number | null
+          stripe_price_id_czk?: string | null
+          stripe_price_id_eur?: string | null
+          stripe_price_id_usd?: string | null
+          is_active?: boolean
+          is_master_template?: boolean
+          is_visible?: boolean
+          is_custom?: boolean
+          max_subscriptions?: number | null
+          current_subscriptions?: number
+          name_en?: string | null
+          name_uk?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          type?: 'free' | 'creator' | 'pro'
+          price_czk?: number
+          price_eur?: number
+          price_usd?: number
+          ai_credits?: number
+          twitter_credits?: number
+          max_accounts?: number
+          max_posts_per_month?: number | null
+          stripe_price_id_czk?: string | null
+          stripe_price_id_eur?: string | null
+          stripe_price_id_usd?: string | null
+          is_active?: boolean
+          is_master_template?: boolean
+          is_visible?: boolean
+          is_custom?: boolean
+          max_subscriptions?: number | null
+          current_subscriptions?: number
+          name_en?: string | null
+          name_uk?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

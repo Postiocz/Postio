@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Activity,
   MessageCircle,
+  Tags,
 } from "lucide-react";
 
 interface AdminNavItem {
@@ -28,6 +29,7 @@ const adminNavItems: AdminNavItem[] = [
   { href: "/admin/posts", icon: FileText, labelKey: "nav.adminPosts" },
   { href: "/admin/feedback", icon: MessageCircle, labelKey: "nav.adminFeedback" },
   { href: "/admin/billing", icon: CreditCard, labelKey: "nav.adminBilling" },
+  { href: "/admin/billing/plans", icon: Tags, labelKey: "nav.adminBillingPlans" },
   { href: "/admin/analytics", icon: BarChart3, labelKey: "nav.adminAnalytics" },
   { href: "/admin/settings", icon: Settings, labelKey: "nav.adminSettings" },
   { href: "/admin/system-check", icon: Activity, labelKey: "nav.adminSystemCheck" },
@@ -40,6 +42,10 @@ export function AdminSidebar({ locale }: { locale: string }) {
   const isItemActive = (href: string) => {
     const fullHref = `/${locale}${href}`;
     if (href === "/admin") {
+      return pathname === fullHref;
+    }
+    // Pro /admin/billing neoznačuj pokud jsme na /admin/billing/plans
+    if (href === "/admin/billing") {
       return pathname === fullHref;
     }
     return pathname === fullHref || pathname.startsWith(fullHref + "/");

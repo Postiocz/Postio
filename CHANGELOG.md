@@ -4,6 +4,22 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 048 – Dynamické plány s ochranou výchozích hodnot (KROK 1-7) ✅
+
+- **Kontext**: Převod správy tarifů do databáze s ochranou původních hodnot jako nedotknutelného základu.
+- **Změny**:
+  - ✅ `src/lib/constants/original-plans.ts`: Hardcoded backup původních cen a limitů (Free/Creator/Pro).
+  - ✅ `supabase/migrations/044_create_pricing_plans.sql`: Nová tabulka `pricing_plans` s partial unique indexem pro ochranu master templates.
+  - ✅ `supabase/migrations/045_extend_pricing_plans.sql`: Rozšíření o `is_visible`, `is_custom`, `max_subscriptions`, `current_subscriptions`, `name_en`, `name_uk`.
+  - ✅ `src/lib/supabase/types.ts`: Přidány TypeScript typy pro `pricing_plans` a `feedback`.
+  - ✅ `src/lib/actions/pricing-plans.ts`: Server actions pro správu tarifů (getAll, update, resetSinglePlanToMaster).
+  - ✅ `src/app/[locale]/(admin)/admin/billing/plans/page.tsx`: Nová admin stránka pro správu tarifů.
+  - ✅ `src/app/[locale]/(admin)/admin/billing/plans/plans-client.tsx`: Klient komponenta s editačním dialogem a reset tlačítky.
+  - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Přidán odkaz "Správa tarifů" s ikonou Tags.
+  - ✅ i18n (cs/en/uk): Nový namespace `adminBillingPlansPage` + navigační klíče + `resetSingleConfirm`.
+  - ✅ Reset k základu pro každý tarif zvlášť s potvrzovacím dialogem.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 047 – Mobilní admin menu s dropdownem ✅
 
 - **Kontext**: Mobilní lišta adminu měla jen 5 fixních ikon, chyběly odkazy na Analytiku, Zpětnou vazbu a System Check.

@@ -231,7 +231,7 @@ export async function resetSinglePlanToMaster(
     return { success: false, error: "Original plan not found" };
   }
 
-  // Najdi aktivní tarif tohoto typu (non-master nebo master pokud neexistuje non-master)
+  // Najdi aktivní tarif tohoto typu
   const { data: activePlan } = await supabase
     .from("pricing_plans")
     .select("id, is_master_template")
@@ -265,6 +265,41 @@ export async function resetSinglePlanToMaster(
 
   revalidatePath("/admin/billing/plans");
   revalidatePath("/settings/billing");
+  revalidatePath("/");
+
+  return { success: true };
+}
+
+/**
+ * Přepne viditelnost tarifu (zobrazit/skrýt)
+ */
+export async function togglePlanVisibility(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = createAdminClient();
+
+  // Zjisti aktuální stav viditelnosti
+  const { data: plan } = await supabase
+    .from("pricing_plans")
+    .select("is_visible")
+    .eq("id", id)
+    .single();
+
+  if (!plan) {
+    return { success: false, error: "Plan not found" };
+  }
+
+  // Přepni viditelnost
+  const { error } = await supabase
+    .from("pricing_plans")
+    .update({ is_visible: !plan.is_visible })
+    .eq("id", id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/admin/billing/plans");
   revalidatePath("/");
 
   return { success: true };

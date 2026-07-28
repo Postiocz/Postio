@@ -16,10 +16,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, RefreshCw, Loader2, RotateCcw } from "lucide-react";
+import { Pencil, RefreshCw, Loader2, RotateCcw, Eye, EyeOff } from "lucide-react";
 import {
   updatePricingPlan,
   resetSinglePlanToMaster,
+  togglePlanVisibility,
 } from "@/lib/actions/pricing-plans";
 import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
@@ -115,6 +116,16 @@ export function PricingPlansClient({ plans, masterTemplates, translations }: Pro
       toast.success(translations.resetSuccess);
     } else {
       toast.error(result.error || translations.resetError);
+    }
+  };
+
+  const handleToggleVisibility = async (planId: string) => {
+    const result = await togglePlanVisibility(planId);
+
+    if (result.success) {
+      toast.success("Viditelnost změněna");
+    } else {
+      toast.error(result.error || "Nepodařilo se změnit viditelnost");
     }
   };
 
@@ -230,6 +241,19 @@ export function PricingPlansClient({ plans, masterTemplates, translations }: Pro
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <RotateCcw className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleToggleVisibility(plan.id)}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2"
+                  title={plan.is_visible ? "Skrýt" : "Zobrazit"}
+                >
+                  {plan.is_visible ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
                   )}
                 </Button>
               </div>

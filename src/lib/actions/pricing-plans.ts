@@ -99,6 +99,7 @@ export async function updatePricingPlan(
   revalidatePath("/admin/billing/plans");
   revalidatePath("/settings/billing");
   revalidatePath("/");
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
@@ -125,6 +126,8 @@ export async function createPricingPlan(
   }
 
   revalidatePath("/admin/billing/plans");
+  revalidatePath("/");
+  revalidatePath("/", "layout");
   return { success: true, data };
 }
 
@@ -158,6 +161,7 @@ export async function deletePricingPlan(
   }
 
   revalidatePath("/admin/billing/plans");
+  revalidatePath("/");
   return { success: true };
 }
 
@@ -211,7 +215,7 @@ export async function resetPricingPlansToMaster(): Promise<{
   revalidatePath("/admin/billing/plans");
   revalidatePath("/settings/billing");
   revalidatePath("/"); // Landing page pricing section
-
+  revalidatePath("/", "layout");
   return { success: true, updatedCount };
 }
 
@@ -266,7 +270,7 @@ export async function resetSinglePlanToMaster(
   revalidatePath("/admin/billing/plans");
   revalidatePath("/settings/billing");
   revalidatePath("/");
-
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
@@ -278,7 +282,6 @@ export async function togglePlanVisibility(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createAdminClient();
 
-  // Zjisti aktuální stav viditelnosti
   const { data: plan } = await supabase
     .from("pricing_plans")
     .select("is_visible")
@@ -289,7 +292,6 @@ export async function togglePlanVisibility(
     return { success: false, error: "Plan not found" };
   }
 
-  // Přepni viditelnost
   const { error } = await supabase
     .from("pricing_plans")
     .update({ is_visible: !plan.is_visible })
@@ -301,6 +303,46 @@ export async function togglePlanVisibility(
 
   revalidatePath("/admin/billing/plans");
   revalidatePath("/");
-
+  revalidatePath("/", "layout");
   return { success: true };
+}
+
+/**
+ * Přeloží název plánu pomocí Google AI (Gemini)
+ * Target: "en" nebo "uk"
+ */
+export async function translatePlanName(
+  name: string,
+  targetLocale: "en" | "uk"
+): Promise<{ success: boolean; error?: string; translatedName?: string }> {
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+
+  if (!apiKey || apiKey === "" || apiKey === "undefined" || apiKey === "null") {
+    return {
+      success: false,
+      error: "Gemini API key not configured",
+    };
+  }
+
+  const genAI = new (await import("@google/generative-ai")).GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+
+  const targetLang = targetLocale === "en" ? "English" : "Ukrainian";
+  const prompt = `Translate this plan name to ${targetLang}. Return ONLY the translated name, nothing else.
+
+Name: "${name}"`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const translated = response.text().trim();
+
+    return { success: true, translatedName: translated };
+  } catch (error) {
+    console.error("Translation error:", error);
+    return {
+      success: false,
+      error: "Translation failed",
+    };
+  }
 }

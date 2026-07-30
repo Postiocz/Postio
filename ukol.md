@@ -53,10 +53,10 @@ CÍL: Převést správu tarifů do databáze a Admin panelu, ale zajistit, aby n
 - [x] **KROK 5: Tlačítko "Reset k základu"** – Implementována funkce pro reset aktivních tarifů k původním hodnotám z hardcoded backupu.
 - [x] **KROK 6: DB Rozšíření pro nové funkce** – Přidány sloupce: `is_visible`, `is_custom`, `max_subscriptions`, `current_subscriptions`, `name_en`, `name_uk`.
 - [x] **KROK 7: Reset k základu pro každý plán zvlášť** – Tlačítko Reset u každého tarifu samostatně.
-- [ ] **KROK 8: Zobrazení/skrytí plánů** – Ikona oka pro každý tarif, přepínač `is_visible`.
-- [ ] **KROK 9: Vlastní editovatelné plány** – Tlačítko "+", plná editace včetně názvu, archivace skrytých plánů.
-- [ ] **KROK 10: AI překlad názvů vlastních plánů** – Google AI API pro automatický překlad názvu do en/uk.
-- [ ] **KROK 11: Limity pro omezené akce** – `max_subscriptions` a `current_subscriptions` pro limitované nabídky.
+- [x] **KROK 8: Zobrazení/skrytí plánů** – Ikona oka pro každý tarif, přepínač `is_visible`.
+- [x] **KROK 9: Vlastní editovatelné plány** – Tlačítko "+", plná editace včetně názvu, archivace skrytých plánů.
+- [x] **KROK 10: AI překlad názvů vlastních plánů** – Google AI API pro automatický překlad názvu do en/uk.
+- [x] **KROK 11: Limity pro omezené akce** – `max_subscriptions` a `current_subscriptions` pro limitované nabídky.
 - [ ] **KROK 12: Stripe Sync** – Při uložení nové ceny v Adminu automaticky vytvoř novou cenu ve Stripe.
 
 ---
@@ -77,3 +77,16 @@ CÍL: Implementovat bleskové akce (Flash Sales), časovou platnost tarifů a je
   - Výjimka: Pokud uživatel už má aktivní akční plán, uvidí ho v seznamu jako "Váš aktuální plán".
 - [ ] **KROK 5: Admin Ovládání** – Na stránku `/admin/billing/plans` přidat políčka pro nastavení data a času (od-do) pro každou akci.
 - [ ] **KROK 6: i18n** – Překlady pro odpočet času a hlášky o vypršení akce.
+
+---
+
+### Prompt 051 – Vizuální a funkční upgrade editačního modálu
+
+CÍL: Umožnit kompletní editaci vizuálních prvků tarifu (popisky, odznaky, barvy) a opravit rozvržení ovládacích prvků v modálu.
+
+- [x] **KROK 1: DB rozšíření** – Přidány sloupce: `description`, `description_en`, `description_uk`, `badge_text`, `is_recommended`, `badge_color`.
+- [x] **KROK 2: Rozšíření polí v modálu** – Přidány inputy pro popisek, badge text, přepínač is_recommended, barevný výběr badge_color.
+- [x] **KROK 2a: Oprava Unicode escape** – Opraveny \uXXXX sekvence v placeholderech na správnou diakritiku.
+- [x] **KROK 2b: AI Překlady pro popisek a odznak** – Tlačítka "Přeložit do EN/UK" pro description i badge_text.
+- [x] **KROK 2c: Datová synchronizace na Landing Page** – Popisek, badge, is_recommended a badge_color se propsávají do ceníku.
+- [x] **KROK 4: Fix layout tlačítek** – Profesionální rozvržení spodní části modálu (Cancel/Save + překlady).

@@ -13,7 +13,7 @@ interface Feature {
 }
 
 export interface Plan {
-  id: "free" | "creator" | "pro";
+  id: string;
   name: string;
   description: string;
   priceCzk: number;

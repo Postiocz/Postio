@@ -422,6 +422,14 @@ export interface Database {
           current_subscriptions: number
           name_en: string | null
           name_uk: string | null
+          description: string
+          description_en: string | null
+          description_uk: string | null
+          badge_text: string
+          badge_text_en: string | null
+          badge_text_uk: string | null
+          is_recommended: boolean
+          badge_color: string
           created_at: string
           updated_at: string
         }
@@ -447,6 +455,14 @@ export interface Database {
           current_subscriptions?: number
           name_en?: string | null
           name_uk?: string | null
+          description?: string
+          description_en?: string | null
+          description_uk?: string | null
+          badge_text?: string
+          badge_text_en?: string | null
+          badge_text_uk?: string | null
+          is_recommended?: boolean
+          badge_color?: string
           created_at?: string
           updated_at?: string
         }
@@ -472,6 +488,14 @@ export interface Database {
           current_subscriptions?: number
           name_en?: string | null
           name_uk?: string | null
+          description?: string
+          description_en?: string | null
+          description_uk?: string | null
+          badge_text?: string
+          badge_text_en?: string | null
+          badge_text_uk?: string | null
+          is_recommended?: boolean
+          badge_color?: string
           created_at?: string
           updated_at?: string
         }

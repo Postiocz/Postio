@@ -9,7 +9,7 @@ import { formatPrice, getDefaultCurrency } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 interface ClientPlan {
-  id: "free" | "creator" | "pro";
+  id: string;
   name: string;
   description: string;
   priceCzk: number;
@@ -18,6 +18,8 @@ interface ClientPlan {
   features: { label: string; value: string }[];
   isRecommended: boolean;
   ctaLabel: string;
+  badgeText?: string;
+  badgeColor?: string;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -66,9 +68,12 @@ export function PricingClient({
               >
                 {plan.isRecommended && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500 px-3 py-1 text-xs font-semibold text-white shadow-lg">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold text-white shadow-lg"
+                      style={{ backgroundColor: plan.badgeColor || "#6366F1" }}
+                    >
                       <Check className="h-3 w-3" />
-                      {texts.recommended}
+                      {plan.badgeText || texts.recommended}
                     </span>
                   </div>
                 )}

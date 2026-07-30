@@ -1,17 +1,13 @@
 /**
  * Admin – Správa tarifů
- * Zobrazuje master templates a aktivní verze tarifů
- * Umožňuje úpravu cen a reset k původním hodnotám
+ * Zobrazuje master templates, aktivní tarify, vlastní a archivované plány
  * i18n: namespace adminBillingPlansPage
  */
 
 import { getTranslations } from "next-intl/server";
-import {
-  getAllPricingPlans,
-  getMasterTemplates,
-} from "@/lib/actions/pricing-plans";
+import { getAllPricingPlans } from "@/lib/actions/pricing-plans";
 import { PricingPlansClient } from "./plans-client";
-import { Crown, Shield, RefreshCw } from "lucide-react";
+import { Shield, Crown, Sparkles, Archive } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -29,50 +25,69 @@ export default async function AdminPlansPage({
   const allPlans = await getAllPricingPlans();
   const masterTemplates = allPlans.filter((p) => p.is_master_template);
 
-  // Aktivní tarify = buď non-master, nebo master pokud neexistují non-master
-  // (při prvním spuštění jsou master templates zároveň aktivními)
-  let activePlans = allPlans.filter((p) => !p.is_master_template && p.is_active);
-
-  // Pokud neexistují aktivní non-master tarify, použij master templates jako editovatelné
-  if (activePlans.length === 0) {
-    activePlans = masterTemplates;
+  // Aktivní základní tarify (non-master, viditelné, ne custom)
+  let baseActivePlans = allPlans.filter(
+    (p) => !p.is_master_template && !p.is_custom && p.is_active && p.is_visible
+  );
+  if (baseActivePlans.length === 0) {
+    baseActivePlans = masterTemplates;
   }
 
-  // Seřaď tarify podle typu: free -> creator -> pro
-  const typeOrder = { free: 0, creator: 1, pro: 2 };
-  const sortedMasterTemplates = [...masterTemplates].sort(
+  // Vlastní plány (custom, viditelné)
+  const customPlans = allPlans.filter(
+    (p) => p.is_custom && p.is_visible
+  );
+
+  // Archivované (neviditelné, ne master)
+  const archivedPlans = allPlans.filter(
+    (p) => !p.is_visible && !p.is_master_template
+  );
+
+  // Seřazení
+  const typeOrder: Record<string, number> = { free: 0, creator: 1, pro: 2 };
+  const sortedMasters = [...masterTemplates].sort(
     (a, b) => typeOrder[a.type] - typeOrder[b.type]
   );
-  const sortedActivePlans = [...activePlans].sort(
+  const sortedBase = [...baseActivePlans].sort(
     (a, b) => typeOrder[a.type] - typeOrder[b.type]
   );
+  const sortedCustom = [...customPlans].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedArchived = [...archivedPlans].sort((a, b) => a.name.localeCompare(b.name));
+
+  const keys = [
+    "resetToMaster", "resetSingleConfirm", "resetSuccess", "resetError",
+    "editPlan", "saveChanges", "cancel",
+    "priceCzk", "priceEur", "priceUsd",
+    "aiCredits", "twitterCredits", "maxAccounts", "maxPosts",
+    "unlimited", "free",
+    "createPlan", "planName", "customPlans", "archivedPlans",
+    "noArchived", "deletePlan", "deleteConfirm", "showPlan", "hidePlan",
+    "translateToEn", "translateToUk",
+    "maxSubscriptions", "subscribersCount",
+    "description", "badgeText", "isRecommended", "badgeColor",
+  ] as const;
+
+  const translations: Record<string, string> = {};
+  for (const key of keys) translations[key] = t(key);
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white md:text-3xl">
-            {t("title")}
-          </h1>
-          <p className="text-sm text-gray-400">{t("subtitle")}</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white md:text-3xl">{t("title")}</h1>
+        <p className="text-sm text-gray-400">{t("subtitle")}</p>
       </div>
 
-      {/* Master Templates Section */}
+      {/* Master Templates */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-indigo-400" />
-          <h2 className="text-lg font-semibold text-white">
-            {t("masterTemplates")}
-          </h2>
+          <h2 className="text-lg font-semibold text-white">{t("masterTemplates")}</h2>
         </div>
-        <p className="text-sm text-gray-500 max-w-2xl">
-          {t("masterTemplatesDesc")}
-        </p>
+        <p className="text-sm text-gray-500 max-w-2xl">{t("masterTemplatesDesc")}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {sortedMasterTemplates.map((plan) => (
+          {sortedMasters.map((plan) => (
             <div
               key={plan.id}
               className="rounded-[20px] border border-indigo-500/30 bg-indigo-500/5 p-6"
@@ -83,91 +98,47 @@ export default async function AdminPlansPage({
                   {plan.type}
                 </span>
               </div>
-
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t("priceCzk")}</span>
-                  <span className="text-white font-medium">
-                    {plan.price_czk === 0 ? t("free") : `${plan.price_czk / 100} Kč`}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t("priceEur")}</span>
-                  <span className="text-white font-medium">
-                    {plan.price_eur === 0 ? t("free") : `${plan.price_eur / 100} EUR`}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t("priceUsd")}</span>
-                  <span className="text-white font-medium">
-                    {plan.price_usd === 0 ? t("free") : `$${plan.price_usd / 100}`}
-                  </span>
-                </div>
+                <DetailRow label={t("priceCzk")} value={plan.price_czk === 0 ? t("free") : `${plan.price_czk / 100} Kč`} />
+                <DetailRow label={t("priceEur")} value={plan.price_eur === 0 ? t("free") : `${plan.price_eur / 100} EUR`} />
+                <DetailRow label={t("priceUsd")} value={plan.price_usd === 0 ? t("free") : `$${plan.price_usd / 100}`} />
                 <div className="border-t border-white/10 my-3" />
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t("aiCredits")}</span>
-                  <span className="text-white">{plan.ai_credits}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t("twitterCredits")}</span>
-                  <span className="text-white">{plan.twitter_credits}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t("maxAccounts")}</span>
-                  <span className="text-white">
-                    {plan.max_accounts === -1 ? "∞" : plan.max_accounts}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t("maxPosts")}</span>
-                  <span className="text-white">
-                    {plan.max_posts_per_month === null
-                      ? "∞"
-                      : plan.max_posts_per_month}
-                  </span>
-                </div>
+                <DetailRow label={t("aiCredits")} value={String(plan.ai_credits)} />
+                <DetailRow label={t("twitterCredits")} value={String(plan.twitter_credits)} />
+                <DetailRow label={t("maxAccounts")} value={plan.max_accounts === -1 ? "∞" : String(plan.max_accounts)} />
+                <DetailRow label={t("maxPosts")} value={plan.max_posts_per_month === null ? "∞" : String(plan.max_posts_per_month)} />
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Active Plans Section */}
+      {/* Active & Custom Plans */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <Crown className="h-5 w-5 text-yellow-400" />
-          <h2 className="text-lg font-semibold text-white">
-            {t("activePlans")}
-          </h2>
+          <h2 className="text-lg font-semibold text-white">{t("activePlans")}</h2>
         </div>
-        <p className="text-sm text-gray-500 max-w-2xl">
-          {t("activePlansDesc")}
-        </p>
+        <p className="text-sm text-gray-500 max-w-2xl">{t("activePlansDesc")}</p>
 
         <PricingPlansClient
-          plans={sortedActivePlans}
-          masterTemplates={sortedMasterTemplates}
-          translations={{
-            resetToMaster: t("resetToMaster"),
-            resetConfirm: t("resetConfirm"),
-            resetSingleConfirm: t("resetSingleConfirm"),
-            resetSuccess: t("resetSuccess"),
-            resetError: t("resetError"),
-            editPlan: t("editPlan"),
-            saveChanges: t("saveChanges"),
-            cancel: t("cancel"),
-            priceCzk: t("priceCzk"),
-            priceEur: t("priceEur"),
-            priceUsd: t("priceUsd"),
-            aiCredits: t("aiCredits"),
-            twitterCredits: t("twitterCredits"),
-            maxAccounts: t("maxAccounts"),
-            maxPosts: t("maxPosts"),
-            unlimited: t("unlimited"),
-            free: t("free"),
-          }}
+          activePlans={sortedBase}
+          customPlans={sortedCustom}
+          archivedPlans={sortedArchived}
+          masterTemplates={sortedMasters}
+          locale={localeParam}
+          translations={translations}
         />
       </section>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-gray-400">{label}</span>
+      <span className="text-white font-medium">{value}</span>
     </div>
   );
 }

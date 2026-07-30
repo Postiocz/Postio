@@ -1,9 +1,10 @@
 import { getTranslations } from "next-intl/server";
 import { Reveal } from "@/components/marketing/reveal";
 import { PricingClient } from "@/components/marketing/pricing-client";
+import { createAdminClient } from "@/lib/supabase/server";
 
 // Public pricing section for the landing page. Server component builds the
-// localized plan data (free/creator/pro, all 3 currencies, feature list) and
+// localized plan data (free/creator/pro + custom plans from DB) and
 // hands it to the PricingClient island, which owns currency state + rendering.
 interface Feature {
   label: string;
@@ -11,7 +12,7 @@ interface Feature {
 }
 
 interface Plan {
-  id: "free" | "creator" | "pro";
+  id: string;
   name: string;
   description: string;
   priceCzk: number;
@@ -20,11 +21,14 @@ interface Plan {
   features: Feature[];
   isRecommended: boolean;
   ctaLabel: string;
+  badgeText?: string;
+  badgeColor?: string;
 }
 
 export async function PricingSection({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "landing" });
 
+  // Základní 3 plány (hardcoded s překlady)
   const plans: Plan[] = [
     {
       id: "free",
@@ -83,6 +87,58 @@ export async function PricingSection({ locale }: { locale: string }) {
       ctaLabel: t("pricing.ctaPaid"),
     },
   ];
+
+  // Načti vlastní plány z DB (viditelné, custom)
+  try {
+    const supabase = createAdminClient();
+    const { data: customDbPlans } = await supabase
+      .from("pricing_plans")
+      .select("*")
+      .eq("is_visible", true)
+      .eq("is_custom", true);
+
+    if (customDbPlans && customDbPlans.length > 0) {
+      const limitT = await getTranslations({ locale, namespace: "adminBillingPlansPage" });
+
+      for (const dbPlan of customDbPlans) {
+        // Vyber lokalizovaný název podle locale
+        let localizedName = dbPlan.name;
+        if (locale === "en" && dbPlan.name_en) localizedName = dbPlan.name_en;
+        else if (locale === "uk" && dbPlan.name_uk) localizedName = dbPlan.name_uk;
+
+        // Vyber lokalizovaný popisek podle locale
+        let localizedDesc = dbPlan.description || "";
+        if (locale === "en" && dbPlan.description_en) localizedDesc = dbPlan.description_en;
+        else if (locale === "uk" && dbPlan.description_uk) localizedDesc = dbPlan.description_uk;
+
+        // Vyber lokalizovaný badge text podle locale
+        let localizedBadge = dbPlan.badge_text || "";
+        if (locale === "en" && dbPlan.badge_text_en) localizedBadge = dbPlan.badge_text_en;
+        else if (locale === "uk" && dbPlan.badge_text_uk) localizedBadge = dbPlan.badge_text_uk;
+
+        plans.push({
+          id: dbPlan.id,
+          name: localizedName,
+          description: localizedDesc,
+          priceCzk: dbPlan.price_czk / 100,
+          priceEur: dbPlan.price_eur / 100,
+          priceUsd: dbPlan.price_usd / 100,
+          features: [
+            { label: t("pricing.accounts"), value: dbPlan.max_accounts === -1 ? "∞" : String(dbPlan.max_accounts) },
+            { label: t("pricing.postsPerMonth"), value: dbPlan.max_posts_per_month === null ? t("pricing.unlimited") : String(dbPlan.max_posts_per_month) },
+            { label: t("pricing.aiImages"), value: String(dbPlan.ai_credits) },
+            { label: t("pricing.xAutoPosts"), value: String(dbPlan.twitter_credits) },
+          ],
+          isRecommended: dbPlan.is_recommended || false,
+          badgeText: localizedBadge,
+          badgeColor: dbPlan.badge_color || "#6366F1",
+          ctaLabel: t("pricing.ctaPaid"),
+        });
+      }
+    }
+  } catch {
+    // DB nedostupná – zobraz pouze základní plány
+  }
 
   return (
     <section

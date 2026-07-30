@@ -57,7 +57,7 @@ CÍL: Převést správu tarifů do databáze a Admin panelu, ale zajistit, aby n
 - [x] **KROK 9: Vlastní editovatelné plány** – Tlačítko "+", plná editace včetně názvu, archivace skrytých plánů.
 - [x] **KROK 10: AI překlad názvů vlastních plánů** – Google AI API pro automatický překlad názvu do en/uk.
 - [x] **KROK 11: Limity pro omezené akce** – `max_subscriptions` a `current_subscriptions` pro limitované nabídky.
-- [ ] **KROK 12: Stripe Sync** – Při uložení nové ceny v Adminu automaticky vytvoř novou cenu ve Stripe.
+- [x] **KROK 12: Stripe Sync** – Při uložení nové ceny v Adminu automaticky vytvoř novou cenu ve Stripe.
 
 ---
 

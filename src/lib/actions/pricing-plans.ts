@@ -8,6 +8,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
+import { stripe } from "@/lib/stripe";
 
 type PricingPlan = Database["public"]["Tables"]["pricing_plans"]["Row"];
 type PricingPlanInsert = Database["public"]["Tables"]["pricing_plans"]["Insert"];
@@ -100,6 +101,20 @@ export async function updatePricingPlan(
   revalidatePath("/settings/billing");
   revalidatePath("/");
   revalidatePath("/", "layout");
+  
+  // Stripe sync – vytvoř/aktualizuj ceny ve Stripe
+  const { data: updatedPlan } = await supabase
+    .from("pricing_plans")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (updatedPlan && updatedPlan.price_czk > 0) {
+    const syncResult = await syncStripePrices(updatedPlan);
+    if (!syncResult.success) {
+      console.error("Stripe sync failed:", syncResult.error);
+    }
+  }
+  
   return { success: true };
 }
 
@@ -128,6 +143,15 @@ export async function createPricingPlan(
   revalidatePath("/admin/billing/plans");
   revalidatePath("/");
   revalidatePath("/", "layout");
+  
+  // Stripe sync – vytvoř ceny ve Stripe pro nový plán
+  if (data && data.price_czk > 0) {
+    const syncResult = await syncStripePrices(data);
+    if (!syncResult.success) {
+      console.error("Stripe sync failed:", syncResult.error);
+    }
+  }
+  
   return { success: true, data };
 }
 
@@ -345,4 +369,80 @@ Name: "${name}"`;
       error: "Translation failed",
     };
   }
+}
+
+/**
+ * Stripe Sync – Vytvoří/aktualizuje Stripe ceny pro daný plán
+ * Volá se automaticky při uložení ceny v Adminu.
+ * Lookup key format: postio_{type}_monthly_{currency}
+ */
+async function syncStripePrices(
+  plan: PricingPlan
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = createAdminClient();
+  const currencies = [
+    { field: "stripe_price_id_czk" as const, code: "czk" as const, amount: plan.price_czk },
+    { field: "stripe_price_id_eur" as const, code: "eur" as const, amount: plan.price_eur },
+    { field: "stripe_price_id_usd" as const, code: "usd" as const, amount: plan.price_usd },
+  ];
+
+  for (const { field, code, amount } of currencies) {
+    // Skip free plans (price = 0)
+    if (!amount || amount <= 0) continue;
+
+    const lookupKey = `postio_${plan.type}_monthly_${code}`;
+
+    try {
+      // 1. Deactivate old price if it exists and differs
+      const oldPriceId = plan[field as keyof PricingPlan] as string | null;
+      if (oldPriceId) {
+        try {
+          await stripe.prices.update(oldPriceId, { active: false });
+        } catch {
+          // Old price might not exist anymore – ignore
+        }
+      }
+
+      // 2. Deactivate any existing prices with the same lookup_key
+      const existingPrices = await stripe.prices.list({
+        lookup_keys: [lookupKey],
+        active: true,
+        limit: 10,
+      });
+      for (const ep of existingPrices.data) {
+        if (ep.id !== oldPriceId) {
+          await stripe.prices.update(ep.id, { active: false });
+        }
+      }
+
+      // 3. Create the new price
+      const newPrice = await stripe.prices.create({
+        unit_amount: amount,
+        currency: code,
+        product_data: {
+          name: `Postio ${plan.type.charAt(0).toUpperCase() + plan.type.slice(1)}`,
+
+        },
+        recurring: { interval: "month" },
+        lookup_key: lookupKey,
+        metadata: {
+          plan_type: plan.type,
+          plan_name: plan.name,
+        },
+      });
+
+      // 4. Update DB with new Stripe Price ID
+      await supabase
+        .from("pricing_plans")
+        .update({ [field]: newPrice.id })
+        .eq("id", plan.id);
+
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`Stripe sync error for ${lookupKey}:`, msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  return { success: true };
 }

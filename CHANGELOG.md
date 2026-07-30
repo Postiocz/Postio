@@ -4,6 +4,15 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 054 – Stripe Sync vlastních plánů (Kroky 1-3) ✅
+
+- **Kontext**: Sync engine používal jednotný lookup_key formát pro všechny plány, což by způsobilo kolizi u vlastních (custom) plánů.
+- **Změny**:
+  - ✅ Krok 1 – Unikátní lookup_keys: Master šablony `postio_{type}_monthly_{currency}`, custom plány `plan_{id}_{currency}`.
+  - ✅ Krok 2 – Sync logika: Custom plány neprohledávají Stripe podle lookup_key (žádná kolize), pouze deaktivují starou cenu podle DB.
+  - ✅ Krok 3 – Chytrá checkout routa: `/api/stripe/checkout` přijímá buď "creator"/"pro" (master, lookup_key) nebo UUID (custom, stripe_price_id z DB).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test checkoutu s UUID vlastního plánu potvrzen.
+
 ### 🚀 Prompt 048 – Dynamické plány s ochranou výchozích hodnot (KROK 1-7) ✅
 
 - **Kontext**: Převod správy tarifů do databáze s ochranou původních hodnot jako nedotknutelného základu.
@@ -108,29 +117,3 @@
   - ✅ i18n (cs/en/uk): Nový klíč `sandboxDisabledTooltip` v namespace `accounts`.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 
-### 🚀 Prompt 044 – KROK 5: SEO a OpenGraph Finalizace ✅
-
-- **Kontext**: OpenGraph metadata byla jen v češtině a chyběla lokalizace pro en/uk.
-- **Změny**:
-  - ✅ `src/app/[locale]/layout.tsx`: Přidána `generateMetadata` s lokalizovaným OpenGraph/Twitter title, description a obrazkem (`hero-mockup_{locale}.png`).
-  - ✅ `src/app/layout.tsx`: Odstraněna tvrdě kódovaná OG metadata (přesunuta do locale layoutu).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
-
-### 🚀 Prompt 044 – KROK 1: Produkční UI a hlášky ✅
-
-- **Kontext**: V překladech se vyskytovaly technické názvy ("Sandbox") a duplicitní záznamy.
-- **Změny**:
-  - ✅ Přejmenován klíč `tiktokSandboxPrivateOnlyError` → `tiktokUnauditedPrivateOnlyError` (cs/en/uk).
-  - ✅ Odstraněny duplicitní TikTok bloky v `cs.json`, `en.json`, `uk.json`.
-  - ✅ Aktualizovány reference ve 3 komponentách (edit-post-dialog, posts/new, posts/[id]).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).
-
-### 🚀 Prompt 044 – KROK 3: Admin System Check ✅
-
-- **Kontext**: Před ostrým startem chyběl přehledný dashboard pro kontrolu stavu API připojení (Stripe, OpenAI, TikTok atd.).
-- **Změny**:
-  - ✅ `src/modules/admin-core/actions.ts`: Nová funkce `getSystemStatus()` kontrolující všech 9 API služeb.
-  - ✅ `src/app/[locale]/(admin)/admin/system-check/page.tsx`: Nová stránka `/admin/system-check` s přehledem "Připojeno/Nepřipojeno" a vizuálními indikátory.
-  - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Přidán odkaz "System Check" do admin navigace.
-  - ✅ i18n (cs/en/uk): Nový namespace `adminSystemCheckPage` se všemi překlady.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb).

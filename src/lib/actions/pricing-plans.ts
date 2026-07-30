@@ -374,7 +374,9 @@ Name: "${name}"`;
 /**
  * Stripe Sync – Vytvoří/aktualizuje Stripe ceny pro daný plán
  * Volá se automaticky při uložení ceny v Adminu.
- * Lookup key format: postio_{type}_monthly_{currency}
+ * Lookup key formats:
+ *   Master templates: postio_{type}_monthly_{currency}
+ *   Custom plans:     plan_{id}_{currency}
  */
 async function syncStripePrices(
   plan: PricingPlan
@@ -390,28 +392,35 @@ async function syncStripePrices(
     // Skip free plans (price = 0)
     if (!amount || amount <= 0) continue;
 
-    const lookupKey = `postio_${plan.type}_monthly_${code}`;
+    const lookupKey = plan.is_master_template
+      ? `postio_${plan.type}_monthly_${code}`
+      : `plan_${plan.id}_${code}`;
 
     try {
-      // 1. Deactivate old price if it exists and differs
+      // 1. Deactivate old price if it exists (from our DB record)
       const oldPriceId = plan[field as keyof PricingPlan] as string | null;
       if (oldPriceId) {
         try {
           await stripe.prices.update(oldPriceId, { active: false });
         } catch {
-          // Old price might not exist anymore – ignore
+          // Old price might not exist anymore in Stripe – ignore
         }
       }
 
-      // 2. Deactivate any existing prices with the same lookup_key
-      const existingPrices = await stripe.prices.list({
-        lookup_keys: [lookupKey],
-        active: true,
-        limit: 10,
-      });
-      for (const ep of existingPrices.data) {
-        if (ep.id !== oldPriceId) {
-          await stripe.prices.update(ep.id, { active: false });
+      // 2. For master templates: deactivate any other active prices sharing
+      //    the same lookup_key (ensures only one active price per type+currency).
+      //    For custom plans: skip this – each custom plan has a unique lookup_key
+      //    (plan_{id}_{currency}), so no collision is possible with other plans.
+      if (plan.is_master_template) {
+        const existingPrices = await stripe.prices.list({
+          lookup_keys: [lookupKey],
+          active: true,
+          limit: 10,
+        });
+        for (const ep of existingPrices.data) {
+          if (ep.id !== oldPriceId) {
+            await stripe.prices.update(ep.id, { active: false });
+          }
         }
       }
 

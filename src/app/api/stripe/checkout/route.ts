@@ -3,9 +3,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import type { Currency } from "@/components/marketing/currency-switcher";
 
-// Each plan+currency pair maps to its own Stripe Lookup Key, e.g.
-// "postio_creator_monthly_eur". This keeps one price per currency and avoids
-// currency_options on a single price.
+// Master plan lookup keys: postio_{type}_monthly_{currency}
 function lookupKeyFor(plan: string, currency: Currency): string {
   return `postio_${plan}_monthly_${currency}`;
 }
@@ -28,24 +26,70 @@ export async function POST(request: NextRequest) {
       ? body.currency
       : "eur";
 
-    if (!plan || !["creator", "pro"].includes(plan)) {
+    if (!plan) {
       return NextResponse.json(
-        { error: "Invalid plan. Must be 'creator' or 'pro'." },
+        { error: "Missing plan parameter." },
         { status: 400 }
       );
     }
 
-    const lookupKey = lookupKeyFor(plan, currency);
-    const prices = await stripe.prices.list({
-      lookup_keys: [lookupKey],
-      active: true,
-    });
-    const targetPrice = prices.data[0];
-    if (!targetPrice) {
-      return NextResponse.json(
-        { error: `No active price for plan '${plan}' in currency '${currency}'.` },
-        { status: 500 }
-      );
+    // Determine whether the request is for a master or a custom plan.
+    // Master plans use their string type ("creator", "pro") with a lookup_key.
+    // Custom plans are referenced by their UUID and use the stored Stripe Price ID.
+    const isMasterPlan = ["creator", "pro"].includes(plan);
+    let targetPriceId: string;
+    let resolvedPlanLabel: string;
+
+    if (isMasterPlan) {
+      // ── Master template ─────────────────────────────────────────────
+      const lookupKey = lookupKeyFor(plan, currency);
+      const prices = await stripe.prices.list({
+        lookup_keys: [lookupKey],
+        active: true,
+      });
+      const targetPrice = prices.data[0];
+      if (!targetPrice) {
+        return NextResponse.json(
+          {
+            error: `No active price for plan '${plan}' in currency '${currency}'.`,
+          },
+          { status: 500 }
+        );
+      }
+      targetPriceId = targetPrice.id;
+      resolvedPlanLabel = plan;
+    } else {
+      // ── Custom plan – fetch from DB by UUID ─────────────────────────
+      const adminClient = createAdminClient();
+      const { data: customPlan, error: planError } = await adminClient
+        .from("pricing_plans")
+        .select(
+          "id, type, name, stripe_price_id_czk, stripe_price_id_eur, stripe_price_id_usd"
+        )
+        .eq("id", plan)
+        .single();
+
+      if (planError || !customPlan) {
+        return NextResponse.json(
+          { error: `Plan '${plan}' not found.` },
+          { status: 404 }
+        );
+      }
+
+      const priceField = `stripe_price_id_${currency}` as const;
+      const rawPriceId = customPlan[priceField as keyof typeof customPlan];
+
+      if (!rawPriceId || typeof rawPriceId !== "string") {
+        return NextResponse.json(
+          {
+            error: `No Stripe price for plan '${customPlan.name}' in currency '${currency}'.`,
+          },
+          { status: 500 }
+        );
+      }
+
+      targetPriceId = rawPriceId;
+      resolvedPlanLabel = customPlan.name;
     }
 
     // Get or create Stripe customer
@@ -91,10 +135,10 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
-      line_items: [{ price: targetPrice.id, quantity: 1 }],
+      line_items: [{ price: targetPriceId, quantity: 1 }],
       success_url: `${origin}/${locale}/settings/billing?success=true`,
       cancel_url: `${origin}/${locale}/settings/billing?canceled=true`,
-      metadata: { user_id: user.id, plan },
+      metadata: { user_id: user.id, plan: resolvedPlanLabel },
     });
 
     return NextResponse.json({ url: session.url });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check, Crown, Sparkles, Zap } from "lucide-react";
+import { CountdownTimer } from "@/components/marketing/countdown-timer";
 import { Reveal } from "@/components/marketing/reveal";
 import { CurrencySwitcher, type Currency } from "@/components/marketing/currency-switcher";
 import { formatPrice, getDefaultCurrency } from "@/lib/pricing";
@@ -20,6 +21,7 @@ interface ClientPlan {
   ctaLabel: string;
   badgeText?: string;
   badgeColor?: string;
+  activeUntil?: string;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -75,6 +77,11 @@ export function PricingClient({
                       <Check className="h-3 w-3" />
                       {plan.badgeText || texts.recommended}
                     </span>
+                  </div>
+                )}
+                {plan.activeUntil && (
+                  <div className="absolute -top-3 right-4">
+                    <CountdownTimer targetDate={plan.activeUntil} />
                   </div>
                 )}
 

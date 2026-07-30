@@ -23,6 +23,7 @@ interface Plan {
   ctaLabel: string;
   badgeText?: string;
   badgeColor?: string;
+  activeUntil?: string;
 }
 
 export async function PricingSection({ locale }: { locale: string }) {
@@ -98,9 +99,15 @@ export async function PricingSection({ locale }: { locale: string }) {
       .eq("is_custom", true);
 
     if (customDbPlans && customDbPlans.length > 0) {
-      const limitT = await getTranslations({ locale, namespace: "adminBillingPlansPage" });
+      const now = new Date();
 
       for (const dbPlan of customDbPlans) {
+        // Filtr viditelnosti pro časově omezené plány
+        // Pokud je nastaveno časové okno, plán se zobrazí jen v jeho rozsahu
+        if (dbPlan.active_from && new Date(dbPlan.active_from) > now) continue; // Ještě nezačalo
+        if (dbPlan.active_until && new Date(dbPlan.active_until) < now) continue; // Už skončilo
+        // Pokud není časové okno, ale je promo, musí být is_public = true
+        if (dbPlan.is_promo && !dbPlan.is_public) continue;
         // Vyber lokalizovaný název podle locale
         let localizedName = dbPlan.name;
         if (locale === "en" && dbPlan.name_en) localizedName = dbPlan.name_en;
@@ -132,6 +139,7 @@ export async function PricingSection({ locale }: { locale: string }) {
           isRecommended: dbPlan.is_recommended || false,
           badgeText: localizedBadge,
           badgeColor: dbPlan.badge_color || "#6366F1",
+          activeUntil: dbPlan.active_until || undefined,
           ctaLabel: t("pricing.ctaPaid"),
         });
       }

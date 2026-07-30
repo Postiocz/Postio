@@ -1055,9 +1055,24 @@
       "openMenu": "Відкрити меню",
       "closeMenu": "Закрити меню",
       "features": "Функції",
+      "pricing": "Ціни",
+      "flashSale": {
+      "countdownEnds": "Закінчується через {time}",
+      "countdownDays": "{days}д {hours}г",
+      "countdownHours": "{hours}:{minutes}:{seconds}",
+      "offerEnded": "Акція закінчилася",
+      "flashSale": "Блискавична акція"
+    },
       "pricing": "Тарифи",
       "faq": "FAQ",
       "login": "Увійти"
+    },
+    "flashSale": {
+      "countdownEnds": "Закінчується через {time}",
+      "countdownDays": "{days}д {hours}г",
+      "countdownHours": "{hours}:{minutes}:{seconds}",
+      "offerEnded": "Акція закінчилася",
+      "flashSale": "Блискавична акція"
     },
     "hero": {
       "title": "Плануй і публікуй дописи у всіх мережах",
@@ -1159,6 +1174,7 @@
     "appTitle": "Застосунок",
     "product": {
       "features": "Функції",
+      "pricing": "Ціни",
       "pricing": "Ціни"
     },
     "support": {

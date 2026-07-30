@@ -1,4 +1,11 @@
+/**
+ * Billing Page – Fakturace
+ * Zobrazuje master plány z DB + aktuální promo plán uživatele (pokud existuje)
+ * Žádné jiné promo/bleskové akce se zde nezobrazují (izolace)
+ */
+
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { BillingClient } from "./billing-client";
 import { ManageSubscriptionButton } from "@/components/billing/manage-subscription-button";
@@ -12,95 +19,218 @@ export default async function BillingPage({
   const t = await getTranslations({ locale, namespace: "billing" });
   const dashboardT = await getTranslations({ locale, namespace: "dashboard" });
 
-  let currentPlan = "free";
+  // Načti uživatele
+  let userPlan = "free";
   let stripeCustomerId: string | null = null;
+  let currentPlanInstanceId: string | null = null;
 
   try {
     const supabase = await createClient();
     const { data: userData } = await supabase
       .from("users")
-      .select("plan, stripe_customer_id")
+      .select("plan, stripe_customer_id, current_plan_instance_id")
       .single();
 
-    currentPlan = userData?.plan ?? "free";
+    userPlan = userData?.plan ?? "free";
     stripeCustomerId = userData?.stripe_customer_id ?? null;
+    currentPlanInstanceId = userData?.current_plan_instance_id ?? null;
   } catch {
     // Supabase unavailable
   }
 
-  const plans = [
-    {
-      id: "free" as const,
-      name: t("free"),
-      description: t("freeDesc"),
-      priceCzk: 0,
-      priceEur: 0,
-      priceUsd: 0,
-      accounts: "1",
-      postsPerMonth: "10",
-      templates: t("basic"),
-      analytics: t("basic"),
-      support: "Community",
-      features: [
-        { label: dashboardT("socialAccounts"), value: "1" },
-        { label: dashboardT("postsPerMonth"), value: "10" },
-        { label: dashboardT("templates"), value: t("basic") },
-        { label: dashboardT("analytics"), value: t("basic") },
-        { label: dashboardT("aiImages"), value: "0" },
-        { label: dashboardT("xAutoPosts"), value: "0" },
-      ],
-      isCurrent: currentPlan === "free",
-      isRecommended: false,
-    },
-    {
-      id: "creator" as const,
-      name: t("creator"),
-      description: t("creatorDesc"),
-      priceCzk: 199,
-      priceEur: 8,
-      priceUsd: 9,
-      accounts: "5",
-      postsPerMonth: t("unlimited"),
-      templates: t("advanced"),
-      analytics: t("advanced"),
-      support: t("priority"),
-      features: [
-        { label: dashboardT("socialAccounts"), value: "5" },
-        { label: dashboardT("postsPerMonth"), value: t("unlimited") },
-        { label: dashboardT("templates"), value: t("advanced") },
-        { label: dashboardT("analytics"), value: t("advanced") },
-        { label: dashboardT("prioritySupport"), value: t("priority") },
-        { label: dashboardT("aiImages"), value: "10" },
-        { label: dashboardT("xAutoPosts"), value: "10" },
-      ],
-      isCurrent: currentPlan === "creator",
-      isRecommended: true,
-    },
-    {
-      id: "pro" as const,
-      name: t("pro"),
-      description: t("proDesc"),
-      priceCzk: 499,
-      priceEur: 20,
-      priceUsd: 22,
-      accounts: "∞",
-      postsPerMonth: t("unlimited"),
-      templates: t("unlimited"),
-      analytics: t("advanced"),
-      support: t("priority"),
-      features: [
-        { label: dashboardT("socialAccounts"), value: "∞" },
-        { label: dashboardT("postsPerMonth"), value: t("unlimited") },
-        { label: dashboardT("templates"), value: t("unlimited") },
-        { label: dashboardT("analytics"), value: t("advanced") },
-        { label: dashboardT("prioritySupport"), value: t("priority") },
-        { label: dashboardT("aiImages"), value: "50" },
-        { label: dashboardT("xAutoPosts"), value: "50" },
-      ],
-      isCurrent: currentPlan === "pro",
-      isRecommended: false,
-    },
-  ];
+  // Načti master templates z DB
+  const plans: {
+    id: string;
+    name: string;
+    description: string;
+    priceCzk: number;
+    priceEur: number;
+    priceUsd: number;
+    accounts: string;
+    postsPerMonth: string;
+    templates: string;
+    analytics: string;
+    support: string;
+    features: { label: string; value: string }[];
+    isCurrent: boolean;
+    isRecommended: boolean;
+  }[] = [];
+
+  try {
+    const supabase = createAdminClient();
+
+    // 1. Načti master templates (free, creator, pro)
+    const { data: masters } = await supabase
+      .from("pricing_plans")
+      .select("*")
+      .eq("is_master_template", true)
+      .order("type", { ascending: true });
+
+    if (masters) {
+      for (const master of masters) {
+        let localizedName = master.name;
+        if (locale === "en" && master.name_en) localizedName = master.name_en;
+        else if (locale === "uk" && master.name_uk) localizedName = master.name_uk;
+
+        const planType = master.type;
+        const planId = `plan_${planType}`;
+
+        plans.push({
+          id: planId,
+          name: localizedName,
+          description: "",
+          priceCzk: master.price_czk / 100,
+          priceEur: master.price_eur / 100,
+          priceUsd: master.price_usd / 100,
+          accounts: master.max_accounts === -1 ? "∞" : String(master.max_accounts),
+          postsPerMonth: master.max_posts_per_month === null
+            ? t("unlimited")
+            : String(master.max_posts_per_month),
+          templates: planType === "pro" ? t("unlimited") : planType === "free" ? t("basic") : t("advanced"),
+          analytics: planType === "free" ? t("basic") : t("advanced"),
+          support: planType === "free" ? "Community" : t("priority"),
+          features: [
+            { label: dashboardT("socialAccounts"), value: master.max_accounts === -1 ? "∞" : String(master.max_accounts) },
+            { label: dashboardT("postsPerMonth"), value: master.max_posts_per_month === null ? t("unlimited") : String(master.max_posts_per_month) },
+            { label: dashboardT("templates"), value: planType === "pro" ? t("unlimited") : planType === "free" ? t("basic") : t("advanced") },
+            { label: dashboardT("analytics"), value: planType === "free" ? t("basic") : t("advanced") },
+            {
+              label: dashboardT("prioritySupport"),
+              value: planType === "free" ? "Community" : t("priority"),
+            },
+            { label: dashboardT("aiImages"), value: String(master.ai_credits) },
+            { label: dashboardT("xAutoPosts"), value: String(master.twitter_credits) },
+          ],
+          isCurrent: userPlan === planType || master.id === currentPlanInstanceId,
+          isRecommended: planType === "creator",
+        });
+      }
+    }
+
+    // 2. Pokud má uživatel aktivní promo/akční plán (current_plan_instance_id)
+    //    který není master template, načti ho samostatně
+    if (currentPlanInstanceId) {
+      const { data: promoPlan } = await supabase
+        .from("pricing_plans")
+        .select("*")
+        .eq("id", currentPlanInstanceId)
+        .eq("is_master_template", false)
+        .single();
+
+      if (promoPlan) {
+        let localizedName = promoPlan.name;
+        if (locale === "en" && promoPlan.name_en) localizedName = promoPlan.name_en;
+        else if (locale === "uk" && promoPlan.name_uk) localizedName = promoPlan.name_uk;
+
+        let localizedDesc = promoPlan.description || "";
+        if (locale === "en" && promoPlan.description_en) localizedDesc = promoPlan.description_en;
+        else if (locale === "uk" && promoPlan.description_uk) localizedDesc = promoPlan.description_uk;
+
+        plans.push({
+          id: promoPlan.id,
+          name: localizedName,
+          description: localizedDesc,
+          priceCzk: promoPlan.price_czk / 100,
+          priceEur: promoPlan.price_eur / 100,
+          priceUsd: promoPlan.price_usd / 100,
+          accounts: promoPlan.max_accounts === -1 ? "∞" : String(promoPlan.max_accounts),
+          postsPerMonth: promoPlan.max_posts_per_month === null
+            ? t("unlimited")
+            : String(promoPlan.max_posts_per_month),
+          templates: t("basic"),
+          analytics: t("basic"),
+          support: t("priority"),
+          features: [
+            { label: dashboardT("socialAccounts"), value: promoPlan.max_accounts === -1 ? "∞" : String(promoPlan.max_accounts) },
+            { label: dashboardT("postsPerMonth"), value: promoPlan.max_posts_per_month === null ? t("unlimited") : String(promoPlan.max_posts_per_month) },
+            { label: dashboardT("aiImages"), value: String(promoPlan.ai_credits) },
+            { label: dashboardT("xAutoPosts"), value: String(promoPlan.twitter_credits) },
+          ],
+          isCurrent: true,
+          isRecommended: false,
+        });
+      }
+    }
+  } catch {
+    // DB unavailable – fallback na hardcoded
+  }
+
+  // Fallback: pokud se DB nepodařilo načíst, použij základní hardcoded plány
+  if (plans.length === 0) {
+    plans.push(
+      {
+        id: "free",
+        name: t("free"),
+        description: t("freeDesc"),
+        priceCzk: 0,
+        priceEur: 0,
+        priceUsd: 0,
+        accounts: "1",
+        postsPerMonth: "10",
+        templates: t("basic"),
+        analytics: t("basic"),
+        support: "Community",
+        features: [
+          { label: dashboardT("socialAccounts"), value: "1" },
+          { label: dashboardT("postsPerMonth"), value: "10" },
+          { label: dashboardT("templates"), value: t("basic") },
+          { label: dashboardT("analytics"), value: t("basic") },
+          { label: dashboardT("aiImages"), value: "0" },
+          { label: dashboardT("xAutoPosts"), value: "0" },
+        ],
+        isCurrent: userPlan === "free",
+        isRecommended: false,
+      },
+      {
+        id: "creator",
+        name: t("creator"),
+        description: t("creatorDesc"),
+        priceCzk: 199,
+        priceEur: 8,
+        priceUsd: 9,
+        accounts: "5",
+        postsPerMonth: t("unlimited"),
+        templates: t("advanced"),
+        analytics: t("advanced"),
+        support: t("priority"),
+        features: [
+          { label: dashboardT("socialAccounts"), value: "5" },
+          { label: dashboardT("postsPerMonth"), value: t("unlimited") },
+          { label: dashboardT("templates"), value: t("advanced") },
+          { label: dashboardT("analytics"), value: t("advanced") },
+          { label: dashboardT("prioritySupport"), value: t("priority") },
+          { label: dashboardT("aiImages"), value: "10" },
+          { label: dashboardT("xAutoPosts"), value: "10" },
+        ],
+        isCurrent: userPlan === "creator",
+        isRecommended: true,
+      },
+      {
+        id: "pro",
+        name: t("pro"),
+        description: t("proDesc"),
+        priceCzk: 499,
+        priceEur: 20,
+        priceUsd: 22,
+        accounts: "∞",
+        postsPerMonth: t("unlimited"),
+        templates: t("unlimited"),
+        analytics: t("advanced"),
+        support: t("priority"),
+        features: [
+          { label: dashboardT("socialAccounts"), value: "∞" },
+          { label: dashboardT("postsPerMonth"), value: t("unlimited") },
+          { label: dashboardT("templates"), value: t("unlimited") },
+          { label: dashboardT("analytics"), value: t("advanced") },
+          { label: dashboardT("prioritySupport"), value: t("priority") },
+          { label: dashboardT("aiImages"), value: "50" },
+          { label: dashboardT("xAutoPosts"), value: "50" },
+        ],
+        isCurrent: userPlan === "pro",
+        isRecommended: false,
+      }
+    );
+  }
 
   return (
     <div className="space-y-6">

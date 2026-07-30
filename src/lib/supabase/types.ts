@@ -34,6 +34,7 @@ export interface Database {
           trial_ends_at: string | null
           role: 'user' | 'admin'
           ai_credits: number
+          current_plan_instance_id: string | null
           twitter_auto_credits: number
           created_at: string
         }
@@ -78,6 +79,7 @@ export interface Database {
           trial_ends_at?: string | null
           role?: 'user' | 'admin'
           ai_credits?: number
+          current_plan_instance_id?: string | null
           twitter_auto_credits?: number
           created_at?: string
         }
@@ -430,6 +432,10 @@ export interface Database {
           badge_text_uk: string | null
           is_recommended: boolean
           badge_color: string
+          active_from: string | null
+          active_until: string | null
+          is_public: boolean
+          is_promo: boolean
           created_at: string
           updated_at: string
         }
@@ -463,6 +469,10 @@ export interface Database {
           badge_text_uk?: string | null
           is_recommended?: boolean
           badge_color?: string
+          active_from?: string | null
+          active_until?: string | null
+          is_public?: boolean
+          is_promo?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -496,6 +506,10 @@ export interface Database {
           badge_text_uk?: string | null
           is_recommended?: boolean
           badge_color?: string
+          active_from?: string | null
+          active_until?: string | null
+          is_public?: boolean
+          is_promo?: boolean
           created_at?: string
           updated_at?: string
         }

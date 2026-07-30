@@ -79,6 +79,10 @@ export function PricingPlansClient({
     badge_text: "",
     is_recommended: false,
     badge_color: "#6366F1",
+    active_from: "",
+    active_until: "",
+    is_public: false,
+    is_promo: false,
     price_czk: 0,
     price_eur: 0,
     price_usd: 0,
@@ -96,6 +100,23 @@ export function PricingPlansClient({
     return plan.name;
   };
 
+  // Pomocné funkce pro datetime-local input (odstranění timezone shiftu)
+  const isoToLocalDatetime = (iso: string): string => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const hours = String(d.getHours()).padStart(2, "0");
+    const mins = String(d.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${mins}`;
+  };
+
+  const localDatetimeToIso = (local: string): string => {
+    if (!local) return "";
+    return new Date(local).toISOString();
+  };
+
   const openEdit = (plan: PricingPlan) => {
     setEditingPlan(plan);
     setFormData({
@@ -105,9 +126,13 @@ export function PricingPlansClient({
       badge_text: plan.badge_text || "",
       is_recommended: plan.is_recommended || false,
       badge_color: plan.badge_color || "#6366F1",
-      price_czk: plan.price_czk,
-      price_eur: plan.price_eur,
-      price_usd: plan.price_usd,
+      active_from: plan.active_from || "",
+      active_until: plan.active_until || "",
+      is_public: plan.is_public || false,
+      is_promo: plan.is_promo || false,
+      price_czk: Math.round(plan.price_czk / 100),
+      price_eur: Math.round(plan.price_eur / 100),
+      price_usd: Math.round(plan.price_usd / 100),
       ai_credits: plan.ai_credits,
       twitter_credits: plan.twitter_credits,
       max_accounts: plan.max_accounts,
@@ -131,6 +156,10 @@ export function PricingPlansClient({
       badge_text: "",
       is_recommended: false,
       badge_color: "#6366F1",
+      active_from: "",
+      active_until: "",
+      is_public: false,
+      is_promo: false,
       price_czk: 0,
       price_eur: 0,
       price_usd: 0,
@@ -152,9 +181,13 @@ export function PricingPlansClient({
       badge_text: formData.badge_text,
       is_recommended: formData.is_recommended,
       badge_color: formData.badge_color,
-      price_czk: formData.price_czk,
-      price_eur: formData.price_eur,
-      price_usd: formData.price_usd,
+      active_from: formData.active_from || null,
+      active_until: formData.active_until || null,
+      is_public: formData.is_promo ? formData.is_public : false,
+      is_promo: formData.is_promo,
+      price_czk: formData.price_czk * 100,
+      price_eur: formData.price_eur * 100,
+      price_usd: formData.price_usd * 100,
       ai_credits: formData.ai_credits,
       twitter_credits: formData.twitter_credits,
       max_accounts: formData.max_accounts,
@@ -198,9 +231,13 @@ export function PricingPlansClient({
       badge_text: formData.badge_text,
       is_recommended: formData.is_recommended,
       badge_color: formData.badge_color,
-      price_czk: formData.price_czk,
-      price_eur: formData.price_eur,
-      price_usd: formData.price_usd,
+      active_from: formData.active_from || null,
+      active_until: formData.active_until || null,
+      is_public: formData.is_promo ? formData.is_public : false,
+      is_promo: formData.is_promo,
+      price_czk: formData.price_czk * 100,
+      price_eur: formData.price_eur * 100,
+      price_usd: formData.price_usd * 100,
       ai_credits: formData.ai_credits,
       twitter_credits: formData.twitter_credits,
       max_accounts: formData.max_accounts,
@@ -558,6 +595,49 @@ export function PricingPlansClient({
                 ))}
               </div>
             </div>
+            <details className="group">
+              <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
+                🎯 Časové omezení (flash sale)
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
+                  <Switch
+                    checked={formData.is_promo}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_promo: checked })}
+                  />
+                </div>
+                {formData.is_promo && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-400">Veřejný web</label>
+                      <Switch
+                        checked={formData.is_public}
+                        onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-gray-400">Začátek akce</label>
+                      <Input
+                        type="datetime-local"
+                        value={isoToLocalDatetime(formData.active_from)}
+                        onChange={(e) => setFormData({ ...formData, active_from: localDatetimeToIso(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-gray-400">Konec akce</label>
+                      <Input
+                        type="datetime-local"
+                        value={isoToLocalDatetime(formData.active_until)}
+                        onChange={(e) => setFormData({ ...formData, active_until: localDatetimeToIso(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </details>
             <PlanInputs formData={formData} setFormData={setFormData} translations={translations} />
           </div>
           <DialogFooter className="flex flex-col gap-2 overflow-y-auto max-h-[300px]">
@@ -638,6 +718,49 @@ export function PricingPlansClient({
                 ))}
               </div>
             </div>
+            <details className="group">
+              <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
+                🎯 Časové omezení (flash sale)
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
+                  <Switch
+                    checked={formData.is_promo}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_promo: checked })}
+                  />
+                </div>
+                {formData.is_promo && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-400">Veřejný web</label>
+                      <Switch
+                        checked={formData.is_public}
+                        onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-gray-400">Začátek akce</label>
+                      <Input
+                        type="datetime-local"
+                        value={isoToLocalDatetime(formData.active_from)}
+                        onChange={(e) => setFormData({ ...formData, active_from: localDatetimeToIso(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-gray-400">Konec akce</label>
+                      <Input
+                        type="datetime-local"
+                        value={isoToLocalDatetime(formData.active_until)}
+                        onChange={(e) => setFormData({ ...formData, active_until: localDatetimeToIso(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </details>
             <PlanInputs formData={formData} setFormData={setFormData} translations={translations} />
           </div>
           <DialogFooter className="flex flex-col gap-2 overflow-y-auto max-h-[300px]">
@@ -730,6 +853,10 @@ const defaultFormData = {
   badge_text: "",
   is_recommended: false,
   badge_color: "#6366F1",
+  active_from: "",
+  active_until: "",
+  is_public: false,
+  is_promo: false,
   price_czk: 0,
   price_eur: 0,
   price_usd: 0,

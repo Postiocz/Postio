@@ -1055,8 +1055,16 @@
       "closeMenu": "Close menu",
       "features": "Features",
       "pricing": "Pricing",
+      "pricing": "Pricing",
       "faq": "FAQ",
       "login": "Sign in"
+    },
+    "flashSale": {
+      "countdownEnds": "Ends in {time}",
+      "countdownDays": "{days}d {hours}h",
+      "countdownHours": "{hours}:{minutes}:{seconds}",
+      "offerEnded": "Offer ended",
+      "flashSale": "Flash Sale"
     },
     "hero": {
       "title": "Plan and publish posts across every network",
@@ -1158,6 +1166,7 @@
     "appTitle": "App",
     "product": {
       "features": "Features",
+      "pricing": "Pricing",
       "pricing": "Pricing"
     },
     "support": {

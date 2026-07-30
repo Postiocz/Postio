@@ -1058,6 +1058,13 @@
       "faq": "FAQ",
       "login": "Přihlásit se"
     },
+    "flashSale": {
+      "countdownEnds": "Končí za {time}",
+      "countdownDays": "{days}d {hours}h",
+      "countdownHours": "{hours}:{minutes}:{seconds}",
+      "offerEnded": "Akce skončila",
+      "flashSale": "Blesková akce"
+    },
     "hero": {
       "title": "Plánuj a publikuj příspěvky na všech sítích",
       "subtitle": "Jednoduchý plánovač pro tvůrce obsahu. Ušetři čas a publikuj na sociální sítě najednou.",

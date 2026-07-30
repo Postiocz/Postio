@@ -42,51 +42,5 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### Prompt 048 – Dynamické plány s ochranou výchozích hodnot
 
-CÍL: Převést správu tarifů do databáze a Admin panelu, ale zajistit, aby naše původní nastavení (Free, Creator, Pro) zůstalo navždy uloženo jako nedotknutelný základ.
 
-- [x] **KROK 1: Hardcoded Backup** – Vytvořen soubor `src/lib/constants/original-plans.ts` s natvrdo zapsanými původními cenami a limity.
-- [x] **KROK 2: DB Schéma s verzováním** – Vytvořena tabulka `public.pricing_plans` s partial unique indexem pro ochranu master templates.
-- [x] **KROK 3: Inicializace dat** – Data z `original-plans.ts` přesunuta do DB, řádky označeny jako `is_master_template = true`.
-- [x] **KROK 4: Admin UI "Správa tarifů"** – Vytvořena stránka `/admin/billing/plans` s přehledem master templates a aktivních tarifů.
-- [x] **KROK 5: Tlačítko "Reset k základu"** – Implementována funkce pro reset aktivních tarifů k původním hodnotám z hardcoded backupu.
-- [x] **KROK 6: DB Rozšíření pro nové funkce** – Přidány sloupce: `is_visible`, `is_custom`, `max_subscriptions`, `current_subscriptions`, `name_en`, `name_uk`.
-- [x] **KROK 7: Reset k základu pro každý plán zvlášť** – Tlačítko Reset u každého tarifu samostatně.
-- [x] **KROK 8: Zobrazení/skrytí plánů** – Ikona oka pro každý tarif, přepínač `is_visible`.
-- [x] **KROK 9: Vlastní editovatelné plány** – Tlačítko "+", plná editace včetně názvu, archivace skrytých plánů.
-- [x] **KROK 10: AI překlad názvů vlastních plánů** – Google AI API pro automatický překlad názvu do en/uk.
-- [x] **KROK 11: Limity pro omezené akce** – `max_subscriptions` a `current_subscriptions` pro limitované nabídky.
-- [x] **KROK 12: Stripe Sync** – Při uložení nové ceny v Adminu automaticky vytvoř novou cenu ve Stripe.
-
----
-
-### Prompt 050 – Bleskové akce (Flash Sales) a časová izolace
-
-CÍL: Implementovat bleskové akce (Flash Sales), časovou platnost tarifů a jejich izolaci od stávajících uživatelů.
-
-- [ ] **KROK 1: Časové Schéma v DB** – Přidat do `pricing_plans` sloupce:
-  - `active_from` a `active_until` (TIMESTAMPTZ) – definuje okno, kdy je akce viditelná.
-  - `is_public` (boolean) – zda se má zobrazit na veřejném webu.
-  - `is_promo` (boolean) – příznak akční nabídky.
-  - Do `users` přidat `current_plan_instance_id` (FK na pricing_plans.id).
-- [ ] **KROK 2: Logika Viditelnosti (The Filter)** – Upravit dotaz pro Landing Page: Plán se zobrazí pouze tehdy, když: (`is_public = true` AND `now()` je mezi `active_from` a `active_until`). Tím umožníme i krátké "3hodinové" akce.
-- [ ] **KROK 3: Countdown Timer (UX)** – Vytvořit komponentu odpočtu (např. "Končí za 02:45:12"), která se zobrazí u plánů, které mají nastaveno `active_until` v blízké budoucnosti.
-- [ ] **KROK 4: Izolace v aplikaci (Fakturace)**:
-  - Uvnitř aplikace zobrazit pouze 3 základní "Master" plány.
-  - Výjimka: Pokud uživatel už má aktivní akční plán, uvidí ho v seznamu jako "Váš aktuální plán".
-- [ ] **KROK 5: Admin Ovládání** – Na stránku `/admin/billing/plans` přidat políčka pro nastavení data a času (od-do) pro každou akci.
-- [ ] **KROK 6: i18n** – Překlady pro odpočet času a hlášky o vypršení akce.
-
----
-
-### Prompt 051 – Vizuální a funkční upgrade editačního modálu
-
-CÍL: Umožnit kompletní editaci vizuálních prvků tarifu (popisky, odznaky, barvy) a opravit rozvržení ovládacích prvků v modálu.
-
-- [x] **KROK 1: DB rozšíření** – Přidány sloupce: `description`, `description_en`, `description_uk`, `badge_text`, `is_recommended`, `badge_color`.
-- [x] **KROK 2: Rozšíření polí v modálu** – Přidány inputy pro popisek, badge text, přepínač is_recommended, barevný výběr badge_color.
-- [x] **KROK 2a: Oprava Unicode escape** – Opraveny \uXXXX sekvence v placeholderech na správnou diakritiku.
-- [x] **KROK 2b: AI Překlady pro popisek a odznak** – Tlačítka "Přeložit do EN/UK" pro description i badge_text.
-- [x] **KROK 2c: Datová synchronizace na Landing Page** – Popisek, badge, is_recommended a badge_color se propsávají do ceníku.
-- [x] **KROK 4: Fix layout tlačítek** – Profesionální rozvržení spodní části modálu (Cancel/Save + překlady).

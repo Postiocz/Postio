@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useCallback } from "react";
 import { Check, Crown, Sparkles, Zap } from "lucide-react";
 import { CountdownTimer } from "@/components/marketing/countdown-timer";
 import { Reveal } from "@/components/marketing/reveal";
@@ -129,8 +128,15 @@ export function PricingClient({
                   ))}
                 </div>
 
-                <Link
-                  href={`/${locale}/login`}
+                <button
+                  onClick={() => {
+                    if (!isFree) {
+                      // Save plan ID for post-login checkout redirect (cookie shared across whole site)
+                      document.cookie = `postio_pending_plan_id=${plan.id}; path=/; max-age=1800; SameSite=Lax`;
+                    }
+                    // Use direct navigation to ensure cookie is set before leaving the page
+                    window.location.href = `/${locale}/login`;
+                  }}
                   className={cn(
                     "inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-sm font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]",
                     plan.isRecommended
@@ -139,7 +145,7 @@ export function PricingClient({
                   )}
                 >
                   {plan.ctaLabel}
-                </Link>
+                </button>
               </div>
             </Reveal>
           );

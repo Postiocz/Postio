@@ -5,6 +5,7 @@ import { FeedbackSidebarWrapper } from "@/components/dashboard/feedback-sidebar-
 import { FeedbackModal } from "@/components/feedback-modal";
 import { Logo } from "@/components/ui/logo";
 import SetupGuide from "@/components/dashboard/setup-guide";
+import { PendingPlanHandler } from "@/components/dashboard/pending-plan-handler";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -139,6 +140,7 @@ export default async function DashboardLayout({
         </div>
       </div>
       <SetupGuide locale={locale} />
+      <PendingPlanHandler />
       <MobileNavWrapper
         locale={locale}
         isAdmin={userRole === "admin"}

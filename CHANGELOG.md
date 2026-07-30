@@ -4,14 +4,14 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
-### 🚀 Prompt 054 – Stripe Sync vlastních plánů (Kroky 1-3) ✅
+### 🚀 Prompt 054/055 – Stripe Sync a nákupní paměť vlastních plánů ✅
 
-- **Kontext**: Sync engine používal jednotný lookup_key formát pro všechny plány, což by způsobilo kolizi u vlastních (custom) plánů.
+- **Kontext**: Vlastní plány potřebovaly nezávislé Stripe ceny a zachování záměru nákupu přes přihlášení, onboarding i vytvoření prvního příspěvku.
 - **Změny**:
-  - ✅ Krok 1 – Unikátní lookup_keys: Master šablony `postio_{type}_monthly_{currency}`, custom plány `plan_{id}_{currency}`.
-  - ✅ Krok 2 – Sync logika: Custom plány neprohledávají Stripe podle lookup_key (žádná kolize), pouze deaktivují starou cenu podle DB.
-  - ✅ Krok 3 – Chytrá checkout routa: `/api/stripe/checkout` přijímá buď "creator"/"pro" (master, lookup_key) nebo UUID (custom, stripe_price_id z DB).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test checkoutu s UUID vlastního plánu potvrzen.
+  - ✅ Kroky 1–2 – Unikátní lookup_keys (`plan_{id}_{currency}`) a izolovaná Stripe synchronizace vlastních plánů.
+  - ✅ Krok 3 – `/api/stripe/checkout` přijímá master typ i UUID vlastního plánu a načítá správnou Stripe cenu.
+  - ✅ Krok 4 – Landing Page ukládá vybraný tarif do cookie; `PendingPlanHandler` v dashboard layoutu po navigaci bezpečně obnoví nákup a přesměruje na Stripe.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test syncu, checkoutu UUID i nákupní paměti potvrzen.
 
 ### 🚀 Prompt 048 – Dynamické plány s ochranou výchozích hodnot (KROK 1-7) ✅
 

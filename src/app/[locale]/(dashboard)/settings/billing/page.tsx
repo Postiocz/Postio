@@ -67,6 +67,10 @@ export default async function BillingPage({
       .order("type", { ascending: true });
 
     if (masters) {
+      // Explicit sort: Free → Creator → Pro (not alphabetical)
+      const typeOrder: Record<string, number> = { free: 0, creator: 1, pro: 2 };
+      masters.sort((a, b) => (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99));
+
       for (const master of masters) {
         let localizedName = master.name;
         if (locale === "en" && master.name_en) localizedName = master.name_en;

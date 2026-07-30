@@ -90,16 +90,57 @@ export default function OnboardingPage() {
 
   // Step 3: Complete onboarding
   const handleComplete = async () => {
+    console.warn("🔥 DEBUG: handleComplete called!");
     setIsSubmitting(true);
+
+    // Read pending plan cookie BEFORE the API call — we want to know if it
+    // exists regardless of whether the onboarding PATCH succeeds or not.
+    const rawCookie = document.cookie;
+    console.warn("🔥 DEBUG: document.cookie =", rawCookie);
+    const pendingCookie = rawCookie
+      .split("; ")
+      .find((row) => row.startsWith("postio_pending_plan_id="));
+    console.warn("🔥 DEBUG: pendingCookie found =", !!pendingCookie);
+
     try {
       await fetch("/api/onboarding", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName }),
       });
+
+      // If a pending plan was stored before login, redirect to Stripe checkout
+      if (pendingCookie) {
+        const planId = pendingCookie.split("=")[1];
+        console.warn("🔥 DEBUG: Redirecting to Stripe for plan:", planId);
+
+        // Clear the cookie immediately (prevents re-trigger on return)
+        document.cookie =
+          "postio_pending_plan_id=; path=/; max-age=0; SameSite=Lax";
+
+        const checkoutRes = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            plan: planId,
+            locale,
+            currency: "eur",
+          }),
+        });
+
+        const checkoutData = await checkoutRes.json();
+        console.warn("🔥 DEBUG: Stripe checkout response:", checkoutData);
+
+        if (checkoutData.url) {
+          window.location.href = checkoutData.url;
+          return; // Navigate away to Stripe
+        }
+      }
+
+      // Default: go to dashboard
       router.push(`/${locale}/dashboard`);
     } catch {
-      // ignore, let user retry
+      // Network error — let user retry
     } finally {
       setIsSubmitting(false);
     }

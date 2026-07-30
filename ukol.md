@@ -65,7 +65,7 @@
       - Pro master: ponechat hledání ceny podle lookup_key (stávající logika)
       - Pro custom: načíst plán z DB podle UUID a použít uložené `stripe_price_id_*` pro danou měnu
 
-- [ ] **KROK 4: Implementace "Nákupní paměti" (Cookies)**
+- [✅] **KROK 4: Implementace "Nákupní paměti" (Cookies)**
       Zajistit, aby:
       - Při kliknutí na tarif (u nepřihlášeného uživatele) se ID plánu uložilo do cookies
       - Po dokončení onboardingu aplikace uživatele automaticky přesměrovala na checkout pro uložený plán

@@ -4,6 +4,18 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 057 – KROK 1 + fix promo/odpočtu ✅
+
+- **Kontext**: Stávající uživatelé viděli akční nabídky určené jen pro nové uživatele; navíc běžel odpočet i u ne-promo plánů se zbytkovým `active_until`.
+- **Změny**:
+  - ✅ Migrace `049_add_new_user_only.sql`: sloupec `is_new_user_only BOOLEAN DEFAULT false` + backfill (`is_promo = true` → `is_new_user_only = true`) + index.
+  - ✅ `src/lib/supabase/types.ts`: `is_new_user_only` přidáno do Row/Insert/Update.
+  - ✅ Landing page zobrazuje custom plány jen `is_public = true` (`pricing-section.tsx`).
+  - ✅ "Veřejný web" přepínač dostupný pro všechny custom plány v Adminu (ne jen promo).
+  - ✅ Odpočet se renderuje JEN pro promo plány (`plan.isPromo && plan.activeUntil`).
+  - ✅ Vypnutí promo v Adminu vymaže `active_from`/`active_until`.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Migrace spuštěna v Supabase, fix odpočtu test potvrzen.
+
 ### 🚀 Prompt 056 – KROK 1+2+3: Fix řazení plánů a UI varování ✅
 
 - **Kontext**: Fakturace zobrazovala plány přeházeně a konzole hlásila a11y + Recharts varování.
@@ -109,16 +121,5 @@
   - ✅ `src/lib/actions/publish-twitter.ts`: 6× `console.log`/`console.warn` → `logger`.
   - ✅ `src/lib/actions/publish-youtube.ts`: 2× `console.log` → `logger`.
   - ✅ `src/lib/actions/publish-tiktok.ts`: 2× `console.warn`/`console.log` → `logger`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 044-REVISED – KROK 2: Admin Credit Manager ✅
-
-- **Kontext**: Admin potřebuje manuálně spravovat kredity uživatelů (AI obrázky, X posty).
-- **Změny**:
-  - ✅ `src/modules/admin-core/actions.ts`: Nová funkce `updateUserCredits()` s zápisem do `audit_logs`.
-  - ✅ `src/app/[locale]/(admin)/admin/users/[id]/page.tsx`: UI sekce "Správa kreditů" s inputy a tlačítkem.
-  - ✅ `src/lib/supabase/types.ts`: Přidány typy `ai_credits` a `twitter_auto_credits`.
-  - ✅ `src/app/[locale]/(admin)/admin/settings/audit-log/page.tsx`: Podpora překladu pro akci `credits_updated`.
-  - ✅ i18n (cs/en/uk): Nové klíče `creditsManagement`, `aiCreditsLabel`, `twitterCreditsLabel`, `actionCreditsUpdated`.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 

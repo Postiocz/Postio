@@ -1,7 +1,9 @@
 /**
  * Billing Page – Fakturace
- * Zobrazuje master plány z DB (Free → Creator → Pro) + všechny viditelné
- * vlastní (custom) plány seřazené chronologicky podle created_at.
+ * Zobrazuje master plány (Free → Creator → Pro) + běžné viditelné custom plány
+ * (nikoli "new user only"). Pokud uživatel AKTIVNĚ používá promo plán, zobrazí
+ * se jako jeho aktuální. Žádné jiné promo nabídky pro nové uživatele se
+ * stávajícím uživatelům nezobrazují.
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -111,13 +113,17 @@ export default async function BillingPage({
       }
     }
 
-    // 2. Načti všechny vlastní (custom) plány – viditelné, seřazené
-    //    chronologicky podle created_at (nejstarší první)
+    // 2. Načti běžné vlastní (custom) plány – viditelné, NIKOLI promo akce.
+    //    Stávající uživatelé nesmí vidět nabídky pro nové uživatele.
+    //    Skrýváme plány, kde je `is_promo = true` NEBO `is_new_user_only = true`
+    //    (obě reprezentují promo určené jen pro nové zákazníky).
     const { data: customPlans } = await supabase
       .from("pricing_plans")
       .select("*")
       .eq("is_master_template", false)
       .eq("is_visible", true)
+      .eq("is_promo", false)
+      .eq("is_new_user_only", false)
       .order("created_at", { ascending: true });
 
     if (customPlans) {
@@ -151,6 +157,53 @@ export default async function BillingPage({
             { label: dashboardT("xAutoPosts"), value: String(customPlan.twitter_credits) },
           ],
           isCurrent: customPlan.id === currentPlanInstanceId,
+          isRecommended: false,
+        });
+      }
+    }
+
+    // 3. VÝJIMKA: Pokud uživatel AKTIVNĚ používá promo plán (current_plan_instance_id),
+    //    musí ho vidět jako svůj aktuální – i když je is_new_user_only.
+    if (currentPlanInstanceId) {
+      const { data: activePromo } = await supabase
+        .from("pricing_plans")
+        .select("*")
+        .eq("id", currentPlanInstanceId)
+        .eq("is_master_template", false)
+        .single();
+
+      // Zobraz jej, jen pokud ještě není v seznamu (např. běžný custom plán).
+      const alreadyListed = plans.some((p) => p.id === currentPlanInstanceId);
+      if (activePromo && !alreadyListed) {
+        let localizedName = activePromo.name;
+        if (locale === "en" && activePromo.name_en) localizedName = activePromo.name_en;
+        else if (locale === "uk" && activePromo.name_uk) localizedName = activePromo.name_uk;
+
+        let localizedDesc = activePromo.description || "";
+        if (locale === "en" && activePromo.description_en) localizedDesc = activePromo.description_en;
+        else if (locale === "uk" && activePromo.description_uk) localizedDesc = activePromo.description_uk;
+
+        plans.push({
+          id: activePromo.id,
+          name: localizedName,
+          description: localizedDesc,
+          priceCzk: activePromo.price_czk / 100,
+          priceEur: activePromo.price_eur / 100,
+          priceUsd: activePromo.price_usd / 100,
+          accounts: activePromo.max_accounts === -1 ? "∞" : String(activePromo.max_accounts),
+          postsPerMonth: activePromo.max_posts_per_month === null
+            ? t("unlimited")
+            : String(activePromo.max_posts_per_month),
+          templates: t("basic"),
+          analytics: t("basic"),
+          support: t("priority"),
+          features: [
+            { label: dashboardT("socialAccounts"), value: activePromo.max_accounts === -1 ? "∞" : String(activePromo.max_accounts) },
+            { label: dashboardT("postsPerMonth"), value: activePromo.max_posts_per_month === null ? t("unlimited") : String(activePromo.max_posts_per_month) },
+            { label: dashboardT("aiImages"), value: String(activePromo.ai_credits) },
+            { label: dashboardT("xAutoPosts"), value: String(activePromo.twitter_credits) },
+          ],
+          isCurrent: true,
           isRecommended: false,
         });
       }

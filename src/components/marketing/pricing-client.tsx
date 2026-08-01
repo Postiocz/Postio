@@ -21,6 +21,8 @@ interface ClientPlan {
   badgeText?: string;
   badgeColor?: string;
   activeUntil?: string;
+  /** Pouze promo plány zobrazují odpočet – i kdyby v DB zůstalo staré active_until */
+  isPromo?: boolean;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -78,7 +80,7 @@ export function PricingClient({
                     </span>
                   </div>
                 )}
-                {plan.activeUntil && (
+                {plan.isPromo && plan.activeUntil && (
                   <div className="absolute -top-3 right-4">
                     <CountdownTimer targetDate={plan.activeUntil} />
                   </div>

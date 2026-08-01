@@ -184,7 +184,9 @@ export function PricingPlansClient({
       badge_color: formData.badge_color,
       active_from: formData.active_from || null,
       active_until: formData.active_until || null,
-      is_public: formData.is_promo ? formData.is_public : false,
+      // is_public se ukládá přímo – nezávisí na is_promo.
+      // "Veřejný web" je dostupný pro všechny custom plány.
+      is_public: formData.is_public,
       is_promo: formData.is_promo,
       price_czk: formData.price_czk * 100,
       price_eur: formData.price_eur * 100,
@@ -234,7 +236,9 @@ export function PricingPlansClient({
       badge_color: formData.badge_color,
       active_from: formData.active_from || null,
       active_until: formData.active_until || null,
-      is_public: formData.is_promo ? formData.is_public : false,
+      // is_public se ukládá přímo – nezávisí na is_promo.
+      // "Veřejný web" je dostupný pro všechny custom plány.
+      is_public: formData.is_public,
       is_promo: formData.is_promo,
       price_czk: formData.price_czk * 100,
       price_eur: formData.price_eur * 100,
@@ -608,18 +612,19 @@ export function PricingPlansClient({
                   <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
                   <Switch
                     checked={formData.is_promo}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_promo: checked })}
+                    onCheckedChange={(checked) =>
+                      // Vypnutí promo smaže časové okno (aby u běžných plánů neběžel odpočet)
+                      // Prázdný string → save handler uloží null do DB
+                      setFormData({
+                        ...formData,
+                        is_promo: checked,
+                        ...(checked ? {} : { active_from: "", active_until: "" }),
+                      })
+                    }
                   />
                 </div>
                 {formData.is_promo && (
                   <>
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-400">Veřejný web</label>
-                      <Switch
-                        checked={formData.is_public}
-                        onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
-                      />
-                    </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm text-gray-400">Začátek akce</label>
                       <Input
@@ -734,18 +739,19 @@ export function PricingPlansClient({
                   <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
                   <Switch
                     checked={formData.is_promo}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_promo: checked })}
+                    onCheckedChange={(checked) =>
+                      // Vypnutí promo smaže časové okno (aby u běžných plánů neběžel odpočet)
+                      // Prázdný string → save handler uloží null do DB
+                      setFormData({
+                        ...formData,
+                        is_promo: checked,
+                        ...(checked ? {} : { active_from: "", active_until: "" }),
+                      })
+                    }
                   />
                 </div>
                 {formData.is_promo && (
                   <>
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-400">Veřejný web</label>
-                      <Switch
-                        checked={formData.is_public}
-                        onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
-                      />
-                    </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm text-gray-400">Začátek akce</label>
                       <Input
@@ -838,6 +844,14 @@ function PlanInputs({
 
   return (
     <>
+      {/* Veřejný web – hlavní přepínač, dostupný pro všechny custom plány */}
+      <div className="flex items-center justify-between">
+        <label className="text-sm text-gray-400">Veřejný web</label>
+        <Switch
+          checked={formData.is_public}
+          onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+        />
+      </div>
       {fields.map(({ key, label }) => (
         <div key={key} className="flex flex-col sm:grid sm:grid-cols-3 items-start sm:items-center gap-1 sm:gap-4">
           <label className="text-sm text-gray-400">{label}</label>

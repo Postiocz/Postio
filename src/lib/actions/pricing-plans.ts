@@ -87,6 +87,12 @@ export async function updatePricingPlan(
   // Povol úpravu jakéhokoliv tarifu (master i non-master)
   // Master template je chráněn pouze proti smazání, ne proti úpravě
 
+  // Auto-derive: pokud se mění is_promo, propíšeme ho i do is_new_user_only,
+  // aby promo plán zůstal konzistentně označený jako "pouze pro nové uživatele".
+  if (updates.is_promo !== undefined) {
+    updates.is_new_user_only = updates.is_promo;
+  }
+
   const { error } = await supabase
     .from("pricing_plans")
     .update(updates)
@@ -127,7 +133,11 @@ export async function createPricingPlan(
   const supabase = createAdminClient();
 
   // Nové tarify nejsou master templates
-  const newPlan = { ...plan, is_master_template: false };
+  const newPlan: PricingPlanInsert = { ...plan, is_master_template: false };
+
+  // Auto-derive: promo plán je vždy určený pouze pro nové uživatele.
+  // Zajišťuje konzistenci mezi is_promo a is_new_user_only (single source of truth).
+  newPlan.is_new_user_only = plan.is_promo ?? false;
 
   const { data, error } = await supabase
     .from("pricing_plans")

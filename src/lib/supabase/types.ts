@@ -436,6 +436,7 @@ export interface Database {
           active_until: string | null
           is_public: boolean
           is_promo: boolean
+          is_new_user_only: boolean
           created_at: string
           updated_at: string
         }
@@ -473,6 +474,7 @@ export interface Database {
           active_until?: string | null
           is_public?: boolean
           is_promo?: boolean
+          is_new_user_only?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -510,6 +512,7 @@ export interface Database {
           active_until?: string | null
           is_public?: boolean
           is_promo?: boolean
+          is_new_user_only?: boolean
           created_at?: string
           updated_at?: string
         }

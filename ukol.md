@@ -42,34 +42,3 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 10.1 Stripe Sync – Podpora vlastních plánů (Custom Plans)
-
-**Problém:** Aktuální `syncStripePrices()` používá pro všechny plány stejný lookup_key formát `postio_{type}_monthly_{currency}`. Vlastní plán (např. "Creator - zima", `type = creator`) by měl ve Stripe stejný lookup_key jako master template "Creator", což způsobí kolizi – při syncu se deaktivuje cena master template a checkout najde špatnou cenu.
-
-**Cíl:** Umožnit neomezené množství paralelních akčních plánů bez kolizí lookup_key ve Stripe.
-
-- [✅] **KROK 1: Unikátní Lookup Keys pro vlastní plány**
-      Upravit generování `lookup_key` v `syncStripePrices()` podle flagu `is_master_template`:
-      - Master šablony: `postio_{type}_monthly_{currency}` (zůstává beze změny)
-      - Vlastní plány: `plan_{id}_{currency}` (unikátní, kde `id` je UUID z DB)
-
-- [✅] **KROK 2: Update Sync logiky**
-      Upravit `syncStripePrices()`:
-      - Při vytvoření ceny pro vlastní plán nepoužívat `lookup_key` (nebo použít unikátní) – tím se eliminuje kolize
-      - Při deaktivaci staré ceny deaktivovat POUZE cenu patřící tomuto plánu (podle `stripe_price_id_*`), ne hledat podle lookup_key
-      - Vyhledávání existujících cen podle lookup_keys dělat jen pro master šablony
-
-- [✅] **KROK 3: Chytrá Checkout routa (`/api/stripe/checkout`)**
-      Upravit endpoint tak, aby:
-      - Přijímal parametr `plan` – buď "creator"/"pro" (master), nebo UUID vlastního plánu
-      - Pro master: ponechat hledání ceny podle lookup_key (stávající logika)
-      - Pro custom: načíst plán z DB podle UUID a použít uložené `stripe_price_id_*` pro danou měnu
-
-- [✅] **KROK 4: Implementace "Nákupní paměti" (Cookies)**
-      Zajistit, aby:
-      - Při kliknutí na tarif (u nepřihlášeného uživatele) se ID plánu uložilo do cookies
-      - Po dokončení onboardingu aplikace uživatele automaticky přesměrovala na checkout pro uložený plán
-
-- [ ] **KROK 5: Fix řazení ve Fakturaci**
-      Implementovat logiku řazení:
-      - Free → Master Creator → Master Pro → Všechny Vlastní plány (chronologicky)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogClose, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +60,9 @@ export function MediaPreviewDialog({
       >
         {/* Required by Radix for a11y – visually hidden */}
         <DialogTitle style={SR_STYLE}>Media preview {totalCount > 1 ? `${currentIndex + 1} of ${totalCount}` : ""}</DialogTitle>
+        <DialogDescription style={SR_STYLE}>
+          Náhled přiložených médií v plném rozlišení.
+        </DialogDescription>
 
         {/* Close button */}
         <DialogClose asChild>
@@ -83,7 +86,9 @@ export function MediaPreviewDialog({
               controls
               autoPlay
               playsInline
-            />
+            >
+              <track kind="captions" />
+            </video>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img

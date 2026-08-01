@@ -455,7 +455,9 @@ export function PostCard({
                   className="w-full h-full object-cover"
                   preload="metadata"
                   muted
-                />
+                >
+                  <track kind="captions" />
+                </video>
               ) : (
                 <img
                   src={primaryMedia}

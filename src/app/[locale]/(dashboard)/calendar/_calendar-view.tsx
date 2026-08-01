@@ -21,7 +21,7 @@ import {
 } from "date-fns";
 import { Calendar as CalendarIcon, CheckCircle2, ChevronLeft, Film, Image as ImageIcon, ListOrdered, Loader2, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -851,6 +851,9 @@ export function CalendarView({
                 </span>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Dialog pro vytvoření nového příspěvku v kalendáři.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="px-4 sm:px-6 space-y-4 max-h-[60vh] overflow-y-auto">
@@ -1022,7 +1025,9 @@ export function CalendarView({
                           muted
                           playsInline
                           preload="metadata"
-                        />
+                        >
+                          <track kind="captions" />
+                        </video>
                       )}
                       <button
                         type="button"

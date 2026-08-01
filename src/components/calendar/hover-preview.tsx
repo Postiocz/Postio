@@ -59,7 +59,9 @@ export function HoverPreview({ hoveredPost, hoverPosition, getPostDisplayDate, l
                         preload="metadata"
                         muted
                         playsInline
-                      />
+                      >
+                        <track kind="captions" />
+                      </video>
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm border border-white/20">
                           <Play className="h-4 w-4 text-white ml-0.5" />

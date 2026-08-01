@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -121,6 +122,9 @@ export default function Setup2FADialog({
                 </div>
                 {t("setup2FATitle")}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Dialog pro nastavení dvoufaktorového ověření pomocí QR kódu a ověřovacího kódu.
+              </DialogDescription>
             </DialogHeader>
 
             <div className="px-6 pb-6">
@@ -232,6 +236,9 @@ export default function Setup2FADialog({
                 </div>
                 {t("recoveryCodesTitle")}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Dialog se záložními kódy pro případ ztráty přístupu k dvoufaktorovému ověření.
+              </DialogDescription>
             </DialogHeader>
 
             <div className="px-6 pb-6 space-y-4">

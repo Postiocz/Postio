@@ -10,7 +10,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 type FilterOption = {
   value: string;
@@ -139,6 +139,9 @@ function FilterSelect({
                 <Icon className="h-4 w-4 text-indigo-500" />
                 {label}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Filtr pro výběr platforem.
+              </DialogDescription>
             </DialogHeader>
             <div className="px-2 pb-4 pt-2">
               <div className="max-h-[60vh] overflow-y-auto rounded-[20px] border border-black/5 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
@@ -301,6 +304,9 @@ function TagFilterSelect({
                 <TagIcon className="h-4 w-4 text-indigo-500" />
                 {label}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Filtr pro výběr štítků.
+              </DialogDescription>
             </DialogHeader>
             <div className="px-2 pb-4 pt-2">
               <div className="max-h-[60vh] overflow-y-auto rounded-[20px] border border-black/5 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
@@ -458,6 +464,9 @@ function SortSelect({
                 <ListOrdered className="h-4 w-4 text-indigo-500" />
                 {label}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Filtr pro řazení příspěvků.
+              </DialogDescription>
             </DialogHeader>
             <div className="px-2 pb-4 pt-2">
               <div className="max-h-[60vh] overflow-y-auto rounded-[20px] border border-black/5 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">

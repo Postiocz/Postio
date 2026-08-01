@@ -4,6 +4,20 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 056 – KROK 1+2+3: Fix řazení plánů a UI varování ✅
+
+- **Kontext**: Fakturace zobrazovala plány přeházeně a konzole hlásila a11y + Recharts varování.
+- **Změny**:
+  - ✅ Krok 1 – Řazení ve Fakturaci: Free → Master Creator → Master Pro → všechny viditelné custom plány chronologicky podle `created_at` (`billing/page.tsx`).
+  - ✅ Krok 2 – Do všech 14 dialogů přidán `<DialogDescription className="sr-only">` (screen-reader, vizuálně skrytý).
+  - ✅ Opravena rozbitá struktura v `tag-breakdown.tsx` a duplicitní popisky v `setup-2fa-dialog.tsx`.
+  - ✅ Krok 3 – Chart warnings potlačeny: `isMounted` render po mountu + `min-h` kontejnery + `minWidth={0}`/`minHeight={0}` na `ResponsiveContainer` (3 soubory).
+  - ✅ Dodatečně: donut chart `height="100%"` → `height={176}` (číselná výška, eliminace `-1×-1` warningu na dashboardu).
+  - ✅ Dodatečně: `/api/proxy/image` route + sdílená utilita `proxyImageUrl()` aplikovaná v 9 komponentách – žádné 403 v konzoli u vypršelých CDN URL (allow-list: fbcdn, cdninstagram, licdn, twimg, tiktokcdn, ggpht, googleusercontent, ytimg).
+  - ✅ Krok 4 – Do všech 15 `<video>` elementů přidán `<track kind="captions" />` (HTML5 standard).
+  - ✅ Odstraněny debug logy z `pending-plan-handler.tsx` (nákupní paměť zůstává funkční).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 054/055 – Stripe Sync a nákupní paměť vlastních plánů ✅
 
 - **Kontext**: Vlastní plány potřebovaly nezávislé Stripe ceny a zachování záměru nákupu přes přihlášení, onboarding i vytvoření prvního příspěvku.
@@ -106,14 +120,5 @@
   - ✅ `src/lib/supabase/types.ts`: Přidány typy `ai_credits` a `twitter_auto_credits`.
   - ✅ `src/app/[locale]/(admin)/admin/settings/audit-log/page.tsx`: Podpora překladu pro akci `credits_updated`.
   - ✅ i18n (cs/en/uk): Nové klíče `creditsManagement`, `aiCreditsLabel`, `twitterCreditsLabel`, `actionCreditsUpdated`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 044-REVISED – KROK 1: Launch Guard ✅
-
-- **Kontext**: Před prvním launchem je třeba skrýt sandbox platformy (TikTok, Facebook, Instagram) před běžnými uživateli.
-- **Změny**:
-  - ✅ `src/app/[locale]/(dashboard)/accounts/page.tsx`: Nová konstanta `SANDBOX_PLATFORMS`, načítání `userRole`, BETA badge u sandbox platforem.
-  - ✅ Logika: Admin může propojit vše, běžný uživatel vidí disabled tlačítka s tooltipem "Právě probíhá schvalování sítě...".
-  - ✅ i18n (cs/en/uk): Nový klíč `sandboxDisabledTooltip` v namespace `accounts`.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 

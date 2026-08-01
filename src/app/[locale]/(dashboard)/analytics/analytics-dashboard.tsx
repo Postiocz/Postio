@@ -74,6 +74,11 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
   const [tagTotal, setTagTotal] = useState(0);
   const [tagLoading, setTagLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -333,9 +338,9 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
           <CardHeader>
             <CardTitle className="text-base font-semibold">{t("performanceOverTime")}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-h-[300px]">
             {dailyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              isMounted && <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={0}>
                 <AreaChart data={dailyData}>
                   <defs>
                     <linearGradient id="gradImpressions" x1="0" y1="0" x2="0" y2="1">
@@ -414,9 +419,9 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
           <CardHeader>
             <CardTitle className="text-base font-semibold">{t("engagements")}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-h-[300px]">
             {dailyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              isMounted && <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={0}>
                 <BarChart data={dailyData}>
                   <defs>
                     <linearGradient id="barLikes" x1="0" y1="0" x2="0" y2="1">

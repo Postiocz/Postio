@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +64,9 @@ export function CreateTagDialog({ t }: CreateTagDialogProps) {
       <DialogContent className="sm:max-w-md p-6 sm:p-8">
         <DialogHeader className="gap-4 pb-3 sm:pb-4">
           <DialogTitle className="text-lg sm:text-xl">{t.modalTitle}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Dialog pro vytvoření nového interního štítku s názvem a barvou.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-8 sm:space-y-10 pt-4 sm:pt-6">
           <div>

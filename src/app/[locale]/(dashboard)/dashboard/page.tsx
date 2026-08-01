@@ -820,7 +820,9 @@ function DashboardContent({
                               className="h-full w-full object-cover"
                               preload="metadata"
                               muted
-                            />
+                            >
+                              <track kind="captions" />
+                            </video>
                           ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -921,7 +923,9 @@ function DashboardContent({
                             className="h-full w-full object-cover"
                             preload="metadata"
                             muted
-                          />
+                          >
+                            <track kind="captions" />
+                          </video>
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img

@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import { toast } from "sonner";
 import {
   X,
@@ -144,6 +145,9 @@ export function FacebookPageSelector({
         className="max-w-xl p-0 overflow-hidden bg-white/10 dark:bg-black/40 backdrop-blur-xl rounded-[24px] border border-white/10 shadow-2xl"
       >
         <DialogTitle className="sr-only">{t.title}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Výběr Facebook stránky pro propojení účtu.
+        </DialogDescription>
 
         {/* Close button – uses DialogClose for proper Radix a11y */}
         <DialogClose asChild>
@@ -209,7 +213,7 @@ export function FacebookPageSelector({
                           {page.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={page.avatar_url}
+                              src={proxyImageUrl(page.avatar_url)}
                               alt={page.account_name}
                               className="h-full w-full object-cover"
                             />

@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -126,6 +127,9 @@ export function CookieConsent() {
             <DialogTitle className="text-2xl font-bold tracking-tight">
               {cookie("preferencesTitle")}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Nastavení souhlasu s používáním cookies.
+            </DialogDescription>
           </DialogHeader>
 
           <p className="mb-6 text-sm text-muted-foreground">

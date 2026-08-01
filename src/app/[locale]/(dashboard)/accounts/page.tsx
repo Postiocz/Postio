@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { logger } from "@/lib/logger";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -165,9 +166,10 @@ type SocialAccount = {
 
 /**
  * Renders a platform/account avatar image with a graceful fallback.
- * If the image URL fails to load (e.g. 403 / expired CDN), we hide the
- * broken <img> and render the provided fallback node (usually the platform
- * icon) instead.
+ * The image is served through our `/api/proxy/image` route, which fetches it
+ * server-side and returns a neutral placeholder (HTTP 200) when the upstream
+ * CDN URL is expired/forbidden (Facebook's signed URLs return 403 once they
+ * expire). This keeps the browser console free of 403 errors.
  */
 function PlatformAvatar({
   src,
@@ -182,14 +184,17 @@ function PlatformAvatar({
 }) {
   const [errored, setErrored] = useState(false);
 
-  if (!src || errored) {
+  // Proxy external CDN images server-side to avoid 403 / hotlink errors.
+  const proxiedSrc = proxyImageUrl(src);
+
+  if (!proxiedSrc || errored) {
     return <>{fallback}</>;
   }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={proxiedSrc}
       alt={alt}
       onError={() => setErrored(true)}
       className={className}

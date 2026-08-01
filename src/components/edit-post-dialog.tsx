@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock, ListOrdered } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import { useMediaUpload } from "@/hooks/use-media-upload";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import {
   DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS,
   isTikTokSandboxPrivateOnlyError,
@@ -1447,7 +1448,9 @@ export function EditPostDialog({
             muted
             playsInline
             preload="metadata"
-          />
+          >
+            <track kind="captions" />
+          </video>
         )}
         {media.length > 1 && (
           <span className="absolute right-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
@@ -1684,7 +1687,9 @@ export function EditPostDialog({
                     muted
                     playsInline
                     preload="metadata"
-                  />
+                  >
+                    <track kind="captions" />
+                  </video>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -1883,6 +1888,9 @@ export function EditPostDialog({
               </Button>
             )}
           </div>
+          <DialogDescription className="sr-only">
+            Editace nebo náhled příspěvku.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Prompt 003 – Preview Mode: social preview with platform tabs + action buttons */}
@@ -2153,7 +2161,9 @@ export function EditPostDialog({
                         muted
                         playsInline
                         preload="metadata"
-                      />
+                      >
+                        <track kind="captions" />
+                      </video>
                     )}
                     <button
                       type="button"
@@ -2302,7 +2312,7 @@ export function EditPostDialog({
                                   >
                                     {account.avatar_url ? (
                                       <img
-                                        src={account.avatar_url}
+                                        src={proxyImageUrl(account.avatar_url)}
                                         alt={account.account_name}
                                         className="h-4 w-4 shrink-0 rounded-full object-cover"
                                       />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { Instagram, Facebook, Linkedin, XIcon, Youtube, TikTok } from "@/components/ui/social-icons";
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import type { PostPlatform } from "@/app/[locale]/(dashboard)/posts/_post-card";
@@ -225,7 +226,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                     >
                       {acc.avatar ? (
                         <img
-                          src={acc.avatar}
+                          src={proxyImageUrl(acc.avatar)}
                           alt={acc.name}
                           className="h-7 w-7 rounded-full shrink-0 object-cover"
                         />

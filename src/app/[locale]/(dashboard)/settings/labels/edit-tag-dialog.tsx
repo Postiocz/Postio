@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -100,6 +101,9 @@ export function EditTagDialog({
       <DialogContent className="sm:max-w-md p-6 sm:p-8">
         <DialogHeader className="gap-4 pb-3 sm:pb-4">
           <DialogTitle className="text-lg sm:text-xl">{t.editTag}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Dialog pro úpravu názvu a barvy existujícího interního štítku.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-8 sm:space-y-10 pt-4 sm:pt-6">
           <div>

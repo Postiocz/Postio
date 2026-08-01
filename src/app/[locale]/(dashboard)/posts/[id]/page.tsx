@@ -633,7 +633,9 @@ export default function EditPostPage() {
                         muted
                         playsInline
                         preload="metadata"
-                      />
+                      >
+                        <track kind="captions" />
+                      </video>
                     )}
                     <button
                       type="button"

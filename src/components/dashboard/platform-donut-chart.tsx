@@ -18,6 +18,7 @@
  * entry animace je tím pádem zdarma.
  */
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Share2 } from "lucide-react";
@@ -55,6 +56,13 @@ export function PlatformDonutChart({
   total,
   translations,
 }: PlatformDonutChartProps) {
+  // Render the chart only after mount so Recharts measures real dimensions
+  // (avoids the "width(-1) and height(-1)" warning from SSR hydration).
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // Prázdný stav.
   if (total === 0 || data.length === 0) {
     return (
@@ -95,34 +103,36 @@ export function PlatformDonutChart({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative h-44 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={48}
-                outerRadius={72}
-                paddingAngle={2}
-                dataKey="value"
-                animationBegin={0}
-                animationDuration={700}
-                stroke="none"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={customTooltipStyle}
-                formatter={((value: unknown, name: unknown) => [
-                  `${value} ${translations.published}`,
-                  String(name),
-                ]) as never}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="relative h-44 min-h-[176px] w-full">
+          {isMounted && (
+            <ResponsiveContainer width="100%" height={176} minWidth={0} minHeight={0}>
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={48}
+                  outerRadius={72}
+                  paddingAngle={2}
+                  dataKey="value"
+                  animationBegin={0}
+                  animationDuration={700}
+                  stroke="none"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={customTooltipStyle}
+                  formatter={((value: unknown, name: unknown) => [
+                    `${value} ${translations.published}`,
+                    String(name),
+                  ]) as never}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
           {/* Střed donut chartu – dominantní platforma. */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

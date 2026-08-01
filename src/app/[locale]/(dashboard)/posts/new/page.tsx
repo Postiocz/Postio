@@ -15,6 +15,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlatformIconMap } from "@/components/calendar/post-calendar-chip";
 import {
@@ -761,7 +762,9 @@ export default function NewPostPage() {
                         muted
                         playsInline
                         preload="metadata"
-                      />
+                      >
+                        <track kind="captions" />
+                      </video>
                     )}
                     <button
                       type="button"
@@ -875,7 +878,7 @@ export default function NewPostPage() {
                                   >
                                     {account.avatar_url ? (
                                       <img
-                                        src={account.avatar_url}
+                                        src={proxyImageUrl(account.avatar_url)}
                                         alt={account.account_name}
                                         className="h-4 w-4 shrink-0 rounded-full object-cover"
                                       />

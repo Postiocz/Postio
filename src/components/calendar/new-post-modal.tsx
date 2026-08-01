@@ -3,7 +3,7 @@
 import { format } from "date-fns";
 import { cs } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -96,6 +96,7 @@ export function NewPostModal({
       <DialogContent className="max-w-[95vw] w-full sm:max-w-lg rounded-[20px] bg-white/90 dark:bg-card/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/10 p-0 md:max-w-lg" showCloseButton>
         <DialogHeader className="px-6 pt-6">
           <DialogTitle className="text-lg font-semibold">
+            {/* title unchanged */}
             {t.newPost || "Nový příspěvek"}
             {modalDay && (
               <span className="font-normal text-muted-foreground/60 text-sm ml-2">
@@ -103,6 +104,9 @@ export function NewPostModal({
               </span>
             )}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Vytvoření nového příspěvku pro vybraný den.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="px-4 sm:px-6 space-y-4 max-h-[60vh] overflow-y-auto">

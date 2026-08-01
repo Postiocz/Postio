@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TagIcon, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -169,6 +169,9 @@ export function TagBreakdown({ tags, total, isLoading }: TagBreakdownProps) {
                 </>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Detailní rozpis příspěvků pro vybraný štítek podle stavu a platformy.
+            </DialogDescription>
           </DialogHeader>
 
           {selectedTag && selectedTag.id !== "__other__" && (

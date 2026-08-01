@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import { Check, Sparkles, BarChart3, AlertTriangle, ExternalLink, X, Loader2 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -58,7 +59,7 @@ function AccountThumb({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={proxyImageUrl(src)}
       alt={alt}
       onError={() => setErrored(true)}
       className="h-full w-full object-cover"

@@ -3,8 +3,6 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
-console.warn("🚨 DEBUG: PendingPlanHandler.tsx file loaded");
-
 /**
  * PendingPlanHandler
  *
@@ -19,22 +17,12 @@ export function PendingPlanHandler() {
   const pathname = usePathname();
 
   useEffect(() => {
-    console.warn("🔥 DEBUG: PendingPlanHandler checking cookie on pathname:", pathname);
-
     const match = document.cookie.match(
       /(?:^|;\s*)postio_pending_plan_id=([^;]*)/
     );
     const planId = match ? decodeURIComponent(match[1]) : null;
 
-    if (!planId) {
-      console.warn("🔥 DEBUG: No pending plan cookie found");
-      return;
-    }
-
-    console.warn(
-      "🔥 PendingPlanHandler: found cookie, requesting Stripe checkout for plan:",
-      planId
-    );
+    if (!planId) return;
 
     const locale = pathname.split("/")[1] || "cs";
     let cancelled = false;
@@ -54,23 +42,16 @@ export function PendingPlanHandler() {
 
         if (cancelled) return;
 
-        console.warn("🔥 PendingPlanHandler: Stripe response:", data);
-
         if (res.ok && data.url) {
-          // Keep the cookie on failed requests so the checkout can retry.
+          // Clear the cookie so the checkout can't re-trigger on return
           document.cookie =
             "postio_pending_plan_id=; path=/; max-age=0; SameSite=Lax";
           window.location.href = data.url;
-        } else {
-          console.warn(
-            "🔥 PendingPlanHandler: checkout returned no usable URL; cookie preserved"
-          );
         }
-      } catch (err) {
-        console.error(
-          "🔥 PendingPlanHandler: checkout failed; cookie preserved:",
-          err
-        );
+        // If checkout returned no usable URL, keep the cookie so it can retry
+        // on the next navigation.
+      } catch {
+        // Network error – keep the cookie for a future retry.
       }
     })();
 

@@ -3,10 +3,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { ExternalLink, Globe } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import {
   Instagram,
   Facebook,
@@ -287,6 +288,9 @@ export function PreviewDialog({
           <DialogTitle className="text-xs font-medium text-muted-foreground/80">
             {t("title")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Náhled příspěvku v rozlišení jednotlivých sociálních sítí.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Body – scrollable only as safety net */}
@@ -433,11 +437,12 @@ function AvatarInline({
   size?: number;
 }) {
   const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
-  if (url) {
+  const proxiedUrl = proxyImageUrl(url);
+  if (proxiedUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={url}
+        src={proxiedUrl}
         alt={name}
         width={size}
         height={size}
@@ -502,7 +507,9 @@ function PreviewMediaArea({
           muted
           playsInline
           preload="metadata"
-        />
+        >
+          <track kind="captions" />
+        </video>
       )}
       {media.length > 1 && (
         <span className="absolute right-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
@@ -758,7 +765,9 @@ function renderPreviewForPlatform(
                     muted
                     playsInline
                     preload="metadata"
-                  />
+                  >
+                    <track kind="captions" />
+                  </video>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

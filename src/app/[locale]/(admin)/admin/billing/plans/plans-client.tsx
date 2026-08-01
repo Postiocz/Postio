@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -533,6 +534,9 @@ export function PricingPlansClient({
             <DialogTitle>
               {translations.editPlan}: {editingPlan?.name}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Dialog pro úpravu existujícího cenového plánu.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {editingPlan?.is_custom && (
@@ -658,6 +662,9 @@ export function PricingPlansClient({
         <DialogContent className="sm:max-w-[480px] lg:max-w-[540px] rounded-[20px] bg-[#0a0a0f] border-white/10">
           <DialogHeader>
             <DialogTitle>{translations.createPlan}</DialogTitle>
+            <DialogDescription className="sr-only">
+              Dialog pro vytvoření nového vlastního cenového plánu.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="flex flex-col gap-1.5">

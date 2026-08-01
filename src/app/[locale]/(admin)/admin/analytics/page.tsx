@@ -22,6 +22,11 @@ export default function AdminAnalyticsPage() {
     mrr: 0,
     currency: "czk",
   });
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -91,9 +96,10 @@ export default function AdminAnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-white">{t("userGrowth")}</CardTitle>
           </CardHeader>
-          <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={userGrowth}>
+          <CardContent className="pl-2 min-h-[350px]">
+            {isMounted && (
+              <ResponsiveContainer width="100%" height={350} minWidth={0} minHeight={0}>
+                <LineChart data={userGrowth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="month" stroke="#666" />
                 <YAxis stroke="#666" />
@@ -124,7 +130,8 @@ export default function AdminAnalyticsPage() {
                   }}
                 />
               </LineChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

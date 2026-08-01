@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 /**
  * Props shared between the preview and the form.
@@ -322,7 +323,9 @@ function TikTokPreview({
                   muted
                   playsInline
                   preload="metadata"
-                />
+                >
+                  <track kind="captions" />
+                </video>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -714,11 +717,12 @@ function Avatar({
   ring?: string;
 }) {
   const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
-  if (url) {
+  const proxiedUrl = proxyImageUrl(url);
+  if (proxiedUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={url}
+        src={proxiedUrl}
         alt={name}
         width={size}
         height={size}
@@ -799,7 +803,9 @@ function MediaArea({
           muted
           playsInline
           preload="metadata"
-        />
+        >
+          <track kind="captions" />
+        </video>
       )}
       {media.length > 1 && (
         <span className="absolute right-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">

@@ -1,7 +1,7 @@
 /**
  * Billing Page – Fakturace
- * Zobrazuje master plány z DB + aktuální promo plán uživatele (pokud existuje)
- * Žádné jiné promo/bleskové akce se zde nezobrazují (izolace)
+ * Zobrazuje master plány z DB (Free → Creator → Pro) + všechny viditelné
+ * vlastní (custom) plány seřazené chronologicky podle created_at.
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -111,46 +111,46 @@ export default async function BillingPage({
       }
     }
 
-    // 2. Pokud má uživatel aktivní promo/akční plán (current_plan_instance_id)
-    //    který není master template, načti ho samostatně
-    if (currentPlanInstanceId) {
-      const { data: promoPlan } = await supabase
-        .from("pricing_plans")
-        .select("*")
-        .eq("id", currentPlanInstanceId)
-        .eq("is_master_template", false)
-        .single();
+    // 2. Načti všechny vlastní (custom) plány – viditelné, seřazené
+    //    chronologicky podle created_at (nejstarší první)
+    const { data: customPlans } = await supabase
+      .from("pricing_plans")
+      .select("*")
+      .eq("is_master_template", false)
+      .eq("is_visible", true)
+      .order("created_at", { ascending: true });
 
-      if (promoPlan) {
-        let localizedName = promoPlan.name;
-        if (locale === "en" && promoPlan.name_en) localizedName = promoPlan.name_en;
-        else if (locale === "uk" && promoPlan.name_uk) localizedName = promoPlan.name_uk;
+    if (customPlans) {
+      for (const customPlan of customPlans) {
+        let localizedName = customPlan.name;
+        if (locale === "en" && customPlan.name_en) localizedName = customPlan.name_en;
+        else if (locale === "uk" && customPlan.name_uk) localizedName = customPlan.name_uk;
 
-        let localizedDesc = promoPlan.description || "";
-        if (locale === "en" && promoPlan.description_en) localizedDesc = promoPlan.description_en;
-        else if (locale === "uk" && promoPlan.description_uk) localizedDesc = promoPlan.description_uk;
+        let localizedDesc = customPlan.description || "";
+        if (locale === "en" && customPlan.description_en) localizedDesc = customPlan.description_en;
+        else if (locale === "uk" && customPlan.description_uk) localizedDesc = customPlan.description_uk;
 
         plans.push({
-          id: promoPlan.id,
+          id: customPlan.id,
           name: localizedName,
           description: localizedDesc,
-          priceCzk: promoPlan.price_czk / 100,
-          priceEur: promoPlan.price_eur / 100,
-          priceUsd: promoPlan.price_usd / 100,
-          accounts: promoPlan.max_accounts === -1 ? "∞" : String(promoPlan.max_accounts),
-          postsPerMonth: promoPlan.max_posts_per_month === null
+          priceCzk: customPlan.price_czk / 100,
+          priceEur: customPlan.price_eur / 100,
+          priceUsd: customPlan.price_usd / 100,
+          accounts: customPlan.max_accounts === -1 ? "∞" : String(customPlan.max_accounts),
+          postsPerMonth: customPlan.max_posts_per_month === null
             ? t("unlimited")
-            : String(promoPlan.max_posts_per_month),
+            : String(customPlan.max_posts_per_month),
           templates: t("basic"),
           analytics: t("basic"),
           support: t("priority"),
           features: [
-            { label: dashboardT("socialAccounts"), value: promoPlan.max_accounts === -1 ? "∞" : String(promoPlan.max_accounts) },
-            { label: dashboardT("postsPerMonth"), value: promoPlan.max_posts_per_month === null ? t("unlimited") : String(promoPlan.max_posts_per_month) },
-            { label: dashboardT("aiImages"), value: String(promoPlan.ai_credits) },
-            { label: dashboardT("xAutoPosts"), value: String(promoPlan.twitter_credits) },
+            { label: dashboardT("socialAccounts"), value: customPlan.max_accounts === -1 ? "∞" : String(customPlan.max_accounts) },
+            { label: dashboardT("postsPerMonth"), value: customPlan.max_posts_per_month === null ? t("unlimited") : String(customPlan.max_posts_per_month) },
+            { label: dashboardT("aiImages"), value: String(customPlan.ai_credits) },
+            { label: dashboardT("xAutoPosts"), value: String(customPlan.twitter_credits) },
           ],
-          isCurrent: true,
+          isCurrent: customPlan.id === currentPlanInstanceId,
           isRecommended: false,
         });
       }

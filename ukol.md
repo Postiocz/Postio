@@ -87,16 +87,21 @@ jejich nákupu.
 **Cíl:** Zjednodušit správu základních tarifů a zajistit, aby změny v Master
 šablonách neovlivnily již platící uživatele (Snapshot logic).
 
-- [ ] **KROK 1: Redukce Master Modálu (UI)**
+- [x] **KROK 1: Redukce Master Modálu (UI)** — ✅ hotovo
       V `EditPlanModal` (admin) uprav zobrazení pro plány s `is_master_template = true`:
       - Úplně schovej sekce "Akční nabídka (promo)" a "Časové omezení (flash sale)".
       - Ponechej pouze přepínač "Veřejný web" (is_public).
+      - ✅ Dodatečně: `pricing-section.tsx` přepsán na dynamické načítání master plánů z DB
+        (respektuje `is_public`, pořadí Free→Creator→Pro, lokalizace, hardcoded fallback).
+        DB: master plánům nastaveno `is_public = true` (dříve false → zmizely by z webu).
 
-- [ ] **KROK 2: Fixace podmínek (Snapshot Logic)**
-      Zajisti, aby každý uživatel byl v tabulce `users` pevně vázán na konkrétní
-      `id` (instanci) plánu přes sloupec `current_plan_instance_id`.
-      - Při změně Master šablony adminem nesmí dojít k automatické změně podmínek
-        u stávajících uživatelů, kteří mají tento plán aktivní.
+- [x] **KROK 2: Fixace podmínky (Snapshot Logic)** — ✅ hotovo
+      - Checkout předává `plan_instance_id` do metadata; webhook po platbě zapisuje
+        `current_plan_instance_id` (a při zrušení předplatného přepíná na Free master).
+      - Migrace `050_plan_snapshot_binding.sql`: backfill stávajících uživatelů +
+        trigger pro nové (auto Free). Ověřeno v DB – uživatelé mají vazbu na instanci.
+      - Změny Master šablony adminem neovlivňují vazbu stávajících uživatelů
+        (odkazují na instanci z momentu nákupu).
 
 - [ ] **KROK 3: Ochrana proti smazání**
       Zablokuj možnost smazání 3 základních Master šablon (Free, Creator, Pro)

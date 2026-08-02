@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
         const session = event.data.object;
         const userId = session.metadata?.user_id;
         const plan = session.metadata?.plan;
+        const planInstanceId = session.metadata?.plan_instance_id;
         const subscriptionId = session.subscription as string | null;
 
         if (!userId || !plan) {
@@ -50,9 +51,15 @@ export async function POST(request: NextRequest) {
         if (subscriptionId) {
           updateData.stripe_subscription_id = subscriptionId;
         }
+        // Snapshot: pevně navaz uživatele na konkrétní instanci plánu, kterou si
+        // zakoupil. Další změny Master šablony adminem se tak nedotknou
+        // podmínek, které uživatel měl v momentě nákupu.
+        if (planInstanceId) {
+          updateData.current_plan_instance_id = planInstanceId;
+        }
 
         await supabase.from("users").update(updateData).eq("id", userId);
-        logger.debug(`User upgraded to ${plan}`);
+        logger.debug(`User upgraded to ${plan} (instance ${planInstanceId ?? "n/a"})`);
         break;
       }
 
@@ -71,10 +78,20 @@ export async function POST(request: NextRequest) {
         const deletedSub = event.data.object;
         const customerId = deletedSub.customer as string;
 
+        // Snapshot: při přechodu zpět na Free přepneme uživatele na Free
+        // master instanci (nebo necháme null – uživatel nemá aktivní placený plán).
+        const { data: freeMaster } = await supabase
+          .from("pricing_plans")
+          .select("id")
+          .eq("type", "free")
+          .eq("is_master_template", true)
+          .maybeSingle();
+
         await supabase
           .from("users")
           .update({
             plan: "free",
+            current_plan_instance_id: freeMaster?.id ?? null,
             stripe_subscription_id: null,
             subscription_status: "canceled",
           })

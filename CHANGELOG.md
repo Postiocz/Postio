@@ -4,6 +4,24 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 054 – KROK 2: Snapshot Logic (vazba uživatele na instanci plánu) ✅
+
+- **Kontext**: Uživatelé nebyli vázáni na konkrétní instanci plánu, takže změny Master šablon adminem by mohly ovlivnit stávající uživatele.
+- **Změny**:
+  - ✅ `checkout/route.ts`: předává `plan_instance_id` do Stripe metadata.
+  - ✅ `webhooks/stripe/route.ts`: po checkoutu zapisuje `current_plan_instance_id`; při zrušení předplatného přepíná na Free master.
+  - ✅ Migrace `050_plan_snapshot_binding.sql`: backfill stávajících uživatelů + trigger pro nové (auto Free).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Backfill ověřen v DB.
+
+### 🚀 Prompt 054 – KROK 1: Redukce Master Modálu + dynamický ceník ✅
+
+- **Kontext**: Master šablony (Free/Creator/Pro) byly na landing page hardcoded, takže přepínač "Veřejný web" u nich neměl efekt.
+- **Změny**:
+  - ✅ `plans-client.tsx`: u master šablon se skryjí promo/flash sale sekce, zůstává jen "Veřejný web" (odstraněna duplicita s `PlanInputs`).
+  - ✅ `pricing-section.tsx`: dynamické načítání master plánů z DB s respektováním `is_public`, pořadí Free→Creator→Pro, lokalizace dle locale, hardcoded fallback.
+  - ✅ DB: master plánům nastaveno `is_public = true` (dříve false).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test zapnutí/vypnutí plánu potvrzen.
+
 ### 🚀 Prompt 057 – KROK 1 + fix promo/odpočtu ✅
 
 - **Kontext**: Stávající uživatelé viděli akční nabídky určené jen pro nové uživatele; navíc běžel odpočet i u ne-promo plánů se zbytkovým `active_until`.
@@ -96,30 +114,5 @@
   - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Odkaz "Zpětná vazba" v admin navigaci.
   - ✅ `src/lib/actions/feedback.ts`: `getFeedbackList()` a `updateFeedbackStatus()` s admin klientem.
   - ✅ i18n (cs/en/uk): Namespace `adminFeedbackPage` + klíč `nav.adminFeedback`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 044-REVISED – KROK 4.2: Feedback Modal UI ✅
-
-- **Kontext**: Uživatelé potřebují snadný způsob, jak poslat zpětnou vazbu přímo z aplikace.
-- **Změny**:
-  - ✅ `src/components/feedback-modal.tsx`: Nový Glassmorphism modal s formulářem (typ + zpráva).
-  - ✅ `src/components/dashboard/sidebar.tsx`: Tooltip u odkazu "Zpětná vazba", změna z mailto na modal.
-  - ✅ `src/components/dashboard/feedback-sidebar-wrapper.tsx`: Client wrapper pro integraci modalu.
-  - ✅ `src/lib/actions/feedback.ts`: Server action `submitFeedback()`.
-  - ✅ `src/components/ui/select.tsx`: Přidána chybějící Select komponenta.
-  - ✅ i18n (cs/en/uk): Nový namespace `feedback` s překlady pro modal.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 044-REVISED – KROK 3: Ochrana logů a soukromí ✅
-
-- **Kontext**: Produkční aplikace nesmí vypisovat citlivá data do konzole prohlížeče.
-- **Změny**:
-  - ✅ `src/app/auth/callback/route.ts`: 15+ `console.log` → `logger.debug`/`logger.info`.
-  - ✅ `src/app/[locale]/(dashboard)/layout.tsx`: `console.log` → `logger.debug`.
-  - ✅ `src/lib/email.ts`: `console.warn` → `logger.warn`.
-  - ✅ `src/lib/image-compression.ts`: 3× `console.warn` → `logger.warn`/`logger.info`.
-  - ✅ `src/lib/actions/publish-twitter.ts`: 6× `console.log`/`console.warn` → `logger`.
-  - ✅ `src/lib/actions/publish-youtube.ts`: 2× `console.log` → `logger`.
-  - ✅ `src/lib/actions/publish-tiktok.ts`: 2× `console.warn`/`console.log` → `logger`.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 

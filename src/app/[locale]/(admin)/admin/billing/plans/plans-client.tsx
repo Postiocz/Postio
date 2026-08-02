@@ -603,50 +603,68 @@ export function PricingPlansClient({
                 ))}
               </div>
             </div>
-            <details className="group">
-              <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
-                🎯 Časové omezení (flash sale)
-              </summary>
-              <div className="mt-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
-                  <Switch
-                    checked={formData.is_promo}
-                    onCheckedChange={(checked) =>
-                      // Vypnutí promo smaže časové okno (aby u běžných plánů neběžel odpočet)
-                      // Prázdný string → save handler uloží null do DB
-                      setFormData({
-                        ...formData,
-                        is_promo: checked,
-                        ...(checked ? {} : { active_from: "", active_until: "" }),
-                      })
-                    }
-                  />
-                </div>
-                {formData.is_promo && (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm text-gray-400">Začátek akce</label>
-                      <Input
-                        type="datetime-local"
-                        value={isoToLocalDatetime(formData.active_from)}
-                        onChange={(e) => setFormData({ ...formData, active_from: localDatetimeToIso(e.target.value) })}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm text-gray-400">Konec akce</label>
-                      <Input
-                        type="datetime-local"
-                        value={isoToLocalDatetime(formData.active_until)}
-                        onChange={(e) => setFormData({ ...formData, active_until: localDatetimeToIso(e.target.value) })}
-                        className="w-full"
-                      />
-                    </div>
-                  </>
-                )}
+            {editingPlan?.is_master_template ? (
+              // Master šablony: žádné promo/flash sale, pouze Veřejný web
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-400">Veřejný web</label>
+                <Switch
+                  checked={formData.is_public}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+                />
               </div>
-            </details>
+            ) : (
+              <details className="group">
+                <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
+                  🎯 Časové omezení (flash sale)
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
+                    <Switch
+                      checked={formData.is_promo}
+                      onCheckedChange={(checked) =>
+                        // Vypnutí promo smaže časové okno (aby u běžných plánů neběžel odpočet)
+                        // Prázdný string → save handler uloží null do DB
+                        setFormData({
+                          ...formData,
+                          is_promo: checked,
+                          ...(checked ? {} : { active_from: "", active_until: "" }),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-400">Veřejný web</label>
+                    <Switch
+                      checked={formData.is_public}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+                    />
+                  </div>
+                  {formData.is_promo && (
+                    <>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm text-gray-400">Začátek akce</label>
+                        <Input
+                          type="datetime-local"
+                          value={isoToLocalDatetime(formData.active_from)}
+                          onChange={(e) => setFormData({ ...formData, active_from: localDatetimeToIso(e.target.value) })}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm text-gray-400">Konec akce</label>
+                        <Input
+                          type="datetime-local"
+                          value={isoToLocalDatetime(formData.active_until)}
+                          onChange={(e) => setFormData({ ...formData, active_until: localDatetimeToIso(e.target.value) })}
+                          className="w-full"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </details>
+            )}
             <PlanInputs formData={formData} setFormData={setFormData} translations={translations} />
           </div>
           <DialogFooter className="flex flex-col gap-2 overflow-y-auto max-h-[300px]">
@@ -730,50 +748,68 @@ export function PricingPlansClient({
                 ))}
               </div>
             </div>
-            <details className="group">
-              <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
-                🎯 Časové omezení (flash sale)
-              </summary>
-              <div className="mt-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
-                  <Switch
-                    checked={formData.is_promo}
-                    onCheckedChange={(checked) =>
-                      // Vypnutí promo smaže časové okno (aby u běžných plánů neběžel odpočet)
-                      // Prázdný string → save handler uloží null do DB
-                      setFormData({
-                        ...formData,
-                        is_promo: checked,
-                        ...(checked ? {} : { active_from: "", active_until: "" }),
-                      })
-                    }
-                  />
-                </div>
-                {formData.is_promo && (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm text-gray-400">Začátek akce</label>
-                      <Input
-                        type="datetime-local"
-                        value={isoToLocalDatetime(formData.active_from)}
-                        onChange={(e) => setFormData({ ...formData, active_from: localDatetimeToIso(e.target.value) })}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm text-gray-400">Konec akce</label>
-                      <Input
-                        type="datetime-local"
-                        value={isoToLocalDatetime(formData.active_until)}
-                        onChange={(e) => setFormData({ ...formData, active_until: localDatetimeToIso(e.target.value) })}
-                        className="w-full"
-                      />
-                    </div>
-                  </>
-                )}
+            {editingPlan?.is_master_template ? (
+              // Master šablony: žádné promo/flash sale, pouze Veřejný web
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-400">Veřejný web</label>
+                <Switch
+                  checked={formData.is_public}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+                />
               </div>
-            </details>
+            ) : (
+              <details className="group">
+                <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
+                  🎯 Časové omezení (flash sale)
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
+                    <Switch
+                      checked={formData.is_promo}
+                      onCheckedChange={(checked) =>
+                        // Vypnutí promo smaže časové okno (aby u běžných plánů neběžel odpočet)
+                        // Prázdný string → save handler uloží null do DB
+                        setFormData({
+                          ...formData,
+                          is_promo: checked,
+                          ...(checked ? {} : { active_from: "", active_until: "" }),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-400">Veřejný web</label>
+                    <Switch
+                      checked={formData.is_public}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+                    />
+                  </div>
+                  {formData.is_promo && (
+                    <>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm text-gray-400">Začátek akce</label>
+                        <Input
+                          type="datetime-local"
+                          value={isoToLocalDatetime(formData.active_from)}
+                          onChange={(e) => setFormData({ ...formData, active_from: localDatetimeToIso(e.target.value) })}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm text-gray-400">Konec akce</label>
+                        <Input
+                          type="datetime-local"
+                          value={isoToLocalDatetime(formData.active_until)}
+                          onChange={(e) => setFormData({ ...formData, active_until: localDatetimeToIso(e.target.value) })}
+                          className="w-full"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </details>
+            )}
             <PlanInputs formData={formData} setFormData={setFormData} translations={translations} />
           </div>
           <DialogFooter className="flex flex-col gap-2 overflow-y-auto max-h-[300px]">
@@ -844,14 +880,6 @@ function PlanInputs({
 
   return (
     <>
-      {/* Veřejný web – hlavní přepínač, dostupný pro všechny custom plány */}
-      <div className="flex items-center justify-between">
-        <label className="text-sm text-gray-400">Veřejný web</label>
-        <Switch
-          checked={formData.is_public}
-          onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
-        />
-      </div>
       {fields.map(({ key, label }) => (
         <div key={key} className="flex flex-col sm:grid sm:grid-cols-3 items-start sm:items-center gap-1 sm:gap-4">
           <label className="text-sm text-gray-400">{label}</label>

@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     const isMasterPlan = ["creator", "pro"].includes(plan);
     let targetPriceId: string;
     let resolvedPlanLabel: string;
+    let planInstanceId: string | null = null; // snapshot: users.current_plan_instance_id
 
     if (isMasterPlan) {
       // ── Master template ─────────────────────────────────────────────
@@ -58,6 +59,17 @@ export async function POST(request: NextRequest) {
       }
       targetPriceId = targetPrice.id;
       resolvedPlanLabel = plan;
+
+      // Snapshot: resolve the master template's DB id so we can bind the user
+      // to this specific plan instance after a successful checkout.
+      const adminClient = createAdminClient();
+      const { data: masterPlan } = await adminClient
+        .from("pricing_plans")
+        .select("id")
+        .eq("type", plan)
+        .eq("is_master_template", true)
+        .maybeSingle();
+      planInstanceId = masterPlan?.id ?? null;
     } else {
       // ── Custom plan – fetch from DB by UUID ─────────────────────────
       const adminClient = createAdminClient();
@@ -90,6 +102,7 @@ export async function POST(request: NextRequest) {
 
       targetPriceId = rawPriceId;
       resolvedPlanLabel = customPlan.name;
+      planInstanceId = customPlan.id;
     }
 
     // Get or create Stripe customer
@@ -138,7 +151,11 @@ export async function POST(request: NextRequest) {
       line_items: [{ price: targetPriceId, quantity: 1 }],
       success_url: `${origin}/${locale}/settings/billing?success=true`,
       cancel_url: `${origin}/${locale}/settings/billing?canceled=true`,
-      metadata: { user_id: user.id, plan: resolvedPlanLabel },
+      metadata: {
+        user_id: user.id,
+        plan: resolvedPlanLabel,
+        plan_instance_id: planInstanceId ?? "",
+      },
     });
 
     return NextResponse.json({ url: session.url });

@@ -69,12 +69,20 @@ export function BillingCard({ plan, locale, currency = "eur", translations }: Bi
     });
   };
 
+  const isMaster = plan.id === "creator" || plan.id === "pro";
+
   return (
     <div
       className={cn(
         "relative flex flex-col rounded-[24px] border p-8 transition-all duration-300",
-        "bg-card/40 backdrop-blur-xl border-white/5",
-        plan.isRecommended && "border-indigo-500/30 shadow-[0_0_40px_rgba(99,102,241,0.1)]",
+        "bg-card/40 backdrop-blur-xl",
+        plan.isRecommended &&
+          cn(
+            "border-indigo-500/20 dark:border-indigo-500/30",
+            isMaster
+              ? "shadow-[0_20px_50px_rgba(99,102,241,0.15)] dark:shadow-[0_0_40px_rgba(99,102,241,0.3)] before:absolute before:inset-0 before:-z-10 before:rounded-[24px] before:bg-gradient-to-b before:from-indigo-300 before:via-purple-300 before:via-pink-300 before:to-amber-300 before:blur-[30px] before:opacity-[0.03] dark:before:opacity-[0.12] before:content-[''] before:glow-breathe"
+              : "shadow-[0_20px_50px_rgba(99,102,241,0.08)] dark:shadow-[0_0_20px_rgba(99,102,241,0.15)]"
+          ),
         plan.isCurrent && "ring-1 ring-indigo-500/20"
       )}
     >

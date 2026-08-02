@@ -22,15 +22,15 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  bug: "bg-red-500/20 text-red-400",
-  feature: "bg-yellow-500/20 text-yellow-400",
-  other: "bg-blue-500/20 text-blue-400",
+  bug: "bg-red-100 dark:bg-red-500/20 text-red-400",
+  feature: "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-400",
+  other: "bg-blue-100 dark:bg-blue-500/20 text-blue-400",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  new: "bg-purple-500/20 text-purple-400",
-  read: "bg-blue-500/20 text-blue-400",
-  resolved: "bg-green-500/20 text-green-400",
+  new: "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400",
+  read: "bg-blue-100 dark:bg-blue-500/20 text-blue-400",
+  resolved: "bg-green-100 dark:bg-green-500/20 text-green-400",
 };
 
 export default async function AdminFeedbackPage({
@@ -46,8 +46,8 @@ export default async function AdminFeedbackPage({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white md:text-3xl">{t("title")}</h1>
-        <p className="text-sm text-gray-400">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white md:text-3xl">{t("title")}</h1>
+        <p className="text-sm text-slate-500 dark:text-gray-400">
           {t("totalFeedback", { count: feedback.length })}
         </p>
       </div>
@@ -55,8 +55,8 @@ export default async function AdminFeedbackPage({
       {/* Feedback list */}
       {feedback.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
-          <HelpCircle className="h-16 w-16 text-gray-600 mb-4" />
-          <p className="text-gray-400">{t("noFeedback")}</p>
+          <HelpCircle className="h-16 w-16 text-slate-400 dark:text-gray-600 mb-4" />
+          <p className="text-slate-500 dark:text-gray-400">{t("noFeedback")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -68,7 +68,7 @@ export default async function AdminFeedbackPage({
             return (
               <div
                 key={item.id}
-                className="rounded-[20px] border border-white/10 bg-[#09090b]/80 p-6 backdrop-blur-xl"
+                className="rounded-[20px] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 p-6 backdrop-blur-xl"
               >
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   {/* Left side */}
@@ -87,12 +87,12 @@ export default async function AdminFeedbackPage({
                     </div>
 
                     {/* Message */}
-                    <p className="text-gray-300 whitespace-pre-wrap">
+                    <p className="text-slate-600 dark:text-gray-300 whitespace-pre-wrap">
                       {item.message}
                     </p>
 
                     {/* User + Time */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400 dark:text-gray-500">
                       {userId && (
                         <span className="font-mono">
                           {userId.slice(0, 8)}...
@@ -119,7 +119,7 @@ export default async function AdminFeedbackPage({
                           type="submit"
                           variant="outline"
                           size="sm"
-                          className="border-white/10 text-gray-300 hover:bg-white/5"
+                          className="border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-white/5"
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           {t("markRead")}

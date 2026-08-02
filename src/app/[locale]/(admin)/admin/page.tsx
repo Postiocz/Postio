@@ -29,8 +29,8 @@ export default async function AdminDashboardPage({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white">{t("title")}</h1>
-        <p className="text-sm text-gray-400">{t("subtitle")}</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{t("title")}</h1>
+        <p className="text-sm text-slate-500 dark:text-gray-400">{t("subtitle")}</p>
       </div>
 
       {/* Metric cards */}

@@ -31,7 +31,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex h-screen bg-black text-white font-sans">
+    <div className="flex h-screen bg-slate-50 dark:bg-black text-slate-900 dark:text-white font-sans">
       {/* Sidebar */}
       <AdminSidebar locale={locale} />
 
@@ -42,11 +42,11 @@ export default async function AdminLayout({
 
         {/* Page content */}
         <main className="relative flex-1 overflow-y-auto">
-          {/* Grid pattern background */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:24px_24px]" />
+          {/* Grid pattern background - light: subtle gray, dark: subtle white */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000008_1px,transparent_1px),linear-gradient(to_bottom,#00000008_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-          {/* Glow effects */}
-          <div className="absolute top-0 right-0 h-96 w-96 -translate-y-1/2 translate-x-1/2 rounded-full bg-purple-600/10 blur-[120px]" />
+          {/* Glow effects - light: very subtle, dark: original */}
+          <div className="absolute top-0 right-0 h-96 w-96 -translate-y-1/2 translate-x-1/2 rounded-full bg-indigo-500/5 dark:bg-purple-600/10 blur-[120px]" />
 
           <div className="relative p-6 pb-24">
             {children}

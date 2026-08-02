@@ -25,35 +25,35 @@ export default function AdminSettingsPage() {
       <div className="lg:hidden mb-4">
         <button
           onClick={handleBackToMenu}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-slate-900 dark:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="text-sm">{t("backToMenu")}</span>
         </button>
       </div>
 
-      <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t("title")}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link href={`/${locale}/admin/settings/team`}>
-          <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px] hover:bg-white/5 transition-colors cursor-pointer">
+          <Card className="bg-white/80 dark:bg-[#09090b]/80 border-slate-200 dark:border-white/10 rounded-[20px] hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center gap-2 pb-2">
-              <Users className="h-5 w-5 text-indigo-400" />
-              <CardTitle className="text-white">{t("adminManagement")}</CardTitle>
+              <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <CardTitle className="text-slate-900 dark:text-white">{t("adminManagement")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-400 text-sm">{t("adminManagementDesc")}</p>
+              <p className="text-slate-500 dark:text-gray-400 text-sm">{t("adminManagementDesc")}</p>
             </CardContent>
           </Card>
         </Link>
 
         <Link href={`/${locale}/admin/settings/audit-log`}>
-          <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px] hover:bg-white/5 transition-colors cursor-pointer">
+          <Card className="bg-white/80 dark:bg-[#09090b]/80 border-slate-200 dark:border-white/10 rounded-[20px] hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center gap-2 pb-2">
-              <FileText className="h-5 w-5 text-indigo-400" />
-              <CardTitle className="text-white">{t("auditLog")}</CardTitle>
+              <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <CardTitle className="text-slate-900 dark:text-white">{t("auditLog")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-400 text-sm">{t("auditLogDesc")}</p>
+              <p className="text-slate-500 dark:text-gray-400 text-sm">{t("auditLogDesc")}</p>
             </CardContent>
           </Card>
         </Link>

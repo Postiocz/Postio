@@ -208,6 +208,21 @@
     }
   }
 
+  /* Premium Glow breathing animation – very slow, subtle opacity pulse.
+     Used on recommended plan cards. Respects prefers-reduced-motion. */
+  @keyframes glow-breathe {
+    0%, 100% { opacity: var(--glow-base, 0.04); }
+    50% { opacity: calc(var(--glow-base, 0.04) + 0.02); }
+  }
+  .glow-breathe {
+    animation: glow-breathe 6s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .glow-breathe {
+      animation: none;
+    }
+  }
+
   /* Post card hover shadow */
   .post-card-shadow {
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);

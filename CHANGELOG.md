@@ -4,6 +4,45 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 055 – KROK 4: Sjednocení UI ✅
+
+- **Kontext**: Finální prověrka konzistence Admin UI po implementaci Light Mode.
+- **Změny**:
+  - ✅ Automatická kontrola: 0 nalezených inkonzistencí v `rounded-*`, `backdrop-blur-*` nebo `border-white/10` bez `dark:` varianty napříč všemi admin stránkami.
+  - ✅ Ověřeno: Sidebar, Header, tabulky, MetricCard, karty – všechny používají konzistentní `rounded-[20px]`, `backdrop-blur-md`, glassmorphism pattern.
+  - ✅ Theme-aware přepínání Light/Dark potvrzeno v celém Adminu.
+- **Ověření**: Automatická kontrola + manuální test potvrzen.
+
+### 🚀 Prompt 055 – KROK 3: Premium Glow Efekt (Refix v2) ✅
+
+- **Kontext**: Původní glow byl příliš silný ("rozmazaný mrak") a v Light Mode téměř neviditelný. Refix pro High-End vzhled.
+- **Změny**:
+  - ✅ `src/app/globals.css`: Nová animace `glow-breathe` (6s ease-in-out, ±0.02 opacity, `prefers-reduced-motion` safe).
+  - ✅ `billing-card.tsx` + `pricing-client.tsx`: Master-only glow (`creator`/`pro`):
+    - Light Mode: `shadow-[0_20px_50px_rgba(99,102,241,0.15)]` + pastel rainbow gradient `from-indigo-300 via-purple-300 via-pink-300 to-amber-300`, `blur-[30px]`, `opacity-[0.03]`, `glow-breathe`.
+    - Dark Mode: `shadow-[0_0_40px_rgba(99,102,241,0.3)]` + `dark:before:opacity-[0.12]`.
+    - Border: `border-indigo-500/20 dark:border-indigo-500/30`.
+    - Promo/ostatní recommended: pouze jemný stín bez gradientu.
+- **Ověření**: Manuální test Light/Dark potvrzen — glow je decentní, prémiový, ne ruší čtení.
+
+### 🚀 Prompt 055 – KROK 2: Inteligentní Kontrast Odznaků ✅
+
+- **Kontext**: Odznaky tarifů s dynamickou barvou (`badgeColor` z DB) měly hardcoded `text-white` — na světlém pozadí nečitelné.
+- **Změny**:
+  - ✅ `src/lib/utils.ts`: Nová utilita `getContrastTextColor(bgColor)` — WCAG luminance výpočet, vrací `text-slate-900` pro světlé pozadí, `text-white` pro tmavé.
+  - ✅ `src/components/marketing/pricing-client.tsx`: Odznak doporučeného tarifu používá `getContrastTextColor(plan.badgeColor)` místo hardcoded `text-white`.
+- **Ověření**: Manuální test potvrzen — světlé barvy odznaku → tmavý text, tmavé barvy → bílý text.
+
+### 🚀 Prompt 055 – KROK 1: Admin Light Mode ("Milky Glass") ✅
+
+- **Kontext**: Admin sekce (`/admin/*`) byla hardcodována pro Dark Mode — bílé texty na bílém pozadí v Light Modu nečitelné.
+- **Změny**:
+  - ✅ Core komponenty (5 souborů): `admin/layout.tsx`, `admin-sidebar.tsx`, `admin-header.tsx`, `metric-card.tsx`, `admin/billing/page.tsx` — `bg-white/80 dark:bg-[#09090b]/80`, `border-slate-200 dark:border-white/10`, `text-slate-900 dark:text-white`.
+  - ✅ Všechny ostatní admin stránky (12 souborů): Dashboard, Analytics, Billing/Plans, Feedback, Posts, Settings (3×), System Check, Users (2×) — hromadná oprava `text-white` → `text-slate-900 dark:text-white`, `text-gray-*` → `text-slate-* dark:text-gray-*`, `bg-[#09090b]/80` → `bg-white/80 dark:bg-[#09090b]/80`.
+  - ✅ `STATUS_COLORS`/`PLAN_COLORS` maps: `bg-{color}-500/20` → `bg-{color}-100 dark:bg-{color}-500/20` (7 souborů).
+  - ✅ Hover stavy, divide, placeholder, accent ikony — vše theme-aware.
+- **Ověření**: 0 zbývajících hardcoded dark-only barev v adminu. Manuální test Light/Dark potvrzen.
+
 ### 🚀 Prompt 058 – Granulární viditelnost (Visibility Rules) ✅
 
 - **Kontext**: Nahrazení hrubého flagu `is_new_user_only` flexibilním systémem cílených skupin (`visibility_rules` TEXT[]).
@@ -81,38 +120,5 @@
   - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Přidán odkaz "Správa tarifů" s ikonou Tags.
   - ✅ i18n (cs/en/uk): Nový namespace `adminBillingPlansPage` + navigační klíče + `resetSingleConfirm`.
   - ✅ Reset k základu pro každý tarif zvlášť s potvrzovacím dialogem.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 
-### 🚀 Prompt 047 – Mobilní admin menu s dropdownem ✅
-
-- **Kontext**: Mobilní lišta adminu měla jen 5 fixních ikon, chyběly odkazy na Analytiku, Zpětnou vazbu a System Check.
-- **Změny**:
-  - ✅ `src/modules/admin-core/components/admin-mobile-nav.tsx`: Přidáno dropdown menu "Ostatní" s přehledem všech dalších funkcí.
-  - ✅ `src/app/[locale]/(admin)/admin/settings/page.tsx`: Přidáno tlačítko "Zpět do menu" pro mobilní zobrazení.
-  - ✅ `src/components/ui/sheet.tsx`: Nová Sheet komponenta (vytvořena, nepoužita - nahrazeno DropdownMenu).
-  - ✅ i18n (cs/en/uk): Nové klíče `nav.adminOther`, `backToMenu`, opraveny překlady v uk.json.
-  - ✅ Dropdown menu se automaticky otevře při navigaci z `/admin/settings` přes query param `?menu=open`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 046B – Lokalizace statických textů v náhledech ✅
-
-- **Kontext**: Desítky hardcoded textů v náhledových komponentách ignorovaly přepnutí jazyka (cs/en/uk).
-- **Změny**:
-  - ✅ i18n (cs/en/uk): 21 nových klíčů v namespace `posts` (previewNow, previewActionLike/Share/Comment atd.)
-  - ✅ `src/components/post-preview.tsx`: Všechny hardcoded texty (FB, IG, YT, LI, TT, TW) nahrazeny za `labels` props.
-  - ✅ `src/components/preview-dialog.tsx`: Nový `previewLabels` useMemo s `t()`, přidán `labels` parametr do `renderPreviewForPlatform`.
-  - ✅ `src/components/edit-post-dialog.tsx`: Hardcoded texty v `renderPlatformPreview` nahrazeny za `t()`.
-  - ✅ `src/components/calendar/hover-preview.tsx`: Přidáno `useTranslations`, nahrazen alt text.
-  - ✅ Fix: `previewOriginalSound` v JSON zbaven `{name}` placeholderu (FORMATTING_ERROR).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 046 – Twitter/X High-Fidelity Preview ✅
-
-- **Kontext**: V náhledovém systému chyběla podpora pro Twitter/X – chyběla záložka, komponenta i vizuální simulace.
-- **Změny**:
-  - ✅ `src/components/post-preview.tsx`: Nová `TwitterPreview` komponenta (X dark mode, avatar, verified badge, handle, media `object-contain`, interakční lišta Reply/Retweet/Like/Views/Bookmark/Share). Typ `Platform` rozšířen o `"twitter"`, přidán `twitterProfile` prop, `PLATFORM_ACCENTS` a render logika.
-  - ✅ `src/components/preview-dialog.tsx`: `PREVIEWABLE_PLATFORMS` rozšířeno o `"twitter"`, nový case v `renderPreviewForPlatform` s věrným tweet vizuálem, `XToolbarBtn` helper.
-  - ✅ `src/components/edit-post-dialog.tsx`: Přidán `twitterProfile` state/loading, `previewTwitterTab` label, `"twitter"` v `availablePreviewPlatforms`, `renderPlatformPreview` case, `twitterProfile` prop do `<PostPreview>`.
-  - ✅ i18n (cs/en/uk): Nový klíč `previewTwitterTab: "X (Twitter)"` v namespace `posts`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 

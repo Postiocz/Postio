@@ -389,14 +389,14 @@ export function PricingPlansClient({
             ? "border-gray-800 bg-gray-900/40 opacity-60"
             : isCustom
             ? "border-purple-500/20 bg-purple-500/5"
-            : "border-white/10 bg-[#09090b]/80"
+            : "border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80"
         }`}
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2 min-w-0">
-            <h3 className="text-lg font-semibold text-white truncate">{displayName}</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">{displayName}</h3>
             {isCustom && (
-              <Badge className="bg-purple-500/20 text-purple-300 text-[10px] px-1.5 py-0 shrink-0">
+              <Badge className="bg-purple-100 dark:bg-purple-500/20 text-purple-300 text-[10px] px-1.5 py-0 shrink-0">
                 Vlastní
               </Badge>
             )}
@@ -417,7 +417,7 @@ export function PricingPlansClient({
               </div>
             )}
             {showType && (
-              <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-gray-300">
+              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300">
                 {plan.type}
               </span>
             )}
@@ -431,35 +431,35 @@ export function PricingPlansClient({
             [translations.priceUsd, plan.price_usd === 0 ? translations.free : `$${plan.price_usd / 100}`],
           ].map(([label, value]) => (
             <div key={label as string} className="flex justify-between">
-              <span className="text-gray-400">{label as string}</span>
-              <span className="text-white font-medium">{value as string}</span>
+              <span className="text-slate-500 dark:text-gray-400">{label as string}</span>
+              <span className="text-slate-900 dark:text-white font-medium">{value as string}</span>
             </div>
           ))}
-          <div className="border-t border-white/10 my-3" />
+          <div className="border-t border-slate-200 dark:border-white/10 my-3" />
           <div className="flex justify-between">
-            <span className="text-gray-400">{translations.aiCredits}</span>
-            <span className="text-white">{plan.ai_credits}</span>
+            <span className="text-slate-500 dark:text-gray-400">{translations.aiCredits}</span>
+            <span className="text-slate-900 dark:text-white">{plan.ai_credits}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">{translations.twitterCredits}</span>
-            <span className="text-white">{plan.twitter_credits}</span>
+            <span className="text-slate-500 dark:text-gray-400">{translations.twitterCredits}</span>
+            <span className="text-slate-900 dark:text-white">{plan.twitter_credits}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">{translations.maxAccounts}</span>
-            <span className="text-white">
+            <span className="text-slate-500 dark:text-gray-400">{translations.maxAccounts}</span>
+            <span className="text-slate-900 dark:text-white">
               {plan.max_accounts === -1 ? "∞" : plan.max_accounts}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">{translations.maxPosts}</span>
-            <span className="text-white">
+            <span className="text-slate-500 dark:text-gray-400">{translations.maxPosts}</span>
+            <span className="text-slate-900 dark:text-white">
               {plan.max_posts_per_month === null ? "∞" : plan.max_posts_per_month}
             </span>
           </div>
           {plan.max_subscriptions !== null && plan.max_subscriptions > 0 && (
-            <div className="flex justify-between border-t border-white/5 pt-2">
-              <span className="text-gray-400">{translations.subscribersCount}</span>
-              <span className="text-white">
+            <div className="flex justify-between border-t border-slate-100 dark:border-white/5 pt-2">
+              <span className="text-slate-500 dark:text-gray-400">{translations.subscribersCount}</span>
+              <span className="text-slate-900 dark:text-white">
                 {plan.current_subscriptions} / {plan.max_subscriptions}
               </span>
             </div>
@@ -517,8 +517,8 @@ export function PricingPlansClient({
         <section className="space-y-4 mt-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-purple-400" />
-              <h2 className="text-lg font-semibold text-white">{translations.customPlans}</h2>
+              <Plus className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{translations.customPlans}</h2>
             </div>
             <Button onClick={openCreate} variant="outline" size="sm" className="gap-2">
               <Plus className="h-4 w-4" />
@@ -543,9 +543,9 @@ export function PricingPlansClient({
       {archivedPlans.length > 0 && (
         <section className="space-y-4 mt-8">
           <div className="flex items-center gap-2">
-            <Archive className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-400">{translations.archivedPlans}</h2>
-            <span className="text-xs text-gray-500">({archivedPlans.length})</span>
+            <Archive className="h-5 w-5 text-slate-400 dark:text-gray-500" />
+            <h2 className="text-lg font-semibold text-slate-500 dark:text-gray-400">{translations.archivedPlans}</h2>
+            <span className="text-xs text-slate-400 dark:text-gray-500">({archivedPlans.length})</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {archivedPlans.map((plan) => renderPlanCard(plan, false))}
@@ -555,7 +555,7 @@ export function PricingPlansClient({
 
       {/* Edit Dialog */}
       <Dialog open={!!editingPlan} onOpenChange={() => setEditingPlan(null)}>
-        <DialogContent className="sm:max-w-[480px] lg:max-w-[540px] rounded-[20px] bg-[#0a0a0f] border-white/10">
+        <DialogContent className="sm:max-w-[480px] lg:max-w-[540px] rounded-[20px] bg-white dark:bg-[#0a0a0f] border-slate-200 dark:border-white/10">
           <DialogHeader>
             <DialogTitle>
               {translations.editPlan}: {editingPlan?.name}
@@ -567,7 +567,7 @@ export function PricingPlansClient({
           <div className="grid gap-4 py-4">
             {editingPlan?.is_custom && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-gray-400">{translations.planName}</label>
+                <label className="text-sm text-slate-500 dark:text-gray-400">{translations.planName}</label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -576,11 +576,11 @@ export function PricingPlansClient({
               </div>
             )}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-400">{translations.description}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.description}</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full rounded-[12px] border border-white/10 bg-transparent px-3 py-2 text-sm text-white placeholder-gray-500 resize-none"
+                className="w-full rounded-[12px] border border-slate-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 resize-none"
                 rows={2}
                 placeholder="Popisek plánu"
               />
@@ -590,7 +590,7 @@ export function PricingPlansClient({
                 </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-400">{translations.badgeText}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.badgeText}</label>
               <Input
                 value={formData.badge_text}
                 onChange={(e) => setFormData({ ...formData, badge_text: e.target.value })}
@@ -603,14 +603,14 @@ export function PricingPlansClient({
                 </div>
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm text-gray-400">{translations.isRecommended}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.isRecommended}</label>
               <Switch
                 checked={formData.is_recommended}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_recommended: checked })}
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-400">{translations.badgeColor}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.badgeColor}</label>
               <div className="flex gap-2 items-center flex-wrap">
                 {["#6366F1", "#8B5CF6", "#EC4899", "#EF4444", "#F59E0B", "#10B981", "#06B6D4", "#FFFFFF", "#000000"].map((color) => (
                   <button
@@ -628,7 +628,7 @@ export function PricingPlansClient({
             {editingPlan?.is_master_template ? (
               // Master šablony: žádné promo/flash sale, pouze Veřejný web
               <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-400">Veřejný web</label>
+                <label className="text-sm text-slate-500 dark:text-gray-400">Veřejný web</label>
                 <Switch
                   checked={formData.is_public}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
@@ -636,12 +636,12 @@ export function PricingPlansClient({
               </div>
             ) : (
               <details className="group">
-                <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
+                <summary className="text-sm text-indigo-600 dark:text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
                   🎯 Časové omezení (flash sale)
                 </summary>
                 <div className="mt-3 space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
+                    <label className="text-sm text-slate-500 dark:text-gray-400">Akční nabídka (promo)</label>
                     <Switch
                       checked={formData.is_promo}
                       onCheckedChange={(checked) =>
@@ -656,7 +656,7 @@ export function PricingPlansClient({
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-400">Veřejný web</label>
+                    <label className="text-sm text-slate-500 dark:text-gray-400">Veřejný web</label>
                     <Switch
                       checked={formData.is_public}
                       onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
@@ -665,7 +665,7 @@ export function PricingPlansClient({
                   {formData.is_promo && (
                     <>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-sm text-gray-400">Začátek akce</label>
+                        <label className="text-sm text-slate-500 dark:text-gray-400">Začátek akce</label>
                         <Input
                           type="datetime-local"
                           value={isoToLocalDatetime(formData.active_from)}
@@ -674,7 +674,7 @@ export function PricingPlansClient({
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-sm text-gray-400">Konec akce</label>
+                        <label className="text-sm text-slate-500 dark:text-gray-400">Konec akce</label>
                         <Input
                           type="datetime-local"
                           value={isoToLocalDatetime(formData.active_until)}
@@ -688,8 +688,8 @@ export function PricingPlansClient({
               </details>
             )}
             {/* Granulární viditelnost – kdo uvidí tento plán (Prompt 058) */}
-            <div className="space-y-2 rounded-[12px] border border-white/10 bg-white/[0.03] p-3">
-              <label className="text-sm text-gray-400">{translations.visibilityTitle}</label>
+            <div className="space-y-2 rounded-[12px] border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.03] p-3">
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.visibilityTitle}</label>
               <div className="flex flex-wrap gap-2">
                 {VISIBILITY_GROUPS.map((g) => (
                   <button
@@ -699,7 +699,7 @@ export function PricingPlansClient({
                     className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
                       formData.visibility_rules.includes(g.key)
                         ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-300"
-                        : "border-white/10 text-gray-500 hover:border-white/20"
+                        : "border-slate-200 dark:border-white/10 text-slate-400 dark:text-gray-500 hover:border-slate-300 dark:border-white/20"
                     }`}
                   >
                     ✓ {translations[g.translationKey]}
@@ -724,7 +724,7 @@ export function PricingPlansClient({
 
       {/* Create Dialog */}
       <Dialog open={isCreating} onOpenChange={() => setIsCreating(false)}>
-        <DialogContent className="sm:max-w-[480px] lg:max-w-[540px] rounded-[20px] bg-[#0a0a0f] border-white/10">
+        <DialogContent className="sm:max-w-[480px] lg:max-w-[540px] rounded-[20px] bg-white dark:bg-[#0a0a0f] border-slate-200 dark:border-white/10">
           <DialogHeader>
             <DialogTitle>{translations.createPlan}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -733,7 +733,7 @@ export function PricingPlansClient({
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-400">{translations.planName}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.planName}</label>
               <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full" placeholder="Např. Creator - Zima" />
                 <div className="flex gap-3">
                   <TranslateFieldButtons targetLocale="en" onTranslate={handleTranslate} translating={!!(translating?.target === "en")} result={aiTranslations.en} />
@@ -741,11 +741,11 @@ export function PricingPlansClient({
                 </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-400">{translations.description}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.description}</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full rounded-[12px] border border-white/10 bg-transparent px-3 py-2 text-sm text-white placeholder-gray-500 resize-none"
+                className="w-full rounded-[12px] border border-slate-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 resize-none"
                 rows={2}
                 placeholder="Popisek plánu"
               />
@@ -755,7 +755,7 @@ export function PricingPlansClient({
                 </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-400">{translations.badgeText}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.badgeText}</label>
               <Input
                 value={formData.badge_text}
                 onChange={(e) => setFormData({ ...formData, badge_text: e.target.value })}
@@ -768,14 +768,14 @@ export function PricingPlansClient({
                 </div>
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm text-gray-400">{translations.isRecommended}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.isRecommended}</label>
               <Switch
                 checked={formData.is_recommended}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_recommended: checked })}
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-gray-400">{translations.badgeColor}</label>
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.badgeColor}</label>
               <div className="flex gap-2 items-center flex-wrap">
                 {["#6366F1", "#8B5CF6", "#EC4899", "#EF4444", "#F59E0B", "#10B981", "#06B6D4", "#FFFFFF", "#000000"].map((color) => (
                   <button
@@ -793,7 +793,7 @@ export function PricingPlansClient({
             {editingPlan?.is_master_template ? (
               // Master šablony: žádné promo/flash sale, pouze Veřejný web
               <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-400">Veřejný web</label>
+                <label className="text-sm text-slate-500 dark:text-gray-400">Veřejný web</label>
                 <Switch
                   checked={formData.is_public}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
@@ -801,12 +801,12 @@ export function PricingPlansClient({
               </div>
             ) : (
               <details className="group">
-                <summary className="text-sm text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
+                <summary className="text-sm text-indigo-600 dark:text-indigo-400 cursor-pointer hover:text-indigo-300 select-none">
                   🎯 Časové omezení (flash sale)
                 </summary>
                 <div className="mt-3 space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-400">Akční nabídka (promo)</label>
+                    <label className="text-sm text-slate-500 dark:text-gray-400">Akční nabídka (promo)</label>
                     <Switch
                       checked={formData.is_promo}
                       onCheckedChange={(checked) =>
@@ -821,7 +821,7 @@ export function PricingPlansClient({
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-400">Veřejný web</label>
+                    <label className="text-sm text-slate-500 dark:text-gray-400">Veřejný web</label>
                     <Switch
                       checked={formData.is_public}
                       onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
@@ -830,7 +830,7 @@ export function PricingPlansClient({
                   {formData.is_promo && (
                     <>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-sm text-gray-400">Začátek akce</label>
+                        <label className="text-sm text-slate-500 dark:text-gray-400">Začátek akce</label>
                         <Input
                           type="datetime-local"
                           value={isoToLocalDatetime(formData.active_from)}
@@ -839,7 +839,7 @@ export function PricingPlansClient({
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-sm text-gray-400">Konec akce</label>
+                        <label className="text-sm text-slate-500 dark:text-gray-400">Konec akce</label>
                         <Input
                           type="datetime-local"
                           value={isoToLocalDatetime(formData.active_until)}
@@ -853,8 +853,8 @@ export function PricingPlansClient({
               </details>
             )}
             {/* Granulární viditelnost – kdo uvidí tento plán (Prompt 058) */}
-            <div className="space-y-2 rounded-[12px] border border-white/10 bg-white/[0.03] p-3">
-              <label className="text-sm text-gray-400">{translations.visibilityTitle}</label>
+            <div className="space-y-2 rounded-[12px] border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.03] p-3">
+              <label className="text-sm text-slate-500 dark:text-gray-400">{translations.visibilityTitle}</label>
               <div className="flex flex-wrap gap-2">
                 {VISIBILITY_GROUPS.map((g) => (
                   <button
@@ -864,7 +864,7 @@ export function PricingPlansClient({
                     className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
                       formData.visibility_rules.includes(g.key)
                         ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-300"
-                        : "border-white/10 text-gray-500 hover:border-white/20"
+                        : "border-slate-200 dark:border-white/10 text-slate-400 dark:text-gray-500 hover:border-slate-300 dark:border-white/20"
                     }`}
                   >
                     ✓ {translations[g.translationKey]}
@@ -906,7 +906,7 @@ function TranslateFieldButtons({
         type="button"
         onClick={() => onTranslate(targetLocale)}
         disabled={translating}
-        className="text-[10px] text-indigo-400 hover:text-indigo-300 disabled:opacity-50 flex items-center gap-0.5"
+        className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-300 disabled:opacity-50 flex items-center gap-0.5"
       >
         {translating ? (
           <Loader2 className="h-2.5 w-2.5 animate-spin" />
@@ -915,7 +915,7 @@ function TranslateFieldButtons({
         )}
         {targetLocale === "en" ? "EN" : "UK"}
       </button>
-      {result && <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{result}</span>}
+      {result && <span className="text-[10px] text-slate-400 dark:text-gray-500 truncate max-w-[100px]">{result}</span>}
     </div>
   );
 }
@@ -944,7 +944,7 @@ function PlanInputs({
     <>
       {fields.map(({ key, label }) => (
         <div key={key} className="flex flex-col sm:grid sm:grid-cols-3 items-start sm:items-center gap-1 sm:gap-4">
-          <label className="text-sm text-gray-400">{label}</label>
+          <label className="text-sm text-slate-500 dark:text-gray-400">{label}</label>
           <Input
             type="number"
             value={String(formData[key as keyof typeof formData])}

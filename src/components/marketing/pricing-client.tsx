@@ -6,7 +6,7 @@ import { CountdownTimer } from "@/components/marketing/countdown-timer";
 import { Reveal } from "@/components/marketing/reveal";
 import { CurrencySwitcher, type Currency } from "@/components/marketing/currency-switcher";
 import { formatPrice, getDefaultCurrency } from "@/lib/pricing";
-import { cn } from "@/lib/utils";
+import { cn, getContrastTextColor } from "@/lib/utils";
 
 interface ClientPlan {
   id: string;
@@ -91,14 +91,17 @@ export function PricingClient({
                   "relative flex h-full flex-col rounded-[20px] border p-8 backdrop-blur-xl transition-all duration-300",
                   "border-border bg-card/40",
                   plan.isRecommended
-                    ? "border-indigo-500/30 shadow-[0_0_40px_rgba(99,102,241,0.12)] lg:-translate-y-2"
+                    ? "border-indigo-500/20 dark:border-indigo-500/30 shadow-[0_20px_50px_rgba(99,102,241,0.15)] dark:shadow-[0_0_40px_rgba(99,102,241,0.3)] lg:-translate-y-2 before:absolute before:inset-0 before:-z-10 before:rounded-[20px] before:bg-gradient-to-b before:from-indigo-300 before:via-purple-300 before:via-pink-300 before:to-amber-300 before:blur-[30px] before:opacity-[0.03] dark:before:opacity-[0.12] before:content-[''] before:glow-breathe"
                     : "hover:border-indigo-500/20"
                 )}
               >
                 {plan.isRecommended && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span
-                      className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold text-white shadow-lg"
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold shadow-lg",
+                        getContrastTextColor(plan.badgeColor || "#6366F1")
+                      )}
                       style={{ backgroundColor: plan.badgeColor || "#6366F1" }}
                     >
                       <Check className="h-3 w-3" />

@@ -98,39 +98,39 @@ export default function AdminTeamPage() {
     <div className="space-y-6 p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
-          <p className="text-gray-400 text-sm mt-1">{t("subtitle")}</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t("title")}</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">{t("subtitle")}</p>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-gray-400">
           <UserCheck className="h-4 w-4" />
           <span>{t("usersTotal", { count: users.length })}</span>
           <span className="mx-2">•</span>
-          <ShieldCheck className="h-4 w-4 text-indigo-400" />
-          <span className="text-indigo-400">
+          <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <span className="text-indigo-600 dark:text-indigo-400">
             {t("adminsTotal", { count: users.filter(u => u.role === "admin").length })}
           </span>
         </div>
       </div>
 
       {/* Filtry a vyhledávání */}
-      <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
+      <Card className="bg-white/80 dark:bg-[#09090b]/80 border-slate-200 dark:border-white/10 rounded-[20px]">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-gray-500" />
               <Input
                 placeholder={t("searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-black/50 border-white/10"
+                className="pl-10 bg-slate-100 dark:bg-black/50 border-slate-200 dark:border-white/10"
               />
             </div>
 
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
+              <Filter className="h-4 w-4 text-slate-400 dark:text-gray-500" />
               {/* Jednoduchý filter toggle místo Tabs — vlastní tlačítka */}
-              <div className="flex rounded-lg bg-black/50 border border-white/10 p-1">
+              <div className="flex rounded-lg bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-white/10 p-1">
                 {(["all", "admin", "user"] as const).map((filter) => (
                   <button
                     key={filter}
@@ -138,7 +138,7 @@ export default function AdminTeamPage() {
                     className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5 ${
                       roleFilter === filter
                         ? "bg-indigo-600 text-white"
-                        : "text-gray-400 hover:text-gray-300"
+                        : "text-slate-500 dark:text-gray-400 hover:text-slate-600 dark:hover:text-slate-600 dark:text-gray-300"
                     }`}
                   >
                     {filter === "admin" && <ShieldCheck className="h-3 w-3" />}
@@ -153,14 +153,14 @@ export default function AdminTeamPage() {
       </Card>
 
       {/* Hlavní obsah - tabulka uživatelů */}
-      <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
+      <Card className="bg-white/80 dark:bg-[#09090b]/80 border-slate-200 dark:border-white/10 rounded-[20px]">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between text-white">
+          <CardTitle className="flex items-center justify-between text-slate-900 dark:text-white">
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-indigo-400" />
+              <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               <span>{roleFilter === "all" ? t("cardAll") : roleFilter === "admin" ? t("cardAdmins") : t("cardUsers")}</span>
             </div>
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-slate-500 dark:text-gray-400">
               {t("showingXofY", { count: filteredUsers.length, total: users.length })}
             </div>
           </CardTitle>
@@ -170,14 +170,14 @@ export default function AdminTeamPage() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto"></div>
-                <p className="text-gray-400 mt-2">{t("loading")}</p>
+                <p className="text-slate-500 dark:text-gray-400 mt-2">{t("loading")}</p>
               </div>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="h-12 w-12 text-gray-600 mx-auto mb-3" />
-              <h3 className="text-white font-medium">{t("noUsersFound")}</h3>
-              <p className="text-gray-400 text-sm mt-1">
+              <Users className="h-12 w-12 text-slate-400 dark:text-gray-600 mx-auto mb-3" />
+              <h3 className="text-slate-900 dark:text-white font-medium">{t("noUsersFound")}</h3>
+              <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">
                 {searchTerm
                   ? t("noUsersSearch", { term: searchTerm })
                   : t("noUsersFilter")}
@@ -188,14 +188,14 @@ export default function AdminTeamPage() {
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="p-4 rounded-[20px] bg-black/30 border border-white/10 hover:bg-white/5 transition-colors"
+                  className="p-4 rounded-[20px] bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     {/* Levý sloupec - informace o uživateli */}
                     <div className="flex-1">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
-                          <span className="text-white font-medium">
+                          <span className="text-slate-900 dark:text-white font-medium">
                             {user.full_name || t("unknownUser")}
                           </span>
                           <Badge className={getPlanBadgeColor(user.plan)}>
@@ -203,7 +203,7 @@ export default function AdminTeamPage() {
                           </Badge>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 dark:text-gray-400">
                           {user.email && (
                             <div className="flex items-center gap-1">
                               <Mail className="h-3 w-3" />
@@ -226,7 +226,7 @@ export default function AdminTeamPage() {
                           )}
                         </div>
 
-                        <div className="text-xs text-gray-500 font-mono mt-1">
+                        <div className="text-xs text-slate-400 dark:text-gray-500 font-mono mt-1">
                           {t("idLabel", { id: user.id })}
                         </div>
                       </div>
@@ -251,7 +251,7 @@ export default function AdminTeamPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleRoleChange(user.id, "admin")}
-                            className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/30 border-indigo-700"
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/30 border-indigo-700"
                           >
                             <ShieldCheck className="h-3 w-3 mr-2" />
                             {t("setAsAdmin")}
@@ -261,7 +261,7 @@ export default function AdminTeamPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleRoleChange(user.id, "user")}
-                            className="text-gray-400 hover:text-gray-300 hover:bg-gray-900/30 border-gray-700"
+                            className="text-slate-500 dark:text-gray-400 hover:text-slate-600 dark:hover:text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:bg-gray-900/30 border-slate-300 dark:border-gray-700"
                           >
                             <Users className="h-3 w-3 mr-2" />
                             {t("removeAdmin")}
@@ -279,24 +279,24 @@ export default function AdminTeamPage() {
 
       {/* Statistiky */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
+        <Card className="bg-white/80 dark:bg-[#09090b]/80 border-slate-200 dark:border-white/10 rounded-[20px]">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">{t("totalUsers")}</p>
-                <p className="text-2xl font-bold text-white">{users.length}</p>
+                <p className="text-sm text-slate-500 dark:text-gray-400">{t("totalUsers")}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{users.length}</p>
               </div>
-              <Users className="h-8 w-8 text-gray-600" />
+              <Users className="h-8 w-8 text-slate-400 dark:text-gray-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
+        <Card className="bg-white/80 dark:bg-[#09090b]/80 border-slate-200 dark:border-white/10 rounded-[20px]">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">{t("totalAdmins")}</p>
-                <p className="text-2xl font-bold text-indigo-400">
+                <p className="text-sm text-slate-500 dark:text-gray-400">{t("totalAdmins")}</p>
+                <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                   {users.filter(u => u.role === "admin").length}
                 </p>
               </div>
@@ -305,12 +305,12 @@ export default function AdminTeamPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-[#09090b]/80 border-white/10 rounded-[20px]">
+        <Card className="bg-white/80 dark:bg-[#09090b]/80 border-slate-200 dark:border-white/10 rounded-[20px]">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">{t("payingUsers")}</p>
-                <p className="text-2xl font-bold text-purple-400">
+                <p className="text-sm text-slate-500 dark:text-gray-400">{t("payingUsers")}</p>
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {users.filter(u => u.plan && u.plan !== "free").length}
                 </p>
               </div>

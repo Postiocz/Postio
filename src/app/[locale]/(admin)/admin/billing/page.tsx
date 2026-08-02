@@ -16,11 +16,11 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 const statusColors: Record<string, string> = {
-  active: "bg-green-500/20 text-green-400",
-  canceled: "bg-gray-500/20 text-gray-400",
-  incomplete: "bg-yellow-500/20 text-yellow-400",
-  past_due: "bg-red-500/20 text-red-400",
-  trialing: "bg-blue-500/20 text-blue-400",
+  active: "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400",
+  canceled: "bg-slate-100 text-slate-600 dark:bg-gray-500/20 dark:text-gray-400",
+  incomplete: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400",
+  past_due: "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400",
+  trialing: "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400",
 };
 
 export default async function AdminBillingPage({
@@ -38,8 +38,8 @@ export default async function AdminBillingPage({
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white md:text-3xl">{t("title")}</h1>
-        <p className="text-sm text-gray-400">{t("subtitle")}</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white md:text-3xl">{t("title")}</h1>
+        <p className="text-sm text-slate-500 dark:text-gray-400">{t("subtitle")}</p>
       </div>
 
       {/* Stats grid */}
@@ -69,39 +69,39 @@ export default async function AdminBillingPage({
       {/* Subscriptions table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">{t("subscriptions")}</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t("subscriptions")}</h2>
           <Link
             href="https://dashboard.stripe.com/subscriptions"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors"
           >
             {t("openInStripe")} <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
 
-        <div className="overflow-x-auto rounded-[20px] border border-white/10 bg-[#09090b]/80 backdrop-blur-xl">
+        <div className="overflow-x-auto rounded-[20px] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-200 dark:border-white/10">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("customer")}
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("plan")}
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("status")}
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("created")}
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {subscriptions.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400 dark:text-gray-500">
                     {t("noSubscriptions")}
                   </td>
                 </tr>
@@ -129,20 +129,20 @@ export default async function AdminBillingPage({
                   return (
                     <tr
                       key={subscription.id}
-                      className="hover:bg-white/5 transition-colors"
+                      className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                     >
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">
                             {customerName || t("unknown")}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-slate-400 dark:text-gray-500">
                             {customerEmail || "—"}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-white">{planName}</span>
+                        <span className="text-sm text-slate-900 dark:text-white">{planName}</span>
                       </td>
                       <td className="px-6 py-4">
                         <Badge
@@ -153,7 +153,7 @@ export default async function AdminBillingPage({
                           {subscription.status}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-300">
+                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-gray-300">
                         {format(
                           new Date(subscription.created * 1000),
                           "PP",
@@ -172,42 +172,42 @@ export default async function AdminBillingPage({
       {/* Invoices table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">{t("invoices")}</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t("invoices")}</h2>
           <Link
             href="https://dashboard.stripe.com/invoices"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors"
           >
             {t("openInStripe")} <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
 
-        <div className="overflow-x-auto rounded-[20px] border border-white/10 bg-[#09090b]/80 backdrop-blur-xl">
+        <div className="overflow-x-auto rounded-[20px] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-200 dark:border-white/10">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("invoiceNumber")}
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("customer")}
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("amount")}
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("status")}
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                   {t("created")}
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 dark:text-gray-500">
                     {t("noInvoices")}
                   </td>
                 </tr>
@@ -233,25 +233,25 @@ export default async function AdminBillingPage({
                     return (
                       <tr
                         key={invoice.id}
-                        className="hover:bg-white/5 transition-colors"
+                        className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                       >
                         <td className="px-6 py-4">
-                          <span className="text-sm font-medium text-white">
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">
                             {invoice.number || "—"}
                           </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium text-white">
+                            <span className="text-sm font-medium text-slate-900 dark:text-white">
                               {customerName || t("unknown")}
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-slate-400 dark:text-gray-500">
                               {customerEmail || "—"}
                             </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-white">
+                          <span className="text-sm text-slate-900 dark:text-white">
                             {amount.toLocaleString("cs-CZ", {
                               style: "currency",
                               currency: currency.toUpperCase(),
@@ -274,7 +274,7 @@ export default async function AdminBillingPage({
                             {invoice.status}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-300">
+                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-gray-300">
                           {format(
                             new Date(invoice.created * 1000),
                             "PP",

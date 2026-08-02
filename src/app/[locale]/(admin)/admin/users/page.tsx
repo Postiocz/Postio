@@ -21,9 +21,9 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const PLAN_COLORS: Record<string, string> = {
-  free: "bg-gray-500/20 text-gray-400",
-  creator: "bg-blue-500/20 text-blue-400",
-  pro: "bg-purple-500/20 text-purple-400",
+  free: "bg-gray-100 dark:bg-gray-500/20 text-slate-500 dark:text-gray-400",
+  creator: "bg-blue-100 dark:bg-blue-500/20 text-blue-400",
+  pro: "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400",
 };
 
 export default async function AdminUsersPage({
@@ -39,54 +39,54 @@ export default async function AdminUsersPage({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white md:text-3xl">{t("title")}</h1>
-        <p className="text-sm text-gray-400">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white md:text-3xl">{t("title")}</h1>
+        <p className="text-sm text-slate-500 dark:text-gray-400">
           {t("totalUsers", { count: users.length })}
         </p>
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden overflow-x-auto rounded-[20px] border border-white/10 bg-[#09090b]/80 backdrop-blur-xl md:block">
+      <div className="hidden overflow-x-auto rounded-[20px] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl md:block">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <tr className="border-b border-slate-200 dark:border-white/10">
+              <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                 {t("user")}
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                 {t("plan")}
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                 {t("registered")}
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                 {t("streak")}
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                 {t("role")}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-slate-100 dark:divide-white/5">
             {users.map((user) => (
               <tr
                 key={user.id}
-                className="hover:bg-white/5 transition-colors"
+                className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
               >
                 {/* User info */}
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[20px] bg-white/5 text-sm font-medium text-white">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[20px] bg-slate-100 dark:bg-white/5 text-sm font-medium text-slate-900 dark:text-white">
                       {user.full_name?.charAt(0) ?? "?"}
                     </div>
                     <div>
                       <Link
                         href={`/${locale}/admin/users/${user.id}`}
-                        className="font-medium text-white hover:text-purple-400 transition-colors"
+                        className="font-medium text-slate-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-600 dark:text-purple-400 transition-colors"
                       >
                         {user.full_name ?? t("unknown")}
                       </Link>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-slate-400 dark:text-gray-500">
                         {user.id.slice(0, 8)}...
                       </p>
                     </div>
@@ -105,14 +105,14 @@ export default async function AdminUsersPage({
                 </td>
 
                 {/* Created at */}
-                <td className="px-6 py-4 text-sm text-gray-300">
+                <td className="px-6 py-4 text-sm text-slate-600 dark:text-gray-300">
                   {format(new Date(user.created_at), "PP", {
                     locale: cs,
                   })}
                 </td>
 
                 {/* Streak */}
-                <td className="px-6 py-4 text-sm text-gray-300">
+                <td className="px-6 py-4 text-sm text-slate-600 dark:text-gray-300">
                   🔥 {user.streak ?? 0}
                 </td>
 
@@ -121,8 +121,8 @@ export default async function AdminUsersPage({
                   <Badge
                     className={
                       user.role === "admin"
-                        ? "bg-purple-500/20 text-purple-400"
-                        : "bg-gray-500/20 text-gray-400"
+                        ? "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400"
+                        : "bg-gray-100 dark:bg-gray-500/20 text-slate-500 dark:text-gray-400"
                     }
                   >
                     {user.role === "admin" ? t("admin") : t("userRole")}
@@ -134,7 +134,7 @@ export default async function AdminUsersPage({
         </table>
 
         {users.length === 0 && (
-          <div className="py-12 text-center text-gray-500">
+          <div className="py-12 text-center text-slate-400 dark:text-gray-500">
             {t("noUsers")}
           </div>
         )}
@@ -143,7 +143,7 @@ export default async function AdminUsersPage({
       {/* Mobile Cards */}
       <div className="space-y-3 md:hidden">
         {users.length === 0 ? (
-          <div className="py-12 text-center text-gray-500">
+          <div className="py-12 text-center text-slate-400 dark:text-gray-500">
             {t("noUsers")}
           </div>
         ) : (
@@ -151,26 +151,26 @@ export default async function AdminUsersPage({
             <Link
               key={user.id}
               href={`/${locale}/admin/users/${user.id}`}
-              className="block rounded-[20px] border border-white/10 bg-[#09090b]/80 p-4 backdrop-blur-xl hover:bg-white/[0.04] transition-colors"
+              className="block rounded-[20px] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 p-4 backdrop-blur-xl hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
             >
               {/* Row 1: Avatar + Name + Role */}
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-white/5 text-lg font-bold text-white">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-slate-100 dark:bg-white/5 text-lg font-bold text-slate-900 dark:text-white">
                   {user.full_name?.charAt(0) ?? "?"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-white truncate">
+                  <p className="font-semibold text-slate-900 dark:text-white truncate">
                     {user.full_name ?? t("unknown")}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-slate-400 dark:text-gray-500 truncate">
                     {user.id}
                   </p>
                 </div>
                 <Badge
                   className={
                     user.role === "admin"
-                      ? "bg-purple-500/20 text-purple-400 shrink-0"
-                      : "bg-gray-500/20 text-gray-400 shrink-0"
+                      ? "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 shrink-0"
+                      : "bg-gray-100 dark:bg-gray-500/20 text-slate-500 dark:text-gray-400 shrink-0"
                   }
                 >
                   {user.role === "admin" ? t("admin") : t("userRole")}
@@ -178,7 +178,7 @@ export default async function AdminUsersPage({
               </div>
 
               {/* Row 2: Plan + Streak + Date */}
-              <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+              <div className="mt-3 flex items-center gap-4 text-xs text-slate-500 dark:text-gray-400">
                 <Badge
                   className={
                     (PLAN_COLORS[user.plan] ?? PLAN_COLORS.free) +

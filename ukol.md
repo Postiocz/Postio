@@ -42,46 +42,6 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 10.3 Prompt 057 – Skrytí promo akcí před stávajícími uživateli
-
-**Problém:** Registrovaný uživatel (např. Admin s Pro) vidí na stránce Fakturace akční
-nabídky určené výhradně pro nové uživatele (např. "Testovací Akce" za1 Kč). Aktuální
-billing stránka načítá VŠECHNY viditelné custom plány bez ohledu na to, zda jde o promo
-pro nové uživatele. Nutnost: skrýt promo akce před stávajícími uživateli a zabránit
-jejich nákupu.
-
-**Cíl:** Stávající uživatelé nevidí ani si nemohou koupit `is_new_user_only` plány.
-
-- [x] **KROK 1: Identifikace "New User Only" plánů** — ✅ hotovo
-      Migrace `049_add_new_user_only.sql`: `is_new_user_only BOOLEAN DEFAULT false`
-      + backfill (`is_promo = true` → `is_new_user_only = true`) + index.
-      `src/lib/supabase/types.ts` aktualizováno (Row/Insert/Update).
-
-- [ ] **KROK 2: Striktní filtr ve Fakturaci**
-      - Upravit `src/app/[locale]/(dashboard)/settings/billing/page.tsx`.
-      - Master plány (`is_master_template = true`) se zobrazují vždy.
-      - Promo plány (`is_new_user_only = true`) se zobrazí JEN pokud uživatel tento
-        plán AKTIVNĚ používá (`users.current_plan_instance_id` === plán.id) – jako svůj
-        aktuální. ŽÁDNÉ jiné promo nabídky se nezobrazují.
-      - Výchozí: nezobrazovat žádné promo plány stávajícímu uživateli.
-
-- [x] **Dodatečný fix: Logika promo/odpočtu (potvrzeno)** — ✅ hotovo
-      - Landing page zobrazuje custom plány jen `is_public = true` (`pricing-section.tsx`).
-      - "Veřejný web" přepínač dostupný pro všechny custom plány (ne jen promo) v Adminu.
-      - Odpočet se renderuje JEN pro promo plány (`plan.isPromo && plan.activeUntil`).
-      - Vypnutí promo v Adminu vymaže `active_from`/`active_until` (odpočet zmizí).
-
-- [ ] **KROK 3: Ochrana Checkout API**
-      - Upravit `src/app/api/stripe/checkout/route.ts`.
-      - Při checkoutu custom plánu (UUID) načíst plán z DB a zkontrolovat
-        `is_new_user_only`. Pokud je true a uživatel je stávající (nemá tento plán
-        jako `current_plan_instance_id`), vrátit 403 s chybou:
-        "Tato nabídka je určena pouze pro nové zákazníky."
-
-- [ ] **KROK 4: UI Úklid**
-      - Ze stránky Fakturace zmizí spodní karty (akce). Uživatel na Pro tarifu uvidí
-        jen 3 hlavní master karty a u Pro nápis "Aktuální".
-
 ### 10.4 Prompt 054 – Vyčištění Master šablon a fixace podmínek
 
 **Cíl:** Zjednodušit správu základních tarifů a zajistit, aby změny v Master

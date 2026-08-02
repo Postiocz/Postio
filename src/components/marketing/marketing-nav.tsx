@@ -12,11 +12,15 @@ import { ThemeToggle } from "@/components/theme-toggle";
 // Custom spring-like easing per high-end skill (no linear / ease-in-out).
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-export function MarketingNav() {
+export function MarketingNav({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const t = useTranslations("landing.nav");
   const locale = useLocale();
   const reduce = useReducedMotion();
   const [open, setOpen] = React.useState(false);
+
+  // Přihlášený uživatel jde na dashboard, návštěvník na login.
+  const ctaHref = isAuthenticated ? `/${locale}/dashboard` : `/${locale}/login`;
+  const ctaLabel = isAuthenticated ? t("dashboard") : t("login");
 
   const links = [
     { href: "#funkce", label: t("features") },
@@ -84,10 +88,10 @@ export function MarketingNav() {
             <ThemeToggle />
 
             <Link
-              href={`/${locale}/login`}
+              href={ctaHref}
               className="group hidden items-center gap-2 rounded-full bg-[#6366F1] px-5 py-2.5 text-sm font-medium text-white shadow-[0_4px_20px_rgba(99,102,241,0.35)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#5457e5] active:scale-[0.98] md:inline-flex"
             >
-              {t("login")}
+              {ctaLabel}
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5">
                 <ArrowRight className="h-3.5 w-3.5" />
               </span>
@@ -151,11 +155,11 @@ export function MarketingNav() {
               ))}
               <motion.div variants={itemVariants} className="mt-6">
                 <Link
-                  href={`/${locale}/login`}
+                  href={ctaHref}
                   onClick={() => setOpen(false)}
                   className="group inline-flex items-center gap-2 rounded-full bg-[#6366F1] px-7 py-3.5 text-base font-medium text-white shadow-[0_4px_20px_rgba(99,102,241,0.35)] transition-all duration-300 active:scale-[0.98]"
                 >
-                  {t("login")}
+                  {ctaLabel}
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 transition-transform duration-300 group-hover:translate-x-0.5">
                     <ArrowRight className="h-4 w-4" />
                   </span>

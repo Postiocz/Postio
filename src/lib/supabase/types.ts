@@ -437,6 +437,7 @@ export interface Database {
           is_public: boolean
           is_promo: boolean
           is_new_user_only: boolean
+          visibility_rules: string[]
           created_at: string
           updated_at: string
         }
@@ -475,6 +476,7 @@ export interface Database {
           is_public?: boolean
           is_promo?: boolean
           is_new_user_only?: boolean
+          visibility_rules?: string[]
           created_at?: string
           updated_at?: string
         }
@@ -513,6 +515,7 @@ export interface Database {
           is_public?: boolean
           is_promo?: boolean
           is_new_user_only?: boolean
+          visibility_rules?: string[]
           created_at?: string
           updated_at?: string
         }

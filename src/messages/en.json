@@ -1057,7 +1057,8 @@
       "pricing": "Pricing",
       "pricing": "Pricing",
       "faq": "FAQ",
-      "login": "Sign in"
+      "login": "Sign in",
+      "dashboard": "Dashboard"
     },
     "flashSale": {
       "countdownEnds": "Ends in {time}",
@@ -1460,7 +1461,12 @@
     "description": "Description",
     "badgeText": "Badge text",
     "isRecommended": "Recommended",
-    "badgeColor": "Badge color"
+    "badgeColor": "Badge color",
+    "visibilityTitle": "Who can see this plan?",
+    "visibilityAnonymous": "Unregistered",
+    "visibilityFree": "Free",
+    "visibilityCreator": "Creator",
+    "visibilityPro": "Pro"
   },
   "adminFeedbackPage": {
     "title": "Feedback",

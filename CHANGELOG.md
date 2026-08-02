@@ -4,6 +4,17 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 058 – Granulární viditelnost (Visibility Rules) ✅
+
+- **Kontext**: Nahrazení hrubého flagu `is_new_user_only` flexibilním systémem cílených skupin (`visibility_rules` TEXT[]).
+- **Změny**:
+  - ✅ Krok 1 – Migrace `051_visibility_rules.sql` (sloupec + backfill + GIN index), `types.ts`.
+  - ✅ Krok 2 – Admin UI checkboxy "Kdo uvidí tento plán?" + Server Actions ukládají pole (překlady cs/en/uk).
+  - ✅ Krok 3 – Landing page session-aware (přihlášený→tarif, odhlášený→anonymous); Fakturace `.contains(visibility_rules,[userPlan])`; nav pozná přihlášeného.
+  - ✅ Krok 4 – Checkout API ověřuje `visibility_rules` (403), promo plány `['anonymous','free']`.
+  - ✅ Krok 5 – Smart Pricing Cards (přímý checkout pro přihlášené, spinner); měna dle aktivního předplatného.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 054 – KROK 2+3: Snapshot Logic a ochrana master šablon ✅
 
 - **Kontext**: Chybela vazba uživatele na instanci plánu (snapshot) a master šablony šlo smazat.
@@ -103,15 +114,5 @@
   - ✅ `src/components/preview-dialog.tsx`: `PREVIEWABLE_PLATFORMS` rozšířeno o `"twitter"`, nový case v `renderPreviewForPlatform` s věrným tweet vizuálem, `XToolbarBtn` helper.
   - ✅ `src/components/edit-post-dialog.tsx`: Přidán `twitterProfile` state/loading, `previewTwitterTab` label, `"twitter"` v `availablePreviewPlatforms`, `renderPlatformPreview` case, `twitterProfile` prop do `<PostPreview>`.
   - ✅ i18n (cs/en/uk): Nový klíč `previewTwitterTab: "X (Twitter)"` v namespace `posts`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 044-REVISED – KROK 4.4: Admin Feedback View ✅
-
-- **Kontext**: Admin potřebuje přehled o všech zpětných vazbách od uživatelů.
-- **Změny**:
-  - ✅ `src/app/[locale]/(admin)/admin/feedback/page.tsx`: Nová stránka s přehledem feedbacků.
-  - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Odkaz "Zpětná vazba" v admin navigaci.
-  - ✅ `src/lib/actions/feedback.ts`: `getFeedbackList()` a `updateFeedbackStatus()` s admin klientem.
-  - ✅ i18n (cs/en/uk): Namespace `adminFeedbackPage` + klíč `nav.adminFeedback`.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 

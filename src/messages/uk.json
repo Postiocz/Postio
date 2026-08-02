@@ -1065,7 +1065,8 @@
     },
       "pricing": "Тарифи",
       "faq": "FAQ",
-      "login": "Увійти"
+      "login": "Увійти",
+      "dashboard": "Огляд"
     },
     "flashSale": {
       "countdownEnds": "Закінчується через {time}",
@@ -1468,7 +1469,12 @@
     "description": "Опис",
     "badgeText": "Текст значка",
     "isRecommended": "Рекомендувати",
-    "badgeColor": "Колір значка"
+    "badgeColor": "Колір значка",
+    "visibilityTitle": "Хто бачитиме цей план?",
+    "visibilityAnonymous": "Незареєстровані",
+    "visibilityFree": "Free",
+    "visibilityCreator": "Creator",
+    "visibilityPro": "Pro"
   },
   "adminFeedbackPage": {
     "title": "Зворотний зв'язок",

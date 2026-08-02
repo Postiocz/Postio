@@ -1,14 +1,28 @@
 import { GeistSans } from "geist/font/sans";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 // Marketing layout: public landing shell.
-// Inherits NextIntl + ThemeProvider + CookieConsent from the parent [locale] layout.
+// Inherits theNextIntl + ThemeProvider + CookieConsent from the parent [locale] layout.
 // Brand font (Geist) applied to the whole marketing section per the design read.
-export default function MarketingLayout({
+export default async function MarketingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Zjisti, zda je uživatel přihlášen. Nav se pak zobrazí jako přihlášený
+  // (tlačítko "Přehled" → dashboard) místo "Přihlásit se". Session se ověřuje
+  // na serveru, aby fungovalo i po obnovení stránky / novém okně.
+  let isAuthenticated = false;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    isAuthenticated = !!data?.user;
+  } catch {
+    logger.debug("Marketing layout: auth check failed, treating as anonymous");
+  }
+
   return (
     <div
       className={`${GeistSans.variable} ${GeistSans.className} relative min-h-[100dvh] bg-background text-foreground antialiased`}
@@ -20,7 +34,7 @@ export default function MarketingLayout({
       </div>
 
       <div className="relative z-10">
-        <MarketingNav />
+        <MarketingNav isAuthenticated={isAuthenticated} />
         {children}
       </div>
     </div>

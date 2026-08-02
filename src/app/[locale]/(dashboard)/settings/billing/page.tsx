@@ -113,17 +113,15 @@ export default async function BillingPage({
       }
     }
 
-    // 2. Načti běžné vlastní (custom) plány – viditelné, NIKOLI promo akce.
-    //    Stávající uživatelé nesmí vidět nabídky pro nové uživatele.
-    //    Skrýváme plány, kde je `is_promo = true` NEBO `is_new_user_only = true`
-    //    (obě reprezentují promo určené jen pro nové zákazníky).
+    // 2. Načti vlastní (custom) plány – viditelné podle aktuálního tarifu uživatele.
+    //    Granulární viditelnost: `visibility_rules` musí obsahovat hodnotpu
+    //    odpovídající aktuálnímu tarifu (users.plan = free/creator/pro).
     const { data: customPlans } = await supabase
       .from("pricing_plans")
       .select("*")
       .eq("is_master_template", false)
       .eq("is_visible", true)
-      .eq("is_promo", false)
-      .eq("is_new_user_only", false)
+      .contains("visibility_rules", [userPlan])
       .order("created_at", { ascending: true });
 
     if (customPlans) {

@@ -65,6 +65,8 @@ export default async function AdminPlansPage({
     "translateToEn", "translateToUk",
     "maxSubscriptions", "subscribersCount",
     "description", "badgeText", "isRecommended", "badgeColor",
+    "visibilityTitle", "visibilityAnonymous", "visibilityFree",
+    "visibilityCreator", "visibilityPro",
   ] as const;
 
   const translations: Record<string, string> = {};

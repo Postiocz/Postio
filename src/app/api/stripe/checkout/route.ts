@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan } = body;
     const locale = body?.locale ?? "cs";
-    const currency: Currency = ["czk", "eur", "usd"].includes(body?.currency)
+    const requestedCurrency: Currency = ["czk", "eur", "usd"].includes(body?.currency)
       ? body.currency
       : "eur";
 
@@ -33,6 +33,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Stripe nedovoluje měnit měnu u zákazníka, který už má aktivní předplatné.
+    // Pokud uživatel aktivní subscription má, vynutíme měnu jeho předplatného,
+    // jinak použijeme požadovanou měnu z requestu.
+    let currency: Currency = requestedCurrency;
+    try {
+      const { data: custRow } = await supabase
+        .from("users")
+        .select("stripe_customer_id")
+        .eq("id", user.id)
+        .single();
+      if (custRow?.stripe_customer_id) {
+        const subs = await stripe.subscriptions.list({
+          customer: custRow.stripe_customer_id,
+          status: "active",
+          limit: 1,
+        });
+        const subCurrency = subs.data[0]?.currency as Currency | undefined;
+        if (subCurrency && ["czk", "eur", "usd"].includes(subCurrency)) {
+          currency = subCurrency;
+        }
+      }
+    } catch {
+      // Pokud se nepodařilo zjistit předplatné, pokračuj s požadovanou měnou.
+    }
+
     // Determine whether the request is for a master or a custom plan.
     // Master plans use their string type ("creator", "pro") with a lookup_key.
     // Custom plans are referenced by their UUID and use the stored Stripe Price ID.
@@ -40,6 +65,28 @@ export async function POST(request: NextRequest) {
     let targetPriceId: string;
     let resolvedPlanLabel: string;
     let planInstanceId: string | null = null; // snapshot: users.current_plan_instance_id
+
+    // Za účelem ověření granulárních pravidel viditelnosti (visibility_rules)
+    // zjistí aktuální tarif uživatele a instanci plánu, kterou aktivně používá.
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("plan, current_plan_instance_id")
+      .eq("id", user.id)
+      .single();
+    const userPlan = (userRow?.plan as string) || "free";
+    const userCurrentPlanInstanceId = userRow?.current_plan_instance_id ?? null;
+
+    // Ověří, zda uživatel smí tento plán koupit. Pravidla viditelnosti musí
+    // obsahovat jeho aktuální tarif (free/creator/pro) – nebo se jedná o plán,
+    // který už aktivně používá (výjimka pro obnovu vlastního plánu).
+    const canPurchasePlan = (
+      visibilityRules: string[] | null | undefined,
+      planId: string | null
+    ): boolean => {
+      if (planId && planId === userCurrentPlanInstanceId) return true;
+      if (!visibilityRules || visibilityRules.length === 0) return false;
+      return visibilityRules.includes(userPlan);
+    };
 
     if (isMasterPlan) {
       // ── Master template ─────────────────────────────────────────────
@@ -65,18 +112,34 @@ export async function POST(request: NextRequest) {
       const adminClient = createAdminClient();
       const { data: masterPlan } = await adminClient
         .from("pricing_plans")
-        .select("id")
+        .select("id, visibility_rules")
         .eq("type", plan)
         .eq("is_master_template", true)
         .maybeSingle();
-      planInstanceId = masterPlan?.id ?? null;
+
+      if (!masterPlan) {
+        return NextResponse.json(
+          { error: `Master plan '${plan}' not found.` },
+          { status: 404 }
+        );
+      }
+
+      // ── Ochrana granulární viditelnosti ─────────────────────────────────
+      if (!canPurchasePlan(masterPlan.visibility_rules, masterPlan.id)) {
+        return NextResponse.json(
+          { error: "Tento plán není pro váš aktuální tarif dostupný." },
+          { status: 403 }
+        );
+      }
+
+      planInstanceId = masterPlan.id;
     } else {
       // ── Custom plan – fetch from DB by UUID ─────────────────────────
       const adminClient = createAdminClient();
       const { data: customPlan, error: planError } = await adminClient
         .from("pricing_plans")
         .select(
-          "id, type, name, stripe_price_id_czk, stripe_price_id_eur, stripe_price_id_usd"
+          "id, type, name, visibility_rules, stripe_price_id_czk, stripe_price_id_eur, stripe_price_id_usd"
         )
         .eq("id", plan)
         .single();
@@ -85,6 +148,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: `Plan '${plan}' not found.` },
           { status: 404 }
+        );
+      }
+
+      // ── Ochrana granulární viditelnosti ─────────────────────────────────
+      // Stávající uživatel si plán NESMÍ koupit, pokud jeho aktuální tarif není
+      // mezi povolenými pravidly viditelnosti (a plán není jeho aktivní instance).
+      if (!canPurchasePlan(customPlan.visibility_rules, customPlan.id)) {
+        return NextResponse.json(
+          {
+            error: "Tento plán není pro váš aktuální tarif dostupný.",
+          },
+          { status: 403 }
         );
       }
 

@@ -1056,7 +1056,8 @@
       "features": "Funkce",
       "pricing": "Ceník",
       "faq": "FAQ",
-      "login": "Přihlásit se"
+      "login": "Přihlásit se",
+      "dashboard": "Přehled"
     },
     "flashSale": {
       "countdownEnds": "Končí za {time}",
@@ -1458,7 +1459,12 @@
     "description": "Popisek",
     "badgeText": "Text odznaku",
     "isRecommended": "Doporučit",
-    "badgeColor": "Barva odznaku"
+    "badgeColor": "Barva odznaku",
+    "visibilityTitle": "Kdo uvidí tento plán?",
+    "visibilityAnonymous": "Neregistrovaní",
+    "visibilityFree": "Free",
+    "visibilityCreator": "Creator",
+    "visibilityPro": "Pro"
   },
   "adminFeedbackPage": {
     "title": "Zpětná vazba",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Check, Crown, Sparkles, Zap } from "lucide-react";
+import { Check, Crown, Sparkles, Zap, Loader2 } from "lucide-react";
 import { CountdownTimer } from "@/components/marketing/countdown-timer";
 import { Reveal } from "@/components/marketing/reveal";
 import { CurrencySwitcher, type Currency } from "@/components/marketing/currency-switcher";
@@ -36,10 +36,12 @@ const iconMap: Record<string, React.ElementType> = {
 export function PricingClient({
   plans,
   locale,
+  isAuthenticated = false,
   texts,
 }: {
   plans: ClientPlan[];
   locale: string;
+  isAuthenticated?: boolean;
   texts: {
     free: string;
     perMonth: string;
@@ -47,6 +49,30 @@ export function PricingClient({
   };
 }) {
   const [currency, setCurrency] = useState<Currency>(getDefaultCurrency(locale));
+  // Loading stav pro checkout – zamezí dvojitému kliknutí.
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
+
+  // Přihlášený uživatel: přímé volání checkout API (bez login redirectu).
+  const startCheckout = useCallback(async (planId: string) => {
+    if (checkoutPlanId) return; // probíhá checkout – ignoruj další kliky
+    setCheckoutPlanId(planId);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planId, locale, currency: "eur" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        // 403 / chyba – ukliď stav, ať může uživatel zkusit jiný plán
+        setCheckoutPlanId(null);
+      }
+    } catch {
+      setCheckoutPlanId(null);
+    }
+  }, [checkoutPlanId, locale, currency]);
 
   return (
     <>
@@ -132,21 +158,35 @@ export function PricingClient({
 
                 <button
                   onClick={() => {
-                    if (!isFree) {
-                      // Save plan ID for post-login checkout redirect (cookie shared across whole site)
+                    if (isAuthenticated) {
+                      // Přihlášený uživatel → rovnou checkout pro daný plán.
+                      startCheckout(plan.id);
+                    } else if (!isFree) {
+                      // Odhlášený + placený plán → ulož plán do cookie a přejdi na login,
+                      // aby po registraci mohl pokračovat v nákupu (nákupní paměť).
                       document.cookie = `postio_pending_plan_id=${plan.id}; path=/; max-age=1800; SameSite=Lax`;
+                      window.location.href = `/${locale}/login`;
+                    } else {
+                      // Odhlášený + Free plán → prostě registrace.
+                      window.location.href = `/${locale}/login`;
                     }
-                    // Use direct navigation to ensure cookie is set before leaving the page
-                    window.location.href = `/${locale}/login`;
                   }}
+                  disabled={checkoutPlanId === plan.id}
                   className={cn(
-                    "inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-sm font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]",
+                    "inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-sm font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] disabled:opacity-70",
                     plan.isRecommended
                       ? "bg-indigo-500 text-white shadow-[0_4px_20px_rgba(99,102,241,0.35)] hover:bg-indigo-600"
                       : "border border-black/15 text-slate-700 hover:bg-black/5 dark:border-white/15 dark:text-white/80 dark:hover:bg-white/5"
                   )}
                 >
-                  {plan.ctaLabel}
+                  {checkoutPlanId === plan.id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="ml-2">{plan.ctaLabel}</span>
+                    </>
+                  ) : (
+                    plan.ctaLabel
+                  )}
                 </button>
               </div>
             </Reveal>

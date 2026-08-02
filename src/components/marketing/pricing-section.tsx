@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Reveal } from "@/components/marketing/reveal";
 import { PricingClient } from "@/components/marketing/pricing-client";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 
 // Public pricing section for the landing page. Server component builds the
@@ -101,6 +101,26 @@ function buildFallbackPlans(t: (key: string) => string): Plan[] {
 export async function PricingSection({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "landing" });
 
+  // Determina pravidlo viditelnosti podle stavu přihlášení:
+  //  - nepřihlášený návštěvník → vidí plány s 'anonymous'
+  //  - přihlášený uživatel    → vidí plány odpovídající jeho aktuálnímu tarifu
+  let visibilityTarget = "anonymous";
+  try {
+    const sessionClient = await createClient();
+    const { data } = await sessionClient.auth.getUser();
+    if (data?.user) {
+      const { data: userRow } = await sessionClient
+        .from("users")
+        .select("plan")
+        .eq("id", data.user.id)
+        .single();
+      const plan = (userRow?.plan as string) || "free";
+      if (["free", "creator", "pro"].includes(plan)) visibilityTarget = plan;
+    }
+  } catch {
+    // bez přihlášení / chyba → anonymous
+  }
+
   let plans: Plan[] = [];
   let dbAvailable = true;
 
@@ -108,13 +128,13 @@ export async function PricingSection({ locale }: { locale: string }) {
     const supabase = createAdminClient();
     const now = new Date();
 
-    // ── 1. Master šablony z DB (is_master_template + veřejné) ──────────────
+    // ── 1. Master šablony z DB (is_master_template + dle viditelnosti) ─────
     const { data: masterDbPlans } = await supabase
       .from("pricing_plans")
       .select("*")
       .eq("is_master_template", true)
       .eq("is_visible", true)
-      .eq("is_public", true);
+      .contains("visibility_rules", [visibilityTarget]);
 
     if (masterDbPlans && masterDbPlans.length > 0) {
       // Pevné pořadí: Free → Creator → Pro
@@ -164,13 +184,13 @@ export async function PricingSection({ locale }: { locale: string }) {
       }
     }
 
-    // ── 2. Custom plány z DB (viditelné, veřejné) ──────────────────────────
+    // ── 2. Custom plány z DB (dle viditelnosti) ─────────────────────────────
     const { data: customDbPlans } = await supabase
       .from("pricing_plans")
       .select("*")
       .eq("is_visible", true)
       .eq("is_custom", true)
-      .eq("is_public", true);
+      .contains("visibility_rules", [visibilityTarget]);
 
     if (customDbPlans && customDbPlans.length > 0) {
       for (const dbPlan of customDbPlans) {
@@ -242,6 +262,7 @@ export async function PricingSection({ locale }: { locale: string }) {
       <PricingClient
         plans={plans}
         locale={locale}
+        isAuthenticated={visibilityTarget !== "anonymous"}
         texts={{
           free: t("pricing.free"),
           perMonth: t("pricing.perMonth"),

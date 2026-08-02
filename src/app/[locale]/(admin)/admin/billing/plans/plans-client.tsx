@@ -84,6 +84,7 @@ export function PricingPlansClient({
     active_until: "",
     is_public: false,
     is_promo: false,
+    visibility_rules: [] as string[],
     price_czk: 0,
     price_eur: 0,
     price_usd: 0,
@@ -131,6 +132,7 @@ export function PricingPlansClient({
       active_until: plan.active_until || "",
       is_public: plan.is_public || false,
       is_promo: plan.is_promo || false,
+      visibility_rules: plan.visibility_rules ?? [],
       price_czk: Math.round(plan.price_czk / 100),
       price_eur: Math.round(plan.price_eur / 100),
       price_usd: Math.round(plan.price_usd / 100),
@@ -161,6 +163,7 @@ export function PricingPlansClient({
       active_until: "",
       is_public: false,
       is_promo: false,
+      visibility_rules: ["anonymous"],
       price_czk: 0,
       price_eur: 0,
       price_usd: 0,
@@ -170,6 +173,23 @@ export function PricingPlansClient({
       max_posts_per_month: 10,
       max_subscriptions: 0,
     });
+  };
+
+  // Skupiny pro granulární viditelnost plánu (Prompt 058)
+  const VISIBILITY_GROUPS: { key: string; translationKey: string }[] = [
+    { key: "anonymous", translationKey: "visibilityAnonymous" },
+    { key: "free", translationKey: "visibilityFree" },
+    { key: "creator", translationKey: "visibilityCreator" },
+    { key: "pro", translationKey: "visibilityPro" },
+  ];
+
+  const toggleVisibilityRule = (key: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      visibility_rules: prev.visibility_rules.includes(key)
+        ? prev.visibility_rules.filter((r) => r !== key)
+        : [...prev.visibility_rules, key],
+    }));
   };
 
   const handleSave = async () => {
@@ -188,6 +208,7 @@ export function PricingPlansClient({
       // "Veřejný web" je dostupný pro všechny custom plány.
       is_public: formData.is_public,
       is_promo: formData.is_promo,
+      visibility_rules: formData.visibility_rules,
       price_czk: formData.price_czk * 100,
       price_eur: formData.price_eur * 100,
       price_usd: formData.price_usd * 100,
@@ -240,6 +261,7 @@ export function PricingPlansClient({
       // "Veřejný web" je dostupný pro všechny custom plány.
       is_public: formData.is_public,
       is_promo: formData.is_promo,
+      visibility_rules: formData.visibility_rules,
       price_czk: formData.price_czk * 100,
       price_eur: formData.price_eur * 100,
       price_usd: formData.price_usd * 100,
@@ -665,6 +687,26 @@ export function PricingPlansClient({
                 </div>
               </details>
             )}
+            {/* Granulární viditelnost – kdo uvidí tento plán (Prompt 058) */}
+            <div className="space-y-2 rounded-[12px] border border-white/10 bg-white/[0.03] p-3">
+              <label className="text-sm text-gray-400">{translations.visibilityTitle}</label>
+              <div className="flex flex-wrap gap-2">
+                {VISIBILITY_GROUPS.map((g) => (
+                  <button
+                    key={g.key}
+                    type="button"
+                    onClick={() => toggleVisibilityRule(g.key)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                      formData.visibility_rules.includes(g.key)
+                        ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-300"
+                        : "border-white/10 text-gray-500 hover:border-white/20"
+                    }`}
+                  >
+                    ✓ {translations[g.translationKey]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <PlanInputs formData={formData} setFormData={setFormData} translations={translations} />
           </div>
           <DialogFooter className="flex flex-col gap-2 overflow-y-auto max-h-[300px]">
@@ -810,6 +852,26 @@ export function PricingPlansClient({
                 </div>
               </details>
             )}
+            {/* Granulární viditelnost – kdo uvidí tento plán (Prompt 058) */}
+            <div className="space-y-2 rounded-[12px] border border-white/10 bg-white/[0.03] p-3">
+              <label className="text-sm text-gray-400">{translations.visibilityTitle}</label>
+              <div className="flex flex-wrap gap-2">
+                {VISIBILITY_GROUPS.map((g) => (
+                  <button
+                    key={g.key}
+                    type="button"
+                    onClick={() => toggleVisibilityRule(g.key)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                      formData.visibility_rules.includes(g.key)
+                        ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-300"
+                        : "border-white/10 text-gray-500 hover:border-white/20"
+                    }`}
+                  >
+                    ✓ {translations[g.translationKey]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <PlanInputs formData={formData} setFormData={setFormData} translations={translations} />
           </div>
           <DialogFooter className="flex flex-col gap-2 overflow-y-auto max-h-[300px]">
@@ -906,6 +968,7 @@ const defaultFormData = {
   active_until: "",
   is_public: false,
   is_promo: false,
+  visibility_rules: [] as string[],
   price_czk: 0,
   price_eur: 0,
   price_usd: 0,

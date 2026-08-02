@@ -4,14 +4,13 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
-### 🚀 Prompt 054 – KROK 2: Snapshot Logic (vazba uživatele na instanci plánu) ✅
+### 🚀 Prompt 054 – KROK 2+3: Snapshot Logic a ochrana master šablon ✅
 
-- **Kontext**: Uživatelé nebyli vázáni na konkrétní instanci plánu, takže změny Master šablon adminem by mohly ovlivnit stávající uživatele.
+- **Kontext**: Chybela vazba uživatele na instanci plánu (snapshot) a master šablony šlo smazat.
 - **Změny**:
-  - ✅ `checkout/route.ts`: předává `plan_instance_id` do Stripe metadata.
-  - ✅ `webhooks/stripe/route.ts`: po checkoutu zapisuje `current_plan_instance_id`; při zrušení předplatného přepíná na Free master.
-  - ✅ Migrace `050_plan_snapshot_binding.sql`: backfill stávajících uživatelů + trigger pro nové (auto Free).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Backfill ověřen v DB.
+  - ✅ Krok 2 – `checkout` předává `plan_instance_id`; `webhook` zapisuje `current_plan_instance_id`; migrace `050` = backfill + trigger auto-Free.
+  - ✅ Krok 3 – Server `deletePricingPlan` blokuje `is_master_template`; UI koš jen `is_custom && !is_master_template`.
+- **Ověření**: `npx tsc --noEmit` ✅. Backfill ověřen v DB; smazání master zablokováno, custom funguje. Prompt054 celý hotán.
 
 ### 🚀 Prompt 054 – KROK 1: Redukce Master Modálu + dynamický ceník ✅
 

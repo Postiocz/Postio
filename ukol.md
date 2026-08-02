@@ -103,7 +103,9 @@ jejich nákupu.
       - Změny Master šablony adminem neovlivňují vazbu stávajících uživatelů
         (odkazují na instanci z momentu nákupu).
 
-- [ ] **KROK 3: Ochrana proti smazání**
-      Zablokuj možnost smazání 3 základních Master šablon (Free, Creator, Pro)
-      v Admin rozhraní.
+- [x] **KROK 3: Ochrana proti smazání** — ✅ hotovo
+      Master šablony (Free/Creator/Pro) nelze smazat:
+      - Server: `deleteMaster` blokuje `is_master_template`.
+      - UI: koš dostupný jen pro custom plány; `!plan.is_master_template` pojistká.
+      Otestováno – u master šablony koš chybí, u custom fungue. Celý Prompt054 hotán.
 

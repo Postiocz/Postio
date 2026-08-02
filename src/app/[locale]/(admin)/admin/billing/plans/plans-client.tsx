@@ -467,7 +467,7 @@ export function PricingPlansClient({
             >
               {plan.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </Button>
-            {isCustom && (
+            {isCustom && !plan.is_master_template && (
               <Button
                 onClick={() => handleDelete(plan.id, displayName)}
                 variant="ghost" size="sm"

@@ -316,7 +316,6 @@
     "emptyStateDescription": "Začněte publikovat na sociálních sítích. Připojte svůj první účet nebo vytvořte první příspěvek.",
     "createFirstPost": "Vytvořit první příspěvek",
     "connectAccount": "Propojit účet",
-
     "onboardingTitle": "Vítá vás Postio!",
     "onboardingSubtitle": "Tento krátký průvodce vás provede prvními kroky.",
     "onboardingStep1": "Účet vytvořen",
@@ -628,7 +627,9 @@
       "autoButton": "Automatické odesílání (API)",
       "noCredits": "Nemáš dostatek X kreditů pro automatické odesílání. Použij manuální režim (zdarma) nebo si vylepši plán na Creator/Pro.",
       "error": "Nepodařilo se připojit účet",
-      "manualSaved": "Manuální X účet byl uložen."
+      "manualSaved": "Manuální X účet byl uložen.",
+      "buyCredits": "Koupit kredity",
+      "gotIt": "Rozumím"
     },
     "pendingPagesTitle": "Nalezené stránky k připojení",
     "pendingPagesSubtitle": "Při posledním přihlášení přes Facebook jsme našli stránky, které jste dosud nepřipojili. Vyberte ty, na které chcete přes Postio publikovat.",
@@ -949,7 +950,9 @@
     "subscribe": "Odebírat",
     "recommended": "Doporučujeme",
     "manageSubscription": "Spravovat předplatné",
-    "manageSubscriptionDesc": "Spravujte svou platební metodu, zrušte předplatné nebo si stáhněte faktury"
+    "manageSubscriptionDesc": "Spravujte svou platební metodu, zrušte předplatné nebo si stáhněte faktury",
+    "aiCreditsToast": "Vyberte si tarif, který obsahuje více AI kreditů.",
+    "twitterCreditsToast": "Vyberte si tarif, který obsahuje více kreditů pro automatické posty na X."
   },
   "onboarding": {
     "welcome": "Vítejte v Postio!",
@@ -1046,7 +1049,11 @@
     "aiImageSuccess": "Obrázek byl úspěšně vygenerován!",
     "aiGenerateBtn": "Generovat",
     "aiImagePrompt": "Popište obrázek, který chcete vygenerovat...",
-    "cancel": "Zrušit"
+    "cancel": "Zrušit",
+    "aiLimitExhausted": "Váš limit AI obrázků byl vyčerpán.",
+    "aiBuyMore": "Koupit další",
+    "aiGotIt": "Rozumím",
+    "aiLimitToast": "Váš limit AI obrázků byl vyčerpán. Vylepšete si plán na Creator/Pro, který obsahuje více AI kreditů."
   },
   "landing": {
     "nav": {
@@ -1479,5 +1486,6 @@
     "status_resolved": "Vyřešeno",
     "markRead": "Označit přečtené",
     "markResolved": "Vyřešit"
-  }
+  },
+  "xConnect": {}
 }

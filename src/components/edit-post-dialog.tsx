@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock, ListOrdered } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -155,6 +156,7 @@ type AccountInfo = {
   platform: string;
   account_name: string;
   avatar_url: string | null;
+  publishing_type?: string | null;
 };
 
 export function EditPostDialog({
@@ -759,6 +761,20 @@ export function EditPostDialog({
       setError(null);
     });
   }, [getInitialTikTokPrivacyLevel, isEdit, loadExistingUrls, open, post]);
+
+  // KROK 2 (Prompt 057): Hybrid X gating. When the user has 0 X auto-credits,
+  // force-deselect any direct (API auto-publish) X account so they have to
+  // switch to the free manual-reminder mode (or upgrade).
+  useEffect(() => {
+    if (open && twitterAutoCredits <= 0) {
+      setSelectedAccountIds((prev) =>
+        prev.filter((id) => {
+          const account = allAccounts.find((a) => a.id === id);
+          return !(account?.platform === "twitter" && account?.publishing_type === "direct");
+        }),
+      );
+    }
+  }, [open, twitterAutoCredits, allAccounts]);
 
   useEffect(() => {
     if (!open || !hasTikTokIntent) return;
@@ -2272,12 +2288,32 @@ export function EditPostDialog({
                               </div>
                               {/* KROK 5: Twitter auto-credits indicator */}
                               {platformId === "twitter" && (
-                                <span className={cn(
-                                  "ml-auto text-[10px]",
-                                  twitterAutoCredits > 0 ? "text-muted-foreground/50" : "text-destructive/40"
-                                )}>
-                                  ⚡{twitterAutoCredits}
-                                </span>
+                                <>
+                                  <span className={cn(
+                                    "ml-auto text-[10px]",
+                                    twitterAutoCredits > 0 ? "text-muted-foreground/50" : "text-destructive/40"
+                                  )}>
+                                    ⚡{twitterAutoCredits}
+                                  </span>
+                                  {/* KROK 2 (Prompt 057): direct X auto-publish needs credits – offer a buy link when exhausted */}
+                                  {twitterAutoCredits <= 0 && (
+                                    <Link
+                                      href={`/${locale}/settings/billing?reason=twitter_credits`}
+                                      onClick={() =>
+                                        toast.info(ta("xConnect.noCredits"), {
+                                          duration: 7000,
+                                          action: {
+                                            label: ta("xConnect.gotIt"),
+                                            onClick: () => toast.dismiss(),
+                                          },
+                                        })
+                                      }
+                                      className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 underline underline-offset-2 transition-colors hover:bg-indigo-500/20 dark:text-indigo-400"
+                                    >
+                                      {ta("xConnect.buyCredits")}
+                                    </Link>
+                                  )}
+                                </>
                               )}
                             </div>
                             {/* Account chips */}
@@ -2286,11 +2322,21 @@ export function EditPostDialog({
                                 const isSelected = selectedAccountIds.includes(account.id);
                                 const isPublished = publishedAccountIds.has(account.id);
                                 const isArchived = archivedAccountIds.has(account.id);
+                                // KROK 2 (Prompt 057): direct (auto-publish) X accounts are blocked
+                                // when auto-credits are exhausted – the user must pick the manual
+                                // (free reminder) mode instead, or upgrade in Billing.
+                                const isTwitterDirectBlocked =
+                                  platformId === "twitter" &&
+                                  account.publishing_type === "direct" &&
+                                  twitterAutoCredits <= 0;
                                 const requirementMet = isPlatformMediaRequirementMet(platformId);
-                                const isPlatformDisabled = (!isPublished && !isArchived) && !requirementMet;
-                                const tooltipMessage = isPlatformDisabled
-                                  ? getPlatformRequirementTooltip(platformId)
-                                  : null;
+                                const isPlatformDisabled =
+                                  ((!isPublished && !isArchived) && !requirementMet) || isTwitterDirectBlocked;
+                                const tooltipMessage = isTwitterDirectBlocked
+                                  ? ta("xConnect.noCredits")
+                                  : isPlatformDisabled
+                                    ? getPlatformRequirementTooltip(platformId)
+                                    : null;
 
                                 const chip = (
                                   <button

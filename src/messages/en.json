@@ -316,7 +316,6 @@
     "emptyStateDescription": "Start publishing to social networks. Connect your first account or create your first post.",
     "createFirstPost": "Create first post",
     "connectAccount": "Connect account",
-
     "onboardingTitle": "Welcome to Postio!",
     "onboardingSubtitle": "This quick guide will help you get started.",
     "onboardingStep1": "Account created",
@@ -628,7 +627,9 @@
       "autoButton": "Automatic publishing (API)",
       "noCredits": "You don't have enough X credits for automatic publishing. Use manual mode (free) or upgrade to Creator/Pro.",
       "error": "Failed to connect the account",
-      "manualSaved": "Manual X account saved."
+      "manualSaved": "Manual X account saved.",
+      "buyCredits": "Buy credits",
+      "gotIt": "I understand"
     },
     "pendingPagesTitle": "Facebook Pages to connect",
     "pendingPagesSubtitle": "When you last signed in with Facebook, we found some pages you haven't connected yet. Pick the ones you want to publish to through Postio.",
@@ -949,7 +950,9 @@
     "subscribe": "Subscribe",
     "recommended": "Recommended",
     "manageSubscription": "Manage Subscription",
-    "manageSubscriptionDesc": "Manage your payment method, cancel subscription, or download invoices"
+    "manageSubscriptionDesc": "Manage your payment method, cancel subscription, or download invoices",
+    "aiCreditsToast": "Choose a plan that includes more AI credits.",
+    "twitterCreditsToast": "Choose a plan that includes more X auto-post credits."
   },
   "onboarding": {
     "welcome": "Welcome to Postio!",
@@ -1046,7 +1049,11 @@
     "aiImageSuccess": "Image successfully generated!",
     "aiGenerateBtn": "Generate",
     "aiImagePrompt": "Describe the image you want to generate...",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "aiLimitExhausted": "Your AI image limit has been reached.",
+    "aiBuyMore": "Buy more",
+    "aiGotIt": "I understand",
+    "aiLimitToast": "Your AI image limit has been reached. Upgrade to a plan that includes more AI credits."
   },
   "landing": {
     "nav": {
@@ -1054,7 +1061,6 @@
       "openMenu": "Open menu",
       "closeMenu": "Close menu",
       "features": "Features",
-      "pricing": "Pricing",
       "pricing": "Pricing",
       "faq": "FAQ",
       "login": "Sign in",
@@ -1167,7 +1173,6 @@
     "appTitle": "App",
     "product": {
       "features": "Features",
-      "pricing": "Pricing",
       "pricing": "Pricing"
     },
     "support": {
@@ -1481,5 +1486,6 @@
     "status_resolved": "Resolved",
     "markRead": "Mark as read",
     "markResolved": "Resolve"
-  }
+  },
+  "xConnect": {}
 }

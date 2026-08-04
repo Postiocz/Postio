@@ -4,6 +4,17 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 057 – KROK 1-4: Kreditní strážce (Credit Gating) ✅
+
+- **Kontext**: Ochrana byznys modelu - drahé funkce (AI obrázky, X auto-post) nesmí být použitelné bez kreditu.
+- **Změny**:
+  - ✅ KROK1 - `ai-assistant-button.tsx`: položka "Generovat obrázek" je `<Link>`; při `ai_credits <= 0` zašedlá + varovný text s odkazem na Fakturaci (`?reason=ai_credits`), informativní toast s tlačítkem "Rozumím" (7s).
+  - ✅ KROK2 - `posts/new/page.tsx` + `edit-post-dialog.tsx`: X direct účet disabled při `twitter_auto_credits <= 0` (tooltip + auto-odvybrání vybraného direct účtu), odkaz "Koupit kredity" → Fakturace (`?reason=twitter_credits`), toast s tlačítkem "Rozumím".
+  - ✅ KROK3 - Server-side guard: `generate-image/route.ts` blokuje 402 při `ai_credits <= 0` (před voláním API); `publish.ts` blokuje X direct při `twitter_auto_credits <= 0`. Odečty jsou atomické (`.gte(col, 1)`) - eliminace race-condition u souběžných requestů (obě X větve + AI).
+  - ✅ KROK4 - Lokalizace cs/en/uk: `ai.aiLimitExhausted`, `ai.aiLimitToast`, `ai.aiBuyMore`, `ai.aiGotIt`, `accounts.xConnect.buyCredits`, `accounts.xConnect.gotIt`, `billing.aiCreditsToast`, `billing.twitterCreditsToast`.
+  - ✅ Dodatečně - AI generování převedeno z DALL-E3 → `gpt-image-1` (DALL-E3 byl v roce 2026 vyřazen): model vrací `b64_json`, obrázek se ukládá do Supabase Storage (`post-media`) a vrací public URL; route přepnuta na `nodejs` kvůli `Buffer`.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). AI Štětec otestován (generování gpt-image-1 + Storage + odečet kreditu). X direct technicky potvrzeno (bez nákladného API testu). Light/Dark potvrzen.
+
 ### 🚀 Prompt 055 – KROK 4: Sjednocení UI ✅
 
 - **Kontext**: Finální prověrka konzistence Admin UI po implementaci Light Mode.
@@ -96,29 +107,4 @@
   - ✅ Krok 4 – Do všech 15 `<video>` elementů přidán `<track kind="captions" />` (HTML5 standard).
   - ✅ Odstraněny debug logy z `pending-plan-handler.tsx` (nákupní paměť zůstává funkční).
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 054/055 – Stripe Sync a nákupní paměť vlastních plánů ✅
-
-- **Kontext**: Vlastní plány potřebovaly nezávislé Stripe ceny a zachování záměru nákupu přes přihlášení, onboarding i vytvoření prvního příspěvku.
-- **Změny**:
-  - ✅ Kroky 1–2 – Unikátní lookup_keys (`plan_{id}_{currency}`) a izolovaná Stripe synchronizace vlastních plánů.
-  - ✅ Krok 3 – `/api/stripe/checkout` přijímá master typ i UUID vlastního plánu a načítá správnou Stripe cenu.
-  - ✅ Krok 4 – Landing Page ukládá vybraný tarif do cookie; `PendingPlanHandler` v dashboard layoutu po navigaci bezpečně obnoví nákup a přesměruje na Stripe.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test syncu, checkoutu UUID i nákupní paměti potvrzen.
-
-### 🚀 Prompt 048 – Dynamické plány s ochranou výchozích hodnot (KROK 1-7) ✅
-
-- **Kontext**: Převod správy tarifů do databáze s ochranou původních hodnot jako nedotknutelného základu.
-- **Změny**:
-  - ✅ `src/lib/constants/original-plans.ts`: Hardcoded backup původních cen a limitů (Free/Creator/Pro).
-  - ✅ `supabase/migrations/044_create_pricing_plans.sql`: Nová tabulka `pricing_plans` s partial unique indexem pro ochranu master templates.
-  - ✅ `supabase/migrations/045_extend_pricing_plans.sql`: Rozšíření o `is_visible`, `is_custom`, `max_subscriptions`, `current_subscriptions`, `name_en`, `name_uk`.
-  - ✅ `src/lib/supabase/types.ts`: Přidány TypeScript typy pro `pricing_plans` a `feedback`.
-  - ✅ `src/lib/actions/pricing-plans.ts`: Server actions pro správu tarifů (getAll, update, resetSinglePlanToMaster).
-  - ✅ `src/app/[locale]/(admin)/admin/billing/plans/page.tsx`: Nová admin stránka pro správu tarifů.
-  - ✅ `src/app/[locale]/(admin)/admin/billing/plans/plans-client.tsx`: Klient komponenta s editačním dialogem a reset tlačítky.
-  - ✅ `src/modules/admin-core/components/admin-sidebar.tsx`: Přidán odkaz "Správa tarifů" s ikonou Tags.
-  - ✅ i18n (cs/en/uk): Nový namespace `adminBillingPlansPage` + navigační klíče + `resetSingleConfirm`.
-  - ✅ Reset k základu pro každý tarif zvlášť s potvrzovacím dialogem.
-
 

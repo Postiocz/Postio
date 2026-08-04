@@ -628,7 +628,9 @@
       "autoButton": "Автоматична публікація (API)",
       "noCredits": "У вас недостатньо X кредитів для автоматичної публікації. Використовуйте ручний режим (безкоштовно) або перейдіть на тариф Creator або Pro.",
       "error": "Не вдалося підключити акаунт",
-      "manualSaved": "Ручний X акаунт збережено."
+      "manualSaved": "Ручний X акаунт збережено.",
+      "buyCredits": "Купити кредити",
+      "gotIt": "Зрозуміло"
     },
     "pendingPagesTitle": "Знайдені сторінки для підключення",
     "pendingPagesSubtitle": "Під час останнього входу через Facebook ми знайшли сторінки, які ви ще не підключили. Виберіть ті, на які хочете публікувати через Postio.",
@@ -950,7 +952,9 @@
     "subscribe": "Підписатися",
     "recommended": "Рекомендовано",
     "manageSubscription": "Керувати підпискою",
-    "manageSubscriptionDesc": "Керуйте способом оплати, скасуйте підписку або завантажте рахунки"
+    "manageSubscriptionDesc": "Керуйте способом оплати, скасуйте підписку або завантажте рахунки",
+    "aiCreditsToast": "Оберіть тариф із більшою кількістю AI кредитів.",
+    "twitterCreditsToast": "Оберіть тариф із більшою кількістю кредитів для автоматичних дописів у X."
   },
   "onboarding": {
     "welcome": "Ласкаво просимо до Postio!",
@@ -1047,7 +1051,11 @@
     "aiImageSuccess": "Зображення успішно згенеровано!",
     "aiGenerateBtn": "Згенерувати",
     "aiImagePrompt": "Опишіть зображення, яке хочете згенерувати...",
-    "cancel": "Скасувати"
+    "cancel": "Скасувати",
+    "aiLimitExhausted": "Ваш ліміт AI зображень вичерпано.",
+    "aiBuyMore": "Придбати ще",
+    "aiGotIt": "Зрозуміло",
+    "aiLimitToast": "Ваш ліміт AI зображень вичерпано. Покращіть тариф, який містить більше AI кредитів."
   },
   "landing": {
     "nav": {
@@ -1055,15 +1063,14 @@
       "openMenu": "Відкрити меню",
       "closeMenu": "Закрити меню",
       "features": "Функції",
-      "pricing": "Ціни",
-      "flashSale": {
-      "countdownEnds": "Закінчується через {time}",
-      "countdownDays": "{days}д {hours}г",
-      "countdownHours": "{hours}:{minutes}:{seconds}",
-      "offerEnded": "Акція закінчилася",
-      "flashSale": "Блискавична акція"
-    },
       "pricing": "Тарифи",
+      "flashSale": {
+        "countdownEnds": "Закінчується через {time}",
+        "countdownDays": "{days}д {hours}г",
+        "countdownHours": "{hours}:{minutes}:{seconds}",
+        "offerEnded": "Акція закінчилася",
+        "flashSale": "Блискавична акція"
+      },
       "faq": "FAQ",
       "login": "Увійти",
       "dashboard": "Огляд"
@@ -1175,7 +1182,6 @@
     "appTitle": "Застосунок",
     "product": {
       "features": "Функції",
-      "pricing": "Ціни",
       "pricing": "Ціни"
     },
     "support": {
@@ -1489,5 +1495,6 @@
     "status_resolved": "Вирішено",
     "markRead": "Позначити прочитаним",
     "markResolved": "Вирішити"
-  }
+  },
+  "xConnect": {}
 }

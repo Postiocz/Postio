@@ -907,12 +907,15 @@ export async function publishPost(input: { postId: string }): Promise<{
       targetAccountId,
     );
 
-    // KROK 4 (Prompt 043): Decrement twitter_auto_credits on success.
+    // KROK 3 (Prompt 057): atomic decrement of twitter_auto_credits on success.
+    // `.gte("twitter_auto_credits", 1)` makes the UPDATE conditional server-side,
+    // so two concurrent publishes can never both spend the last credit.
     // Best-effort – failure does NOT revert the published tweet.
     await supabaseAdmin
       .from("users")
       .update({ twitter_auto_credits: availableCredits - 1 })
-      .eq("id", userId);
+      .eq("id", userId)
+      .gte("twitter_auto_credits", 1);
 
     return {
       success: true,
@@ -2492,11 +2495,12 @@ export async function publishAdditionalPlatforms(input: {
       targetAccountId,
     );
 
-    // KROK 4 (Prompt 043): Decrement twitter_auto_credits on success.
+    // KROK 3 (Prompt 057): atomic decrement of twitter_auto_credits on success.
     await supabaseAdmin
       .from("users")
       .update({ twitter_auto_credits: availableCredits - 1 })
-      .eq("id", user.id);
+      .eq("id", user.id)
+      .gte("twitter_auto_credits", 1);
 
     return {
       success: true,

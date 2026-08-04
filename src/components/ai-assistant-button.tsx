@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Sparkles, Wand2, Scissors, Hash, Loader2, ImagePlus, Brush } from "lucide-react";
 import {
@@ -32,10 +34,17 @@ export function AIAssistantButton({
 }: AIAssistantButtonProps) {
   // #14 — Own i18n instead of props drilling (was 9 tAi props)
   const t = useTranslations("ai");
+  const { locale } = useParams();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [showImagePrompt, setShowImagePrompt] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
+
+  // KROK 1 (Prompt 057): AI image credits gating. 1 image = 1 ai_credits.
+  const hasAiCredits = (aiCredits ?? 0) > 0;
+  // ?reason=ai_credits lets the Billing page show a targeted toast on arrival.
+  const billingUrl = `/${locale}/settings/billing?reason=ai_credits`;
 
   const handleTextAction = useCallback(
     async (action: "improve" | "shorten" | "hashtags") => {
@@ -124,6 +133,11 @@ export function AIAssistantButton({
   }, [content, imageUrl, onContentReplace, t]);
 
   const handleGenerateImage = useCallback(async () => {
+    // KROK 1 (Prompt 057): never allow generation without credits (UI + client guard).
+    if (!hasAiCredits) {
+      router.push(billingUrl);
+      return;
+    }
     if (!imagePrompt.trim()) {
       toast.info(t("aiEmptyContent"));
       return;
@@ -223,21 +237,63 @@ export function AIAssistantButton({
           <span>{t("generateFromImage")}</span>
         </DropdownMenuItem>
 
+        {/* KROK 1 (Prompt 057): render as Link so the "buy more" navigation is a
+            client-side Link (same proven pattern as the X credits link) and the
+            toast survives the transition. With credits it opens the generator. */}
         <DropdownMenuItem
-          onClick={() => { setShowImagePrompt(true); setOpen(false); }}
-          className="flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300"
-        >
-          <Brush className="h-4 w-4 text-violet-400" />
-          <span className="flex-1">{t("generateImage")}</span>
-          {/* KROK 5: AI credits indicator */}
-          {aiCredits !== undefined && (
-            <span className={cn(
-              "text-[10px] font-medium",
-              aiCredits > 0 ? "text-muted-foreground/50" : "text-destructive/50"
-            )}>
-              🎨{aiCredits}
-            </span>
+          asChild
+          aria-disabled={!hasAiCredits}
+          className={cn(
+            "flex items-center gap-2 cursor-pointer rounded-lg focus:bg-indigo-500/10 focus:text-indigo-300",
+            !hasAiCredits && "opacity-50 cursor-not-allowed"
           )}
+        >
+          <Link
+            href={billingUrl}
+            onClick={(e) => {
+              if (hasAiCredits) {
+                e.preventDefault();
+                setShowImagePrompt(true);
+                setOpen(false);
+              } else {
+                // No AI credits – inform the user how to get more, then navigate
+                // to Billing. Long duration + "I understand" dismiss button so the
+                // message stays readable and is closed on purpose, not missed.
+                toast.info(t("aiLimitToast"), {
+                  duration: 7000,
+                  action: {
+                    label: t("aiGotIt"),
+                    onClick: () => toast.dismiss(),
+                  },
+                });
+              }
+            }}
+          >
+            <Brush className={cn("h-4 w-4", hasAiCredits ? "text-violet-400" : "text-destructive/60")} />
+            <span className="flex flex-1 flex-col gap-0.5">
+              <span className="flex items-center gap-2">
+                <span>{t("generateImage")}</span>
+                {/* KROK 5: AI credits indicator */}
+                {aiCredits !== undefined && (
+                  <span className={cn(
+                    "text-[10px] font-medium",
+                    aiCredits > 0 ? "text-muted-foreground/50" : "text-destructive/60"
+                  )}>
+                    🎨{aiCredits}
+                  </span>
+                )}
+              </span>
+              {/* KROK 1 (Prompt 057): exhausted-limit hint with a link to Billing */}
+              {!hasAiCredits && (
+                <span className="text-[10px] font-normal leading-tight text-red-500 dark:text-red-400/90">
+                  {t("aiLimitExhausted")}{" "}
+                  <span className="font-semibold text-indigo-500 underline underline-offset-2 dark:text-indigo-400">
+                    {t("aiBuyMore")}
+                  </span>
+                </span>
+              )}
+            </span>
+          </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

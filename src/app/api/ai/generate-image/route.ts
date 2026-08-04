@@ -1,7 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
+// gpt-image-1 returns `b64_json` (base64). We decode it and store it in Supabase
+// Storage ourselves – that needs Node's Buffer, so this route is NOT edge.
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,7 +44,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "AI service not configured" }, { status: 503 });
     }
 
-    // Call OpenAI DALL-E 3
+    // Call OpenAI gpt-image-1 (dall-e-3 was retired in 2026).
+    // The model always returns `b64_json` (base64) – `response_format` is not
+    // accepted. `output_format: "png"` keeps the payload small.
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -50,12 +54,12 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt,
         n: 1,
         size: "1024x1024",
-        quality: "standard",
-        response_format: "url",
+        quality: "medium",
+        output_format: "png",
       }),
     });
 
@@ -70,21 +74,45 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json();
-    const imageUrl = result.data?.[0]?.url;
+    const image = result.data?.[0] as { url?: string; b64_json?: string } | undefined;
+    const base64 = image?.b64_json ?? null;
+    let imageUrl = image?.url ?? null;
 
-    if (!imageUrl) {
-      return NextResponse.json({ error: "No image URL returned from AI" }, { status: 500 });
+    // gpt-image-1 returns base64. Store it in Supabase Storage and hand back a
+    // public URL so the rest of the app (preview, publish) sees a normal URL.
+    if (!imageUrl && base64) {
+      const png = Buffer.from(base64, "base64");
+      const fileName = `ai-${user.id}-${Date.now()}.png`;
+      const admin = await createAdminClient();
+      const up = await admin.storage.from("post-media").upload(fileName, png, {
+        contentType: "image/png",
+        upsert: false,
+      });
+      if (up.error) {
+        console.error("Storage upload error:", up.error);
+        throw new Error("Failed to store generated image");
+      }
+      const pub = admin.storage.from("post-media").getPublicUrl(fileName).data;
+      imageUrl = pub?.publicUrl ?? null;
     }
 
-    // Deduct credit on success
+    if (!imageUrl) {
+      return NextResponse.json({ error: "No image returned from AI" }, { status: 500 });
+    }
+
+    // KROK 3 (Prompt 057): atomic credit deduction. `.gte("ai_credits", 1)` makes
+    // the UPDATE conditional server-side – it only decrements if the user still
+    // has credits, closing the read-then-update race where two requests could
+    // both read the same balance and overdraw.
     const { error: deductError } = await supabase
       .from("users")
       .update({ ai_credits: userData.ai_credits - 1 })
-      .eq("id", user.id);
+      .eq("id", user.id)
+      .gte("ai_credits", 1);
 
     if (deductError) {
       console.error("Failed to deduct ai_credit:", deductError);
-      // Still return the image — don't penalize user for backend bookkeeping failure
+      // Still return the image — don't penalize users for backend bookkeeping failure
     }
 
     return NextResponse.json({

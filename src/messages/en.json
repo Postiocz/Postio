@@ -783,6 +783,12 @@
     "defaultTime": "Default Time",
     "savedPreferences": "Preferences saved!",
     "errorSaving": "Error saving preferences.",
+    "notificationsSection": "Email notifications",
+    "notificationsSectionDescription": "Get notified when your credits are running low and receive regular usage summaries.",
+    "lowCreditAlert": "Alert me when less than 20 % of credits remain",
+    "lowCreditAlertDescription": "You will receive an email once you have used more than 80 % of your AI or X credits.",
+    "weeklySummary": "Weekly usage summary",
+    "weeklySummaryDescription": "Every week we will send you a summary of how many credits you used and how many accounts are connected.",
     "sunday": "Sunday",
     "monday": "Monday",
     "generalDescription": "Manage your organization's information.",
@@ -952,7 +958,12 @@
     "manageSubscription": "Manage Subscription",
     "manageSubscriptionDesc": "Manage your payment method, cancel subscription, or download invoices",
     "aiCreditsToast": "Choose a plan that includes more AI credits.",
-    "twitterCreditsToast": "Choose a plan that includes more X auto-post credits."
+    "twitterCreditsToast": "Choose a plan that includes more X auto-post credits.",
+    "usageTitle": "Current usage",
+    "usageAiCredits": "AI credits",
+    "usageTwitterCredits": "X (Twitter) credits",
+    "usageAccounts": "Connected accounts",
+    "usageRemaining": "Remaining: {remaining} of {total}"
   },
   "onboarding": {
     "welcome": "Welcome to Postio!",
@@ -1217,6 +1228,12 @@
       "body": "Thanks for signing up. With Postio you can plan, publish and analyze your social media posts from one place.",
       "cta": "Open the app",
       "footer": "Postio – your smart AI social media planner."
+    },
+    "lowCredits": {
+      "subject": "Your Postio credits are running low",
+      "title": "Your credits are running low",
+      "body": "You have less than 20 % of your credits left. AI credits: {aiRemaining} of {aiTotal}. X credits: {twitterRemaining} of {twitterTotal}. Top up now so AI images and auto-posts to X never slow you down.",
+      "cta": "Buy more credits"
     },
     "passwordReset": {
       "subject": "Reset your Postio password",

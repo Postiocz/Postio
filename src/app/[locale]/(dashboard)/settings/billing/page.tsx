@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { BillingClient } from "./billing-client";
+import { UsageDashboard } from "./usage-dashboard";
 import { ManageSubscriptionButton } from "@/components/billing/manage-subscription-button";
 
 export default async function BillingPage({
@@ -299,6 +300,8 @@ export default async function BillingPage({
       {stripeCustomerId && (
         <ManageSubscriptionButton />
       )}
+
+      <UsageDashboard locale={locale} />
 
       <BillingClient
         plans={plans}

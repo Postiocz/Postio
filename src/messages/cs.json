@@ -783,6 +783,12 @@
     "defaultTime": "Výchozí čas",
     "savedPreferences": "Předvolby uloženy!",
     "errorSaving": "Chyba při ukládání předvoleb.",
+    "notificationsSection": "E-mailová upozornění",
+    "notificationsSectionDescription": "Nechte si posílat upozornění na docházející kredity a pravidelné souhrny čerpání.",
+    "lowCreditAlert": "Upozornit, když zbývá méně než 20 % kreditů",
+    "lowCreditAlertDescription": "Dostanete e-mail, jakmile vyčerpáte více než 80 % AI nebo X kreditů.",
+    "weeklySummary": "Týdenní souhrn čerpání",
+    "weeklySummaryDescription": "Každý týden vám pošleme souhrn, kolik kreditů jste spotřebovali a kolik účtů máte připojených.",
     "sunday": "Neděle",
     "monday": "Pondělí",
     "generalDescription": "Spravujte informace o vaší organizaci.",
@@ -952,7 +958,12 @@
     "manageSubscription": "Spravovat předplatné",
     "manageSubscriptionDesc": "Spravujte svou platební metodu, zrušte předplatné nebo si stáhněte faktury",
     "aiCreditsToast": "Vyberte si tarif, který obsahuje více AI kreditů.",
-    "twitterCreditsToast": "Vyberte si tarif, který obsahuje více kreditů pro automatické posty na X."
+    "twitterCreditsToast": "Vyberte si tarif, který obsahuje více kreditů pro automatické posty na X.",
+    "usageTitle": "Aktuální čerpání",
+    "usageAiCredits": "AI kredity",
+    "usageTwitterCredits": "Kredity X (Twitter)",
+    "usageAccounts": "Připojené účty",
+    "usageRemaining": "Zbývá {remaining} z {total}"
   },
   "onboarding": {
     "welcome": "Vítejte v Postio!",
@@ -1217,6 +1228,12 @@
       "body": "Děkujeme za registraci. S Postio můžete plánovat, publikovat a analyzovat příspěvky na sociálních sítích z jednoho místa.",
       "cta": "Otevřít aplikaci",
       "footer": "Postio – váš chytrý AI plánovač sociálních sítí."
+    },
+    "lowCredits": {
+      "subject": "Vaše kredity v Postio docházejí",
+      "title": "Vaše kredity docházejí",
+      "body": "Zbývá vám méně než 20 % kreditů. AI kredity: {aiRemaining} z {aiTotal}. Kredity X: {twitterRemaining} z {twitterTotal}. Dokupením si zajistíte, že vás AI obrázky ani automatické posty na X nikdy nezastaví.",
+      "cta": "Dokoupit kredity"
     },
     "passwordReset": {
       "subject": "Reset hesla pro Postio",

@@ -191,20 +191,19 @@ export async function sendWelcomeEmail(
 }
 
 /**
- * Build a branded HTML e-mail for the referral-reward notification.
- *
- * Uses the same design system as `buildResetEmailHtml` in auth.ts:
- * pure-black background, glassmorphism card, indigo CTA – consistent
- * with the Postio brand.
+ * Branded Postio e-mail shell shared by all transactional templates:
+ * pure-black background, glassmorphism card, indigo CTA button.
+ * Keeping the markup in one place guarantees every template renders
+ * with the exact same design system.
  */
-export function buildReferralRewardEmailHtml(params: {
+export function buildPostioEmailShell(params: {
   title: string;
   body: string;
   cta: string;
-  appLink: string;
+  ctaLink: string;
   footerTagline: string;
 }): string {
-  const { title, body, cta, appLink, footerTagline } = params;
+  const { title, body, cta, ctaLink, footerTagline } = params;
 
   return `<!DOCTYPE html>
 <html lang="cs">
@@ -260,7 +259,7 @@ export function buildReferralRewardEmailHtml(params: {
                     <table cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td align="center" style="background-color:#6366F1;border-radius:12px;padding:0;">
-                          <a href="${appLink}" style="display:inline-block;padding:14px 32px;color:#fff;text-decoration:none;font-size:16px;font-weight:600;">
+                          <a href="${ctaLink}" style="display:inline-block;padding:14px 32px;color:#fff;text-decoration:none;font-size:16px;font-weight:600;">
                             ${cta}
                           </a>
                         </td>
@@ -292,4 +291,98 @@ export function buildReferralRewardEmailHtml(params: {
   </table>
 </body>
 </html>`;
+}
+
+/**
+ * Build a branded HTML e-mail for the referral-reward notification.
+ * Thin wrapper over the shared shell – kept exported for auth flows.
+ */
+export function buildReferralRewardEmailHtml(params: {
+  title: string;
+  body: string;
+  cta: string;
+  appLink: string;
+  footerTagline: string;
+}): string {
+  const { title, body, cta, appLink, footerTagline } = params;
+  return buildPostioEmailShell({
+    title,
+    body,
+    cta,
+    ctaLink: appLink,
+    footerTagline,
+  });
+}
+
+/**
+ * Build a branded HTML e-mail warning the user about running out of
+ * credits. Same design system as every other transactional template;
+ * the CTA points straight at the billing page ("Aktuální čerpání").
+ */
+export function buildLowCreditsEmailHtml(params: {
+  title: string;
+  body: string;
+  cta: string;
+  billingLink: string;
+  footerTagline: string;
+}): string {
+  const { title, body, cta, billingLink, footerTagline } = params;
+  return buildPostioEmailShell({
+    title,
+    body,
+    cta,
+    ctaLink: billingLink,
+    footerTagline,
+  });
+}
+
+/**
+ * Sends a low-credits warning e-mail to a user who opted in via
+ * `email_low_credit_alert` (Prompt 059). Localised, best-effort –
+ * failures are logged but never thrown.
+ */
+export async function sendLowCreditsEmail(params: {
+  email: string;
+  locale: string;
+  aiRemaining: number;
+  aiTotal: number;
+  twitterRemaining: number;
+  twitterTotal: number;
+}): Promise<{ success: boolean; error?: string }> {
+  const messages = loadLocaleMessages(params.locale);
+  const low = messages.email.lowCredits;
+
+  const baseUrl = await getAppBaseUrl();
+  const billingLink = `${baseUrl}/${params.locale}/settings/billing`;
+
+  // Interpolate the remaining/total credit numbers into the body.
+  const body = low.body
+    .replace("{aiRemaining}", String(params.aiRemaining))
+    .replace("{aiTotal}", String(params.aiTotal))
+    .replace("{twitterRemaining}", String(params.twitterRemaining))
+    .replace("{twitterTotal}", String(params.twitterTotal));
+
+  const html = buildLowCreditsEmailHtml({
+    title: low.title,
+    body,
+    cta: low.cta,
+    billingLink,
+    footerTagline: messages.email.footerTagline,
+  });
+
+  const text = `${low.title}\n\n${body}\n\n${billingLink}`;
+
+  const result = await sendTransactionalEmail({
+    to: params.email,
+    subject: low.subject,
+    html,
+    text,
+    from: SENDER_NOREPLY,
+  });
+
+  if (!result.success) {
+    console.error("[email] Failed to send low credits email:", result.error);
+  }
+
+  return result;
 }

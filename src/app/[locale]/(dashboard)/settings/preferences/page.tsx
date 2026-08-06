@@ -19,11 +19,15 @@ export default async function PreferencesPage({
   let startOfWeek = "monday";
   let defaultPostingTime = "09:00";
   let postingSchedule: PostingSchedule | null = null;
+  let emailLowCreditAlert = false;
+  let emailWeeklySummary = false;
 
   if (user) {
     const { data: userData } = await supabase
       .from("users")
-      .select("timezone, time_format, start_of_week, default_posting_time, posting_schedule")
+      .select(
+        "timezone, time_format, start_of_week, default_posting_time, posting_schedule, email_low_credit_alert, email_weekly_summary"
+      )
       .eq("id", user.id)
       .single();
 
@@ -33,6 +37,8 @@ export default async function PreferencesPage({
       startOfWeek = userData.start_of_week ?? "monday";
       defaultPostingTime = userData.default_posting_time ?? "09:00";
       postingSchedule = (userData.posting_schedule as PostingSchedule) ?? null;
+      emailLowCreditAlert = userData.email_low_credit_alert ?? false;
+      emailWeeklySummary = userData.email_weekly_summary ?? false;
     }
   }
 
@@ -51,6 +57,8 @@ export default async function PreferencesPage({
         startOfWeek={startOfWeek}
         defaultPostingTime={defaultPostingTime}
         postingSchedule={postingSchedule}
+        emailLowCreditAlert={emailLowCreditAlert}
+        emailWeeklySummary={emailWeeklySummary}
         labels={{
           saved: t("savedPreferences"),
           timezone: t("timezone"),
@@ -75,6 +83,12 @@ export default async function PreferencesPage({
           thursday: t("thursday"),
           friday: t("friday"),
           saturday: t("saturday"),
+          notificationsSection: t("notificationsSection"),
+          notificationsSectionDescription: t("notificationsSectionDescription"),
+          lowCreditAlert: t("lowCreditAlert"),
+          lowCreditAlertDescription: t("lowCreditAlertDescription"),
+          weeklySummary: t("weeklySummary"),
+          weeklySummaryDescription: t("weeklySummaryDescription"),
         }}
       />
     </div>

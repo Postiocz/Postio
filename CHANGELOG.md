@@ -4,6 +4,36 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
+### 🚀 Prompt 059 – KROK 3+4: E-mailová šablona varování + lokalizace ✅
+
+- **Kontext**: Uživatelé s nízkým stavem kreditů neměli e-mailové varování s odkazem na dokoupení.
+- **Změny**:
+  - ✅ `email.ts`: refaktor bitmap HTML kostry do sdíleného `buildPostioEmailShell` (výstup `buildReferralRewardEmailHtml` beze změny); nová `buildLowCreditsEmailHtml` + `sendLowCreditsEmail` (lokalizovaná, best-effort, `noreply@`, interpolace `{aiRemaining}`/`{twitter...}` do textu, CTA tlačítko → Fakturace).
+  - ✅ Reálné odeslání otestováno dočasným debug endpointem `/api/debug/email-test` (2/10 AI, 5/10 X), skečový soubor po otestu odstraněn.
+  - ✅ Lokalizace cs/en/uk: `email.lowCredits` (subject, title, body, cta); grafy čerpání (`usage`) a notifikace (`settings.*`) v rámci KROKU1/2.
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). E-mail doručen, vzhled + dosazování čísel potvrzeno uživatelem.
+
+
+### 🚀 Prompt 059 – KROK 2: Nastavení notifikací ✅
+
+- **Kontext**: Uživatelé neměli možnost zapnout e-mailová upozornění na docházející kredity a týdenní souhrn čerpání.
+- **Změny**:
+  - ✅ Migrace `052_email_notification_preferences.sql`: sloupce `email_low_credit_alert` + `email_weekly_summary` (BOOLEAN, default false) do `users`; `types.ts` Row/Insert/Update.
+  - ✅ `preferences-form.tsx`: nová karta "E-mailová upozornění" se 2 shadcn Switch přepínači (low-credit alert <20 %, týdenní souhrn), konzistentní glassmorphism UI s ostatními kartami.
+  - ✅ `updatePreferences` (actions.ts) ukládá oba přepínače; `preferences/page.tsx` je načítá a předává do formu.
+  - ✅ Lokalizace cs/en/uk (`notificationsSection`, `lowCreditAlert`, `weeklySummary` + popisky).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Migrace spuštěna v Supabase, manuální test potvrzen (uložení + přetrvání stavu).
+
+### 🚀 Prompt 059 – KROK 1: Widget čerpání (Usage Dashboard) ✅
+
+- **Kontext**: Uživatelé neměli přehled o zbývajících kreditech (AI, X auto-post) a počtu účtů v rámci svého tarifu.
+- **Změny**:
+  - ✅ Nový server komponent `usage-dashboard.tsx` na Fakturaci – sekce "Aktuální čerpání" se 3 progress bary (AI kredity, X kredity, připojené účty).
+  - ✅ Limity z aktuálního plánu (`pricing_plans` – custom instance před master fallbackem), kredity z `users.ai_credits` / `twitter_auto_credits`, počet účtů přes `getAccountLimitInfo`.
+  - ✅ Při zbývajících ≤20 % se bar zbarví do oranžova. Pro tarif s neomezeným limitem (∞) se bar nezobrazuje.
+  - ✅ Lokalizace cs/en/uk (`usage*` klíče v `billing` namespace).
+- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
+
 ### 🚀 Prompt 057 – KROK 1-4: Kreditní strážce (Credit Gating) ✅
 
 - **Kontext**: Ochrana byznys modelu - drahé funkce (AI obrázky, X auto-post) nesmí být použitelné bez kreditu.
@@ -73,38 +103,4 @@
   - ✅ Krok 3 – Server `deletePricingPlan` blokuje `is_master_template`; UI koš jen `is_custom && !is_master_template`.
 - **Ověření**: `npx tsc --noEmit` ✅. Backfill ověřen v DB; smazání master zablokováno, custom funguje. Prompt054 celý hotán.
 
-### 🚀 Prompt 054 – KROK 1: Redukce Master Modálu + dynamický ceník ✅
-
-- **Kontext**: Master šablony (Free/Creator/Pro) byly na landing page hardcoded, takže přepínač "Veřejný web" u nich neměl efekt.
-- **Změny**:
-  - ✅ `plans-client.tsx`: u master šablon se skryjí promo/flash sale sekce, zůstává jen "Veřejný web" (odstraněna duplicita s `PlanInputs`).
-  - ✅ `pricing-section.tsx`: dynamické načítání master plánů z DB s respektováním `is_public`, pořadí Free→Creator→Pro, lokalizace dle locale, hardcoded fallback.
-  - ✅ DB: master plánům nastaveno `is_public = true` (dříve false).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test zapnutí/vypnutí plánu potvrzen.
-
-### 🚀 Prompt 057 – KROK 1 + fix promo/odpočtu ✅
-
-- **Kontext**: Stávající uživatelé viděli akční nabídky určené jen pro nové uživatele; navíc běžel odpočet i u ne-promo plánů se zbytkovým `active_until`.
-- **Změny**:
-  - ✅ Migrace `049_add_new_user_only.sql`: sloupec `is_new_user_only BOOLEAN DEFAULT false` + backfill (`is_promo = true` → `is_new_user_only = true`) + index.
-  - ✅ `src/lib/supabase/types.ts`: `is_new_user_only` přidáno do Row/Insert/Update.
-  - ✅ Landing page zobrazuje custom plány jen `is_public = true` (`pricing-section.tsx`).
-  - ✅ "Veřejný web" přepínač dostupný pro všechny custom plány v Adminu (ne jen promo).
-  - ✅ Odpočet se renderuje JEN pro promo plány (`plan.isPromo && plan.activeUntil`).
-  - ✅ Vypnutí promo v Adminu vymaže `active_from`/`active_until`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Migrace spuštěna v Supabase, fix odpočtu test potvrzen.
-
-### 🚀 Prompt 056 – KROK 1+2+3: Fix řazení plánů a UI varování ✅
-
-- **Kontext**: Fakturace zobrazovala plány přeházeně a konzole hlásila a11y + Recharts varování.
-- **Změny**:
-  - ✅ Krok 1 – Řazení ve Fakturaci: Free → Master Creator → Master Pro → všechny viditelné custom plány chronologicky podle `created_at` (`billing/page.tsx`).
-  - ✅ Krok 2 – Do všech 14 dialogů přidán `<DialogDescription className="sr-only">` (screen-reader, vizuálně skrytý).
-  - ✅ Opravena rozbitá struktura v `tag-breakdown.tsx` a duplicitní popisky v `setup-2fa-dialog.tsx`.
-  - ✅ Krok 3 – Chart warnings potlačeny: `isMounted` render po mountu + `min-h` kontejnery + `minWidth={0}`/`minHeight={0}` na `ResponsiveContainer` (3 soubory).
-  - ✅ Dodatečně: donut chart `height="100%"` → `height={176}` (číselná výška, eliminace `-1×-1` warningu na dashboardu).
-  - ✅ Dodatečně: `/api/proxy/image` route + sdílená utilita `proxyImageUrl()` aplikovaná v 9 komponentách – žádné 403 v konzoli u vypršelých CDN URL (allow-list: fbcdn, cdninstagram, licdn, twimg, tiktokcdn, ggpht, googleusercontent, ytimg).
-  - ✅ Krok 4 – Do všech 15 `<video>` elementů přidán `<track kind="captions" />` (HTML5 standard).
-  - ✅ Odstraněny debug logy z `pending-plan-handler.tsx` (nákupní paměť zůstává funkční).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
 

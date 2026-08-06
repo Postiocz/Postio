@@ -20,11 +20,17 @@ export async function updatePreferences(
   const defaultPostingTime = formData.get("default_posting_time") as string;
   const postingScheduleRaw = formData.get("posting_schedule") as string;
 
+  // Email notification toggles (sent as "true"/"false" from the client form).
+  const emailLowCreditAlert = formData.get("email_low_credit_alert") === "true";
+  const emailWeeklySummary = formData.get("email_weekly_summary") === "true";
+
   const updateData: Record<string, unknown> = {
     timezone: timezone || "Europe/Prague",
     time_format: timeFormat || "24",
     start_of_week: startOfWeek || "monday",
     default_posting_time: defaultPostingTime || "09:00",
+    email_low_credit_alert: emailLowCreditAlert,
+    email_weekly_summary: emailWeeklySummary,
   };
 
   // Parse posting_schedule JSONB from FormData

@@ -36,6 +36,8 @@ export interface Database {
           ai_credits: number
           current_plan_instance_id: string | null
           twitter_auto_credits: number
+          email_low_credit_alert: boolean
+          email_weekly_summary: boolean
           created_at: string
         }
         Insert: {
@@ -58,6 +60,8 @@ export interface Database {
           role?: 'user' | 'admin'
           ai_credits?: number
           twitter_auto_credits?: number
+          email_low_credit_alert?: boolean
+          email_weekly_summary?: boolean
           created_at?: string
         }
         Update: {
@@ -81,6 +85,8 @@ export interface Database {
           ai_credits?: number
           current_plan_instance_id?: string | null
           twitter_auto_credits?: number
+          email_low_credit_alert?: boolean
+          email_weekly_summary?: boolean
           created_at?: string
         }
       }

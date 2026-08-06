@@ -6,7 +6,8 @@ import { useActionState } from "react";
 import { updatePreferences } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Check, Clock, Globe, Calendar as CalendarIcon, ListOrdered, Plus, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Bell, Check, Clock, Globe, Calendar as CalendarIcon, ListOrdered, Plus, X } from "lucide-react";
 
 export interface PostingSchedule {
   enabled: boolean;
@@ -26,6 +27,8 @@ interface PreferencesFormProps {
   startOfWeek: string;
   defaultPostingTime: string;
   postingSchedule: PostingSchedule | null;
+  emailLowCreditAlert: boolean;
+  emailWeeklySummary: boolean;
   labels: {
     saved: string;
     timezone: string;
@@ -50,6 +53,12 @@ interface PreferencesFormProps {
     thursday: string;
     friday: string;
     saturday: string;
+    notificationsSection: string;
+    notificationsSectionDescription: string;
+    lowCreditAlert: string;
+    lowCreditAlertDescription: string;
+    weeklySummary: string;
+    weeklySummaryDescription: string;
   };
 }
 
@@ -103,6 +112,8 @@ export default function PreferencesForm({
   startOfWeek: initialStartOfWeek,
   defaultPostingTime: initialDefaultPostingTime,
   postingSchedule: initialPostingSchedule,
+  emailLowCreditAlert: initialEmailLowCreditAlert,
+  emailWeeklySummary: initialEmailWeeklySummary,
   labels,
 }: PreferencesFormProps) {
   const commonT = useTranslations("common");
@@ -120,6 +131,12 @@ export default function PreferencesForm({
       "0": [], "1": ["09:00"], "2": ["09:00"], "3": ["09:00"], "4": ["09:00"], "5": ["09:00"], "6": [],
     }
   );
+  const [emailLowCreditAlert, setEmailLowCreditAlert] = useState(
+    initialEmailLowCreditAlert
+  );
+  const [emailWeeklySummary, setEmailWeeklySummary] = useState(
+    initialEmailWeeklySummary
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +148,8 @@ export default function PreferencesForm({
     formData.set("start_of_week", startOfWeek);
     formData.set("default_posting_time", defaultPostingTime);
     formData.set("posting_schedule", JSON.stringify(postingSchedule));
+    formData.set("email_low_credit_alert", emailLowCreditAlert ? "true" : "false");
+    formData.set("email_weekly_summary", emailWeeklySummary ? "true" : "false");
 
     startTransition(() => {
       prefAction(formData);
@@ -432,6 +451,55 @@ export default function PreferencesForm({
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Email Notifications */}
+      <div className="rounded-[20px] border border-black/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-card/40 backdrop-blur-md p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-none">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20">
+            <Bell className="h-5 w-5 text-violet-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-base sm:text-lg font-semibold">{labels.notificationsSection}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4 sm:mb-6 leading-relaxed">
+              {labels.notificationsSectionDescription}
+            </p>
+
+            {/* Low credit alert toggle */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-black/[0.06] dark:border-white/[0.06] bg-background/50 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{labels.lowCreditAlert}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  {labels.lowCreditAlertDescription}
+                </p>
+              </div>
+              <Switch
+                id="email_low_credit_alert"
+                checked={emailLowCreditAlert}
+                onCheckedChange={(value) => setEmailLowCreditAlert(Boolean(value))}
+                aria-label={labels.lowCreditAlert}
+              />
+            </div>
+
+            {/* Weekly summary toggle */}
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-black/[0.06] dark:border-white/[0.06] bg-background/50 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{labels.weeklySummary}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  {labels.weeklySummaryDescription}
+                </p>
+              </div>
+              <Switch
+                id="email_weekly_summary"
+                checked={emailWeeklySummary}
+                onCheckedChange={(value) => setEmailWeeklySummary(Boolean(value))}
+                aria-label={labels.weeklySummary}
+              />
             </div>
           </div>
         </div>

@@ -38,6 +38,7 @@ export interface Database {
           twitter_auto_credits: number
           email_low_credit_alert: boolean
           email_weekly_summary: boolean
+          is_active: boolean
           created_at: string
         }
         Insert: {
@@ -62,6 +63,7 @@ export interface Database {
           twitter_auto_credits?: number
           email_low_credit_alert?: boolean
           email_weekly_summary?: boolean
+          is_active?: boolean
           created_at?: string
         }
         Update: {
@@ -87,6 +89,7 @@ export interface Database {
           twitter_auto_credits?: number
           email_low_credit_alert?: boolean
           email_weekly_summary?: boolean
+          is_active?: boolean
           created_at?: string
         }
       }
@@ -98,6 +101,7 @@ export interface Database {
           target_table: string | null
           target_id: string | null
           metadata: Record<string, unknown>
+          performed_by: string | null
           created_at: string
         }
         Insert: {
@@ -107,6 +111,7 @@ export interface Database {
           target_table?: string | null
           target_id?: string | null
           metadata?: Record<string, unknown>
+          performed_by?: string | null
           created_at?: string
         }
         Update: {
@@ -116,6 +121,7 @@ export interface Database {
           target_table?: string | null
           target_id?: string | null
           metadata?: Record<string, unknown>
+          performed_by?: string | null
           created_at?: string
         }
       }

@@ -176,6 +176,29 @@ export async function resetPasswordAction(
     return { errorKey: "resetError", errorMessage: null, successKey: null };
   }
 
+  const result = await sendPasswordResetEmail({ email, locale });
+
+  if (!result.success) {
+    return { errorKey: "resetError", errorMessage: null, successKey: null };
+  }
+
+  return { errorKey: null, errorMessage: null, successKey: "resetEmailSent" };
+}
+
+/**
+ * Builds the recovery magic link (Supabase `generateLink`) and sends the
+ * branded reset-password e-mail via Resend. Shared by the "forgot password"
+ * form and the admin user control so both flows use the exact same, proven
+ * link format.
+ *
+ * The link lands on `/<locale>/auth/recovery` (a client page; Supabase appends
+ * the session as a URL hash), where the session is established and the user is
+ * redirected to the reset-password page.
+ */
+export async function sendPasswordResetEmail(params: {
+  email: string;
+  locale: Locale;
+}): Promise<{ success: boolean; error?: string }> {
   const baseUrl = await (async () => {
     const h = await headers();
     const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -184,18 +207,16 @@ export async function resetPasswordAction(
     return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   })();
 
-  const redirectTo = new URL("/auth/callback", baseUrl);
-  redirectTo.searchParams.set("type", "recovery");
-  redirectTo.searchParams.set(
-    "next",
-    `/${locale}/login/reset-password`
-  );
+  // Land on the client-side recovery page (it can read the `#access_token`
+  // hash that server routes cannot see) and forward to the reset form.
+  const redirectTo = new URL(`/${params.locale}/auth/recovery`, baseUrl);
+  redirectTo.searchParams.set("next", `/${params.locale}/login/reset-password`);
   const redirectToUrl = redirectTo.toString();
 
   const adminClient = createAdminClient();
   const { data, error } = await adminClient.auth.admin.generateLink({
     type: "recovery",
-    email,
+    email: params.email,
     options: {
       redirectTo: redirectToUrl,
     },
@@ -203,12 +224,15 @@ export async function resetPasswordAction(
 
   if (error || !data?.properties?.action_link) {
     console.error("[auth] Failed to generate recovery link:", error?.message);
-    return { errorKey: "resetError", errorMessage: null, successKey: null };
+    return {
+      success: false,
+      error: error?.message ?? "Failed to generate recovery link",
+    };
   }
 
   const actionLink = data.properties.action_link;
 
-  const messages = loadLocaleMessages(locale);
+  const messages = loadLocaleMessages(params.locale);
   const emailNs = messages.email;
   const pwReset = emailNs.passwordReset;
 
@@ -224,7 +248,7 @@ export async function resetPasswordAction(
   const text = `${pwReset.title}\n\n${pwReset.body}\n\n${actionLink}\n\n${pwReset.ignore}`;
 
   const result = await sendTransactionalEmail({
-    to: email,
+    to: params.email,
     subject: pwReset.subject,
     html,
     text,
@@ -233,10 +257,10 @@ export async function resetPasswordAction(
 
   if (!result.success) {
     console.error("[auth] Failed to send reset email via Resend:", result.error);
-    return { errorKey: "resetError", errorMessage: null, successKey: null };
+    return { success: false, error: result.error ?? "Failed to send reset email" };
   }
 
-  return { errorKey: null, errorMessage: null, successKey: "resetEmailSent" };
+  return { success: true };
 }
 
 // ============================================================

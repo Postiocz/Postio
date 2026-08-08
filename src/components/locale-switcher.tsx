@@ -28,6 +28,15 @@ export function LocaleSwitcher({ className, isAdmin = false }: { className?: str
   const currentLocale = allLocales.find((l) => l.code === parts[0])?.code || "cs";
 
   const handleChange = (newLocale: string) => {
+    // Persist the choice into `users.language` so server-generated e-mails
+    // (password reset, low-credit alerts) follow the user's actual UI locale.
+    // Fire-and-forget: 401 for guests is swallowed on purpose.
+    fetch("/api/user/language", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language: newLocale }),
+    }).catch(() => {});
+
     // Hard navigation required: next-intl loads messages server-side via getMessages().
     // Client-side router.push() won't trigger a re-render with new locale messages.
     const path = pathname.replace(`/${currentLocale}`, `/${newLocale}`);

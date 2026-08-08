@@ -1,8 +1,10 @@
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { stripe } from "@/lib/stripe";
+import { sendLowCreditsEmail } from "@/lib/email";
+import { sendPasswordResetEmail } from "@/lib/actions/auth";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 type Post = Database["public"]["Tables"]["posts"]["Row"];
@@ -203,6 +205,7 @@ export async function updateUserRole(
   userId: string,
   newRole: "user" | "admin"
 ): Promise<boolean> {
+  const performedBy = await getActingAdminId();
   const supabase = createAdminClient();
 
   const { error: updateError } = await supabase
@@ -215,12 +218,13 @@ export async function updateUserRole(
     return false;
   }
 
-  // Zapiš do audit_logs
+  // Zapiš do audit_logs (včetně toho, který admin zásah provedl)
   await supabase.from("audit_logs").insert({
     user_id: userId,
     action: `role_changed_to_${newRole}`,
     target_table: "users",
     target_id: userId,
+    performed_by: performedBy,
     metadata: { new_role: newRole },
   });
 
@@ -236,6 +240,7 @@ export async function updateUserCredits(
   userId: string,
   credits: { ai_credits: number; twitter_auto_credits: number }
 ): Promise<{ success: boolean; error?: string }> {
+  const performedBy = await getActingAdminId();
   const supabase = createAdminClient();
 
   // First, get current values for audit log
@@ -266,12 +271,13 @@ export async function updateUserCredits(
     return { success: false, error: updateError.message };
   }
 
-  // Log to audit_logs
+  // Log to audit_logs (včetně, který admin zásah — `performed_by`)
   await supabase.from("audit_logs").insert({
     user_id: userId,
     action: "credits_updated",
     target_table: "users",
     target_id: userId,
+    performed_by: performedBy,
     metadata: {
       old_ai_credits: oldAi,
       new_ai_credits: credits.ai_credits,
@@ -283,9 +289,237 @@ export async function updateUserCredits(
   return { success: true };
 }
 
+// ============================================================
+// Prompt 060 – Admin User Control (Krok 2)
+// ============================================================
+
+/**
+ * Resolves the audit operator – the admin currently logged in via the
+ * request session – so every admin action logs WHO performed it.
+ * Returns null when the caller has no cookie session (best effort).
+ */
+async function getActingAdminId(): Promise<string | null> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves a user's credit allowance from `pricing_plans` (custom instance
+ * first, master template fallback) – mirrors the billing usage dashboard.
+ * Returns zeroed totals when the plan cannot be resolved.
+ */
+async function resolvePlanLimits(user: {
+  plan: User["plan"];
+  current_plan_instance_id: string | null;
+}) {
+  const supabase = createAdminClient();
+  try {
+    const query = user.current_plan_instance_id
+      ? supabase
+          .from("pricing_plans")
+          .select("ai_credits, twitter_credits")
+          .eq("id", user.current_plan_instance_id)
+      : supabase
+          .from("pricing_plans")
+          .select("ai_credits, twitter_credits")
+          .eq("is_master_template", true)
+          .eq("type", user.plan);
+
+    const { data: planRow } = await query.maybeSingle();
+    if (!planRow) return { aiTotal: 0, twitterTotal: 0 };
+    return {
+      aiTotal: planRow.ai_credits ?? 0,
+      twitterTotal: planRow.twitter_credits ?? 0,
+    };
+  } catch {
+    return { aiTotal: 0, twitterTotal: 0 };
+  }
+}
+
+/**
+ * Sends the low-credits warning e-mail to a specific user right now, using
+ * the user's CURRENT balances from DB + plan limits + his locale.
+ * Logs the manual send to `audit_logs` (action `low_credits_email_sent`).
+ */
+export async function sendLowCreditsAlert(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const performedBy = await getActingAdminId();
+  const supabase = createAdminClient();
+
+  const { data: user, error: fetchError } = await supabase
+    .from("users")
+    .select("plan, language, ai_credits, twitter_auto_credits, current_plan_instance_id")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError || !user) {
+    console.error("Failed to fetch user for e-mail alert:", fetchError);
+    return { success: false, error: "User not found" };
+  }
+
+  const { data: authData } = await supabase.auth.admin.getUserById(userId);
+  const email = authData?.user?.email;
+  if (!email) {
+    return { success: false, error: "User has no e-mail address" };
+  }
+
+  const locale = user.language ?? "cs";
+  const { aiTotal, twitterTotal } = await resolvePlanLimits(user);
+
+  const mailResult = await sendLowCreditsEmail({
+    email,
+    locale,
+    aiRemaining: user.ai_credits ?? 0,
+    aiTotal,
+    twitterRemaining: user.twitter_auto_credits ?? 0,
+    twitterTotal,
+  });
+
+  if (!mailResult.success) {
+    return { success: false, error: mailResult.error ?? "E-mail could not be sent" };
+  }
+
+  // Log the manual intervention so the owner has a full history.
+  await supabase.from("audit_logs").insert({
+    user_id: userId,
+    action: "low_credits_email_sent",
+    target_table: "users",
+    target_id: userId,
+    performed_by: performedBy,
+    metadata: {
+      ai_credits: user.ai_credits ?? 0,
+      twitter_auto_credits: user.twitter_auto_credits ?? 0,
+    },
+  });
+
+  return { success: true };
+}
+
+/**
+ * Sends a password-recovery e-mail to the user (Supabase `resetPasswordForEmail`).
+ * The recovery link lands on `/auth/callback?type=recovery` (locale-aware, see
+ * redirectTo), which exchanges the code and shows the reset-password page.
+ * Logs the request to `audit_logs` (action `password_reset_requested`).
+ */
+export async function resetUserPassword(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const performedBy = await getActingAdminId();
+  const supabase = createAdminClient();
+
+  const { data: user, error: fetchError } = await supabase
+    .from("users")
+    .select("language")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError || !user) {
+    console.error("Failed to fetch user for password reset:", fetchError);
+    return { success: false, error: "User not found" };
+  }
+
+  const { data: authData } = await supabase.auth.admin.getUserById(userId);
+  const email = authData?.user?.email;
+  if (!email) {
+    return { success: false, error: "User has no e-mail address" };
+  }
+
+  const locale = user.language ?? "cs";
+
+  // Reuse the exact same, proven recovery link + branded e-mail as the
+  // "forgot password" form (`sendPasswordResetEmail` in lib/actions/auth.ts).
+  const mailResult = await sendPasswordResetEmail({ email, locale });
+
+  if (!mailResult.success) {
+    console.error("Failed to send password reset e-mail:", mailResult.error);
+    return {
+      success: false,
+      error: mailResult.error ?? "Failed to send password reset e-mail",
+    };
+  }
+
+  await supabase.from("audit_logs").insert({
+    user_id: userId,
+    action: "password_reset_requested",
+    target_table: "users",
+    target_id: userId,
+    performed_by: performedBy,
+    metadata: { email, locale },
+  });
+
+  return { success: true };
+}
+
+/**
+ * Activates or deactivates a user account (`users.is_active`). Deactivation
+ * also revokes the user's existing sessions so she/he is signed out.
+ * Logs the change to `audit_logs` (action `account_deactivated` /
+ * `account_activated`).
+ */
+export async function setUserActive(
+  userId: string,
+  isActive: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const performedBy = await getActingAdminId();
+  const supabase = createAdminClient();
+
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({ is_active: isActive })
+    .eq("id", userId);
+
+  if (updateError) {
+    console.error("Failed to update user active state:", updateError);
+    return { success: false, error: updateError.message };
+  }
+
+  // Revoke all of the user's sessions when deactivating the account. There
+  // is no supabase-js wrapper for "sign out by user id", so we call the
+  // GoTrue admin REST endpoint (`DELETE` sessions of a user). Best effort –
+  // failures are logged but never block the deactivation itself.
+  if (!isActive) {
+    const authUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
+    if (authUrl && serviceKey) {
+      try {
+        const res = await fetch(`${authUrl}/auth/v1/admin/users/${userId}/logout`, {
+          method: "POST",
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+          },
+        });
+        if (!res.ok) console.error("Failed to sign out user:", res.status, await res.text());
+      } catch (signOutError) {
+        console.error("Failed to sign out user:", signOutError);
+      }
+    }
+  }
+
+  await supabase.from("audit_logs").insert({
+    user_id: userId,
+    action: isActive ? "account_activated" : "account_deactivated",
+    target_table: "users",
+    target_id: userId,
+    performed_by: performedBy,
+    metadata: { is_active: isActive },
+  });
+
+  return { success: true };
+}
+
 /**
  * Načte VŠECHNY příspěvky z DB (globální pohled pro admina).
- * Včetně informací o platformách a uživateli.
+ * Včetně informací o platformách a uživatele.
  */
 export async function getAllPosts(): Promise<
   (Post & {

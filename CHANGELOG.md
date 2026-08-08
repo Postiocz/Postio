@@ -4,7 +4,25 @@
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
 
-### 🚀 Prompt 059 – KROK 3+4: E-mailová šablona varování + lokalizace ✅
+### 🚀 Prompt 060 – KROK 2-5: Ovládací centrum uživatele ✅
+
+- **Kontext**: Sekce "Správa kreditů" v `/admin/users/[id]` povýšena na ovládací centrum – manuální notifikace, správa účtu, plný audit zásahů.
+- **Změny**:
+  - ✅ Server actions: `sendLowCreditsAlert` (volá `sendLowCreditsEmail` s aktuálními daty z DB), `resetUserPassword`, `setUserActive` (is_active + odhlášení); audit_logs nově včetně `performed_by` (kdo zásah provedl) – doplněno i do `updateUserRole`/`updateUserCredits`.
+  - ✅ UI: tlačítko "Odeslat upozornění" v sekci kreditů + "Rychlé akce" (reset hesla, deaktivace/aktivace) – AlertDialog, Tooltip, toasty; nový shadcn `alert-dialog.tsx`; indikátor jazyka uživatele v profilové kartě.
+  - ✅ Oprava resetu hesla: client stránka `/(locale)/auth/recovery` zpracuje `#access_token` hash (server fragment nevidí); sdílený `sendPasswordResetEmail` (generateLink + custom mail); `LocaleSwitcher` persistuje jazyk → e-maily v jazyce uživatele (cs/en/uk).
+  - ✅ Migrace `054` – view `audit_logs_local` (pravý čas); lokalizace cs/en/uk.
+- **Ověření**: `npx tsc --noEmit` ✅. Manuálně potvrzeno uživatelem (tlačítka, reset → formulář, jazyk en/uk, `performed_by` v audit logu, view spuštěné).
+
+### 🚀 Prompt 060 – KROK 1: Admin User Control – databáze (migrace 053) ✅
+
+- **Kontext**: Ovládací centrum uživatele v adminu (manuální notifikace, deaktivace účtu, audit zásahů) potřebuje databázovou základnu.
+- **Změny**:
+  - ✅ Migrace `053_admin_user_control.sql`: `users.is_active` (BOOLEAN, default true); `audit_logs.performed_by` (FK → users) + index.
+  - ✅ `src/lib/supabase/types.ts`: sync Row/Insert/Update pro `users.is_active` a `audit_logs.performed_by`.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Migrace spuštěna v Supabase, potvrzeno uživatelem.
+
+### 🚀 Prompt 059 – KROK 3+4: E-mailová šablona šablona varování + lokalizace ✅
 
 - **Kontext**: Uživatelé s nízkým stavem kreditů neměli e-mailové varování s odkazem na dokoupení.
 - **Změny**:
@@ -83,24 +101,4 @@
   - ✅ `STATUS_COLORS`/`PLAN_COLORS` maps: `bg-{color}-500/20` → `bg-{color}-100 dark:bg-{color}-500/20` (7 souborů).
   - ✅ Hover stavy, divide, placeholder, accent ikony — vše theme-aware.
 - **Ověření**: 0 zbývajících hardcoded dark-only barev v adminu. Manuální test Light/Dark potvrzen.
-
-### 🚀 Prompt 058 – Granulární viditelnost (Visibility Rules) ✅
-
-- **Kontext**: Nahrazení hrubého flagu `is_new_user_only` flexibilním systémem cílených skupin (`visibility_rules` TEXT[]).
-- **Změny**:
-  - ✅ Krok 1 – Migrace `051_visibility_rules.sql` (sloupec + backfill + GIN index), `types.ts`.
-  - ✅ Krok 2 – Admin UI checkboxy "Kdo uvidí tento plán?" + Server Actions ukládají pole (překlady cs/en/uk).
-  - ✅ Krok 3 – Landing page session-aware (přihlášený→tarif, odhlášený→anonymous); Fakturace `.contains(visibility_rules,[userPlan])`; nav pozná přihlášeného.
-  - ✅ Krok 4 – Checkout API ověřuje `visibility_rules` (403), promo plány `['anonymous','free']`.
-  - ✅ Krok 5 – Smart Pricing Cards (přímý checkout pro přihlášené, spinner); měna dle aktivního předplatného.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 054 – KROK 2+3: Snapshot Logic a ochrana master šablon ✅
-
-- **Kontext**: Chybela vazba uživatele na instanci plánu (snapshot) a master šablony šlo smazat.
-- **Změny**:
-  - ✅ Krok 2 – `checkout` předává `plan_instance_id`; `webhook` zapisuje `current_plan_instance_id`; migrace `050` = backfill + trigger auto-Free.
-  - ✅ Krok 3 – Server `deletePricingPlan` blokuje `is_master_template`; UI koš jen `is_custom && !is_master_template`.
-- **Ověření**: `npx tsc --noEmit` ✅. Backfill ověřen v DB; smazání master zablokováno, custom funguje. Prompt054 celý hotán.
-
 

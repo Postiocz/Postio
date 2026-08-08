@@ -7,6 +7,7 @@
 
 import { getTranslations } from "next-intl/server";
 import { getUserById, getUserAccounts, getUserPosts, updateUserRole, updateUserCredits } from "@/modules/admin-core/actions";
+import { SendLowCreditsAlertButton, QuickActions } from "@/components/admin/user-control-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import {
   RefreshCw,
   ArrowLeft,
   Coins,
+  Globe,
 } from "lucide-react";
 import { revalidatePath } from "next/cache";
 
@@ -35,6 +37,13 @@ const PLATFORM_ICONS: Record<string, React.ReactElement> = {
   linkedin: <ExternalLink className="h-4 w-4 text-blue-300" />,
   youtube: <ExternalLink className="h-4 w-4 text-red-400" />,
   tiktok: <ExternalLink className="h-4 w-4 text-slate-900 dark:text-white" />,
+};
+
+// UI language the user has set in the app (drives e-mail localization too).
+const LANGUAGE_LABELS: Record<string, string> = {
+  cs: "Čeština",
+  en: "English",
+  uk: "Українська",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -139,7 +148,7 @@ export default async function AdminUserDetailPage({
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-slate-400 dark:text-gray-500" />
                 <span className="text-sm text-slate-600 dark:text-gray-300">
@@ -182,16 +191,31 @@ export default async function AdminUserDetailPage({
                 <RefreshCw className="h-4 w-4 text-slate-400 dark:text-gray-500" />
                 <span className="text-sm text-slate-600 dark:text-gray-300">{t("streakValue", { count: user.streak ?? 0 })}</span>
               </div>
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-slate-400 dark:text-gray-500" />
+                <span className="text-sm text-slate-600 dark:text-gray-300">
+                  {t("language")}{" "}
+                  <Badge className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300">
+                    {LANGUAGE_LABELS[user.language] ?? LANGUAGE_LABELS["cs"]}
+                  </Badge>
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Quick actions – Prompt 060 Krok 4 */}
+      <QuickActions userId={id} isActive={user.is_active} />
+
       {/* Credits Management - Prompt 044-REVISED KROK 2 */}
       <div className="rounded-[20px] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 p-6 backdrop-blur-xl">
-        <div className="flex items-center gap-3 mb-4">
-          <Coins className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t("creditsManagement")}</h3>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Coins className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t("creditsManagement")}</h3>
+          </div>
+          <SendLowCreditsAlertButton userId={id} />
         </div>
 
         <form

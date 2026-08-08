@@ -328,11 +328,6 @@ async function handleRecoveryCallback(request: NextRequest): Promise<NextRespons
       ? nextParam
       : `/${locale}/login/reset-password`;
 
-  // No code → cannot establish a recovery session; send to login.
-  if (!code) {
-    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
-  }
-
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -355,11 +350,32 @@ async function handleRecoveryCallback(request: NextRequest): Promise<NextRespons
     }
   );
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
+  // Exchange the PKCE code for a session when present. Recovery e-mails that
+  // delivered the session via a URL hash (implicit flow) carry no `code`; in
+  // that case we rely on the existing-session check below instead of bouncing
+  // straight to /login.
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error("[recovery] Code exchange failed:", error.message);
+      // Fall through – the session check below decides the outcome.
+    }
+  }
+
+  // Only let the user reach the reset-password page with a real session;
+  // otherwise the "set new password" action would fail. If no session can be
+  // established, send them back to the login page (with the reason, if any).
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (!user || userError) {
     return NextResponse.redirect(
       new URL(
-        `/${locale}/login?error=${encodeURIComponent(error.message)}`,
+        `/${locale}/login${
+          userError ? `?error=${encodeURIComponent(userError.message)}` : ""
+        }`,
         request.url
       )
     );

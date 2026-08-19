@@ -86,7 +86,7 @@ const DEFAULT_PLATFORMS: Platform[] = [
     borderHoverClassName: "hover:border-pink-500",
     hoverGlowClassName: "group-hover:shadow-[0_0_20px_rgba(236,72,153,0.3)]",
     dragShadow: "0 0 45px rgba(236,72,153,0.45)",
-    iconHoverClassName: "group-hover:text-white",
+    iconHoverClassName: "group-hover:text-foreground",
   },
   {
     id: "facebook",
@@ -94,7 +94,7 @@ const DEFAULT_PLATFORMS: Platform[] = [
     borderHoverClassName: "hover:border-blue-600",
     hoverGlowClassName: "group-hover:shadow-[0_0_20px_rgba(37,99,235,0.3)]",
     dragShadow: "0 0 45px rgba(37,99,235,0.4)",
-    iconHoverClassName: "group-hover:text-white",
+    iconHoverClassName: "group-hover:text-foreground",
   },
   {
     id: "twitter",
@@ -103,7 +103,7 @@ const DEFAULT_PLATFORMS: Platform[] = [
     hoverGlowClassName:
       "group-hover:shadow-[0_0_20px_rgba(156,163,175,0.3)]",
     dragShadow: "0 0 45px rgba(156,163,175,0.35)",
-    iconHoverClassName: "group-hover:text-white",
+    iconHoverClassName: "group-hover:text-foreground",
   },
   {
     id: "linkedin",
@@ -111,7 +111,7 @@ const DEFAULT_PLATFORMS: Platform[] = [
     borderHoverClassName: "hover:border-blue-700",
     hoverGlowClassName: "group-hover:shadow-[0_0_20px_rgba(29,78,216,0.3)]",
     dragShadow: "0 0 45px rgba(29,78,216,0.4)",
-    iconHoverClassName: "group-hover:text-white",
+    iconHoverClassName: "group-hover:text-foreground",
   },
   {
     id: "youtube",
@@ -130,7 +130,7 @@ const DEFAULT_PLATFORMS: Platform[] = [
     dragShadow:
       "0 0 40px rgba(6,182,212,0.32), 0 0 40px rgba(236,72,153,0.28)",
     iconHoverClassName:
-      "group-hover:text-white [&_.tiktok-pink]:opacity-0 [&_.tiktok-cyan]:opacity-0 group-hover:[&_.tiktok-pink]:opacity-100 group-hover:[&_.tiktok-cyan]:opacity-100 group-hover:[&_.tiktok-pink]:stroke-pink-500 group-hover:[&_.tiktok-cyan]:stroke-cyan-500",
+      "group-hover:text-foreground [&_.tiktok-pink]:opacity-0 [&_.tiktok-cyan]:opacity-0 group-hover:[&_.tiktok-pink]:opacity-100 group-hover:[&_.tiktok-cyan]:opacity-100 group-hover:[&_.tiktok-pink]:stroke-pink-500 group-hover:[&_.tiktok-cyan]:stroke-cyan-500",
   },
 ];
 
@@ -671,7 +671,7 @@ export default function AccountsPage() {
                         className={`h-6 w-6 text-muted-foreground transition-colors ${!isDisabled ? platform.iconHoverClassName : ""}`}
                       />
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-xs font-medium text-muted-foreground transition-colors ${!isDisabled ? "group-hover:text-white" : ""}`}>
+                        <span className={`text-xs font-medium text-muted-foreground transition-colors ${!isDisabled ? "group-hover:text-foreground" : ""}`}>
                           {getPlatformLabel(platform.id)}
                         </span>
                         {isSandboxPlatform && (

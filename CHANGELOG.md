@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 045 – Rozšíření BETA přístupu (Launch Guard) ✅
+
+- **Kontext**: Revizoři Facebooku a TikToku potřebují plný přístup k BETA platformám (TikTok, Facebook, Instagram) pro otestování aplikace.
+- **Změny**:
+  - ✅ `src/app/[locale]/(dashboard)/accounts/page.tsx`: Launch Guard (Prompt 044) nově odemyká sandbox platformy i pro uživatele s e-mailem končícím `@postio-app.cz` (vedle `role === 'admin'`); u privilegovaných uživatelů se skrývá badge BETA i disabled stav.
+  - ✅ E-mail se čte z `auth.users` přes `supabase.auth.getUser()` (`public.users` e-mail neobsahuje).
+  - ✅ Konzistence: server-side OAuth routy (TikTok/X/LinkedIn) žádný sandbox blok nemají – jediná kontrola Launch Guardu zůstává v UI, jak bylo původně.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (přihlášení pod účtem `@postio-app.cz` → platformy FB/IG/TikTok odemčené).
 
 ### 🚀 Prompt 060 – KROK 2-5: Ovládací centrum uživatele ✅
 
@@ -91,14 +99,4 @@
   - ✅ `src/lib/utils.ts`: Nová utilita `getContrastTextColor(bgColor)` — WCAG luminance výpočet, vrací `text-slate-900` pro světlé pozadí, `text-white` pro tmavé.
   - ✅ `src/components/marketing/pricing-client.tsx`: Odznak doporučeného tarifu používá `getContrastTextColor(plan.badgeColor)` místo hardcoded `text-white`.
 - **Ověření**: Manuální test potvrzen — světlé barvy odznaku → tmavý text, tmavé barvy → bílý text.
-
-### 🚀 Prompt 055 – KROK 1: Admin Light Mode ("Milky Glass") ✅
-
-- **Kontext**: Admin sekce (`/admin/*`) byla hardcodována pro Dark Mode — bílé texty na bílém pozadí v Light Modu nečitelné.
-- **Změny**:
-  - ✅ Core komponenty (5 souborů): `admin/layout.tsx`, `admin-sidebar.tsx`, `admin-header.tsx`, `metric-card.tsx`, `admin/billing/page.tsx` — `bg-white/80 dark:bg-[#09090b]/80`, `border-slate-200 dark:border-white/10`, `text-slate-900 dark:text-white`.
-  - ✅ Všechny ostatní admin stránky (12 souborů): Dashboard, Analytics, Billing/Plans, Feedback, Posts, Settings (3×), System Check, Users (2×) — hromadná oprava `text-white` → `text-slate-900 dark:text-white`, `text-gray-*` → `text-slate-* dark:text-gray-*`, `bg-[#09090b]/80` → `bg-white/80 dark:bg-[#09090b]/80`.
-  - ✅ `STATUS_COLORS`/`PLAN_COLORS` maps: `bg-{color}-500/20` → `bg-{color}-100 dark:bg-{color}-500/20` (7 souborů).
-  - ✅ Hover stavy, divide, placeholder, accent ikony — vše theme-aware.
-- **Ověření**: 0 zbývajících hardcoded dark-only barev v adminu. Manuální test Light/Dark potvrzen.
 

@@ -73,11 +73,16 @@ type Platform = {
 };
 
 /**
- * Platforms in Sandbox mode (Prompt 044-REVISED KROK 1).
- * These platforms show a "BETA" badge and are disabled for non-admin users.
- * Admin users can connect them normally (for testing before public launch).
+ * Platforms in Sandbox mode (Prompt 044-REVISED KROK 1 + Prompt 045).
+ * These platforms show a "BETA" badge and are disabled for users without
+ * Launch Guard access. Users with access (role "admin" OR an e-mail on the
+ * @postio-app.cz domain – Facebook/TikTok reviewers) can connect them
+ * normally (for testing before public launch).
  */
 const SANDBOX_PLATFORMS: Set<PlatformId> = new Set(["tiktok", "facebook", "instagram"]);
+
+/** E-mailová doména interních revizorů (FB/TikTok) s BETA přístupem (Prompt 045). */
+const POSTIO_REVIEWER_EMAIL_DOMAIN = "@postio-app.cz";
 
 const DEFAULT_PLATFORMS: Platform[] = [
   {
@@ -239,8 +244,10 @@ export default function AccountsPage() {
   const isDraggingRef = useRef(false);
   // Current user plan – used for client-side account-limit enforcement.
   const [userPlan, setUserPlan] = useState<"free" | "creator" | "pro">("free");
-  // Prompt 044-REVISED KROK 1: User role for Launch Guard (admin bypass).
+  // Prompt 044-REVISED KROK 1 + Prompt 045: User identity for Launch Guard
+  // (admin bypass + @postio-app.cz reviewer bypass).
   const [userRole, setUserRole] = useState<"user" | "admin">("user");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const platformById = useMemo(() => {
     return new Map(platforms.map((p) => [p.id, p]));
@@ -372,7 +379,8 @@ export default function AccountsPage() {
 
   // Load the user's plan so we can enforce the account limit client-side
   // (proactively block new connections before they hit the server).
-  // Also loads user role for Launch Guard (Prompt 044-REVISED KROK 1).
+  // Also loads user role + email for Launch Guard (Prompt 044-REVISED KROK 1
+  // + Prompt 045 – admin / @postio-app.cz bypass).
   const fetchPlan = async () => {
     const { data } = await supabase.from("users").select("plan, role").single();
     if (data?.plan) {
@@ -380,6 +388,12 @@ export default function AccountsPage() {
     }
     if (data?.role) {
       setUserRole(data.role as "user" | "admin");
+    }
+    // Prompt 045: Preferovat e-mail z auth.users (public.users email nemá).
+    // Ověřuje interní revizory z FB/TikToku na doméně @postio-app.cz.
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user?.email) {
+      setUserEmail(authData.user.email);
     }
   };
 
@@ -595,10 +609,16 @@ export default function AccountsPage() {
               className="flex flex-wrap justify-center gap-4"
             >
               {platforms.map((platform) => {
-                // Prompt 044-REVISED KROK 1: Launch Guard
+                // Prompt 044-REVISED KROK 1 + Prompt 045: Launch Guard.
+                // Sandbox platformy jsou odemčené pro adminy i pro e-maily na
+                // doméně @postio-app.cz (revizoři Facebooku/TikToku).
                 const isSandboxPlatform = SANDBOX_PLATFORMS.has(platform.id);
                 const isAdmin = userRole === "admin";
-                const isDisabled = isSandboxPlatform && !isAdmin;
+                const isPostioReviewer =
+                  userEmail?.toLowerCase().endsWith(POSTIO_REVIEWER_EMAIL_DOMAIN) ??
+                  false;
+                const hasBetaAccess = isAdmin || isPostioReviewer;
+                const isDisabled = isSandboxPlatform && !hasBetaAccess;
 
                 return (
                 <Tooltip key={platform.id}>
@@ -619,7 +639,8 @@ export default function AccountsPage() {
                       }}
                       onClick={() => {
                         if (isDraggingRef.current) return;
-                        // Prompt 044-REVISED KROK 1: Block sandbox platforms for non-admin
+                        // Prompt 044-REVISED KROK 1 + Prompt 045: Block sandbox
+                        // platforms for users without BETA access.
                         if (isDisabled) {
                           return;
                         }
@@ -674,7 +695,7 @@ export default function AccountsPage() {
                         <span className={`text-xs font-medium text-muted-foreground transition-colors ${!isDisabled ? "group-hover:text-foreground" : ""}`}>
                           {getPlatformLabel(platform.id)}
                         </span>
-                        {isSandboxPlatform && (
+                        {isSandboxPlatform && !hasBetaAccess && (
                           <Badge className="bg-purple-500/20 text-purple-400 text-[9px] px-1.5 py-0.5 rounded-full font-medium">
                             BETA
                           </Badge>

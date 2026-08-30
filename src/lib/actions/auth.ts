@@ -40,6 +40,25 @@ function normalizeLocale(value: unknown): Locale {
   return raw === "cs" || raw === "en" || raw === "uk" ? raw : "cs";
 }
 
+/**
+ * Safe base URL for building auth redirect links. Prefers a well-formed
+ * NEXT_PUBLIC_APP_URL, then the request's forwarded/host header, then a local
+ * dev default — so `new URL(path, base)` can never throw "Failed to construct URL".
+ */
+async function getRedirectBaseUrl(): Promise<string> {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl && /^https?:\/\//i.test(envUrl)) {
+    return envUrl.replace(/\/+$/, "");
+  }
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  if (host) {
+    return `${proto}://${host}`.replace(/\/+$/, "");
+  }
+  return "http://localhost:3000";
+}
+
 export async function logoutAction(formData: FormData) {
   const client = await createClient();
   await client.auth.signOut();
@@ -56,13 +75,7 @@ export async function emailAuthAction(
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
 
-  const baseUrl = await (async () => {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    const proto = h.get("x-forwarded-proto") ?? "http";
-    if (host) return `${proto}://${host}`;
-    return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  })();
+  const baseUrl = await getRedirectBaseUrl();
 
   if (!email || !password) {
     return { errorKey: "signInError", errorMessage: null, successKey: null };
@@ -71,6 +84,7 @@ export async function emailAuthAction(
   const supabase = await createClient();
 
   if (mode === "signup") {
+    console.warn("DEBUG: Base URL used for redirect:", baseUrl);
     // Use `supabase.auth.signUp()` which handles PKCE correctly and stores
     // the code verifier in cookies via @supabase/ssr. The confirmation
     // e-mail is sent by Supabase through Custom SMTP (noreply@postio-app.cz).
@@ -79,7 +93,7 @@ export async function emailAuthAction(
       password,
       options: {
         // `new URL(path, base)` normalizes the slash between base and path,
-        // so a trailing-slash `NEXT_PUBLIC_APP_URL` can never produce `//auth`.
+        // so a trailing-slash base can never produce `//auth`.
         emailRedirectTo: new URL("/auth/callback", baseUrl).toString(),
       },
     });
@@ -199,13 +213,8 @@ export async function sendPasswordResetEmail(params: {
   email: string;
   locale: Locale;
 }): Promise<{ success: boolean; error?: string }> {
-  const baseUrl = await (async () => {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    const proto = h.get("x-forwarded-proto") ?? "http";
-    if (host) return `${proto}://${host}`;
-    return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  })();
+  const baseUrl = await getRedirectBaseUrl();
+  console.warn("DEBUG: Base URL used for redirect:", baseUrl);
 
   // Land on the client-side recovery page (it can read the `#access_token`
   // hash that server routes cannot see) and forward to the reset form.

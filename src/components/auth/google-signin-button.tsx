@@ -16,6 +16,21 @@ const isSupabaseConfigured =
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ?? ""
   ).includes("placeholder");
 
+/**
+ * Safe base URL for building app redirect links. Prefers a well-formed
+ * NEXT_PUBLIC_APP_URL; otherwise falls back to the current window origin so
+ * `new URL()` can never throw "Failed to construct URL".
+ */
+function getRedirectBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl && /^https?:\/\//i.test(envUrl)) {
+    return envUrl.replace(/\/+$/, "");
+  }
+  return typeof window !== "undefined"
+    ? window.location.origin
+    : "http://localhost:3000";
+}
+
 export function GoogleSignInButton() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -27,13 +42,14 @@ export function GoogleSignInButton() {
       setErrorMessage(null);
       const supabase = createClient();
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      const baseUrl = getRedirectBaseUrl();
+      console.warn("DEBUG: Base URL used for redirect:", baseUrl);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           // `new URL` normalizes the base/path slash, so a trailing-slash
-          // `NEXT_PUBLIC_APP_URL` can never produce `//auth/callback`.
+          // base can never produce `//auth/callback`.
           redirectTo: new URL("/auth/callback", baseUrl).toString(),
         },
       });

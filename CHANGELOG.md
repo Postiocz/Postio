@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 032 – KROK 3: Robustní konstrukce URL adres ✅
+
+- **Kontext**: Přihlášení funguje, ale kopírovali jsme riziko pádu na chybě "Failed to construct URL" při špatně nastaveném `NEXT_PUBLIC_APP_URL`.
+- **Změny**:
+  - ✅ `getRedirectBaseUrl()` v `src/lib/actions/auth.ts`: sjednocuje konstrukci base URL (validní `NEXT_PUBLIC_APP_URL` s http(s) → request host header → `http://localhost:3000`), normalizuje trailing slash.
+  - ✅ Stejná pojistka v `google-signin-button.tsx` (klient) s fallbackem na `window.location.origin`.
+  - ✅ `console.warn("DEBUG: Base URL used for redirect:", ...)` před každým `new URL(...)` — u Google loginu, email signupu i resetu hesla.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (DEBUG log v konzoli, čisté odkazy v e-mailech bez `//`).
+
 ### 🚀 Prompt 045 – Rozšíření BETA přístupu (Launch Guard) ✅
 
 - **Kontext**: Revizoři Facebooku a TikToku potřebují plný přístup k BETA platformám (TikTok, Facebook, Instagram) pro otestování aplikace.
@@ -92,11 +101,4 @@
     - Promo/ostatní recommended: pouze jemný stín bez gradientu.
 - **Ověření**: Manuální test Light/Dark potvrzen — glow je decentní, prémiový, ne ruší čtení.
 
-### 🚀 Prompt 055 – KROK 2: Inteligentní Kontrast Odznaků ✅
-
-- **Kontext**: Odznaky tarifů s dynamickou barvou (`badgeColor` z DB) měly hardcoded `text-white` — na světlém pozadí nečitelné.
-- **Změny**:
-  - ✅ `src/lib/utils.ts`: Nová utilita `getContrastTextColor(bgColor)` — WCAG luminance výpočet, vrací `text-slate-900` pro světlé pozadí, `text-white` pro tmavé.
-  - ✅ `src/components/marketing/pricing-client.tsx`: Odznak doporučeného tarifu používá `getContrastTextColor(plan.badgeColor)` místo hardcoded `text-white`.
-- **Ověření**: Manuální test potvrzen — světlé barvy odznaku → tmavý text, tmavé barvy → bílý text.
 

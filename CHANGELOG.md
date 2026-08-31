@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎬 Prompt 062 – KROK 1: TikTok Video Scénář (App Review) ✅
+
+- **Kontext**: TikTok vyžaduje pro opuštění sandboxu demo video s propojením účtu, výběrem videa, nastavením soukromí a publikací.
+- **Změny**:
+  - ✅ Nová složka `docs/` a soubor `docs/tiktok-review-script.md` – 8scénový anglický screencast scénář (login → connect OAuth → výběr videa → privacy → publish → verifikace → wrap-up) s kontrolním checklistem.
+  - ✅ Scénář vychází z reálného chování aplikace: PKCE OAuth přes `/api/accounts/tiktok`, Content Posting sekvence (creator_info → init → upload → status/fetch), privacy `PUBLIC_TO_EVERYONE` default, sandbox fallback na `SELF_ONLY` a Launch Guard pro `@postio-app.cz`.
+- **Ověření**: Scénář manuálně prostudován a potvrzen uživatelem (odpovídá reálnému chování aplikace).
+
 ### 🚀 Prompt 032 – KROK 3: Robustní konstrukce URL adres ✅
 
 - **Kontext**: Přihlášení funguje, ale kopírovali jsme riziko pádu na chybě "Failed to construct URL" při špatně nastaveném `NEXT_PUBLIC_APP_URL`.
@@ -88,17 +96,5 @@
   - ✅ Ověřeno: Sidebar, Header, tabulky, MetricCard, karty – všechny používají konzistentní `rounded-[20px]`, `backdrop-blur-md`, glassmorphism pattern.
   - ✅ Theme-aware přepínání Light/Dark potvrzeno v celém Adminu.
 - **Ověření**: Automatická kontrola + manuální test potvrzen.
-
-### 🚀 Prompt 055 – KROK 3: Premium Glow Efekt (Refix v2) ✅
-
-- **Kontext**: Původní glow byl příliš silný ("rozmazaný mrak") a v Light Mode téměř neviditelný. Refix pro High-End vzhled.
-- **Změny**:
-  - ✅ `src/app/globals.css`: Nová animace `glow-breathe` (6s ease-in-out, ±0.02 opacity, `prefers-reduced-motion` safe).
-  - ✅ `billing-card.tsx` + `pricing-client.tsx`: Master-only glow (`creator`/`pro`):
-    - Light Mode: `shadow-[0_20px_50px_rgba(99,102,241,0.15)]` + pastel rainbow gradient `from-indigo-300 via-purple-300 via-pink-300 to-amber-300`, `blur-[30px]`, `opacity-[0.03]`, `glow-breathe`.
-    - Dark Mode: `shadow-[0_0_40px_rgba(99,102,241,0.3)]` + `dark:before:opacity-[0.12]`.
-    - Border: `border-indigo-500/20 dark:border-indigo-500/30`.
-    - Promo/ostatní recommended: pouze jemný stín bez gradientu.
-- **Ověření**: Manuální test Light/Dark potvrzen — glow je decentní, prémiový, ne ruší čtení.
 
 

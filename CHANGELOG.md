@@ -3,6 +3,23 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 065 – ÚKOL F: Inteligentní viditelnost Upgrade banneru ✅
+
+- **Kontext**: Uživatel s tarifem Pro viděl banner "Upgrade na Pro", který je pro něj bezpředmětný.
+- **Změny**:
+  - ✅ `dashboard/page.tsx` (`UpgradeBanner`): early return `null` při `currentPlan === "pro"` – banner se pro Pro uživatele nevykresluje vůbec; pro Creator/Free zůstává viditelný. Zjednodušen `planLabel` (jen `planCreator`/`free`).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (Pro – banner skryt, Creator/Free – viditelný).
+
+### 🎬 Prompt 065 – Dashboardová operace (ÚKOLY B + C + D + E) ✅
+
+- **Kontext**: Prázdný dashboard se schovával do samotného checklistu a skrýval mřížku statistik; inline `OnboardingChecklist` duplicitně konkuroval plovoucímu `SetupGuide`.
+- **Změny**:
+  - ✅ `welcome-section.tsx` (nová): dvě prémiové Glassmorphism karty uprostřed prázdného dashboardu. Krok 1 "Propojte své sítě" = aktivní link na `/accounts` (indigo glow, ikony sítí, CTA s `ArrowRight`); Krok 2 "Vytvořte první příspěvek" = uzamčená (`Lock`, `opacity-60`), odemyká se po propojení první sítě.
+  - ✅ `dashboard/page.tsx`: prázdný stav teď zachovává title + mřížku statistik se 4 `StatSkeleton` ghost kartami, vkládá Welcome sekci pod stats grid; analytics row a quick actions při prázdném stavu skryté; `UpgradeBanner` + `PreviewDialog` vždy. Odebrán import i inline `OnboardingChecklist`.
+  - ✅ Smazán `onboarding-checklist.tsx` (mrtvý kód); jediný průvodce = plovoucí `SetupGuide` (layout.tsx), bez duplicity.
+  - ✅ Lokalizace cs/en/uk: nové `welcomeStep1*`/`welcomeStep2*` klíče (dashboard), odstraněny nepoužívané `onboarding*`.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (prázdný účet: ghost stats + Welcome sekce + SetupGuide v rohu, bez duplicity).
+
 ### 🚀 Prompt 065 – ÚKOL A: Fixace logiky "Aktuální tarif" ✅
 
 - **Kontext**: Ceník na Fakturaci mohl označit kartu Free jako "Aktuální", i když uživatel platil za Creator/Pro, a badge se mohl objevit na více kartách najednou.
@@ -73,26 +90,5 @@
   - ✅ `updatePreferences` (actions.ts) ukládá oba přepínače; `preferences/page.tsx` je načítá a předává do formu.
   - ✅ Lokalizace cs/en/uk (`notificationsSection`, `lowCreditAlert`, `weeklySummary` + popisky).
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Migrace spuštěna v Supabase, manuální test potvrzen (uložení + přetrvání stavu).
-
-### 🚀 Prompt 059 – KROK 1: Widget čerpání (Usage Dashboard) ✅
-
-- **Kontext**: Uživatelé neměli přehled o zbývajících kreditech (AI, X auto-post) a počtu účtů v rámci svého tarifu.
-- **Změny**:
-  - ✅ Nový server komponent `usage-dashboard.tsx` na Fakturaci – sekce "Aktuální čerpání" se 3 progress bary (AI kredity, X kredity, připojené účty).
-  - ✅ Limity z aktuálního plánu (`pricing_plans` – custom instance před master fallbackem), kredity z `users.ai_credits` / `twitter_auto_credits`, počet účtů přes `getAccountLimitInfo`.
-  - ✅ Při zbývajících ≤20 % se bar zbarví do oranžova. Pro tarif s neomezeným limitem (∞) se bar nezobrazuje.
-  - ✅ Lokalizace cs/en/uk (`usage*` klíče v `billing` namespace).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Manuální test potvrzen.
-
-### 🚀 Prompt 057 – KROK 1-4: Kreditní strážce (Credit Gating) ✅
-
-- **Kontext**: Ochrana byznys modelu - drahé funkce (AI obrázky, X auto-post) nesmí být použitelné bez kreditu.
-- **Změny**:
-  - ✅ KROK1 - `ai-assistant-button.tsx`: položka "Generovat obrázek" je `<Link>`; při `ai_credits <= 0` zašedlá + varovný text s odkazem na Fakturaci (`?reason=ai_credits`), informativní toast s tlačítkem "Rozumím" (7s).
-  - ✅ KROK2 - `posts/new/page.tsx` + `edit-post-dialog.tsx`: X direct účet disabled při `twitter_auto_credits <= 0` (tooltip + auto-odvybrání vybraného direct účtu), odkaz "Koupit kredity" → Fakturace (`?reason=twitter_credits`), toast s tlačítkem "Rozumím".
-  - ✅ KROK3 - Server-side guard: `generate-image/route.ts` blokuje 402 při `ai_credits <= 0` (před voláním API); `publish.ts` blokuje X direct při `twitter_auto_credits <= 0`. Odečty jsou atomické (`.gte(col, 1)`) - eliminace race-condition u souběžných requestů (obě X větve + AI).
-  - ✅ KROK4 - Lokalizace cs/en/uk: `ai.aiLimitExhausted`, `ai.aiLimitToast`, `ai.aiBuyMore`, `ai.aiGotIt`, `accounts.xConnect.buyCredits`, `accounts.xConnect.gotIt`, `billing.aiCreditsToast`, `billing.twitterCreditsToast`.
-  - ✅ Dodatečně - AI generování převedeno z DALL-E3 → `gpt-image-1` (DALL-E3 byl v roce 2026 vyřazen): model vrací `b64_json`, obrázek se ukládá do Supabase Storage (`post-media`) a vrací public URL; route přepnuta na `nodejs` kvůli `Buffer`.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). AI Štětec otestován (generování gpt-image-1 + Storage + odečet kreditu). X direct technicky potvrzeno (bez nákladného API testu). Light/Dark potvrzen.
 
 

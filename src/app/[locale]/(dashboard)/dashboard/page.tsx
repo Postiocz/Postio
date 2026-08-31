@@ -58,7 +58,7 @@ import {
   type PreviewPostData,
   type PreviewPostPlatform,
 } from "@/components/preview-dialog";
-import OnboardingChecklist from "@/components/onboarding-checklist";
+import WelcomeSection from "@/components/dashboard/welcome-section";
 
 type RecentPostItem = {
   id: string;
@@ -590,21 +590,30 @@ function DashboardContent({
     archived: postsT("statusArchived"),
   };
 
+  const isEmpty =
+    data.totalPosts === 0 &&
+    data.scheduledPosts === 0 &&
+    data.connectedAccounts === 0 &&
+    data.streak === 0;
+
   return (
     <div className="space-y-8">
-      {data.totalPosts === 0 && data.scheduledPosts === 0 && data.connectedAccounts === 0 && data.streak === 0 ? (
-        <div className="max-w-lg mx-auto">
-          <OnboardingChecklist locale={locale} inline />
-        </div>
-      ) : (
-        <>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
-            <p className="text-muted-foreground/60">{t("subtitle")}</p>
-          </div>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground/60">{t("subtitle")}</p>
+      </div>
 
-          {/* Stats grid */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Stats grid – Ghost UI skeleton při prázdném stavu */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {isEmpty ? (
+          <>
+            <StatSkeleton />
+            <StatSkeleton />
+            <StatSkeleton />
+            <StatSkeleton />
+          </>
+        ) : (
+          <>
         <StatCard
           title={t("totalPosts")}
           value={data.totalPosts}
@@ -642,10 +651,21 @@ function DashboardContent({
           isGlowing={data.streak > 0}
           subtitle={data.streak === 0 ? t("streakEmpty") : undefined}
         />
+      </>
+        )}
       </div>
 
+      {/* Welcome sekce – prázdný stav */}
+      {isEmpty && (
+        <WelcomeSection
+          locale={locale}
+          unlocked={data.connectedAccounts > 0}
+        />
+      )}
+
       {/* Analytics row – grafy: konzistence + donut + top labels */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      {!isEmpty && (
+        <div className="grid gap-4 lg:grid-cols-3">
         <ConsistencyScore
           score={data.consistencyScore}
           label={t("consistencyScore")}
@@ -675,11 +695,13 @@ function DashboardContent({
           />
         </div>
       </div>
+      )}
 
       {/* Quick actions */}
-      <div>
-        <h2 className="mb-4 text-lg font-semibold">{t("quickActions")}</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+      {!isEmpty && (
+        <div>
+          <h2 className="mb-4 text-lg font-semibold">{t("quickActions")}</h2>
+          <div className="grid gap-4 sm:grid-cols-3">
           <QuickActionCard
             title={t("newPost")}
             description={t("newPostDescription")}
@@ -701,8 +723,9 @@ function DashboardContent({
           />
         </div>
       </div>
+      )}
 
-   {data.recentPosts.length > 0 && (
+      {data.recentPosts.length > 0 && (
         <div>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">{t("recentPosts")}</h2>
@@ -1009,10 +1032,6 @@ function DashboardContent({
         post={previewPost}
         userId={data.userId ?? undefined}
       />
-
-        </>
-      )}
-
     </div>
   );
 }
@@ -1093,6 +1112,21 @@ function StatCard({
   }
 
   return <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] h-full flex flex-col">{content}</Card>;
+}
+
+function StatSkeleton() {
+  return (
+    <Card className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] h-full flex flex-col animate-pulse">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div className="h-3 w-20 rounded-full bg-white/10" />
+        <div className="h-3 w-3 rounded-full bg-white/10" />
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col justify-between gap-3">
+        <div className="h-7 w-12 rounded-lg bg-white/10" />
+        <div className="h-3 w-24 rounded-full bg-white/5" />
+      </CardContent>
+    </Card>
+  );
 }
 
 function ConsistencyScore({
@@ -1220,12 +1254,11 @@ function UpgradeBanner({
   t: (key: string) => string;
   settingsT: (key: string) => string;
 }) {
+  // Pro users have everything already – hide the upgrade banner entirely.
+  if (currentPlan === "pro") return null;
+
   const planLabel =
-    currentPlan === "pro"
-      ? t("planPro")
-      : currentPlan === "creator"
-        ? t("planCreator")
-        : t("free");
+    currentPlan === "creator" ? t("planCreator") : t("free");
 
   return (
     <Card className="relative overflow-hidden bg-card/60 backdrop-blur-sm border">

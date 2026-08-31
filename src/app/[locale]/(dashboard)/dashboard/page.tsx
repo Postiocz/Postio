@@ -16,6 +16,7 @@ import {
   Plus,
   ArrowRight,
   Crown,
+  Zap,
   Sparkles,
   Flame,
   Calendar as CalendarIcon,
@@ -596,11 +597,25 @@ function DashboardContent({
     data.connectedAccounts === 0 &&
     data.streak === 0;
 
+  // Premium plan indicator – subdued glass badge next to the main title
+  const planConfig =
+    data.currentPlan === "pro"
+      ? { Icon: Crown, label: t("planPro") }
+      : data.currentPlan === "creator"
+        ? { Icon: Zap, label: t("planCreator") }
+        : { Icon: Sparkles, label: t("free") };
+
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground/60">{t("subtitle")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground/60">{t("subtitle")}</p>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-card/40 px-3 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-xl">
+          <planConfig.Icon className="h-3.5 w-3.5 text-indigo-400" />
+          {planConfig.label}
+        </div>
       </div>
 
       {/* Stats grid – Ghost UI skeleton při prázdném stavu */}

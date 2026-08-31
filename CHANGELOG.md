@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 065 – ÚKOL G: Vyčištění notifikačních teček + indikátor tarifu v záhlaví ✅
+
+- **Kontext**: Pro uživatele s tarifem Pro jsou fialové tečky (novinka u "Nastavení", tečka u "Upgrade plánu") bezpředmětné; záhlaví Dashboardu neukazovalo aktuální tarif.
+- **Změny**:
+  - ✅ `sidebar.tsx` + `feedback-sidebar-wrapper.tsx` + `layout.tsx`: nová prop `currentPlan` (select `plan` z `users`) – pro tarif `pro` se skryje indikační tečka u "Nastavení" i tečka u "Upgrade plánu".
+  - ✅ `dashboard/page.tsx`: prémiový Glassmorphism badge v záhlaví vedle nadpisu – Crown (Pro) / Zap (Creator) / Sparkles (Free) + lokalizovaný název tarifu (reuse klíčů `dashboard.free`/`planCreator`/`planPro`), tlumené barvy, `flex-wrap` pro mobil.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (tečky u Pro zmizely, indikátor Pro v záhlaví vypadá prémiově).
+
 ### 🚀 Prompt 065 – ÚKOL F: Inteligentní viditelnost Upgrade banneru ✅
 
 - **Kontext**: Uživatel s tarifem Pro viděl banner "Upgrade na Pro", který je pro něj bezpředmětný.
@@ -81,14 +89,5 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). E-mail doručen, vzhled + dosazování čísel potvrzeno uživatelem.
 
 
-### 🚀 Prompt 059 – KROK 2: Nastavení notifikací ✅
-
-- **Kontext**: Uživatelé neměli možnost zapnout e-mailová upozornění na docházející kredity a týdenní souhrn čerpání.
-- **Změny**:
-  - ✅ Migrace `052_email_notification_preferences.sql`: sloupce `email_low_credit_alert` + `email_weekly_summary` (BOOLEAN, default false) do `users`; `types.ts` Row/Insert/Update.
-  - ✅ `preferences-form.tsx`: nová karta "E-mailová upozornění" se 2 shadcn Switch přepínači (low-credit alert <20 %, týdenní souhrn), konzistentní glassmorphism UI s ostatními kartami.
-  - ✅ `updatePreferences` (actions.ts) ukládá oba přepínače; `preferences/page.tsx` je načítá a předává do formu.
-  - ✅ Lokalizace cs/en/uk (`notificationsSection`, `lowCreditAlert`, `weeklySummary` + popisky).
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). Migrace spuštěna v Supabase, manuální test potvrzen (uložení + přetrvání stavu).
 
 

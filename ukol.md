@@ -42,26 +42,6 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 🎬 Prompt 065 – Vizuální vyčištění pro demo video
-
-**Cíl**: Připravit aplikaci na nahrávání profesionálního demo videa na produkční doméně. Odstranit matoucí prvky v ceníku a vdechnout život prázdnému dashboardu (Ghost UI + Welcome sekce). Po dokončení se sekce smaže (Pravidlo 7).
-
-**Analýza (FÁZE 1)**:
-- **ÚKOL A – Ceník** (`src/app/[locale]/(dashboard)/settings/billing/page.tsx:111`): `isCurrent: userPlan === planType || master.id === currentPlanInstanceId`. Bug: karta Free se zobrazí jako "Aktuální", i když uživatel má aktivní placený plán (když `users.plan` zůstane `"free"` a placený tarif žije jen v `current_plan_instance_id`). Štítek "Aktuální" smí být jen jeden, určený podle `current_plan_instance_id`.
-- **ÚKOL B – Prázdný dashboard** (`src/app/[locale]/(dashboard)/dashboard/page.tsx:595`): při `totalPosts=0 && scheduledPosts=0 && connectedAccounts=0 && streak=0` se vykreslí JEN inline `OnboardingChecklist` uprostřed – mřížka statistik úplně zmizí. Cíl: zachovat grid + horní karty, ale s Ghost UI (skeletony, nulové hodnoty).
-- **ÚKOL C – Welcome sekce**: Nová komponenta – dvě velké Glassmorphism karty vedle sebe uprostřed prázdného dashboardu ("Krok 1: Propojte své sítě" = primární akce / "Krok 2: Vytvořte první příspěvek" = uzamčená se zámkem).
-- **ÚKOL D – SetupGuide**: `src/components/dashboard/setup-guide.tsx` je UŽ plovoucí (fixed pravý dolní roh) v `src/app/[locale]/(dashboard)/layout.tsx:142`. V prázdném stavu se ale zobrazí SOUČASNĚ s inline checklistem uprostřed (duplicita). Cíl: odebrat inline checklist z centra dashboardu, sjednotit do plovoucího widgetu (overlay) v pravém dolním rohu.
-- **ÚKOL E – Lokalizace**: Nové texty Welcome sekce (namespace `dashboard`) + opravy ceníku (namespace `billing`) do `src/messages/cs.json` a `en.json` (+ `uk.json`).
-- **ÚKOL F – Upgrade banner** (`src/app/[locale]/(dashboard)/dashboard/page.tsx`, komponenta `UpgradeBanner`): velký fialový banner "Upgrade na Pro" se nesmí zobrazovat uživateli, který už má tarif `pro`. Při tarifu `creator` má zůstat viditelný.
-
-- [x] ✅ **ÚKOL A – Fixace logiky "Aktuální tarif"**: V `billing/page.tsx` předělat výpočet `isCurrent` tak, aby vycházel výhradně z `current_plan_instance_id` (nebo párování master.id). Pokud má uživatel aktivní placený plán, karta Free NIKDY nesmí být "Aktuální" – zobrazí standardní tlačítko/odkaz. Štítek "Aktuální" = maximálně 1 karta v celém ceníku. (Realizováno: `userHasPaidPlan` detekce + Free karta označena aktuální pouze při `!userHasPaidPlan`.)
-- [x] ✅ **ÚKOL B – Redesign prázdného stavu Dashboardu**: Prázdný stav zachovává mřížku statistik (4 `StatSkeleton` ghost karty s `animate-pulse`), title vždy, analytics/quick actions při prázdném stavu schované, `UpgradeBanner` + `PreviewDialog` vždy.
-- [x] ✅ **ÚKOL C – Implementace Welcome sekce**: Nová `welcome-section.tsx` – dvě velké Glassmorphism karty uprostřed: Krok 1 aktivní (link na /accounts, indigo glow, ikony sítí, CTA s `ArrowRight`), Krok 2 uzamčená (ikona `Lock`, `opacity-60`, odemyká se po `connectedAccounts > 0`).
-- [x] ✅ **ÚKOL D – Repozicování Průvodce (SetupGuide)**: Smazán duplicitní inline `OnboardingChecklist` (import + použití z `dashboard/page.tsx` + soubor `onboarding-checklist.tsx`). Jediný průvodce = plovoucí `SetupGuide` v pravém dolním rohu, bez duplicity.
-- [x] ✅ **ÚKOL E – Lokalizace CZ + EN + UK**: Přidány klíče `welcomeStep1*`/`welcomeStep2*` do namespace `dashboard` v `cs.json`/`en.json`/`uk.json`, odstraněny nepoužívané `onboarding*` klíče.
-- [x] ✅ **ÚKOL F – Inteligentní viditelnost Upgrade banneru**: V komponentě `UpgradeBanner` přidán early return `null` při `currentPlan === "pro"` – pro uživatele s tarifem Pro se banner nevykresluje. U tarifu Creator/Free zůstává viditelný. Zjednodušen `planLabel` (jen `planCreator`/`free`).
-- [ ] **ÚKOL G – Vyčištění notifikačních teček a indikátor tarifu v záhlaví**: (1) Odstranit v `sidebar.tsx` (nebo navigaci) fialové tečky (indikátory) u položky "Nastavení" a "Upgrade plánu" pro uživatele s tarifem `pro` (Pro nemá upgrade novinku). (2) Do záhlaví Dashboardu přidat malý prémiový indikátor aktuálního tarifu (ikonka Crown pro Pro / Zap pro Creator / Sparkles pro Free + text PRO/CREATOR/FREE), Glassmorphism, tlumené barvy, nesmí přebíjet hlavní nadpis. (3) Lokalizovat názvy tarifů v indikátoru.
-
 ### 🎬 Prompt 062 – Příprava podkladů pro TikTok App Review
 
 **Cíl**: Vypracovat finální podklady pro TikTok revizory (vyžadované pro opuštění sandboxu) a připravit aplikaci na demo nahrávání. Po dokončení se sekce smaže (Pravidlo 7) a `ukol.md` se vrátí na čistá pravidla.

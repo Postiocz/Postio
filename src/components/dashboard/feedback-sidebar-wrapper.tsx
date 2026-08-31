@@ -37,6 +37,7 @@ interface FeedbackSidebarWrapperProps {
     organizationLabel: string;
     featuresLabel: string;
   };
+  currentPlan?: string;
   feedbackLabel?: string;
   feedbackTooltip?: string;
   className?: string;

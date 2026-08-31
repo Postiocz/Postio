@@ -80,6 +80,7 @@ interface SidebarProps {
     organizationLabel: string;
     featuresLabel: string;
   };
+  currentPlan?: string;
   feedbackLabel?: string;
   feedbackTooltip?: string;
   onFeedbackClick?: () => void;
@@ -94,6 +95,7 @@ export function Sidebar({
   adminLabel,
   authT,
   settingsLabels,
+  currentPlan,
   feedbackLabel,
   feedbackTooltip,
   onFeedbackClick,
@@ -194,7 +196,7 @@ export function Sidebar({
                 >
                   <span className="relative">
                     <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
-                    {settingsHasAttention && (
+                    {settingsHasAttention && currentPlan !== "pro" && (
                       <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
                     )}
                   </span>
@@ -309,7 +311,9 @@ export function Sidebar({
                       className="flex items-center justify-between rounded-xl px-2.5 py-2 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
                     >
                       <span>{authT.upgrade}</span>
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.7)]" />
+                      {currentPlan !== "pro" && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.7)]" />
+                      )}
                     </Link>
 
                     <div className="px-2.5 py-2">

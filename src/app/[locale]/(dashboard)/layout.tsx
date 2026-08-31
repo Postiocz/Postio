@@ -42,18 +42,20 @@ export default async function DashboardLayout({
 
   let userFullName: string | null = null;
   let userRole: string | null = null;
+  let currentPlan: string | undefined;
 
   if (session) {
     try {
       const supabase = await createClient();
       const { data: userData } = await supabase
         .from("users")
-        .select("onboarded, full_name, role")
+        .select("onboarded, full_name, role, plan")
         .eq("id", session.id)
         .single();
 
       userFullName = userData?.full_name ?? null;
       userRole = userData?.role ?? null;
+      currentPlan = userData?.plan;
 
       if (!userData?.onboarded) {
         redirect(`/${locale}/onboarding`);
@@ -108,6 +110,7 @@ export default async function DashboardLayout({
         }}
         feedbackLabel={navT("feedback")}
         feedbackTooltip={navT("feedbackTooltip")}
+        currentPlan={currentPlan}
         className="hidden lg:flex"
       />
 

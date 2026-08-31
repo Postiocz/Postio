@@ -42,6 +42,25 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
+### 🎬 Prompt 065 – Vizuální vyčištění pro demo video
+
+**Cíl**: Připravit aplikaci na nahrávání profesionálního demo videa na produkční doméně. Odstranit matoucí prvky v ceníku a vdechnout život prázdnému dashboardu (Ghost UI + Welcome sekce). Po dokončení se sekce smaže (Pravidlo 7).
+
+**Analýza (FÁZE 1)**:
+- **ÚKOL A – Ceník** (`src/app/[locale]/(dashboard)/settings/billing/page.tsx:111`): `isCurrent: userPlan === planType || master.id === currentPlanInstanceId`. Bug: karta Free se zobrazí jako "Aktuální", i když uživatel má aktivní placený plán (když `users.plan` zůstane `"free"` a placený tarif žije jen v `current_plan_instance_id`). Štítek "Aktuální" smí být jen jeden, určený podle `current_plan_instance_id`.
+- **ÚKOL B – Prázdný dashboard** (`src/app/[locale]/(dashboard)/dashboard/page.tsx:595`): při `totalPosts=0 && scheduledPosts=0 && connectedAccounts=0 && streak=0` se vykreslí JEN inline `OnboardingChecklist` uprostřed – mřížka statistik úplně zmizí. Cíl: zachovat grid + horní karty, ale s Ghost UI (skeletony, nulové hodnoty).
+- **ÚKOL C – Welcome sekce**: Nová komponenta – dvě velké Glassmorphism karty vedle sebe uprostřed prázdného dashboardu ("Krok 1: Propojte své sítě" = primární akce / "Krok 2: Vytvořte první příspěvek" = uzamčená se zámkem).
+- **ÚKOL D – SetupGuide**: `src/components/dashboard/setup-guide.tsx` je UŽ plovoucí (fixed pravý dolní roh) v `src/app/[locale]/(dashboard)/layout.tsx:142`. V prázdném stavu se ale zobrazí SOUČASNĚ s inline checklistem uprostřed (duplicita). Cíl: odebrat inline checklist z centra dashboardu, sjednotit do plovoucího widgetu (overlay) v pravém dolním rohu.
+- **ÚKOL E – Lokalizace**: Nové texty Welcome sekce (namespace `dashboard`) + opravy ceníku (namespace `billing`) do `src/messages/cs.json` a `en.json` (+ `uk.json`).
+- **ÚKOL F – Upgrade banner** (`src/app/[locale]/(dashboard)/dashboard/page.tsx`, komponenta `UpgradeBanner`): velký fialový banner "Upgrade na Pro" se nesmí zobrazovat uživateli, který už má tarif `pro`. Při tarifu `creator` má zůstat viditelný.
+
+- [x] ✅ **ÚKOL A – Fixace logiky "Aktuální tarif"**: V `billing/page.tsx` předělat výpočet `isCurrent` tak, aby vycházel výhradně z `current_plan_instance_id` (nebo párování master.id). Pokud má uživatel aktivní placený plán, karta Free NIKDY nesmí být "Aktuální" – zobrazí standardní tlačítko/odkaz. Štítek "Aktuální" = maximálně 1 karta v celém ceníku. (Realizováno: `userHasPaidPlan` detekce + Free karta označena aktuální pouze při `!userHasPaidPlan`.)
+- [ ] **ÚKOL B – Redesign prázdného stavu Dashboardu**: Když uživatel nemá žádné příspěvky, dashboard se nesmí schovat do samotného checklistu. Zachovat mřížku statistik + horní karty, naplnit je Ghost UI (zašedlé kostry/skeletony s nulovými hodnotami).
+- [ ] **ÚKOL C – Implementace Welcome sekce**: Doprostřed prázdného dashboardu dvě velké prémiové Glassmorphism karty vedle sebe: (1) "Krok 1: Propojte své sítě" – aktivní primární akce (link na /accounts), (2) "Krok 2: Vytvořte první příspěvek" – vizuálně uzamčená (ikona zámku 🔒, odemkne se po propojení sítě).
+- [ ] **ÚKOL D – Repozicování Průvodce (SetupGuide)**: Checklist (průvodce nastavením) přesunout z centrální pozice do pravého dolního rohu jako plovoucí widget. Odstranit duplicitní inline `OnboardingChecklist` z centra a ponechat/sjednotit plovoucí overlay (SetupGuide v layout.tsx). Zkontrolovat, že se v prázdném stavu nezobrazuje dvakrát.
+- [ ] **ÚKOL E – Lokalizace CZ + EN**: Všechny nové texty Welcome sekce a opravy v ceníku lokalizovat do `cs.json` + `en.json` (+ `uk.json`), ověřit klíče namespace `dashboard` / `billing`.
+- [ ] **ÚKOL F – Inteligentní viditelnost Upgrade banneru**: V hlavním layoutu dashboardu / v komponentě banneru uprav podmínku zobrazení. Uživatel s aktivním tarifem `pro` nesmí banner („Upgrade na Pro") vidět vůbec. Uživatel s tarifem `creator` banner zůstává viditelný.
+
 ### 🎬 Prompt 062 – Příprava podkladů pro TikTok App Review
 
 **Cíl**: Vypracovat finální podklady pro TikTok revizory (vyžadované pro opuštění sandboxu) a připravit aplikaci na demo nahrávání. Po dokončení se sekce smaže (Pravidlo 7) a `ukol.md` se vrátí na čistá pravidla.

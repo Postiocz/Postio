@@ -3,6 +3,13 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🚀 Prompt 065 – ÚKOL A: Fixace logiky "Aktuální tarif" ✅
+
+- **Kontext**: Ceník na Fakturaci mohl označit kartu Free jako "Aktuální", i když uživatel platil za Creator/Pro, a badge se mohl objevit na více kartách najednou.
+- **Změny**:
+  - ✅ `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: nová detekce `userHasPaidPlan` (podle `users.plan` nebo navázané ne-free instance `current_plan_instance_id`). Karta Free je "Aktuální" JEN když `!userHasPaidPlan`; placené master karty (Creator/Pro) se řídí `userPlan === planType || master.id === currentPlanInstanceId`. Výsledkem je maximálně 1 badge "Aktuální" v celém ceníku, respektující skutečný tarif (i když `current_plan_instance_id` zaostává a ukazuje free vazbu z registrace).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (fajfka jen u aktivního plat tarifu, u Free zmizela; i pro případ `plan="pro"` se zastaralou free instancí).
+
 ### 🎬 Prompt 062 – KROK 1: TikTok Video Scénář (App Review) ✅
 
 - **Kontext**: TikTok vyžaduje pro opuštění sandboxu demo video s propojením účtu, výběrem videa, nastavením soukromí a publikací.
@@ -87,14 +94,5 @@
   - ✅ KROK4 - Lokalizace cs/en/uk: `ai.aiLimitExhausted`, `ai.aiLimitToast`, `ai.aiBuyMore`, `ai.aiGotIt`, `accounts.xConnect.buyCredits`, `accounts.xConnect.gotIt`, `billing.aiCreditsToast`, `billing.twitterCreditsToast`.
   - ✅ Dodatečně - AI generování převedeno z DALL-E3 → `gpt-image-1` (DALL-E3 byl v roce 2026 vyřazen): model vrací `b64_json`, obrázek se ukládá do Supabase Storage (`post-media`) a vrací public URL; route přepnuta na `nodejs` kvůli `Buffer`.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). AI Štětec otestován (generování gpt-image-1 + Storage + odečet kreditu). X direct technicky potvrzeno (bez nákladného API testu). Light/Dark potvrzen.
-
-### 🚀 Prompt 055 – KROK 4: Sjednocení UI ✅
-
-- **Kontext**: Finální prověrka konzistence Admin UI po implementaci Light Mode.
-- **Změny**:
-  - ✅ Automatická kontrola: 0 nalezených inkonzistencí v `rounded-*`, `backdrop-blur-*` nebo `border-white/10` bez `dark:` varianty napříč všemi admin stránkami.
-  - ✅ Ověřeno: Sidebar, Header, tabulky, MetricCard, karty – všechny používají konzistentní `rounded-[20px]`, `backdrop-blur-md`, glassmorphism pattern.
-  - ✅ Theme-aware přepínání Light/Dark potvrzeno v celém Adminu.
-- **Ověření**: Automatická kontrola + manuální test potvrzen.
 
 

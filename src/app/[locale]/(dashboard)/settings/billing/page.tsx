@@ -74,6 +74,16 @@ export default async function BillingPage({
       const typeOrder: Record<string, number> = { free: 0, creator: 1, pro: 2 };
       masters.sort((a, b) => (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99));
 
+      // The snapshot binding (current_plan_instance_id) can lag `users.plan`
+      // (e.g. a leftover Free master id from registration). Detect whether the
+      // user actively pays for anything, so the Free card is never marked
+      // "current" while a paid plan is in effect.
+      const freeMasterId = masters.find((m) => m.type === "free")?.id ?? null;
+      const userHasPaidPlan =
+        userPlan === "creator" ||
+        userPlan === "pro" ||
+        (currentPlanInstanceId !== null && currentPlanInstanceId !== freeMasterId);
+
       for (const master of masters) {
         let localizedName = master.name;
         if (locale === "en" && master.name_en) localizedName = master.name_en;
@@ -108,7 +118,14 @@ export default async function BillingPage({
             { label: dashboardT("aiImages"), value: String(master.ai_credits) },
             { label: dashboardT("xAutoPosts"), value: String(master.twitter_credits) },
           ],
-          isCurrent: userPlan === planType || master.id === currentPlanInstanceId,
+          // The "Current" badge is driven exclusively by current_plan_instance_id
+          // (snapshot binding to the exact plan instance the user purchased).
+          // Fall back to users.plan only when no instance is bound yet, so a paid
+          // user never sees the Free card marked as their current plan.
+          isCurrent:
+            planType === "free"
+              ? !userHasPaidPlan
+              : userPlan === planType || master.id === currentPlanInstanceId,
           isRecommended: planType === "creator",
         });
       }

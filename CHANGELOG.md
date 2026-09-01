@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎬 Prompt 062 – KROK 2: TikTok Scope Justifications (App Review) ✅
+
+- **Kontext**: TikTok požaduje pro opuštění sandboxu zdůvodnění jednotlivých scopes v developerském portálu (sekce Scopes).
+- **Změny**:
+  - ✅ Nový soubor `docs/tiktok-review-justifications.md` – profesionální anglické odstavce pro scopes `user.info.basic`, `video.upload`, `video.publish`, každý se sekcemi "User Experience" a "Content Management", + "Supporting details" pro revizora.
+  - ✅ Zdůvodnění vychází z reálného kódu: scopes z `src/app/api/accounts/tiktok/route.ts`, sekvence Content Posting (creator_info → init → upload → status/fetch → PUBLISH_COMPLETE), blokace duplicitních uploadů a sandbox fallback na `SELF_ONLY`.
+- **Ověření**: Dokument manuálně prostudován a potvrzen uživatelem.
+
 ### 🎬 Prompt 062 – KROK 1: TikTok Video Scénář (App Review) ✅
 
 - **Kontext**: TikTok vyžaduje pro opuštění sandboxu demo video s propojením účtu, výběrem videa, nastavením soukromí a publikací.
@@ -88,13 +96,5 @@
   - ✅ Dodatečně - AI generování převedeno z DALL-E3 → `gpt-image-1` (DALL-E3 byl v roce 2026 vyřazen): model vrací `b64_json`, obrázek se ukládá do Supabase Storage (`post-media`) a vrací public URL; route přepnuta na `nodejs` kvůli `Buffer`.
 - **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). AI Štětec otestován (generování gpt-image-1 + Storage + odečet kreditu). X direct technicky potvrzeno (bez nákladného API testu). Light/Dark potvrzen.
 
-### 🚀 Prompt 055 – KROK 4: Sjednocení UI ✅
-
-- **Kontext**: Finální prověrka konzistence Admin UI po implementaci Light Mode.
-- **Změny**:
-  - ✅ Automatická kontrola: 0 nalezených inkonzistencí v `rounded-*`, `backdrop-blur-*` nebo `border-white/10` bez `dark:` varianty napříč všemi admin stránkami.
-  - ✅ Ověřeno: Sidebar, Header, tabulky, MetricCard, karty – všechny používají konzistentní `rounded-[20px]`, `backdrop-blur-md`, glassmorphism pattern.
-  - ✅ Theme-aware přepínání Light/Dark potvrzeno v celém Adminu.
-- **Ověření**: Automatická kontrola + manuální test potvrzen.
 
 

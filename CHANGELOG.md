@@ -73,6 +73,14 @@
   - ✅ Scénář vychází z reálného chování aplikace: PKCE OAuth přes `/api/accounts/tiktok`, Content Posting sekvence (creator_info → init → upload → status/fetch), privacy `PUBLIC_TO_EVERYONE` default, sandbox fallback na `SELF_ONLY` a Launch Guard pro `@postio-app.cz`.
 - **Ověření**: Scénář manuálně prostudován a potvrzen uživatelem (odpovídá reálnému chování aplikace).
 
+### 🎬 Prompt 062 – KROK 2: TikTok Scope Justifications (App Review) ✅
+
+- **Kontext**: TikTok požaduje pro opuštění sandboxu zdůvodnění jednotlivých scopes v developerském portálu (sekce Scopes).
+- **Změny**:
+  - ✅ Nový soubor `docs/tiktok-review-justifications.md` – profesionální anglické odstavce pro scopes `user.info.basic`, `video.upload`, `video.publish`, každý se sekcemi "User Experience" a "Content Management", + "Supporting details" pro revizora.
+  - ✅ Zdůvodnění vychází z reálného kódu: scopes z `src/app/api/accounts/tiktok/route.ts`, sekvence Content Posting (creator_info → init → upload → status/fetch → PUBLISH_COMPLETE), blokace duplicitních uploadů a sandbox fallback na `SELF_ONLY`.
+- **Ověření**: Dokument manuálně prostudován a potvrzen uživatelem.
+
 ### 🚀 Prompt 032 – KROK 3: Robustní konstrukce URL adres ✅
 
 - **Kontext**: Přihlášení funguje, ale kopírovali jsme riziko pádu na chybě "Failed to construct URL" při špatně nastaveném `NEXT_PUBLIC_APP_URL`.
@@ -81,13 +89,4 @@
   - ✅ Stejná pojistka v `google-signin-button.tsx` (klient) s fallbackem na `window.location.origin`.
   - ✅ `console.warn("DEBUG: Base URL used for redirect:", ...)` před každým `new URL(...)` — u Google loginu, email signupu i resetu hesla.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (DEBUG log v konzoli, čisté odkazy v e-mailech bez `//`).
-
-### 🚀 Prompt 045 – Rozšíření BETA přístupu (Launch Guard) ✅
-
-- **Kontext**: Revizoři Facebooku a TikToku potřebují plný přístup k BETA platformám (TikTok, Facebook, Instagram) pro otestování aplikace.
-- **Změny**:
-  - ✅ `src/app/[locale]/(dashboard)/accounts/page.tsx`: Launch Guard (Prompt 044) nově odemyká sandbox platformy i pro uživatele s e-mailem končícím `@postio-app.cz` (vedle `role === 'admin'`); u privilegovaných uživatelů se skrývá badge BETA i disabled stav.
-  - ✅ E-mail se čte z `auth.users` přes `supabase.auth.getUser()` (`public.users` e-mail neobsahuje).
-  - ✅ Konzistence: server-side OAuth routy (TikTok/X/LinkedIn) žádný sandbox blok nemají – jediná kontrola Launch Guardu zůstává v UI, jak bylo původně.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (přihlášení pod účtem `@postio-app.cz` → platformy FB/IG/TikTok odemčené).
 

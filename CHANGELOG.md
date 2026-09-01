@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎬 Prompt 062 – KROK 3: Oprava TikTok panelu v editoru nového příspěvku ✅
+
+- **Kontext**: Po výběru TikTok účtu se v editoru nového příspěvku nezobrazoval panel "Nastavení soukromí / Možnosti videa" a v konzoli byly chyby `MISSING_MESSAGE` pro klíče `posts.tiktokPrivacy*`.
+- **Změny**:
+  - ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx`: kompletní TikTok infra – state (`tiktokCreatorInfo`, `tiktokPrivacyLevel`), `hasTikTokIntent` memo, best-effort fetch `creator_info` přes `getTikTokCreatorInfoAction`, `platformMetadata` (#tiktok privacy) předán do všech 3 volání `createPostAction` (draft/scheduled, publish now, queue). Přidán prémiový Glassmorphism panel (3 privacy toggle + sandbox varování s `Info` ikonou + box s možnostmi účtu) mezi výběr platforem a pole Lokalita.
+  - ✅ `src/messages/{cs,en,uk}.json`: 12 TikTok klíčů (`tiktokPrivacyTitle`, `tiktokPrivacyHint`, …) přesunuto z bloku `calendar` do bloku `posts` – editor je resolvuje pod namespace `posts`, proto měly `MISSING_MESSAGE` error (uk měl v `posts` částečně jen `tiktokPrivacyTitle`).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), JSON validní ve všech 3 jazycích. Manuálně potvrzeno uživatelem (panel se zobrazuje bez MISSING errorů).
+
 ### 🚀 Prompt 065 – ÚKOL G: Vyčištění notifikačních teček + indikátor tarifu v záhlaví ✅
 
 - **Kontext**: Pro uživatele s tarifem Pro jsou fialové tečky (novinka u "Nastavení", tečka u "Upgrade plánu") bezpředmětné; záhlaví Dashboardu neukazovalo aktuální tarif.

@@ -10,7 +10,12 @@ import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
 import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
-import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X, Info } from "lucide-react";
+import {
+  getTikTokCreatorInfoAction,
+  type TikTokCreatorInfo,
+  type TikTokPrivacyLevel,
+} from "@/lib/actions/publish-tiktok";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -47,6 +52,12 @@ const PLATFORMS = [
 ];
 
 const MAX_MEDIA_FILES = 10;
+const DEFAULT_TIKTOK_PRIVACY_LEVEL: TikTokPrivacyLevel = "PUBLIC_TO_EVERYONE";
+const TIKTOK_SUPPORTED_PRIVACY_LEVELS: TikTokPrivacyLevel[] = [
+  "PUBLIC_TO_EVERYONE",
+  "MUTUAL_FOLLOW_FRIENDS",
+  "SELF_ONLY",
+];
 
 function resolvePublishErrorMessage(params: {
   error?: string;
@@ -106,6 +117,42 @@ export default function NewPostPage() {
     const acc = allAccounts.find((a) => a.id === id);
     return acc?.platform?.toLowerCase() === "twitter" && acc?.publishing_type === "manual";
   });
+
+  // TikTok privacy/video settings (mirrors EditPostDialog). A video post
+  // destined for TikTok surfaces privacy toggles plus creator capability info.
+  const [tiktokCreatorInfo, setTikTokCreatorInfo] = useState<TikTokCreatorInfo | null>(null);
+  const [tiktokCreatorInfoLoading, setTikTokCreatorInfoLoading] = useState(false);
+  const [tiktokPrivacyLevel, setTikTokPrivacyLevel] =
+    useState<TikTokPrivacyLevel>(DEFAULT_TIKTOK_PRIVACY_LEVEL);
+
+  const hasTikTokIntent = useMemo(() => {
+    return selectedPlatforms.includes("tiktok");
+  }, [selectedPlatforms]);
+
+  const allowedTikTokPrivacyLevels = useMemo(() => {
+    const options = tiktokCreatorInfo?.privacyLevelOptions?.filter((level) =>
+      TIKTOK_SUPPORTED_PRIVACY_LEVELS.includes(level),
+    );
+    return options && options.length > 0 ? options : TIKTOK_SUPPORTED_PRIVACY_LEVELS;
+  }, [tiktokCreatorInfo]);
+
+  const isTikTokPrivateOnly = useMemo(() => {
+    return (
+      allowedTikTokPrivacyLevels.length === 1 &&
+      allowedTikTokPrivacyLevels[0] === "SELF_ONLY"
+    );
+  }, [allowedTikTokPrivacyLevels]);
+
+  // Only send TikTok-specific metadata when a TikTok account is selected.
+  const platformMetadata = useMemo<Record<string, Record<string, unknown>> | undefined>(() => {
+    if (!hasTikTokIntent) return undefined;
+    return {
+      tiktok: {
+        privacy_level: tiktokPrivacyLevel,
+      },
+    };
+  }, [hasTikTokIntent, tiktokPrivacyLevel]);
+
   const [scheduledAt, setScheduledAt] = useState("");
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -155,6 +202,50 @@ export default function NewPostPage() {
       cancelled = true;
     };
   }, [userId]);
+
+  // Best-effort load of TikTok creator capabilities (privacy options etc.).
+  // In the sandbox this may fail – the privacy toggles still render with all
+  // three options and the creator-info summary falls back to "loading/failed".
+  useEffect(() => {
+    if (!hasTikTokIntent) return;
+
+    let cancelled = false;
+    const loadTikTokCreatorInfo = async () => {
+      setTikTokCreatorInfoLoading(true);
+      try {
+        const result = await getTikTokCreatorInfoAction();
+        if (cancelled) return;
+        if (!result.success) {
+          setTikTokCreatorInfo(null);
+          return;
+        }
+        setTikTokCreatorInfo(result.data);
+        setTikTokPrivacyLevel((current) => {
+          if (result.data.privacyLevelOptions.includes(current)) {
+            return current;
+          }
+          return (
+            TIKTOK_SUPPORTED_PRIVACY_LEVELS.find((level) =>
+              result.data.privacyLevelOptions.includes(level),
+            ) ?? DEFAULT_TIKTOK_PRIVACY_LEVEL
+          );
+        });
+      } catch {
+        if (!cancelled) {
+          setTikTokCreatorInfo(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setTikTokCreatorInfoLoading(false);
+        }
+      }
+    };
+
+    void loadTikTokCreatorInfo();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasTikTokIntent]);
 
   // KROK 2 (Prompt 057): Hybrid X gating. When the user has 0 X auto-credits,
   // force-deselect any direct (API auto-publish) X account so they have to
@@ -389,6 +480,7 @@ export default function NewPostPage() {
         tags: finalTags,
         tagIds: selectedTagIds,
         mediaUrls,
+        platformMetadata,
       });
 
       if (result.success) {
@@ -457,6 +549,7 @@ export default function NewPostPage() {
         tags: finalTags,
         tagIds: selectedTagIds,
         mediaUrls,
+        platformMetadata,
       });
 
       if (!createResult.success || !createResult.data?.id) {
@@ -556,6 +649,7 @@ export default function NewPostPage() {
         tags: finalTags,
         tagIds: selectedTagIds,
         mediaUrls,
+        platformMetadata,
       });
 
       if (result.success) {
@@ -957,6 +1051,100 @@ export default function NewPostPage() {
               </TooltipProvider>
             )}
           </div>
+
+          {/* TikTok privacy & video settings (mirrors EditPostDialog) */}
+          {hasTikTokIntent && (
+            <div className="space-y-3 rounded-[20px] border border-black/5 bg-white/60 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-muted-foreground/80">
+                  {t("tiktokPrivacyTitle")}
+                </Label>
+                <p className="text-xs text-muted-foreground/60">
+                  {t("tiktokPrivacyHint")}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    value: "PUBLIC_TO_EVERYONE" as const,
+                    label: t("tiktokPrivacyPublic"),
+                  },
+                  {
+                    value: "MUTUAL_FOLLOW_FRIENDS" as const,
+                    label: t("tiktokPrivacyFriends"),
+                  },
+                  {
+                    value: "SELF_ONLY" as const,
+                    label: t("tiktokPrivacyPrivate"),
+                  },
+                ].map((option) => {
+                  const isSelected = tiktokPrivacyLevel === option.value;
+                  const isAllowed = allowedTikTokPrivacyLevels.includes(option.value);
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={!isAllowed}
+                      onClick={() => setTikTokPrivacyLevel(option.value)}
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                        isSelected
+                          ? "border-indigo-500/30 dark:border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
+                          : "border-black/5 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground",
+                        !isAllowed && "cursor-not-allowed opacity-40",
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {isTikTokPrivateOnly && (
+                <div className="flex items-start gap-3 rounded-[20px] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <span>{t("tiktokPrivateOnlyNotice")}</span>
+                </div>
+              )}
+
+              <div className="rounded-[20px] border border-black/5 bg-black/[0.02] p-3 text-xs text-muted-foreground/70 dark:border-white/10 dark:bg-black/20">
+                <p>
+                  {tiktokCreatorInfoLoading
+                    ? t("tiktokCreatorInfoLoading")
+                    : t(
+                        "tiktokCreatorInfoSummary",
+                        {
+                          account:
+                            tiktokCreatorInfo?.creatorNickname ||
+                            tiktokCreatorInfo?.creatorUsername ||
+                            "TikTok",
+                        },
+                      )}
+                </p>
+                {tiktokCreatorInfo && (
+                  <p className="mt-1">
+                    {t(
+                      "tiktokCreatorInfoCapabilities",
+                      {
+                        comments: tiktokCreatorInfo.commentDisabled
+                          ? t("tiktokCapabilityDisabled")
+                          : t("tiktokCapabilityEnabled"),
+                        duet: tiktokCreatorInfo.duetDisabled
+                          ? t("tiktokCapabilityDisabled")
+                          : t("tiktokCapabilityEnabled"),
+                        stitch: tiktokCreatorInfo.stitchDisabled
+                          ? t("tiktokCapabilityDisabled")
+                          : t("tiktokCapabilityEnabled"),
+                      },
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Location */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground/80">Lokace</Label>

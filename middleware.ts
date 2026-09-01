@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 import { createClient } from "./src/lib/supabase/middleware";
 
 const PUBLIC_STATIC_PATHS = new Set([
-  "/tiktokmIF6HPGsSRtFyrpVPktypfhK4V9oDdj7.txt",
+  "/tiktokC7WkwZKqwTb7ZmDLLxxKtNvCfqLfbVBh.txt",
 ]);
 
 const intlMiddleware = createMiddleware({
@@ -112,6 +112,6 @@ export const config = {
   matcher: [
     "/",
     "/(cs|en|uk)/:path*",
-    "/((?!api|_next/static|_next/image|_vercel|auth/callback|favicon|icon|apple-icon|manifest|robots\\.txt|sitemap\\.xml).*)",
+    "/((?!api|_next/static|_next/image|_vercel|auth/callback|favicon|icon|apple-icon|manifest|robots\\.txt|sitemap\\.xml|.*\\..*).*)",
   ],
 };

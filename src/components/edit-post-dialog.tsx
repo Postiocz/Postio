@@ -43,6 +43,7 @@ import { logger } from "@/lib/logger";
 import { TagPicker } from "@/components/tag-picker";
 import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/components/post-preview";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { buildLiveUrlInfo, type LiveUrlResult } from "@/lib/live-url";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -515,42 +516,15 @@ export function EditPostDialog({
         .filter((p) => p.status === "published")
         .map((p) => p.platform);
 
-  // Prompt 003 – Build a live URL for a published post on a given platform
-  function buildLiveUrl(platform: string, externalId: string | null): string | null {
-    if (!externalId) return null;
-    switch (platform) {
-      case "facebook":
-        return `https://www.facebook.com/${externalId}`;
-      case "instagram":
-        return `https://www.instagram.com/p/${externalId}/`;
-      case "linkedin":
-        // external_id can be a full URN or just the post ID
-        if (externalId.startsWith("urn:li:share:")) {
-          // We need the author to build the URL – use a generic LinkedIn share link
-          return `https://www.linkedin.com/feed/update/${externalId}/`;
-        }
-        return `https://www.linkedin.com/feed/update/urn:li:share:${externalId}/`;
-      case "youtube":
-        return `https://www.youtube.com/watch?v=${externalId}`;
-      case "twitter":
-      case "x":
-        return `https://x.com/i/status/${externalId}`;
-      case "tiktok":
-        return /^\d+$/.test(externalId)
-          ? `https://www.tiktok.com/@user/video/${externalId}`
-          : null;
-      default:
-        return null;
-    }
-  }
-
   // Prompt 003 – Get the external_id for the currently selected preview platform
-  function getLiveUrlForPlatform(platform: string): string | null {
+  function getLiveUrlInfoForPlatform(platform: string): LiveUrlResult | null {
     if (!post?.post_platforms) return null;
     const pp = post.post_platforms.find(
       (p) => p.platform === platform && p.status === "published"
     );
-    return buildLiveUrl(platform, pp?.external_id ?? null);
+    return buildLiveUrlInfo(platform, pp?.external_id ?? null, {
+      tiktokUsername: tiktokUsername,
+    });
   }
 
   // Detect if the published post is on Instagram
@@ -583,6 +557,9 @@ export function EditPostDialog({
   const [updatingPlatforms, setUpdatingPlatforms] = useState<Record<string, boolean>>({});
   const [tiktokCreatorInfo, setTikTokCreatorInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokCreatorInfoLoading, setTikTokCreatorInfoLoading] = useState(false);
+  // Authentic TikTok handle (`creator_username`) used to build the
+  // "Open on network" URL. Falls back to a sanitized account name.
+  const [tiktokUsername, setTikTokUsername] = useState<string | null>(null);
   const [tiktokPrivacyLevel, setTikTokPrivacyLevel] =
     useState<TikTokPrivacyLevel>(DEFAULT_TIKTOK_PRIVACY_LEVEL);
 
@@ -821,6 +798,48 @@ export function EditPostDialog({
       cancelled = true;
     };
   }, [hasTikTokIntent, open]);
+
+  // Resolve the authentic TikTok handle for building the "Open on network"
+  // URL. Prefers `creator_info_cache.creator_username` (persisted by
+  // creator_info/query), falls back to a sanitized `account_name`.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    setTikTokUsername((prev) => prev ?? tiktokCreatorInfo?.creatorUsername ?? null);
+
+    const loadTikTokUsername = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("social_accounts")
+          .select("account_name, metadata")
+          .eq("platform", "tiktok")
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelled || error || !data) return;
+
+        const metadata = data.metadata as Record<string, unknown> | null | undefined;
+        const cache = metadata?.creator_info_cache as
+          | { creator_username?: string | null }
+          | undefined;
+        const cachedHandle = cache?.creator_username?.trim();
+        const handle = (cachedHandle ?? data.account_name ?? "")
+          .trim()
+          .replace(/^@/, "");
+        if (handle) setTikTokUsername(handle.replace(/\s+/g, "").toLowerCase());
+      } catch {
+        // non-fatal – live URL simply stays hidden until a handle is known
+      }
+    };
+
+    void loadTikTokUsername();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, supabase, tiktokCreatorInfo]);
 
   const toggleAccount = useCallback((id: string) => {
     setSelectedAccountIds((prev) =>
@@ -1946,20 +1965,28 @@ export function EditPostDialog({
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-1.5">
                   {(() => {
-                    const liveUrl = getLiveUrlForPlatform(selectedPreviewPlatform);
-                    if (liveUrl) {
+                    const liveUrlInfo = getLiveUrlInfoForPlatform(selectedPreviewPlatform);
+                    if (liveUrlInfo) {
                       return (
-                        <a
-                          href={liveUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-300 transition-all hover:bg-indigo-500/20"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                          {t("viewLivePost") ?? "View live post"}
-                        </a>
+                        <>
+                          <a
+                            href={liveUrlInfo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-300 transition-all hover:bg-indigo-500/20"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            {t("viewLivePost") ?? "View live post"}
+                          </a>
+                          {liveUrlInfo.profileFallback && (
+                            <p className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                              <Info className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                              {t("tiktokSandboxProfileHint")}
+                            </p>
+                          )}
+                        </>
                       );
                     }
                     return null;

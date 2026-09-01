@@ -805,7 +805,7 @@ export async function publishPost(input: { postId: string }): Promise<{
     const tiktokExternalId =
       "externalId" in result && typeof result.externalId === "string"
         ? result.externalId
-        : "";
+        : null;
 
     await handlePublishSuccess(
       supabase,
@@ -818,7 +818,7 @@ export async function publishPost(input: { postId: string }): Promise<{
     return {
       success: true,
       data: {
-        externalId: tiktokExternalId || undefined,
+        externalId: tiktokExternalId ?? undefined,
         platform: "tiktok",
         warningCode: "warningCode" in result ? result.warningCode : undefined,
       },
@@ -1124,7 +1124,7 @@ async function handlePublishSuccess(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   postId: string,
-  externalId: string,
+  externalId: string | null,
   platform: string,
   accountId?: string | null,
 ) {
@@ -2401,7 +2401,7 @@ export async function publishAdditionalPlatforms(input: {
     const tiktokExternalId =
       "externalId" in result && typeof result.externalId === "string"
         ? result.externalId
-        : "";
+        : null;
 
     await handlePublishSuccess(
       supabase,
@@ -2414,7 +2414,7 @@ export async function publishAdditionalPlatforms(input: {
     return {
       success: true,
       data: {
-        externalId: tiktokExternalId || undefined,
+        externalId: tiktokExternalId ?? undefined,
         platform: "tiktok",
         warningCode: "warningCode" in result ? result.warningCode : undefined,
       },

@@ -3,6 +3,28 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Fix – Návrat tlačítka "Zobrazit na síti" pro TikTok Sandbox ✅
+
+- **Kontext**: Předchozí fix (zrušení fallbacku na `publish_id`) byl příliš striktní – v Sandboxu TikTok nevrací `publicaly_available_post_id`, takže tlačítko zmizelo úplně. Pro App Review ale musí být vždy dostupné.
+- **Změny**:
+  - ✅ `src/lib/live-url.ts`: nová `buildLiveUrlInfo()` vrací `{ url, profileFallback }` – TikTok bez `external_id` (nebo s legacy `v_pub_...` ID) odkazuje na profil `https://www.tiktok.com/@{username}`. `buildLiveUrl()` zůstává jako wrapper.
+  - ✅ `src/lib/actions/publish-tiktok.ts`: status/fetch nyní fallbackuje na `video_id` z odpovědi, pokud `publicaly_available_post_id` chybí (sandbox) – ID se i tak persistuje.
+  - ✅ `preview-dialog.tsx` + `edit-post-dialog.tsx`: tlačítko se zobrazuje vždy pro published platformy; při `profileFallback` pod ním info text "V Sandbox režimu odkazujeme na profil…".
+  - ✅ `preview-dialog.tsx`: oprava skutečné příčiny chybějícího tlačítka v náhledech – `PostCard` ani `Calendar` nepředávaly prop `userId`, takže `loadProfiles` se vůbec nespustil → TikTok handle nebyl nikdy k dispozici → `buildLiveUrlInfo` vrátil null. Dialog si nyní sám dořeší uživatele ze `supabase.auth.getUser()` (stejně jako EditPostDialog).
+  - ✅ `messages/{cs,en,uk}.json`: nový klíč `tiktokSandboxProfileHint` (v bloku `posts`, kde ho obě komponenty resolvují).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), JSON validní, dev server kompiluje bez chyb (starý syntax error v logu byl z přerušené editace; po vyčištění `.next` cache čisté).
+
+### 🐛 Fix – TikTok "Zobrazit na síti" otevíral neplatnou URL ✅
+
+- **Kontext**: Tlačítko "Zobrazit na síti" u TikTok postů otevíralo `tiktok.com/@user/video/v_pub_file...` – do `external_id` se ukládal dočasný `publish_id`, když TikTok nevrátil veřejné ID, a UI sestavovalo URL s tvrdě nakódovaným `@user`.
+- **Změny**:
+  - ✅ `src/lib/actions/publish-tiktok.ts`: zrušen fallback `externalId = publicPostId ?? publishId`; ukládá se jen skutečné `publicaly_available_post_id`. Typ `TikTokPublishActionResult.externalId` nyní `string | null` (null pro soukromá/sandbox videa – odkaz se pak nekreslí).
+  - ✅ `src/lib/actions/publish.ts`: `handlePublishSuccess` akceptuje `string | null`; obě volání TikTok akceptují `null` a do DB zapíšou `null` místo prázdného řetězce.
+  - ✅ Nový `src/lib/live-url.ts` – jediný zdroj pravdy `buildLiveUrl(platform, externalId, { tiktokUsername })` → TikTok: `https://www.tiktok.com/@{username}/video/{external_id}` (bez username vrátí null, never fabricates @user). Instagram: zachováno parsování `shortcode|media_id`.
+  - ✅ `src/components/preview-dialog.tsx` (Náhled z Posts i Calendar): resolver `resolveTikTokUsername` načítá handle z `meta_data.creator_info_cache.creator_username` (fallback `account_name`), předán do `buildLiveUrl`.
+  - ✅ `src/components/edit-post-dialog.tsx`: sdílený `buildLiveUrl` + state/effect `tiktokUsername` (načte handle ze `social_accounts` při otevření).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Zámek 🔒 a zakázaná editace pro publikované TikTok posty zůstávají v obou sekcích (PreviewDialog nemá editační pole, `isTikTokPublished` banner s Lock nezměněn).
+
 ### 🎬 Prompt 062 – KROK 3: Oprava TikTok panelu v editoru nového příspěvku ✅
 
 - **Kontext**: Po výběru TikTok účtu se v editoru nového příspěvku nezobrazoval panel "Nastavení soukromí / Možnosti videa" a v konzoli byly chyby `MISSING_MESSAGE` pro klíče `posts.tiktokPrivacy*`.
@@ -68,34 +90,4 @@
   - ✅ E-mail se čte z `auth.users` přes `supabase.auth.getUser()` (`public.users` e-mail neobsahuje).
   - ✅ Konzistence: server-side OAuth routy (TikTok/X/LinkedIn) žádný sandbox blok nemají – jediná kontrola Launch Guardu zůstává v UI, jak bylo původně.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (přihlášení pod účtem `@postio-app.cz` → platformy FB/IG/TikTok odemčené).
-
-### 🚀 Prompt 060 – KROK 2-5: Ovládací centrum uživatele ✅
-
-- **Kontext**: Sekce "Správa kreditů" v `/admin/users/[id]` povýšena na ovládací centrum – manuální notifikace, správa účtu, plný audit zásahů.
-- **Změny**:
-  - ✅ Server actions: `sendLowCreditsAlert` (volá `sendLowCreditsEmail` s aktuálními daty z DB), `resetUserPassword`, `setUserActive` (is_active + odhlášení); audit_logs nově včetně `performed_by` (kdo zásah provedl) – doplněno i do `updateUserRole`/`updateUserCredits`.
-  - ✅ UI: tlačítko "Odeslat upozornění" v sekci kreditů + "Rychlé akce" (reset hesla, deaktivace/aktivace) – AlertDialog, Tooltip, toasty; nový shadcn `alert-dialog.tsx`; indikátor jazyka uživatele v profilové kartě.
-  - ✅ Oprava resetu hesla: client stránka `/(locale)/auth/recovery` zpracuje `#access_token` hash (server fragment nevidí); sdílený `sendPasswordResetEmail` (generateLink + custom mail); `LocaleSwitcher` persistuje jazyk → e-maily v jazyce uživatele (cs/en/uk).
-  - ✅ Migrace `054` – view `audit_logs_local` (pravý čas); lokalizace cs/en/uk.
-- **Ověření**: `npx tsc --noEmit` ✅. Manuálně potvrzeno uživatelem (tlačítka, reset → formulář, jazyk en/uk, `performed_by` v audit logu, view spuštěné).
-
-### 🚀 Prompt 060 – KROK 1: Admin User Control – databáze (migrace 053) ✅
-
-- **Kontext**: Ovládací centrum uživatele v adminu (manuální notifikace, deaktivace účtu, audit zásahů) potřebuje databázovou základnu.
-- **Změny**:
-  - ✅ Migrace `053_admin_user_control.sql`: `users.is_active` (BOOLEAN, default true); `audit_logs.performed_by` (FK → users) + index.
-  - ✅ `src/lib/supabase/types.ts`: sync Row/Insert/Update pro `users.is_active` a `audit_logs.performed_by`.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Migrace spuštěna v Supabase, potvrzeno uživatelem.
-
-### 🚀 Prompt 059 – KROK 3+4: E-mailová šablona šablona varování + lokalizace ✅
-
-- **Kontext**: Uživatelé s nízkým stavem kreditů neměli e-mailové varování s odkazem na dokoupení.
-- **Změny**:
-  - ✅ `email.ts`: refaktor bitmap HTML kostry do sdíleného `buildPostioEmailShell` (výstup `buildReferralRewardEmailHtml` beze změny); nová `buildLowCreditsEmailHtml` + `sendLowCreditsEmail` (lokalizovaná, best-effort, `noreply@`, interpolace `{aiRemaining}`/`{twitter...}` do textu, CTA tlačítko → Fakturace).
-  - ✅ Reálné odeslání otestováno dočasným debug endpointem `/api/debug/email-test` (2/10 AI, 5/10 X), skečový soubor po otestu odstraněn.
-  - ✅ Lokalizace cs/en/uk: `email.lowCredits` (subject, title, body, cta); grafy čerpání (`usage`) a notifikace (`settings.*`) v rámci KROKU1/2.
-- **Ověření**: `npx tsc --noEmit` ✅ (bez chyb). E-mail doručen, vzhled + dosazování čísel potvrzeno uživatelem.
-
-
-
 

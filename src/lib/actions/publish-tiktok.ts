@@ -55,6 +55,8 @@ type TikTokStatusFetchResponse = {
     status?: string;
     fail_reason?: string;
     publicaly_available_post_id?: Array<number | string>;
+    /** Sandbox responses may expose the video ID here even without public availability. */
+    video_id?: string | number;
     uploaded_bytes?: number;
     downloaded_bytes?: number;
   };
@@ -90,7 +92,11 @@ type TikTokPostSettings = {
 type TikTokPublishActionResult =
   | {
       success: true;
-      externalId: string;
+      // TikTok video ID. `publicaly_available_post_id` when available,
+      // otherwise any `video_id` exposed by status/fetch (sandbox uploads).
+      // Null only when TikTok exposed no ID at all – the UI then falls back
+      // to a profile link (see buildLiveUrlInfo in lib/live-url.ts).
+      externalId: string | null;
       effectivePrivacyLevel: TikTokPrivacyLevel;
       warningCode?: typeof TIKTOK_PRIVATE_ONLY_WARNING_CODE;
     }
@@ -427,13 +433,20 @@ async function waitForTikTokPublishComplete(params: {
 
       const status = payload.data?.status as TikTokPublishStatus | undefined;
       if (status === "PUBLISH_COMPLETE") {
+        // Prefer the real, publicly available post ID. Sandbox (and private)
+        // uploads return no public ID – fall back to any video_id TikTok
+        // exposes in the status response so the ID is still persisted.
         const publicPostId = payload.data?.publicaly_available_post_id?.[0];
+        const sandboxVideoId = payload.data?.video_id;
+        const resolvedId =
+          publicPostId !== undefined && publicPostId !== null
+            ? String(publicPostId)
+            : sandboxVideoId !== undefined && sandboxVideoId !== null
+              ? String(sandboxVideoId)
+              : null;
         return {
           success: true,
-          publicPostId:
-            publicPostId !== undefined && publicPostId !== null
-              ? String(publicPostId)
-              : null,
+          publicPostId: resolvedId,
         };
       }
 
@@ -465,7 +478,7 @@ async function publishToTikTok(params: {
   privacyLevel: TikTokPrivacyLevel;
   creatorInfo: TikTokCreatorInfo;
 }): Promise<
-  | { success: true; externalId: string }
+  | { success: true; externalId: string | null }
   | { success: false; error: string; errorCode?: string }
 > {
   const { accessToken, videoUrl, content, privacyLevel, creatorInfo } = params;
@@ -584,7 +597,7 @@ async function publishToTikTok(params: {
 
   return {
     success: true,
-    externalId: statusResult.publicPostId ?? publishId,
+    externalId: statusResult.publicPostId,
   };
 }
 

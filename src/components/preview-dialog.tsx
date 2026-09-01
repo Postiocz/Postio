@@ -2,12 +2,13 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { ExternalLink, Globe } from "lucide-react";
+import { ExternalLink, Globe, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { buildLiveUrlInfo, type LiveUrlResult } from "@/lib/live-url";
 import {
   Instagram,
   Facebook,
@@ -49,6 +50,8 @@ export interface PreviewPostData {
 export interface PreviewProfile {
   displayName: string;
   avatarUrl?: string | null;
+  /** Authentic platform handle (e.g. TikTok creator_username), used to build the "Open on network" URL. */
+  username?: string | null;
 }
 
 type PreviewPlatform = "facebook" | "instagram" | "youtube" | "linkedin" | "tiktok" | "twitter";
@@ -137,22 +140,31 @@ export function PreviewDialog({
   const [profilesLoaded, setProfilesLoaded] = useState(false);
 
   useEffect(() => {
-    if (!userId || !open || !post) return;
+    if (!open || !post) return;
     let cancelled = false;
     const supabase = createClient();
 
     const loadProfiles = async () => {
       try {
+        // Callers (Posts cards, Calendar) don't always pass `userId` –
+        // resolve the current user from the session so TikTok handle
+        // resolution (and avatar/name profiles) always works.
+        let effectiveUserId = userId;
+        if (!effectiveUserId) {
+          const { data: { user } } = await supabase.auth.getUser();
+          effectiveUserId = user?.id;
+        }
+        if (!effectiveUserId || cancelled) return;
         const [userRes, accountsRes] = await Promise.all([
           supabase
             .from("users")
             .select("full_name, avatar_url")
-            .eq("id", userId)
+            .eq("id", effectiveUserId)
             .maybeSingle(),
           supabase
             .from("social_accounts")
-            .select("platform, account_name, avatar_url")
-            .eq("user_id", userId)
+            .select("platform, account_name, avatar_url, metadata")
+            .eq("user_id", effectiveUserId)
             .eq("is_active", true)
             .in("platform", PREVIEWABLE_PLATFORMS),
         ]);
@@ -165,6 +177,7 @@ export function PreviewDialog({
           newProfiles[p] = {
             displayName: acc?.account_name ?? fallbackName,
             avatarUrl: acc?.avatar_url ?? fallbackAvatar,
+            username: resolveTikTokUsername(acc),
           };
         }
         setProfiles(newProfiles);
@@ -210,12 +223,17 @@ export function PreviewDialog({
     }
   }, [availableTabs, activeTab]);
 
-  // Build live URL for the active platform
-  const liveUrl = useMemo((): string | null => {
+  // Build live URL for the active platform. For TikTok sandbox uploads
+  // (no public post ID) the URL intentionally points at the profile –
+  // `profileFallback` drives the explanatory hint below the button.
+  const liveUrlInfo = useMemo((): LiveUrlResult | null => {
     const pp = publishedPlatforms.find((p) => p.platform === activeTab);
-    if (!pp?.external_id) return null;
-    return buildLiveUrl(activeTab, pp.external_id);
-  }, [publishedPlatforms, activeTab]);
+    if (!pp) return null;
+    return buildLiveUrlInfo(activeTab, pp.external_id, {
+      tiktokUsername: profiles[activeTab]?.username,
+    });
+  }, [publishedPlatforms, activeTab, profiles]);
+  const liveUrl = liveUrlInfo?.url ?? null;
 
   // Resolve profile for active tab
   const activeProfile = useMemo((): PreviewProfile => {
@@ -372,6 +390,12 @@ export function PreviewDialog({
                 <ExternalLink className="h-3.5 w-3.5" />
                 {t("viewLive")}
               </a>
+              {liveUrlInfo?.profileFallback && (
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                  <Info className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  {t("tiktokSandboxProfileHint")}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -381,46 +405,34 @@ export function PreviewDialog({
 }
 
 // ---------------------------------------------------------------------
-// Build live URL for a published post
+// Resolve the authentic TikTok handle (without leading "@") from a
+// connected account row. TikTok OAuth only stores the display name in
+// `account_name`, so the real handle lives in `creator_info_cache` which is
+// persisted whenever `creator_info/query` runs (during publish / editing).
 // ---------------------------------------------------------------------
 
-function buildLiveUrl(platform: string, externalId: string | null): string | null {
-  if (!externalId) return null;
-  switch (platform) {
-    case "facebook":
-      return `https://www.facebook.com/${externalId}`;
-    case "instagram":
-      // external_id formats:
-      //   - "shortcode|media_id" (new posts) — extract shortcode for URL
-      //   - "shortcode" (if only shortcode was stored)
-      //   - "1234567890" (old posts — numeric media ID only)
-      const pipeIdx = externalId.indexOf("|");
-      if (pipeIdx > 0) {
-        // "shortcode|media_id" format
-        const shortcode = externalId.slice(0, pipeIdx);
-        return `https://www.instagram.com/p/${shortcode}/`;
+function resolveTikTokUsername(
+  acc:
+    | {
+        platform?: string;
+        account_name?: string | null;
+        metadata?: unknown;
       }
-      if (/^\d+$/.test(externalId)) {
-        // Numeric media ID — no shortcode available
-        return `https://www.instagram.com/`;
-      }
-      // Plain shortcode
-      return `https://www.instagram.com/p/${externalId}/`;
-    case "linkedin":
-      if (externalId.startsWith("urn:li:share:")) {
-        return `https://www.linkedin.com/feed/update/${externalId}/`;
-      }
-      return `https://www.linkedin.com/feed/update/urn:li:share:${externalId}/`;
-    case "youtube":
-      return `https://www.youtube.com/watch?v=${externalId}`;
-    case "twitter":
-    case "x":
-      return `https://x.com/i/status/${externalId}`;
-    case "tiktok":
-      return `https://www.tiktok.com/@user/video/${externalId}`;
-    default:
-      return null;
-  }
+    | null
+    | undefined,
+): string | null {
+  if (acc?.platform !== "tiktok") return null;
+
+  const cache =
+    (acc.metadata as Record<string, unknown> | null | undefined)
+      ?.creator_info_cache as { creator_username?: string | null } | undefined;
+  const cachedHandle = cache?.creator_username?.trim();
+  if (cachedHandle) return cachedHandle.replace(/^@/, "");
+
+  const name = acc.account_name?.trim();
+  if (name) return name.replace(/\s+/g, "").toLowerCase().replace(/^@/, "");
+
+  return null;
 }
 
 // ---------------------------------------------------------------------

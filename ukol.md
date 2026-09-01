@@ -42,18 +42,4 @@
 
 ## 10. AKTUÁLNÍ ÚKOLY
 
-### 🎬 Prompt 062 – Příprava podkladů pro TikTok App Review
-
-**Cíl**: Vypracovat finální podklady pro TikTok revizory (vyžadované pro opuštění sandboxu) a připravit aplikaci na demo nahrávání. Po dokončení se sekce smaže (Pravidlo 7) a `ukol.md` se vrátí na čistá pravidla.
-
-**Analýza TikTok flow (FÁZE 1)**:
-- **Login Kit** (`src/app/api/accounts/tiktok/route.ts`): PKCE OAuth, scopes `user.info.basic` + `video.upload` + `video.publish`, redirect `https://postio-app.cz/api/accounts/tiktok`, user info + uložení do `social_accounts`.
-- **Content Posting API** (`src/lib/actions/publish-tiktok.ts`): `creator_info/query` → `video/init` → binární upload → `status/fetch` polling; privacy `PUBLIC_TO_EVERYONE` / `MUTUAL_FOLLOW_FRIENDS` / `SELF_ONLY` / `FOLLOWER_OF_CREATOR`.
-- **Sandbox limit**: neauditovaná aplikace smí publikovat jen na soukromé účty (`tiktok_sandbox_private_only`, viz `src/lib/tiktok-publish-errors.ts`) a v dev režimu se privacy vynutí na `SELF_ONLY` – demo video tedy musí ukázat i tuto skutečnost.
-
-- [x] ✅ **KROK 1 – TikTok Video Scénář**: Vypracovat detailní technický scénář (screencast) pro demo video, který revizorovi krok za krokem ukáže: (1) propojení TikTok účtu přes OAuth, (2) výběr videa v editoru, (3) nastavení soukromí a ostatních voleb, (4) odeslání a potvrzení publikace. Uložit do `docs/tiktok-review-script.md` (nově vytvořit složku `docs/`).
-- [ ] **KROK 2 – Anglická zdůvodnění (Justifications)**: Napsat profesionální odstavce pro TikTok portál (sekce Scopes) vysvětlující důvod oprávnění `video.upload`, `video.publish` a `user.info.basic` – zaměřit se na "User Experience" a "Content Management". Uložit do `docs/tiktok-review-justifications.md`.
-- [ ] **KROK 3 – UI Audit pro TikTok**: Projít editor při výběru TikToku a zkontrolovat, že se revizorovi nezobrazí žádné technické texty (chybové kódy API, raw JSON, stash názvy) ani chyby v překladech. Nalezené chyby opravit (kód + `src/messages/{cs,en,uk}.json`).
-- [x] ✅ **KROK 3.1–3.3 – Oprava TikTok panelu v editoru nového příspěvku**: `posts/new/page.tsx` zcela postrádal sekci "Nastavení soukromí / Možnosti videa" (na rozdíl od `edit-post-dialog.tsx`). Přidána TikTok infra (state, `creator_info` fetch, `platformMetadata` do všech 3 volání `createPostAction`) + kompletní panel (3 privacy toggle + varování pro sandbox private-only režim) mezi výběr platforem a pole Lokalita. Dále opraveny chyby `MISSING_MESSAGE` – TikTok klíče přesunuty z bloku `calendar` do `posts` v `src/messages/{cs,en,uk}.json`. Ověřeno: `npx tsc --noEmit` ✅ (0 chyb), manuálně potvrzeno uživatelem.
-- [ ] **KROK 4 – Final Cleanup**: Po uživatelově potvrzení, že má podklady stažené, smazat celou sekci Promptu 062 z `ukol.md` (Pravidlo 7), udělat commit (Pravidlo 4) a připravit větev k merge.
 

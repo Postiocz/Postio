@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
+import {
+  checkRegistrationIp,
+  getClientIp,
+  isAdminBypass,
+  logRegistration,
+} from "@/lib/registration-guard";
 import { sendWelcomeEmail } from "@/lib/email";
 import { getAccountLimitInfo, accountLimitErrorMessage } from "@/lib/account-limit";
 import { logger } from "@/lib/logger";
@@ -537,14 +543,37 @@ export async function GET(request: NextRequest) {
   const targetUserId =
     existingSession?.user?.id ?? existingUser?.id ?? oauthUser?.id ?? null;
 
+  // IP anti-abuse: record the source IP behind this account. For OAuth the
+  // account is already created by the provider, so we can't hard-block here –
+  // instead we gate the referral bonus: only granted when the IP is fresh.
+  const oauthIp = getClientIp(
+    request.headers.get("x-forwarded-for"),
+    request.headers.get("x-real-ip")
+  );
+  const adminBypass = isAdminBypass(new URL(request.url));
+  if (adminBypass) {
+    console.warn("🛡️ Admin bypass granted");
+  }
+  const oauthGuard = oauthUser && !adminBypass
+    ? await checkRegistrationIp(oauthIp)
+    : null;
+  const oauthGrantBonus =
+    oauthGuard !== null && "grantReferralBonus" in oauthGuard
+      ? oauthGuard.grantReferralBonus
+      : true;
+
   // Referral attribution for OAuth sign-ins (best-effort, non-blocking).
   const refCookie = request.cookies.get(REFERRAL_COOKIE)?.value;
-  if (refCookie && oauthUser) {
+  if (refCookie && oauthUser && oauthGrantBonus) {
     try {
       await applyReferral(refCookie, oauthUser.id);
     } catch {
       // Ignore – referral capture must not break the auth callback.
     }
+  }
+
+  if (oauthUser) {
+    await logRegistration(oauthIp, oauthUser.id);
   }
 
   // Welcome e-mail for first-time OAuth signups (Google, Facebook, etc.).

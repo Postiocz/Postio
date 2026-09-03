@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/server";
+import { rewardPurchaseBonus } from "@/lib/referral";
 import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -60,6 +61,34 @@ export async function POST(request: NextRequest) {
 
         await supabase.from("users").update(updateData).eq("id", userId);
         logger.debug(`User upgraded to ${plan} (instance ${planInstanceId ?? "n/a"})`);
+
+        // KROK 3 – Purchase bonus: if the buyer was referred, add days to the
+        // referrer (+14 for Creator, +30 for Pro). Idempotent per buyer via
+        // `purchase_bonus_granted`, so webhook retries can't double-reward.
+        const { data: buyer } = await supabase
+          .from("users")
+          .select("referred_by")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (buyer?.referred_by) {
+          try {
+            await rewardPurchaseBonus({
+              admin: supabase,
+              referrerId: buyer.referred_by,
+              buyerId: userId,
+              buyerPlan: plan,
+            });
+            logger.debug(
+              `Purchase bonus handled for buyer ${userId} (plan ${plan}) – referrer ${buyer.referred_by}`
+            );
+          } catch (err) {
+            // Best-effort – a bonus failure must never break the webhook.
+            logger.error("Failed to grant purchase bonus:", err);
+          }
+        } else {
+          logger.debug(`Buyer had no referrer – no purchase bonus`);
+        }
         break;
       }
 

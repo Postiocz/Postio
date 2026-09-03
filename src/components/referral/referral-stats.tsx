@@ -58,8 +58,11 @@ export default function ReferralStats({
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // Determine whether the user has an active paid plan from referral rewards.
+  // A reward is "active" only when the user actually earned a referral. A
+  // PRO/Creator plan with a future plan_expires_at is otherwise the paid
+  // subscription's own expiry – never label that as a referral reward.
   const hasActiveReward =
+    totalReferrals > 0 &&
     (plan === "pro" || plan === "creator") &&
     planExpiresAt &&
     new Date(planExpiresAt) > new Date();
@@ -72,12 +75,15 @@ export default function ReferralStats({
           year: "numeric",
         }).format(new Date(planExpiresAt!)),
       })
-    : totalReferrals > 0
-      ? t("rewardsSub")
-      : t("rewardsSub");
+    : t("rewardsSub");
 
+  // Build the link from the current origin so it works both on localhost
+  // (dev testing) and on the production domain. Guard for SSR renders where
+  // `window` is undefined.
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "";
   const referralLink = referralCode
-    ? `https://postio-app.cz/${locale}/login?ref=${referralCode}`
+    ? `${origin}/${locale}/login?ref=${referralCode}`
     : "";
 
   const handleCopy = async () => {

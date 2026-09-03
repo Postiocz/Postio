@@ -78,6 +78,7 @@
     "signInError": "Přihlášení se nezdařilo. Zkuste to prosím znovu.",
     "signUpError": "Registrace se nezdařila. Zkuste to prosím znovu.",
     "emailAlreadyExists": "Tento e-mail je již registrován. Zkuste se přihlásit.",
+    "tooManyAccounts": "Z vaší sítě bylo vytvořeno příliš mnoho účtů. Zkuste to prosím později.",
     "checkEmailToVerify": "Registrace úspěšná! Zkontrolujte svůj e-mail a ověřte účet.",
     "emailVerified": "Ověřen",
     "emailNotVerifiedBadge": "Neověřen",

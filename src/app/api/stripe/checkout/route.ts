@@ -61,7 +61,12 @@ export async function POST(request: NextRequest) {
     // Determine whether the request is for a master or a custom plan.
     // Master plans use their string type ("creator", "pro") with a lookup_key.
     // Custom plans are referenced by their UUID and use the stored Stripe Price ID.
-    const isMasterPlan = ["creator", "pro"].includes(plan);
+    // Master plans arrive as either "pro"/"creator" (marketing page) or
+    // "plan_pro"/"plan_creator" (billing page prefixes master ids since
+    // Prompt 050). Normalize so both hit the master branch; custom plans are
+    // always a UUID and never carry the prefix.
+    const normalizedPlan = plan.startsWith("plan_") ? plan.slice("plan_".length) : plan;
+    const isMasterPlan = ["creator", "pro"].includes(normalizedPlan);
     let targetPriceId: string;
     let resolvedPlanLabel: string;
     let planInstanceId: string | null = null; // snapshot: users.current_plan_instance_id
@@ -90,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     if (isMasterPlan) {
       // ── Master template ─────────────────────────────────────────────
-      const lookupKey = lookupKeyFor(plan, currency);
+      const lookupKey = lookupKeyFor(normalizedPlan, currency);
       const prices = await stripe.prices.list({
         lookup_keys: [lookupKey],
         active: true,
@@ -99,13 +104,13 @@ export async function POST(request: NextRequest) {
       if (!targetPrice) {
         return NextResponse.json(
           {
-            error: `No active price for plan '${plan}' in currency '${currency}'.`,
+            error: `No active price for plan '${normalizedPlan}' in currency '${currency}'.`,
           },
           { status: 500 }
         );
       }
       targetPriceId = targetPrice.id;
-      resolvedPlanLabel = plan;
+      resolvedPlanLabel = normalizedPlan;
 
       // Snapshot: resolve the master template's DB id so we can bind the user
       // to this specific plan instance after a successful checkout.
@@ -113,13 +118,13 @@ export async function POST(request: NextRequest) {
       const { data: masterPlan } = await adminClient
         .from("pricing_plans")
         .select("id, visibility_rules")
-        .eq("type", plan)
+        .eq("type", normalizedPlan)
         .eq("is_master_template", true)
         .maybeSingle();
 
       if (!masterPlan) {
         return NextResponse.json(
-          { error: `Master plan '${plan}' not found.` },
+          { error: `Master plan '${normalizedPlan}' not found.` },
           { status: 404 }
         );
       }

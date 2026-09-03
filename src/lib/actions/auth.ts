@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import { headers, cookies } from "next/headers";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/referral";
 import {
+  checkRegistrationIp,
+  getClientIp,
+  isAdminBypass,
+  logRegistration,
+} from "@/lib/registration-guard";
+import {
   sendTransactionalEmail,
   SENDER_NOREPLY,
   sendWelcomeEmail,
@@ -19,7 +25,7 @@ import ukMessages from "@/messages/uk.json";
 type Locale = "cs" | "en" | "uk";
 
 type EmailAuthState = {
-  errorKey: "emailNotVerified" | "invalidCredentials" | "signInError" | "signUpError" | "emailAlreadyExists" | null;
+  errorKey: "emailNotVerified" | "invalidCredentials" | "signInError" | "signUpError" | "emailAlreadyExists" | "tooManyAccounts" | null;
   errorMessage: string | null;
   successKey: "checkEmailToVerify" | null;
 };
@@ -84,6 +90,24 @@ export async function emailAuthAction(
   const supabase = await createClient();
 
   if (mode === "signup") {
+    // IP anti-abuse: block mass registrations from a single network. Runs
+    // BEFORE account creation so we never create a user we'd then have to
+    // reject. Permissive on error – a broken guard must not break signup.
+    const h = await headers();
+    const ip = getClientIp(h.get("x-forwarded-for"), h.get("x-real-ip"));
+    const uri = h.get("x-forwarded-uri") ?? "";
+    const reqUrl = new URL(uri, baseUrl);
+    const adminBypass = isAdminBypass(reqUrl);
+    if (adminBypass) {
+      console.warn("🛡️ Admin bypass granted");
+    }
+    const guard = adminBypass
+      ? { allowed: true, grantReferralBonus: true }
+      : await checkRegistrationIp(ip);
+    if (!guard.allowed) {
+      return { errorKey: "tooManyAccounts", errorMessage: null, successKey: null };
+    }
+
     console.warn("DEBUG: Base URL used for redirect:", baseUrl);
     // Use `supabase.auth.signUp()` which handles PKCE correctly and stores
     // the code verifier in cookies via @supabase/ssr. The confirmation
@@ -106,9 +130,15 @@ export async function emailAuthAction(
       return { errorKey: "signUpError", errorMessage: error.message, successKey: null };
     }
 
+    // ── IP anti-abuse: persist the source IP behind this account. The guard
+    // ── already decided whether the referrer may claim a bonus for it.
+    if (data.user) {
+      await logRegistration(ip, data.user.id);
+    }
+
     // ── Referral attribution (best-effort) ──────────────────────────
     const refCookie = (await cookies()).get(REFERRAL_COOKIE)?.value;
-    if (refCookie && data.user) {
+    if (refCookie && data.user && guard.grantReferralBonus) {
       try {
         await applyReferral(refCookie, data.user.id);
       } catch {

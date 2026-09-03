@@ -78,6 +78,7 @@
     "signInError": "Sign in failed. Please try again.",
     "signUpError": "Sign up failed. Please try again.",
     "emailAlreadyExists": "This email is already registered. Please sign in.",
+    "tooManyAccounts": "Too many accounts have been created from your network. Please try again later.",
     "checkEmailToVerify": "Sign up successful! Check your email to verify your account.",
     "emailVerified": "Verified",
     "emailNotVerifiedBadge": "Not Verified",

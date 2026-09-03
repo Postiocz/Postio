@@ -9,10 +9,13 @@ import { RefCapture } from "@/components/auth/ref-capture";
 
 export default async function LoginPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ ref?: string }>;
 }) {
   const { locale } = await params;
+  const { ref } = await searchParams;
   const t = await getTranslations({ locale, namespace: "auth" });
 
   return (
@@ -51,7 +54,7 @@ export default async function LoginPage({
               <div className="mt-12 space-y-6">
                 <GoogleSignInButton />
                 <div className="relative">
-                  <EmailSignIn />
+                  <EmailSignIn referralPresent={Boolean(ref)} />
                   <div className="mt-4">
                     <p className="text-[11px] text-muted-foreground/60 text-center leading-relaxed">
                       {t.rich("privacyDisclaimer", {

@@ -101,25 +101,47 @@ export async function UsageDashboard({
     currentPlanInstanceId = userRow?.current_plan_instance_id ?? null;
   }
 
-  // Resolve the current plan's limits (custom instance → master fallback).
+  // Resolve the current plan's limits. Mirrors the billing page: the snapshot
+  // binding (current_plan_instance_id) can lag `users.plan` – a referral-reward
+  // upgrade to PRO keeps the Free master id from registration. Treat the Free
+  // master as "not a real purchase" and resolve master limits by `users.plan`;
+  // real purchased instances (paid master / custom / promo) keep their own limits.
   let aiTotal = 0;
   let twitterTotal = 0;
   let maxAccounts: number = ACCOUNT_LIMITS[plan];
 
   try {
     const admin = createAdminClient();
-    const query = currentPlanInstanceId
-      ? admin
-          .from("pricing_plans")
-          .select("ai_credits, twitter_credits, max_accounts")
-          .eq("id", currentPlanInstanceId)
-      : admin
-          .from("pricing_plans")
-          .select("ai_credits, twitter_credits, max_accounts")
-          .eq("is_master_template", true)
-          .eq("type", plan);
 
-    const { data: planRow } = await query.maybeSingle();
+    let limitQuery;
+    if (currentPlanInstanceId) {
+      const { data: bound } = await admin
+        .from("pricing_plans")
+        .select("id, type, is_master_template")
+        .eq("id", currentPlanInstanceId)
+        .maybeSingle();
+      const boundIsFreeMaster =
+        bound !== null && bound.is_master_template === true && bound.type === "free";
+
+      limitQuery = boundIsFreeMaster
+        ? admin
+            .from("pricing_plans")
+            .select("ai_credits, twitter_credits, max_accounts")
+            .eq("is_master_template", true)
+            .eq("type", plan)
+        : admin
+            .from("pricing_plans")
+            .select("ai_credits, twitter_credits, max_accounts")
+            .eq("id", currentPlanInstanceId);
+    } else {
+      limitQuery = admin
+        .from("pricing_plans")
+        .select("ai_credits, twitter_credits, max_accounts")
+        .eq("is_master_template", true)
+        .eq("type", plan);
+    }
+
+    const { data: planRow } = await limitQuery.maybeSingle();
     if (planRow) {
       aiTotal = planRow.ai_credits ?? 0;
       twitterTotal = planRow.twitter_credits ?? 0;

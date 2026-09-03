@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { ensureReferralCode } from "@/lib/referral";
 import { getTranslations } from "next-intl/server";
 import ReferralStats from "@/components/referral/referral-stats";
 
@@ -28,15 +29,32 @@ export default async function ReferralsPage({
       .single();
 
     referralCode = userData?.referral_code ?? null;
+
+    // Accounts created after migration 050 may have a NULL referral_code
+    // (the rewritten handle_new_user() trigger dropped it). Backfill on
+    // access so the share link is never empty.
+    if (!referralCode) {
+      referralCode = await ensureReferralCode(user.id);
+    }
+
     plan = userData?.plan ?? null;
     planExpiresAt = userData?.plan_expires_at ?? null;
 
-    const { count } = await supabase
+    // Counting referrals reads OTHER users' rows (those whose referred_by
+    // points to this user). RLS only exposes the user's own row to anon
+    // access, so query through the service-role client here – otherwise the
+    // counter is always 0. Fetch the matching ids and count them locally
+    // (avoids any head/count subtleties and surfaces errors as logs).
+    const admin = createAdminClient();
+    const { data: referredUsers, error: countError } = await admin
       .from("users")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .eq("referred_by", user.id);
 
-    totalReferrals = count ?? 0;
+    if (countError) {
+      console.error("[referrals] count query failed:", countError.message);
+    }
+    totalReferrals = referredUsers?.length ?? 0;
   }
 
   return (

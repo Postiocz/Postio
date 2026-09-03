@@ -45,7 +45,9 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export function BillingCard({ plan, locale, currency = "eur", translations }: BillingCardProps) {
-  const Icon = iconMap[plan.id] || Sparkles;
+  // Billing page prefixes master ids ("plan_pro"); marketing uses bare ("pro").
+  const iconKey = plan.id.replace(/^plan_/, "");
+  const Icon = iconMap[iconKey] || Sparkles;
   const [isPending, startTransition] = useTransition();
 
   const { display, isFree } = formatPrice(plan, currency, translations.free);
@@ -69,7 +71,7 @@ export function BillingCard({ plan, locale, currency = "eur", translations }: Bi
     });
   };
 
-  const isMaster = plan.id === "creator" || plan.id === "pro";
+  const isMaster = ["creator", "pro", "plan_creator", "plan_pro"].includes(plan.id);
 
   return (
     <div

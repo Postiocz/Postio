@@ -48,3 +48,6 @@ next-env.d.ts
 .claude/
 .trae/
 .agents/
+
+# stripe cli binary (local download)
+stripe.exe

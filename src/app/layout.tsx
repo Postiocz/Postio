@@ -2,7 +2,6 @@ import { Inter, Playfair_Display } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { cookies } from "next/headers";
-import Script from "next/script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://postio-app.cz"),
@@ -54,9 +53,8 @@ export default async function RootLayout({
   return (
     <html lang="cs" className={`${inter.variable} ${playfair.variable} ${isDark ? "dark" : ""}`} suppressHydrationWarning>
       <body className="min-h-screen" suppressHydrationWarning>
-        <Script
+        <script
           id="theme-init"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function(){

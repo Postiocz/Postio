@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### Oprava referral bonusu +14 dní za nákup a widgetu „Aktuální čerpání“ ✅
+
+- **Kontext 1**: Bonus +14 dní PRO za zakoupení plánu Creator se nepřipsal.
+- **Kontext 2**: Sekce „Aktuální čerpání“ na Fakturaci ukazovala neplatné limity (Free 0/0/1) u uživatelů s odměnou PRO z doporučení.
+- **Změny**:
+  - ✅ `src/app/api/webhooks/stripe/route.ts`: Po `checkout.session.completed` se nově čte `referred_by` kupujícího a volá `rewardPurchaseBonus` (+14 za Creator, +30 za Pro). Bonus blok byl dosud jen v pracovním stromě (necommitnutný), proto se v produkci neudělil – nyní je commitnutý.
+  - ✅ `src/app/[locale]/(dashboard)/settings/billing/usage-dashboard.tsx`: Řešení limitů sjednoceno s fakturační stránkou – vázaná Free master instance z registrace se bere jako „žádný nákup“ a limity se resolve podle `users.plan`; kouplená placená instance si drží vlastní limity.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Live data backfill: referrer `06696fdd` expiry → 2026-09-24 (+14 dní), kupující `2c0e4d36` `purchase_bonus_granted=true` (idempotentní). Manuálně potvrzeno uživatelem.
+
+
 ### 🐛 Fix – Návrat tlačítka "Zobrazit na síti" pro TikTok Sandbox ✅
 
 - **Kontext**: Předchozí fix (zrušení fallbacku na `publish_id`) byl příliš striktní – v Sandboxu TikTok nevrací `publicaly_available_post_id`, takže tlačítko zmizelo úplně. Pro App Review ale musí být vždy dostupné.
@@ -80,13 +90,3 @@
   - ✅ Nový soubor `docs/tiktok-review-justifications.md` – profesionální anglické odstavce pro scopes `user.info.basic`, `video.upload`, `video.publish`, každý se sekcemi "User Experience" a "Content Management", + "Supporting details" pro revizora.
   - ✅ Zdůvodnění vychází z reálného kódu: scopes z `src/app/api/accounts/tiktok/route.ts`, sekvence Content Posting (creator_info → init → upload → status/fetch → PUBLISH_COMPLETE), blokace duplicitních uploadů a sandbox fallback na `SELF_ONLY`.
 - **Ověření**: Dokument manuálně prostudován a potvrzen uživatelem.
-
-### 🚀 Prompt 032 – KROK 3: Robustní konstrukce URL adres ✅
-
-- **Kontext**: Přihlášení funguje, ale kopírovali jsme riziko pádu na chybě "Failed to construct URL" při špatně nastaveném `NEXT_PUBLIC_APP_URL`.
-- **Změny**:
-  - ✅ `getRedirectBaseUrl()` v `src/lib/actions/auth.ts`: sjednocuje konstrukci base URL (validní `NEXT_PUBLIC_APP_URL` s http(s) → request host header → `http://localhost:3000`), normalizuje trailing slash.
-  - ✅ Stejná pojistka v `google-signin-button.tsx` (klient) s fallbackem na `window.location.origin`.
-  - ✅ `console.warn("DEBUG: Base URL used for redirect:", ...)` před každým `new URL(...)` — u Google loginu, email signupu i resetu hesla.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (DEBUG log v konzoli, čisté odkazy v e-mailech bez `//`).
-

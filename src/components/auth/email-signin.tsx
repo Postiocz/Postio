@@ -17,9 +17,17 @@ const isSupabaseConfigured =
 
 type Mode = "signin" | "signup" | "forgot";
 
-export function EmailSignIn() {
+export function EmailSignIn({
+  referralPresent = false,
+}: {
+  referralPresent?: boolean;
+}) {
   const t = useTranslations("auth");
-  const [mode, setMode] = useState<Mode>("signin");
+  // Invited users land on `?ref=CODE`: default straight to the signup form so
+  // they never have to manually switch away from "Sign in". The flag comes from
+  // the server-rendered page's searchParams, so SSR and client agree and
+  // hydration stays consistent (a client-side window check would mismatch).
+  const [mode, setMode] = useState<Mode>(referralPresent ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

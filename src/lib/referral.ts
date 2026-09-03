@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import {
   sendTransactionalEmail,
@@ -41,7 +42,7 @@ function normalizeLocale(value: unknown): "cs" | "en" | "uk" {
  * `referred_by`, and self-referrals are ignored.
  *
  * When a new referral succeeds, the referrer is automatically rewarded with
- * 30 days of PRO plan (see `rewardReferrer`) and notified by e-mail (see
+ * 7 days of PRO plan (see `rewardReferrer`) and notified by e-mail (see
  * `sendReferralRewardEmail`). Both are best-effort — they must never block
  * account creation.
  */
@@ -61,13 +62,20 @@ export async function applyReferral(refCode: string, userId: string): Promise<vo
   if (!referrer || referrer.id === userId) return;
 
   // Mark the new user as referred (idempotent – only sets if NULL).
-  await admin
+  // `.select()` returns the rows actually updated: an empty result means
+  // `referred_by` was already set by an earlier call, so we must NOT reward
+  // the referrer again (every repeated applyReferral would otherwise stack
+  // another +7 days).
+  const { data: attributed, error } = await admin
     .from("users")
     .update({ referred_by: referrer.id })
     .eq("id", userId)
-    .is("referred_by", null);
+    .is("referred_by", null)
+    .select("id");
 
-  // Reward the referrer: grant 30 days of PRO for each successful referral.
+  if (error || !attributed || attributed.length === 0) return;
+
+  // Reward the referrer: grant 7 days of PRO for each successful referral.
   await rewardReferrer(admin, referrer.id);
 
   // Notify the referrer by e-mail (best-effort, must never block signup).
@@ -79,12 +87,45 @@ export async function applyReferral(refCode: string, userId: string): Promise<vo
 }
 
 /**
- * Grants the referrer 30 days of PRO plan.
+ * Ensures the user has a referral code, generating one if missing.
+ *
+ * The `handle_new_user()` DB trigger used to generate `referral_code`, but the
+ * rewrite in migration 050 dropped that column – so accounts created after it
+ * can have NULL. This backfills the code on first access. Returns the code, or
+ * null if it could not be read or written.
+ */
+export async function ensureReferralCode(userId: string): Promise<string | null> {
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("users")
+    .select("referral_code")
+    .eq("id", userId)
+    .single();
+
+  if (existing?.referral_code) return existing.referral_code;
+
+  // Rare: the retry loop guards against a 6-char UNIQUE collision.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+    const { error } = await admin
+      .from("users")
+      .update({ referral_code: code })
+      .eq("id", userId)
+      .is("referral_code", null);
+    if (!error) return code;
+  }
+
+  return null;
+}
+
+/**
+ * Grants the referrer 7 days of PRO plan for each successful referral.
  *
  * - If the referrer is on the **free** plan: upgrade to `pro` and set
- *   `plan_expires_at` to 30 days from now.
+ *   `plan_expires_at` to 7 days from now.
  * - If the referrer already has a paid plan (`creator` or `pro`): extend
- *   their `plan_expires_at` by 30 days. If no expiry is set yet (indefinite),
+ *   their `plan_expires_at` by 7 days. If no expiry is set yet (indefinite),
  *   it starts counting from now.
  *
  * Uses the admin client so this works regardless of who is authenticated.
@@ -106,16 +147,79 @@ async function rewardReferrer(
     ? new Date(referrer.plan_expires_at)
     : now;
 
-  // Extend by 30 days from the later of (current expiry, now).
+  // Extend by 7 days from the later of (current expiry, now).
   const newExpiry = new Date(Math.max(expiresAt.getTime(), now.getTime()));
-  newExpiry.setDate(newExpiry.getDate() + 30);
+  newExpiry.setDate(newExpiry.getDate() + 7);
 
   const update: Record<string, unknown> = {
     plan_expires_at: newExpiry.toISOString(),
   };
 
   // Free users get upgraded to PRO; paid users keep their plan but get
-  // the extra 30 days tacked on.
+  // the extra 7 days tacked on.
+  if (referrer.plan === "free") {
+    update.plan = "pro";
+  }
+
+  await admin.from("users").update(update).eq("id", referrerId);
+}
+
+/**
+ * Grants the referrer bonus PRO days after a referred user completes a
+ * purchase: **+14 days** when the buyer chose Creator, **+30 days** for Pro.
+ * Extends `plan_expires_at` the same way as the registration reward (free →
+ * upgrade to `pro`, paid → tack days onto the expiry).
+ *
+ * Idempotent per buyer: the bonus is claimed by atomically flipping the
+ * buyer's `purchase_bonus_granted` flag (only the first claim wins), so a
+ * Stripe webhook retry or a repeat checkout can never stack a second reward.
+ * Best-effort – never throws, so the webhook stays responsive.
+ */
+export async function rewardPurchaseBonus(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  referrerId: string;
+  buyerId: string;
+  buyerPlan: string | undefined;
+}): Promise<void> {
+  const { admin, referrerId, buyerId, buyerPlan } = params;
+
+  const bonusDays =
+    buyerPlan === "creator" ? 14 : buyerPlan === "pro" ? 30 : 0;
+  if (bonusDays === 0) return;
+
+  // Atomic gate: the flag flip only succeeds on the buyer's first claim; an
+  // already-granted bonus short-circuits here (empty `claimed`).
+  const { data: claimed, error } = await admin
+    .from("users")
+    .update({ purchase_bonus_granted: true })
+    .eq("id", buyerId)
+    .eq("referred_by", referrerId)
+    .is("purchase_bonus_granted", false)
+    .select("id");
+
+  if (error || !claimed || claimed.length === 0) return;
+
+  const { data: referrer } = await admin
+    .from("users")
+    .select("plan, plan_expires_at")
+    .eq("id", referrerId)
+    .single();
+
+  if (!referrer) return;
+
+  const now = new Date();
+  const expiresAt = referrer.plan_expires_at
+    ? new Date(referrer.plan_expires_at)
+    : now;
+
+  // Extend from the later of (current expiry, now).
+  const newExpiry = new Date(Math.max(expiresAt.getTime(), now.getTime()));
+  newExpiry.setDate(newExpiry.getDate() + bonusDays);
+
+  const update: Record<string, unknown> = {
+    plan_expires_at: newExpiry.toISOString(),
+  };
+
   if (referrer.plan === "free") {
     update.plan = "pro";
   }

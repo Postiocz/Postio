@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🧹 Cleanup – Mrtvé TikTok klíče v `calendar` bloku překladů ✅
+
+- **Kontext**: V bloku `calendar` ve `src/messages/{cs,en,uk}.json` ležely duplicitní TikTok klíče (16 ks), jejichž živé kopie jsou v bloku `posts` – kalendářová stránka pak nemá žádnou komponentu, která by TikTok klíče pod namespace `calendar` resolvovala.
+- **Změny**:
+  - ✅ Smazáno 16 mrtvých klíčů z bloku `calendar` ve všech 3 jazycích (`tiktokPrivacy*`, `tiktokCreatorInfo*`, `tiktokCapability*`, `previewTikTokTab`, `tiktokVideoRequired`, `tiktokRequiresVideo`, `tiktokPrivateOnlyNotice`, `tiktokUnauditedPrivateOnlyError`, `ttEditNotSupported`) – ověřeno, že jediný konzument `calendar` namespace (`calendar/page.tsx`) žádný z nich nepoužívá.
+  - ✅ Opraven překlep v ukrajinském živém klíči `posts.tiktokUnauditedPrivateOnlyError`: „TikTok-апплікації" → „TikTok-аплікації".
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), JSON validní ve všech 3 jazycích.
+
 ### 🎬 Prompt 062 – KROK 3: UI Audit pro TikTok ✅
 
 - **Kontext**: Revizor TikToku může při publikování narazit na technické chybové texty (HTTP kódy, raw JSON, low-level hlášky) – prošel jsem editor (nový příspěvek + edit dialog) i celý TikTok publish flow.
@@ -87,9 +95,3 @@
   - ✅ Lokalizace cs/en/uk: nové `welcomeStep1*`/`welcomeStep2*` klíče (dashboard), odstraněny nepoužívané `onboarding*`.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (prázdný účet: ghost stats + Welcome sekce + SetupGuide v rohu, bez duplicity).
 
-### 🚀 Prompt 065 – ÚKOL A: Fixace logiky "Aktuální tarif" ✅
-
-- **Kontext**: Ceník na Fakturaci mohl označit kartu Free jako "Aktuální", i když uživatel platil za Creator/Pro, a badge se mohl objevit na více kartách najednou.
-- **Změny**:
-  - ✅ `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: nová detekce `userHasPaidPlan` (podle `users.plan` nebo navázané ne-free instance `current_plan_instance_id`). Karta Free je "Aktuální" JEN když `!userHasPaidPlan`; placené master karty (Creator/Pro) se řídí `userPlan === planType || master.id === currentPlanInstanceId`. Výsledkem je maximálně 1 badge "Aktuální" v celém ceníku, respektující skutečný tarif (i když `current_plan_instance_id` zaostává a ukazuje free vazbu z registrace).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (fajfka jen u aktivního plat tarifu, u Free zmizela; i pro případ `plan="pro"` se zastaralou free instancí).

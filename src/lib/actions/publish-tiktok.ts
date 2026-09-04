@@ -222,7 +222,7 @@ async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
   const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
 
   if (!clientKey || !clientSecret) {
-    return { success: false, error: "TikTok API není nakonfigurováno (chybí TIKTOK_CLIENT_KEY/SECRET)." };
+    return { success: false, error: "TikTok integrace není dostupná. Zkuste to prosím později." };
   }
 
   const body = new URLSearchParams({
@@ -249,9 +249,14 @@ async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
     };
 
     if (!res.ok || !payload.access_token) {
+      console.error(
+        "[TikTok refresh] failed:",
+        payload.error_description || payload.error,
+        `HTTP ${res.status}`,
+      );
       return {
         success: false,
-        error: payload.error_description || payload.error || `HTTP ${res.status}`,
+        error: "TikTok účet nelze obnovit. Propojte účet znovu.",
       };
     }
 
@@ -265,9 +270,10 @@ async function exchangeTikTokRefreshToken(refreshToken: string): Promise<
       refreshToken: payload.refresh_token,
     };
   } catch (e) {
+    console.error("[TikTok refresh] failed:", e);
     return {
       success: false,
-      error: `TikTok refresh failed: ${e instanceof Error ? e.message : String(e)}`,
+      error: "TikTok účet nelze obnovit. Propojte účet znovu.",
     };
   }
 }
@@ -283,7 +289,11 @@ export async function getValidTikTokAccessToken(params: { account: SocialAccount
   }
 
   const refreshToken = readTikTokRefreshToken(account.metadata);
-  if (!refreshToken) return { success: false as const, error: "Chybí refresh_token pro TikTok." };
+  if (!refreshToken)
+    return {
+      success: false as const,
+      error: "TikTok účet nelze použít – chybí oprávnění. Propojte účet znovu.",
+    };
 
   const refreshed = await exchangeTikTokRefreshToken(refreshToken);
   if (!refreshed.success) return refreshed;
@@ -331,9 +341,14 @@ async function queryTikTokCreatorInfo(params: {
 
     const payload = (await res.json().catch(() => ({}))) as TikTokCreatorInfoResponse;
     if (!res.ok || payload.error?.code !== "ok") {
+      console.error(
+        "[TikTok creator_info] query failed:",
+        `HTTP ${res.status}`,
+        payload.error?.message,
+      );
       return {
         success: false,
-        error: payload.error?.message || `TikTok creator_info/query selhalo (HTTP ${res.status}).`,
+        error: "Nepodařilo se načíst možnosti TikTok účtu.",
       };
     }
 
@@ -342,11 +357,10 @@ async function queryTikTokCreatorInfo(params: {
       data: normalizeTikTokCreatorInfo(payload),
     };
   } catch (error) {
+    console.error("[TikTok creator_info] query failed:", error);
     return {
       success: false,
-      error: `TikTok creator_info/query selhalo: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      error: "Nepodařilo se načíst možnosti TikTok účtu.",
     };
   }
 }
@@ -423,11 +437,14 @@ async function waitForTikTokPublishComplete(params: {
 
       const payload = (await res.json().catch(() => ({}))) as TikTokStatusFetchResponse;
       if (!res.ok || payload.error?.code !== "ok") {
+        console.error(
+          "[TikTok status/fetch] failed:",
+          `HTTP ${res.status}`,
+          payload.error?.message,
+        );
         return {
           success: false,
-          error:
-            payload.error?.message ||
-            `TikTok status/fetch selhalo pro publish_id ${publishId} (HTTP ${res.status}).`,
+          error: "TikTok nepotvrdil publikaci videa. Zkuste to prosím znovu.",
         };
       }
 
@@ -451,11 +468,13 @@ async function waitForTikTokPublishComplete(params: {
       }
 
       if (status === "FAILED") {
+        console.error(
+          "[TikTok status/fetch] video failed:",
+          payload.data?.fail_reason,
+        );
         return {
           success: false,
-          error:
-            payload.data?.fail_reason ||
-            "TikTok zpracování videa skončilo stavem FAILED.",
+          error: "TikTok zpracování videa skončilo chybou. Zkuste to prosím znovu.",
         };
       }
     } catch (error) {
@@ -467,7 +486,7 @@ async function waitForTikTokPublishComplete(params: {
 
   return {
     success: false,
-    error: "TikTok status polling vypršel dříve, než video přešlo do stavu PUBLISH_COMPLETE.",
+    error: "Zpracování videa na TikToku trvalo příliš dlouho. Zkuste to prosím později.",
   };
 }
 
@@ -487,25 +506,25 @@ async function publishToTikTok(params: {
   try {
     const sourceRes = await fetch(videoUrl, { cache: "no-store" });
     if (!sourceRes.ok) {
+      console.error("[TikTok] video download failed:", `HTTP ${sourceRes.status}`);
       return {
         success: false,
-        error: `TikTok video se nepodařilo stáhnout (HTTP ${sourceRes.status}).`,
+        error: "Nepodařilo se stáhnout video pro publikaci na TikTok.",
       };
     }
     videoBuffer = await sourceRes.arrayBuffer();
   } catch (e) {
+    console.error("[TikTok] video download failed:", e);
     return {
       success: false,
-      error: `Síťová chyba při stahování TikTok videa: ${
-        e instanceof Error ? e.message : String(e)
-      }`,
+      error: "Síťová chyba při stahování videa pro TikTok.",
     };
   }
 
   if (videoBuffer.byteLength === 0) {
     return {
       success: false,
-      error: "TikTok video soubor je prázdný (0 bytů).",
+      error: "Video soubor pro TikTok je prázdný.",
     };
   }
 
@@ -544,15 +563,18 @@ async function publishToTikTok(params: {
 
   if (!initRes.ok || initData.error?.code !== "ok") {
     console.error("[TikTok Publish] init error:", initData);
-    const initErrorCode = initData.error?.code;
-    const errorMessage = initData.error?.message || "TikTok publish init selhalo.";
+    const sandboxOnly = isTikTokSandboxPrivateOnlyError(
+      initData.error?.code || initData.error?.message,
+    );
     return {
       success: false,
-      error: errorMessage,
-      ...(isTikTokSandboxPrivateOnlyError(initErrorCode) ||
-      isTikTokSandboxPrivateOnlyError(errorMessage)
-        ? { errorCode: TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE }
-        : {}),
+      // Sandbox keeps the raw message so the wrapper's string detection still
+      // matches for auto-retry; the UI resolver translates it via errorCode.
+      // Generic failures get a user-friendly message instead of raw API text.
+      error: sandboxOnly
+        ? initData.error?.message || "TikTok publikaci nepovolil."
+        : "TikTok publikaci nepovolil. Zkuste to prosím znovu.",
+      ...(sandboxOnly ? { errorCode: TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE } : {}),
     };
   }
 
@@ -562,7 +584,7 @@ async function publishToTikTok(params: {
   if (!publishId || !uploadUrl) {
     return {
       success: false,
-      error: "TikTok publish init nevrátil publish_id nebo upload_url.",
+      error: "Nepodařilo se inicializovat publikaci na TikTok.",
     };
   }
 
@@ -579,11 +601,12 @@ async function publishToTikTok(params: {
 
   if (!uploadRes.ok) {
     const errorText = await uploadRes.text().catch(() => "");
+    if (errorText) {
+      console.error("[TikTok Publish] upload error body:", errorText.slice(0, 500));
+    }
     return {
       success: false,
-      error: `TikTok binary upload failed (HTTP ${uploadRes.status})${
-        errorText ? `: ${errorText.slice(0, 200)}` : ""
-      }`,
+      error: "Nepodařilo se nahrát video na TikTok. Zkuste to prosím znovu.",
     };
   }
 
@@ -662,7 +685,7 @@ export async function publishToTikTokAction(params: {
     );
     return {
       success: false,
-      error: "Příspěvek je již publikován na TikTok (duplicate upload blocked).",
+      error: "TikTok příspěvek už je publikován.",
     };
   }
 
@@ -680,7 +703,7 @@ export async function publishToTikTokAction(params: {
   if (!looksLikeVideo) {
     return {
       success: false,
-      error: "TikTok vyžaduje video soubor (mp4/mov/m4v/webm/mkv).",
+      error: "TikTok vyžaduje video soubor (MP4 nebo MOV).",
     };
   }
 
@@ -726,7 +749,8 @@ export async function publishToTikTokAction(params: {
 
   if (
     resolvedPrivacyLevel !== "SELF_ONLY" &&
-    isTikTokSandboxPrivateOnlyError(initialResult.error)
+    (initialResult.errorCode === TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE ||
+      isTikTokSandboxPrivateOnlyError(initialResult.error))
   ) {
     const retryResult = await publishToTikTok({
       accessToken: tokenResult.accessToken,

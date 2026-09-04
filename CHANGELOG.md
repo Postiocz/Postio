@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎬 Prompt 062 – KROK 3: UI Audit pro TikTok ✅
+
+- **Kontext**: Revizor TikToku může při publikování narazit na technické chybové texty (HTTP kódy, raw JSON, low-level hlášky) – prošel jsem editor (nový příspěvek + edit dialog) i celý TikTok publish flow.
+- **Změny**:
+  - ✅ `src/lib/actions/publish-tiktok.ts`: všechny chybové zprávy jdoucí do UI přepsány na uživatelsky přívětivé české texty (upload, init, status/fetch, refresh token, creator_info, download videa, prázdný soubor, duplicate, vypršení pollingu) – raw API odpovědi a HTTP kódy přesunuty do `console.error` pro zachování diagnostiky.
+  - ✅ Sandbox flow zůstává funkční: `errorCode` pro `tiktok_sandbox_private_only` drží raw message jen pro auto-retry wrapperu (`isTikTokSandboxPrivateOnlyError`), UI ho překládá přes `tiktokUnauditedPrivateOnlyError`; retry podmínka rozšířena i o `errorCode`.
+  - ✅ Ověřena konzistence překladů ve všech 3 jazycích – žádný `MISSING_MESSAGE` (editor, edit dialog i preview-dialog nerezolvují žádný chybějící TikTok klíč).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (editor při výběru TikToku čistý, bez technických textů).
+
 ### 🎁 Prompt 064/066 – Stupňovité odměny za doporučení (7/10/14 dní) ✅
 
 - **Kontext**: Referral odměny přešly na stupňovitý systém úměrný délce odměny (1 měsíc = 30 dní = plný Creator balíček 10 AI + 10 X). Bonus za nákup se v produkci neuděloval, protože webhook běžel na starém kódu bez této logiky.
@@ -84,11 +93,3 @@
 - **Změny**:
   - ✅ `src/app/[locale]/(dashboard)/settings/billing/page.tsx`: nová detekce `userHasPaidPlan` (podle `users.plan` nebo navázané ne-free instance `current_plan_instance_id`). Karta Free je "Aktuální" JEN když `!userHasPaidPlan`; placené master karty (Creator/Pro) se řídí `userPlan === planType || master.id === currentPlanInstanceId`. Výsledkem je maximálně 1 badge "Aktuální" v celém ceníku, respektující skutečný tarif (i když `current_plan_instance_id` zaostává a ukazuje free vazbu z registrace).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (fajfka jen u aktivního plat tarifu, u Free zmizela; i pro případ `plan="pro"` se zastaralou free instancí).
-
-### 🎬 Prompt 062 – KROK 1: TikTok Video Scénář (App Review) ✅
-
-- **Kontext**: TikTok vyžaduje pro opuštění sandboxu demo video s propojením účtu, výběrem videa, nastavením soukromí a publikací.
-- **Změny**:
-  - ✅ Nová složka `docs/` a soubor `docs/tiktok-review-script.md` – 8scénový anglický screencast scénář (login → connect OAuth → výběr videa → privacy → publish → verifikace → wrap-up) s kontrolním checklistem.
-  - ✅ Scénář vychází z reálného chování aplikace: PKCE OAuth přes `/api/accounts/tiktok`, Content Posting sekvence (creator_info → init → upload → status/fetch), privacy `PUBLIC_TO_EVERYONE` default, sandbox fallback na `SELF_ONLY` a Launch Guard pro `@postio-app.cz`.
-- **Ověření**: Scénář manuálně prostudován a potvrzen uživatelem (odpovídá reálnému chování aplikace).

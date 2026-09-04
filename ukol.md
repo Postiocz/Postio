@@ -58,28 +58,30 @@
 - [x] ✅ **KROK 3.4 – Sandbox fallback pro "Zobrazit na síti" (App Review)**: Předchozí příliš striktní fix (zrušení fallbacku na `publish_id`) odstranil tlačítko úplně – v Sandboxu TikTok vrací `publicaly_available_post_id: null`, takže neexistovalo ID pro odkaz. Nový `src/lib/live-url.ts` (`buildLiveUrlInfo`) vrací odkaz na profil `https://www.tiktok.com/@{username}` + `profileFallback` flag s info textem "V Sandbox režimu odkazujeme na profil…". `publish-tiktok.ts` nyní při status/fetch fallbackuje na `video_id` (sandbox odpověď), i když není "publicly available". Opravena skutečná příčina chybějícího tlačítka v náhledech: `PreviewDialog` nedostával `userId` od `PostCard`/`Calendar` → `loadProfiles` se nespouštěl → TikTok handle nebyl k dispozici. Dialog si nyní uživatele dořeší sám přes `supabase.auth.getUser()` (jako `EditPostDialog`). Tlačítko se zobrazuje VŽDY pro published platformy (dashboard + náhledy Posts/Calendar). Ověřeno: `npx tsc --noEmit` ✅ (0 chyb), manuálně potvrzeno uživatelem.
 - [ ] **KROK 4 – Final Cleanup**: Po uživatelově potvrzení, že má podklady stažené, smazat celou sekci Promptu 062 z `ukol.md` (Pravidlo 7), udělat commit (Pravidlo 4) a připravit větev k merge.
 
-### 🎁 Prompt 064/066 – Stupňovité odměny za doporučení (7 dní za registraci + bonus za nákup)
+### 🎁 Prompt 064/066 – Stupňovité odměny za doporučení (jen Creator + poměrné AI/X kredity)
 
-**Cíl**: Nahradit fixní odměnu (30 dní PRO za každé doporučení) stupňovitým systémem – **7 dní PRO hned za registraci** + **další bonus při nákupu** (Creator/Pro), aby se zamezilo zneužívání a lépe motivovali uživatelé.
+**Cíl**: Nahradit fixní odměnu (30 dní PRO za každé doporučení) stupňovitým systémem, který ZÁMĚRNĚ nezahrnuje tarif Pro. Všechny odměny jsou v „jednotkách Creator“ a AI/X kredity se připisují úměrně k délce odměny (1 měsíc = 30 dní = plný balíček Creator: 10 AI + 10 X). Eliminuje zneužívání a zbytečně štědré plné porce kreditů za rozbité časové úseky.
 
-**Analýza (FÁZE 1 – 2026-09-02)**:
-- **Backend Reward Engine JIŽ EXISTUJE (z Prompt 034)** – `src/lib/referral.ts`:
-  - `applyReferral()` → spouští se z email registrace (`src/lib/actions/auth.ts:113`) i OAuth callbacku (`src/app/auth/callback/route.ts:544`). Idempotentní (nepřepíše vyplněné `referred_by`), ignoruje self-referral, odměnu připíše jen jednou (guard na `.select()`).
-  - `rewardReferrer()` → momentálně fixní odměna = **30 dní PRO**: free → upgrade na `pro` + `plan_expires_at` = +30 dní od teď; platící (creator/pro) → prodloužení `plan_expires_at` o 30 dní.
-  - `sendReferralRewardEmail()` → lokalizovaný mail z `SENDER_HELLO` (hello@postio-app.cz), template `email.referralReward`.
-- **Stripe webhook** – `src/app/api/webhooks/stripe/route.ts`: `checkout.session.completed` aktualizuje `users` (plan, instance, stripe ids) z `session.metadata` (`user_id`, `plan`, `plan_instance_id`). Referral bonus tu zatím není – `referred_by` se budeme muset dotázat u kupujícího.
-- **UI** – `src/components/referral/referral-stats.tsx`: karta "Získané odměny" + "Celkem doporučení". Heuristika `hasActiveReward` už rozlišuje placené PRO vs. PRO z odměn (KROK 4 starého plánu částečně hotov). Texty bude nutné přizpůsobit nové logice.
-- **Mezera**: neexistuje tracking, kolik odměn bylo skutečně připsáno; bonus za nákup chybí; texty v UI a e-mailech popisují jen fixních "30 dní".
+**Finální systém (odsouhlaseno 2026-09-03)**:
+
+| Odměna | Dny tarifu Creator | AI kredity | X kredity | Podíl měsíce |
+|---|---|---|---|---|
+| Registrace doporučeného | +7 dní | +2 | +2 | ~23 % |
+| Doporučený koupí **Creator** | +10 dní | +3 | +3 | ~33 % |
+| Doporučený koupí **Pro** | +14 dní | +5 | +5 | ~47 % |
+
+**Pravidla**:
+- Pro se v odměnách NIKDY nevyplácí (žádné PRO dny, žádný PRO limit kreditů).
+- Kredity = skutečný balíček přičtený k aktuálnímu zůstatku, nikdy ne plná měsíční porce.
+- Referrer na Free → upgrade na **Creator** (ne Pro) + `plan_expires_at` = +odměna od teď.
+- Referrer s placeným tarifem (creator) → prodloužení `plan_expires_at` o odměnu.
+- Referrer s placeným Pro (nákupem) → dny se nepřepisují (Pro zůstává), kredity dostane vždy.
+- Idempotence: registrace přes guard na `.select()`, nákup přes `purchase_bonus_granted`.
 
 **Plán úprav**:
-- [ ] **KROK 1 – Úprava registrace**: Změnit fixní odměnu v `src/lib/referral.ts` z 30 dní na **7 dní PRO** (za každé úspěšné doporučení).
-- [ ] **KROK 1.1 – IP Anti-abuse**: Ochrana před zneužíváním odměn hromadnými registracemi z jedné IP.
-  - DB: nová tabulka `public.registration_logs` (id, ip_address, user_id, created_at) – SQL migrace.
-  - Logování IP: při vytvoření nového uživatele (email signup i OAuth callback) uložit jeho IP (`x-forwarded-for` / `ip` z requestu).
-  - Blokace duplicit: pokud IP už v `registration_logs` existuje, omezit/bonus zablokovat; při >2 registracích za 24 h úplně zablokovat vytvoření účtu.
-  - Lokalizace: chybová hláška "Z vaší sítě bylo vytvořeno příliš mnoho účtů" do cs/en/uk.
-- [x] **KROK 2 – Napojení na Stripe Webhook**: Upravit `src/app/api/webhooks/stripe/route.ts` tak, aby po úspěšné platbě (`checkout.session.completed`) zkontroloval pole `referred_by` u kupujícího uživatele.
-- [x] **KROK 3 – Logika nákupního bonusu**: Pokud byl platící uživatel doporučen, připsat pozývateli (referrer) další dny PRO: **+14 dní** za tarif Creator, **+30 dní** za tarif Pro. (Funkčnost potvrzena 2026-09-03.)
-- [ ] **KROK 4 – Lokalizace a UI**: Aktualizovat texty na stránce Doporučení a v e-mailech, aby tento systém (7 dní hned, až 30 dní za nákup) jasně vysvětlovaly. (Část UI z předchozího KROKu 4 už je hotová – přizpůsobíme texty nové logice.)
-
-
+- [x] ✅ **KROK 1 – Rework `rewardReferrer` (7 dní Creator + kredity)**: `src/lib/referral.ts` – free → upgrade na `creator`; +7 dní; +2 AI; +2 X; zápis `referral_reward_days = 7`. (Pro → jen kredity, bez dnů.)
+- [x] ✅ **KROK 1.1 – IP Anti-abuse** (hotovo): tabulka `registration_logs`, logování IP v obou registračních flow, blokace >2 za 24 h, bonus bez odměny při 2. registraci, lokalizace `tooManyAccounts` (cs/en/uk).
+- [x] ✅ **KROK 2 – Napojení na Stripe Webhook** (hotovo): `checkout.session.completed` čte `referred_by` kupujícího a volá `rewardPurchaseBonus`.
+- [x] ✅ **KROK 3 – Rework `rewardPurchaseBonus` (10/14 dní Creator + kredity)**: `src/lib/referral.ts` – doporučený koupí Creator → +10 dní, +3 AI, +3 X (`referral_reward_days=10`); koupí Pro → +14 dní, +5 AI, +5 X (`referral_reward_days=14`). Plan logika jako KROK 1, idempotence přes `purchase_bonus_granted` zachována.
+- [x] ✅ **KROK 4 – Migrace + Widget „Aktuální čerpání“**: nová migrace `ALTER TABLE public.users ADD COLUMN IF NOT EXISTS referral_reward_days INTEGER` (default NULL). `usage-dashboard.tsx` dopočítává AI/X `celkem` úměrně k délce odměny (7 dní → 2/2, 10 dní → 3/3, 14 dní → 5/5); uživatel bez `referral_reward_days` (placená instance) si drží plné limity tarifu.
+- [x] ✅ **KROK 5 – Lokalizace a UI**: texty stránky Doporučení + e-mail `referralReward` (cs/en/uk) popisují nový systém (7/10/14 dní + kredity, bez Pro). Přepsat hodnoty z předchozí editace (+14/30 dní) na nové.

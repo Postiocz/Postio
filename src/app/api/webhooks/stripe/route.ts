@@ -62,9 +62,11 @@ export async function POST(request: NextRequest) {
         await supabase.from("users").update(updateData).eq("id", userId);
         logger.debug(`User upgraded to ${plan} (instance ${planInstanceId ?? "n/a"})`);
 
-        // KROK 3 – Purchase bonus: if the buyer was referred, add days to the
-        // referrer (+14 for Creator, +30 for Pro). Idempotent per buyer via
-        // `purchase_bonus_granted`, so webhook retries can't double-reward.
+        // KROK 3 – Purchase bonus: if the buyer was referred, reward the
+        // referrer with Creator days + AI/X credits (10/3/3 for a Creator
+        // purchase, 14/5/5 for a Pro purchase – Pro itself is never granted).
+        // Idempotent per buyer via `purchase_bonus_granted`, so webhook retries
+        // can't double-reward.
         const { data: buyer } = await supabase
           .from("users")
           .select("referred_by")

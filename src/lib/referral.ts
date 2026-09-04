@@ -42,9 +42,9 @@ function normalizeLocale(value: unknown): "cs" | "en" | "uk" {
  * `referred_by`, and self-referrals are ignored.
  *
  * When a new referral succeeds, the referrer is automatically rewarded with
- * 7 days of PRO plan (see `rewardReferrer`) and notified by e-mail (see
- * `sendReferralRewardEmail`). Both are best-effort — they must never block
- * account creation.
+ * 7 days of Creator plan + AI/X credits (see `rewardReferrer`) and notified
+ * by e-mail (see `sendReferralRewardEmail`). Both are best-effort — they must
+ * never block account creation.
  */
 export async function applyReferral(refCode: string, userId: string): Promise<void> {
   const code = refCode.trim().toUpperCase();
@@ -75,7 +75,7 @@ export async function applyReferral(refCode: string, userId: string): Promise<vo
 
   if (error || !attributed || attributed.length === 0) return;
 
-  // Reward the referrer: grant 7 days of PRO for each successful referral.
+  // Reward the referrer: grant 7 days of Creator + 2 AI + 2 X credits.
   await rewardReferrer(admin, referrer.id);
 
   // Notify the referrer by e-mail (best-effort, must never block signup).
@@ -120,55 +120,88 @@ export async function ensureReferralCode(userId: string): Promise<string | null>
 }
 
 /**
- * Grants the referrer 7 days of PRO plan for each successful referral.
+ * Grants the referrer a reward bundle (Creator days + AI/X credits) after a
+ * successful referral. Price-proportional: 1 month = 30 days = one full
+ * Creator allowance (10 AI + 10 X credits), so a 7-day reward carries only
+ * ~25% of the credits, not the full monthly load.
  *
- * - If the referrer is on the **free** plan: upgrade to `pro` and set
- *   `plan_expires_at` to 7 days from now.
- * - If the referrer already has a paid plan (`creator` or `pro`): extend
- *   their `plan_expires_at` by 7 days. If no expiry is set yet (indefinite),
- *   it starts counting from now.
- *
- * Uses the admin client so this works regardless of who is authenticated.
+ * – **PRO is deliberately excluded** from referral rewards. A referrer on the
+ *   paid Pro plan keeps their plan and expiry untouched – they only receive
+ *   the credits. A free referrer is upgraded to `creator`, paid Creator is
+ *   extended by the reward days.
+ * – Credits are ALWAYS added to the balance, for every plan.
+ * – `referral_reward_days` records how long the granted reward lasts, so the
+ *   "Aktuální čerpání" widget can show proportional totals (7→2/2, 10→3/3,
+ *   14→5/5) instead of the full plan allowance.
  */
-async function rewardReferrer(
-  admin: ReturnType<typeof createAdminClient>,
-  referrerId: string,
-): Promise<void> {
+async function grantCreatorReward(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  referrerId: string;
+  days: number;
+  aiCredits: number;
+  twitterCredits: number;
+  rewardDays: number;
+}): Promise<void> {
+  const { admin, referrerId, days, aiCredits, twitterCredits, rewardDays } =
+    params;
+
   const { data: referrer } = await admin
     .from("users")
-    .select("plan, plan_expires_at")
+    .select("plan, plan_expires_at, ai_credits, twitter_auto_credits")
     .eq("id", referrerId)
     .single();
 
   if (!referrer) return;
 
-  const now = new Date();
-  const expiresAt = referrer.plan_expires_at
-    ? new Date(referrer.plan_expires_at)
-    : now;
-
-  // Extend by 7 days from the later of (current expiry, now).
-  const newExpiry = new Date(Math.max(expiresAt.getTime(), now.getTime()));
-  newExpiry.setDate(newExpiry.getDate() + 7);
-
   const update: Record<string, unknown> = {
-    plan_expires_at: newExpiry.toISOString(),
+    ai_credits: (referrer.ai_credits ?? 0) + aiCredits,
+    twitter_auto_credits: (referrer.twitter_auto_credits ?? 0) + twitterCredits,
+    referral_reward_days: rewardDays,
   };
 
-  // Free users get upgraded to PRO; paid users keep their plan but get
-  // the extra 7 days tacked on.
-  if (referrer.plan === "free") {
-    update.plan = "pro";
+  if (referrer.plan !== "pro") {
+    const now = new Date();
+    const expiresAt = referrer.plan_expires_at
+      ? new Date(referrer.plan_expires_at)
+      : now;
+
+    // Extend from the later of (current expiry, now).
+    const newExpiry = new Date(Math.max(expiresAt.getTime(), now.getTime()));
+    newExpiry.setDate(newExpiry.getDate() + days);
+    update.plan_expires_at = newExpiry.toISOString();
+
+    // Free users get upgraded to Creator; paid/creator users keep their plan
+    // but get the reward days tacked on.
+    if (referrer.plan === "free") {
+      update.plan = "creator";
+    }
   }
 
   await admin.from("users").update(update).eq("id", referrerId);
 }
 
 /**
- * Grants the referrer bonus PRO days after a referred user completes a
- * purchase: **+14 days** when the buyer chose Creator, **+30 days** for Pro.
- * Extends `plan_expires_at` the same way as the registration reward (free →
- * upgrade to `pro`, paid → tack days onto the expiry).
+ * Registration reward: **+7 days of Creator + 2 AI + 2 X credits** for every
+ * successful referral (idempotent – guarded by `applyReferral`).
+ */
+async function rewardReferrer(
+  admin: ReturnType<typeof createAdminClient>,
+  referrerId: string,
+): Promise<void> {
+  await grantCreatorReward({
+    admin,
+    referrerId,
+    days: 7,
+    aiCredits: 2,
+    twitterCredits: 2,
+    rewardDays: 7,
+  });
+}
+
+/**
+ * Purchase reward after a referred user buys a plan: **+10 days + 3 AI + 3 X
+ * credits** when they chose Creator, **+14 days + 5 AI + 5 X credits** for Pro.
+ * PRO as a *paid* product is deliberately not mirrored into the reward days.
  *
  * Idempotent per buyer: the bonus is claimed by atomically flipping the
  * buyer's `purchase_bonus_granted` flag (only the first claim wins), so a
@@ -183,9 +216,13 @@ export async function rewardPurchaseBonus(params: {
 }): Promise<void> {
   const { admin, referrerId, buyerId, buyerPlan } = params;
 
-  const bonusDays =
-    buyerPlan === "creator" ? 14 : buyerPlan === "pro" ? 30 : 0;
-  if (bonusDays === 0) return;
+  const reward =
+    buyerPlan === "creator"
+      ? { days: 10, aiCredits: 3, twitterCredits: 3, rewardDays: 10 }
+      : buyerPlan === "pro"
+        ? { days: 14, aiCredits: 5, twitterCredits: 5, rewardDays: 14 }
+        : null;
+  if (!reward) return;
 
   // Atomic gate: the flag flip only succeeds on the buyer's first claim; an
   // already-granted bonus short-circuits here (empty `claimed`).
@@ -199,32 +236,7 @@ export async function rewardPurchaseBonus(params: {
 
   if (error || !claimed || claimed.length === 0) return;
 
-  const { data: referrer } = await admin
-    .from("users")
-    .select("plan, plan_expires_at")
-    .eq("id", referrerId)
-    .single();
-
-  if (!referrer) return;
-
-  const now = new Date();
-  const expiresAt = referrer.plan_expires_at
-    ? new Date(referrer.plan_expires_at)
-    : now;
-
-  // Extend from the later of (current expiry, now).
-  const newExpiry = new Date(Math.max(expiresAt.getTime(), now.getTime()));
-  newExpiry.setDate(newExpiry.getDate() + bonusDays);
-
-  const update: Record<string, unknown> = {
-    plan_expires_at: newExpiry.toISOString(),
-  };
-
-  if (referrer.plan === "free") {
-    update.plan = "pro";
-  }
-
-  await admin.from("users").update(update).eq("id", referrerId);
+  await grantCreatorReward({ admin, referrerId, ...reward });
 }
 
 /**

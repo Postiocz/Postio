@@ -918,7 +918,7 @@
   "referrals": {
     "totalReferrals": "Celkem doporučení",
     "rewardsEarned": "Získané odměny",
-    "rewardsSub": "Měsíce PRO tarifu zdarma",
+    "rewardsSub": "Až 14 dní tarifu Creator a AI + X kredity za doporučení",
     "rewardActive": "Aktivní do {date}",
     "yourLink": "Váš doporučovací odkaz",
     "copy": "Kopírovat",
@@ -930,9 +930,9 @@
     "step2Title": "Sdílejte",
     "step2Desc": "Pošlete ho přátelům na sociálních sítích nebo e-mailem.",
     "step3Title": "Registrace",
-    "step3Desc": "Vaši přátelé se zaregistrují přes váš odkaz.",
-    "step4Title": "Získejte odměnu",
-    "step4Desc": "Za každého získáte jeden měsíc PRO zdarma."
+    "step3Desc": "Po registraci přítele získáte +7 dní tarifu Creator a 2 kredity AI + 2 kredity X.",
+    "step4Title": "Bonus za nákup",
+    "step4Desc": "Když si přítel koupí tarif Creator, získáte +10 dní a 3 AI + 3 X kredity. Za nákup Pro +14 dní a 5 AI + 5 X kreditů."
   },
   "setup": {
     "title": "Dokončete nastavení",
@@ -1237,7 +1237,7 @@
     "referralReward": {
       "subject": "Skvělá zpráva! Kamarád se přidal díky tobě 🎉",
       "title": "Nový člen díky tobě!",
-      "body": "Tvůj kamarád se právě zaregistroval přes tvůj doporučovací odkaz. Jako poděkování získáváš 30 dní PRO tarifu zdarma. Teď můžeš využívat neomezené příspěvky, pokročilou analytiku a všechny prémiové funkce.",
+      "body": "Tvůj kamarád se právě zaregistroval přes tvůj doporučovací odkaz. Jako poděkování získáváš +7 dní tarifu Creator a kredity AI a X. Když si kamarád koupí tarif, získáš bonus: za nákup Creator +10 dní a 3 AI + 3 X kredity, za nákup Pro +14 dní a 5 AI + 5 X kreditů.",
       "cta": "Otevřít Postio"
     },
     "welcome": {

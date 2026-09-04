@@ -36,6 +36,7 @@ export interface Database {
           ai_credits: number
           current_plan_instance_id: string | null
           twitter_auto_credits: number
+          referral_reward_days: number | null
           email_low_credit_alert: boolean
           email_weekly_summary: boolean
           is_active: boolean
@@ -61,6 +62,7 @@ export interface Database {
           role?: 'user' | 'admin'
           ai_credits?: number
           twitter_auto_credits?: number
+          referral_reward_days?: number | null
           email_low_credit_alert?: boolean
           email_weekly_summary?: boolean
           is_active?: boolean
@@ -87,6 +89,7 @@ export interface Database {
           ai_credits?: number
           current_plan_instance_id?: string | null
           twitter_auto_credits?: number
+          referral_reward_days?: number | null
           email_low_credit_alert?: boolean
           email_weekly_summary?: boolean
           is_active?: boolean

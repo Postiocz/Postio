@@ -87,11 +87,15 @@ export async function UsageDashboard({
   let twitterRemaining = 0;
   let plan: "free" | "creator" | "pro" = "free";
   let currentPlanInstanceId: string | null = null;
+  let referralRewardDays: number | null = null;
+  let boundToRealPurchase = false;
 
   if (user) {
     const { data: userRow } = await supabase
       .from("users")
-      .select("plan, ai_credits, twitter_auto_credits, current_plan_instance_id")
+      .select(
+        "plan, ai_credits, twitter_auto_credits, current_plan_instance_id, referral_reward_days",
+      )
       .eq("id", user.id)
       .single();
 
@@ -99,6 +103,7 @@ export async function UsageDashboard({
     aiRemaining = userRow?.ai_credits ?? 0;
     twitterRemaining = userRow?.twitter_auto_credits ?? 0;
     currentPlanInstanceId = userRow?.current_plan_instance_id ?? null;
+    referralRewardDays = userRow?.referral_reward_days ?? null;
   }
 
   // Resolve the current plan's limits. Mirrors the billing page: the snapshot
@@ -122,6 +127,9 @@ export async function UsageDashboard({
         .maybeSingle();
       const boundIsFreeMaster =
         bound !== null && bound.is_master_template === true && bound.type === "free";
+      // Real purchases (paid master / custom / promo instance) keep their full
+      // plan limits; the Free-master binding or a null binding does not.
+      boundToRealPurchase = bound !== null && !boundIsFreeMaster;
 
       limitQuery = boundIsFreeMaster
         ? admin
@@ -150,6 +158,19 @@ export async function UsageDashboard({
     }
   } catch {
     // DB unavailable – keep the default limits.
+  }
+
+  // Referral rewards grant proportional credit allowances, not the full plan's
+  // monthly load. When the user carries a reward (`referral_reward_days`) and is
+  // NOT bound to a real purchased instance (still tied to the Free master from
+  // registration, or no binding at all), show totals proportional to the reward
+  // length instead of the full plan allowance: 7 days → 2/2, 10 days → 3/3,
+  // 14 days → 5/5 (1 month = 30 days = 10 AI/10 X credits). Accounts stay at
+  // the Creator limit (5). Paid Pro/Creator subscriptions keep their own limits.
+  if (!boundToRealPurchase && referralRewardDays) {
+    const proportional = Math.round((referralRewardDays / 30) * 10);
+    aiTotal = proportional;
+    twitterTotal = proportional;
   }
 
   // Connected account count via the shared helper (RLS-scoped).

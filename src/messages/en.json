@@ -918,7 +918,7 @@
   "referrals": {
     "totalReferrals": "Total referrals",
     "rewardsEarned": "Rewards earned",
-    "rewardsSub": "Months of PRO, free",
+    "rewardsSub": "Up to 14 days of Creator plus AI and X credits per referral",
     "rewardActive": "Active until {date}",
     "yourLink": "Your referral link",
     "copy": "Copy",
@@ -930,9 +930,9 @@
     "step2Title": "Share",
     "step2Desc": "Send it to friends on social media or by email.",
     "step3Title": "Sign up",
-    "step3Desc": "Your friends sign up through your link.",
-    "step4Title": "Get rewarded",
-    "step4Desc": "Earn one free month of PRO per referral."
+    "step3Desc": "When a friend signs up, you earn +7 days of Creator and 2 AI + 2 X credits.",
+    "step4Title": "Purchase bonus",
+    "step4Desc": "When a friend buys the Creator plan, you earn +10 days and 3 AI + 3 X credits. A Pro purchase adds +14 days and 5 AI + 5 X credits."
   },
   "setup": {
     "title": "Complete Setup",
@@ -1237,7 +1237,7 @@
     "referralReward": {
       "subject": "Great news! A friend joined thanks to you 🎉",
       "title": "New member thanks to you!",
-      "body": "Your friend just signed up through your referral link. As a thank you, you've earned 30 days of PRO plan for free. Now you can enjoy unlimited posts, advanced analytics, and all premium features.",
+      "body": "Your friend just signed up through your referral link. As a thank you, you've earned +7 days of the Creator plan plus AI and X credits. When your friend buys a plan, you'll earn a bonus: +10 days plus 3 AI + 3 X credits for a Creator purchase, or +14 days plus 5 AI + 5 X credits for a Pro purchase.",
       "cta": "Open Postio"
     },
     "welcome": {

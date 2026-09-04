@@ -169,8 +169,11 @@ export async function UsageDashboard({
   // the Creator limit (5). Paid Pro/Creator subscriptions keep their own limits.
   if (!boundToRealPurchase && referralRewardDays) {
     const proportional = Math.round((referralRewardDays / 30) * 10);
-    aiTotal = proportional;
-    twitterTotal = proportional;
+    // Never show "remaining > total": a stacked balance from several rewards
+    // can exceed the single-reward allowance, so the bar/plan total is at least
+    // as large as the credits the user actually holds.
+    aiTotal = Math.max(proportional, aiRemaining);
+    twitterTotal = Math.max(proportional, twitterRemaining);
   }
 
   // Connected account count via the shared helper (RLS-scoped).

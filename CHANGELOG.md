@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎁 Prompt 064/066 – Stupňovité odměny za doporučení (7/10/14 dní) ✅
+
+- **Kontext**: Referral odměny přešly na stupňovitý systém úměrný délce odměny (1 měsíc = 30 dní = plný Creator balíček 10 AI + 10 X). Bonus za nákup se v produkci neuděloval, protože webhook běžel na starém kódu bez této logiky.
+- **Změny**:
+  - ✅ `src/lib/referral.ts`: `rewardReferrer` (+7 dní + 2 AI + 2 X za registraci) a `rewardPurchaseBonus` (+10/3/3 za koupi Creatoru, +14/5/5 za koupi Pro) – idempotence přes `purchase_bonus_granted`.
+  - ✅ `src/app/api/webhooks/stripe/route.ts`: `checkout.session.completed` nově čte `referred_by` kupujícího a volá `rewardPurchaseBonus`.
+  - ✅ `usage-dashboard.tsx` + migrace `058_add_referral_reward_days.sql`: widget „Aktuální čerpání“ počítá limity úměrně délce odměny (7→2/2, 10→3/3, 14→5/5) a oprava „Zbývá × z Y“, aby se neukázalo „zbývá > celkem“ u stacked odměn.
+  - ✅ Lokalizace cs/en/uk.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Lokální replay webhooku – referrer `06696fdd` +14 dní, kupující `cba18fd` flagnutý `purchase_bonus_granted=true`. Produkce: uživatelem potvrzeno – registrace +7 dní a nákup Pro +14 dní + kredity se připsaly správně; fix widgetu nasazen (commit `0c4f19e`).
+
 ### Oprava referral bonusu +14 dní za nákup a widgetu „Aktuální čerpání“ ✅
 
 - **Kontext 1**: Bonus +14 dní PRO za zakoupení plánu Creator se nepřipsal.
@@ -82,11 +92,3 @@
   - ✅ Nová složka `docs/` a soubor `docs/tiktok-review-script.md` – 8scénový anglický screencast scénář (login → connect OAuth → výběr videa → privacy → publish → verifikace → wrap-up) s kontrolním checklistem.
   - ✅ Scénář vychází z reálného chování aplikace: PKCE OAuth přes `/api/accounts/tiktok`, Content Posting sekvence (creator_info → init → upload → status/fetch), privacy `PUBLIC_TO_EVERYONE` default, sandbox fallback na `SELF_ONLY` a Launch Guard pro `@postio-app.cz`.
 - **Ověření**: Scénář manuálně prostudován a potvrzen uživatelem (odpovídá reálnému chování aplikace).
-
-### 🎬 Prompt 062 – KROK 2: TikTok Scope Justifications (App Review) ✅
-
-- **Kontext**: TikTok požaduje pro opuštění sandboxu zdůvodnění jednotlivých scopes v developerském portálu (sekce Scopes).
-- **Změny**:
-  - ✅ Nový soubor `docs/tiktok-review-justifications.md` – profesionální anglické odstavce pro scopes `user.info.basic`, `video.upload`, `video.publish`, každý se sekcemi "User Experience" a "Content Management", + "Supporting details" pro revizora.
-  - ✅ Zdůvodnění vychází z reálného kódu: scopes z `src/app/api/accounts/tiktok/route.ts`, sekvence Content Posting (creator_info → init → upload → status/fetch → PUBLISH_COMPLETE), blokace duplicitních uploadů a sandbox fallback na `SELF_ONLY`.
-- **Ověření**: Dokument manuálně prostudován a potvrzen uživatelem.

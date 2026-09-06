@@ -3,95 +3,104 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-### 🧹 Cleanup – Mrtvé TikTok klíče v `calendar` bloku překladů ✅
+### 🎨 Prompt 069 – KROK 5: Kontrast captionu + Final polish ✅
 
-- **Kontext**: V bloku `calendar` ve `src/messages/{cs,en,uk}.json` ležely duplicitní TikTok klíče (16 ks), jejichž živé kopie jsou v bloku `posts` – kalendářová stránka pak nemá žádnou komponentu, která by TikTok klíče pod namespace `calendar` resolvovala.
+- **Kontext**: Po KROKU 1–4 mají všechny platformy Light skiny; zbývalo doladit čitelnost captionu a jednotných mikro-detailů v live preview.
+- **Změny** (`post-preview.tsx`):
+  - ✅ Kontrastní audit napříč 6 platformami (Light + Dark): primární texty `#0f0f0f`–`#050505` na bílých kartách (~15–20:1), sekundární `#536471`/`#606060`/`#666`/`#65676b` čitelné, `--muted-foreground` ≈ AA – žádný kódový edit nebyl nutný.
+  - ✅ TikTok overlay nad médiem sjednocen na vždy bílý text/ikony + tmavý scrim (`from-black/80 via-black/20 to-transparent`), nezávisle na tématu (lépe čitelné na videu); v empty stavu zůstává adaptivní dle tématu.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (všech 6 platforem, Light + Dark, bez refresh).
+
+### 🎨 Prompt 067 – KROK 5: i18n a Final Polish ✅
+
+- **Kontext**: Dle 📌 POZNÁMKY se KROK 5 Promptu 067 dokončuje spolu s dokončením Promptu 069 – sjednocení live preview se týká i editoru a edit dialogu.
 - **Změny**:
-  - ✅ Smazáno 16 mrtvých klíčů z bloku `calendar` ve všech 3 jazycích (`tiktokPrivacy*`, `tiktokCreatorInfo*`, `tiktokCapability*`, `previewTikTokTab`, `tiktokVideoRequired`, `tiktokRequiresVideo`, `tiktokPrivateOnlyNotice`, `tiktokUnauditedPrivateOnlyError`, `ttEditNotSupported`) – ověřeno, že jediný konzument `calendar` namespace (`calendar/page.tsx`) žádný z nich nepoužívá.
-  - ✅ Opraven překlep v ukrajinském živém klíči `posts.tiktokUnauditedPrivateOnlyError`: „TikTok-апплікації" → „TikTok-аплікації".
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), JSON validní ve všech 3 jazycích.
+  - ✅ Sjednocení náhledu (Live Preview) s Light modem finální: editor `/posts/new` i `EditPostDialog` zobrazují identický `PostPreview` s plnými Light/Dark skiny všech 6 platforem.
+  - ✅ i18n konzistence: nové/přepsané klíče v cs/en/uk validní, žádný `MISSING_MESSAGE`.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem.
 
-### 🎬 Prompt 062 – KROK 3: UI Audit pro TikTok ✅
+### 🎨 Prompt 069 – KROK 4: Light skiny TikTok + X + MediaArea ✅
 
-- **Kontext**: Revizor TikToku může při publikování narazit na technické chybové texty (HTTP kódy, raw JSON, low-level hlášky) – prošel jsem editor (nový příspěvek + edit dialog) i celý TikTok publish flow.
+- **Kontext**: Po KROKU 3 (YT/LI) zůstávaly TikTok a X karty v Light modu tmavé; prázdný stav médií byl poblýsknutý.
+- **Změny** (`post-preview.tsx`):
+  - ✅ TikTok: light = světlá simulace (`bg-white` + text `#0f0f0f`), placeholder `bg-slate-100`, overlay gradient v light zesvětlen (`from-white/90 via-white/30`) aby texty zůstaly čitelné nad videem → dark zachován (`bg-black` / `from-black/80`).
+  - ✅ X (Twitter): light = reálná X paleta (`bg-white` + text `#0f1419`, sekundární `#536471`, bordery `#e1e8ed`) → dark zachován (`#e7e9ea` / `#71767b` / `#2f3336`).
+  - ✅ MediaArea: empty state light `bg-slate-100 text-slate-500`, media kontejner light `bg-white` (dark zachovány). Avatar: gradient indigo→purple + bílé písmo funguje v obou režimech, úprava netřeba.
+  - 🐛 Bonus fix: chybějící `]` v `text-[#e7e9ea>` u Views count v X (statistika dědila špatnou barvu) – opraveno a vloženo do light varianty.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark pro obě platformy).
+
+### 🎨 Prompt 069 – KROK 3: Light skiny YouTube + LinkedIn ✅
+
+- **Kontext**: Po KROKU 2 (FB/IG) zůstávaly YouTube a LinkedIn karty v Light modu tmavé.
+- **Změny** (`post-preview.tsx`):
+  - ✅ YouTube: light = `bg-white` + text `#0f0f0f`, sekundární `#606060`, popisný chip `bg-slate-100` → dark zachován (`bg-[#0f0f0f]` / `text-white`). Červené tlačítko Subscribe drží v obou režimech (věrně realitě YT).
+  - ✅ LinkedIn: light = reálný světlý LI (`bg-[#f3f2ef]`, karta `bg-white`, text `#191919`, sekundární `#666`, divider `border-black/10`, media rám `bg-white`) → dark zachován (`#1a1a2e` / `#1e1e36` / `#e4e6eb` / `#b0b3b8`).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark pro obě platformy).
+
+### 🎨 Prompt 069 – KROK 2: Light skiny Facebook + Instagram ✅
+
+- **Kontext**: Po KROKU 1 panel Live Preview v Light modu „sedí" (Milky Glass), ale vnitřní karty sociálních sítí zůstávaly vždy tmavé.
+- **Změny** (`post-preview.tsx`):
+  - ✅ Facebook: light = skutečný světlý FB feed (pozadí `#f0f2f5`, karta `bg-white`, text `#050505`, sekundární `#65676b`, divider `border-black/10`, hover akcí `bg-black/5`) → dark zachován (`#242526` / `#18191a` / `#e4e6eb` / `#b0b3b8`).
+  - ✅ Instagram: light = `bg-white` + text `#262626`, avatar mezikruží `bg-white`, caption hint `#8e8e8e` → dark `bg-black` + `text-white` zachován. Gradient ring `#F58529→#DD2A7B→#8134AF` drží v obou režimech.
+  - ✅ Shodné třídy s jinými platformami (LinkedIn jméno, TikTok root) vyčleněny přes okolní kontext – KROK 3 a 4.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark).
+
+### 🎨 Prompt 069 – KROK 1: Adaptivní kontejner Live Preview (Light mode) ✅
+
+- **Kontext**: Levá strana editoru už v Light modu funguje (Milky Glass), ale pravý panel Live Preview zůstával vždy tmavý – vizuální nesoulad.
+- **Změny** (`post-preview.tsx`):
+  - ✅ Adaptivní kontejner panelu: light = Milky Glass (`bg-white/40 backdrop-blur-xl border-l border-slate-200`), dark = černé sklo (`bg-black/40 border-white/10`) – přesně dle zadání.
+  - ✅ Nadpis „Náhled": light `text-slate-900`, dark zachováno `text-muted-foreground/80`.
+  - ✅ Rám „telefonu": light `bg-white border-slate-200`, dark `bg-black border-white/5`.
+  - ✅ Segmentovaný přepínač platforem: light `bg-white/70 border-slate-200`, dark zachováno.
+  - ✅ Aktivní tab: zrušen inline `color: accent` (TikTok cyan by na bílém byl nečitelný), text `text-slate-900 dark:text-white`, barevný podtón accentu (`${accent}22`) zachován – brand identita drží v obou režimech.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark přepnutí bez refresh). Vnitřní karty sítí (FB/IG/YT/LI/TikTok/X) zatím stále tmavé – KROK 2–4.
+
+### 🎨 Prompt 067 – KROK 4: Animace a mikro-interakce (Framer Motion) ✅
+
+- **Kontext**: Editor a preview po KROKU 1-3 byly statické – přepínání platforem, zobrazování TikTok panelu i klikání na tlačítka probíhalo bez animovaného feedbacku.
 - **Změny**:
-  - ✅ `src/lib/actions/publish-tiktok.ts`: všechny chybové zprávy jdoucí do UI přepsány na uživatelsky přívětivé české texty (upload, init, status/fetch, refresh token, creator_info, download videa, prázdný soubor, duplicate, vypršení pollingu) – raw API odpovědi a HTTP kódy přesunuty do `console.error` pro zachování diagnostiky.
-  - ✅ Sandbox flow zůstává funkční: `errorCode` pro `tiktok_sandbox_private_only` drží raw message jen pro auto-retry wrapperu (`isTikTokSandboxPrivateOnlyError`), UI ho překládá přes `tiktokUnauditedPrivateOnlyError`; retry podmínka rozšířena i o `errorCode`.
-  - ✅ Ověřena konzistence překladů ve všech 3 jazycích – žádný `MISSING_MESSAGE` (editor, edit dialog i preview-dialog nerezolvují žádný chybějící TikTok klíč).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (editor při výběru TikToku čistý, bez technických textů).
+  - ✅ `post-preview.tsx`: `AnimatePresence mode="popLayout"` + `motion.div` (`key={effectivePlatform}`, `opacity 0→1` + `y: 8→0`, `0.35s`, ease `[0.32,0.72,0,1]`) kolem platform-switch – přepnutí tabu crossfaduje starý preview ven / nový dovnitř.
+  - ✅ `posts/new/page.tsx`: TikTok privacy panel obalen v `AnimatePresence` (fade+slide při zobrazení/skrytí dle `hasTikTokIntent`); `active:scale-[0.98]` na 4 akční tlačítka (draft/queue/schedule/publish); account chip → `motion.button` s `layoutId` + `layout` spring animací ringu.
+  - ✅ `edit-post-dialog.tsx`: account chip → `motion.button` s `layout` animací; `active:scale-[0.98]` na 5 akčních tlačítek (queue/schedule/publish + media/AI).
+  - ✅ `ai-assistant-button.tsx`: `active:scale-[0.98]` na trigger (dropdown animuje skrz Radix `data-[state]` třídy).
+  - ✅ Respektování `useReducedMotion()` na obou místech (`initial={reduce ? false : …}`, `exit={reduce ? undefined : …}`).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem.
 
-### 🎁 Prompt 064/066 – Stupňovité odměny za doporučení (7/10/14 dní) ✅
+### 🎨 Prompt 067 – KROK 3: Quick slots pro výběr času (oprava overflow + chip state) ✅
 
-- **Kontext**: Referral odměny přešly na stupňovitý systém úměrný délce odměny (1 měsíc = 30 dní = plný Creator balíček 10 AI + 10 X). Bonus za nákup se v produkci neuděloval, protože webhook běžel na starém kódu bez této logiky.
+- **Kontext**: Pod `DateTimePicker` uživatel neměl předvolby času; výběr vyžadoval otevření kalendáře, dropddowny karet navíc cliplovalo `overflow-hidden` z KROKU 2.
 - **Změny**:
-  - ✅ `src/lib/referral.ts`: `rewardReferrer` (+7 dní + 2 AI + 2 X za registraci) a `rewardPurchaseBonus` (+10/3/3 za koupi Creatoru, +14/5/5 za koupi Pro) – idempotence přes `purchase_bonus_granted`.
-  - ✅ `src/app/api/webhooks/stripe/route.ts`: `checkout.session.completed` nově čte `referred_by` kupujícího a volá `rewardPurchaseBonus`.
-  - ✅ `usage-dashboard.tsx` + migrace `058_add_referral_reward_days.sql`: widget „Aktuální čerpání“ počítá limity úměrně délce odměny (7→2/2, 10→3/3, 14→5/5) a oprava „Zbývá × z Y“, aby se neukázalo „zbývá > celkem“ u stacked odměn.
-  - ✅ Lokalizace cs/en/uk.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Lokální replay webhooku – referrer `06696fdd` +14 dní, kupující `cba18fd` flagnutý `purchase_bonus_granted=true`. Produkce: uživatelem potvrzeno – registrace +7 dní a nákup Pro +14 dní + kredity se připsaly správně; fix widgetu nasazen (commit `0c4f19e`).
+  - ✅ Nová komponenta `components/schedule-quick-slots.tsx` – 3 pill chipy pod pickerem: **Fronta (příští volný slot)** (fetch `getNextAvailableQueueSlot()`), **Dnes 18:00** (disable po 18:00), **Zítra 09:00**; klik předvyplní `scheduledAt` (ISO shodný s `normalizeScheduledAt`), picker zůstává plně editovatelný.
+  - ✅ Aktivní chip: jasný indigo ring + glow (`border-indigo-500/70`, stín `0 0 14px rgba(99,102,241,0.35)`, dark `/90`/`/30`) + `aria-pressed`. `isActive` porovnává na úrovni minuty (odolné přepisu sekund/ms pickerem), předpočítané sloty nulované na ms.
+  - ✅ i18n: `quickSlotQueue/quickSlotToday18/quickSlotTomorrow9/quickSlotQueueLoading` v cs/en/uk + oprava překlepu cs „veřní volný slot“→„příští volný slot“ (en/uk korektní).
+  - 🐛 Fix overflow: odstraněn `overflow-hidden` ze 4 karet editoru (page.tsx) – dropdown „Interní štítky“ se nyní vykresluje nad okraji karet; ořez médií zůstává na media kontejneru (`overflow-hidden rounded-[20px]`).
+  - 🐛 UX: `TagPicker` se po výběru štítku sám zavře (`setOpen(false)` v `toggle`) – nepřekrývá další sekce a uživatel nemusí klikat vedle.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (dropdown celý viditelný a po výběru se sám schová; chip má viditelný indigo glow).
 
-### Oprava referral bonusu +14 dní za nákup a widgetu „Aktuální čerpání“ ✅
+### 🎨 Prompt 067 – KROK 2: Vizuální seskupení formuláře (3 glass karty + publish bar) ✅
 
-- **Kontext 1**: Bonus +14 dní PRO za zakoupení plánu Creator se nepřipsal.
-- **Kontext 2**: Sekce „Aktuální čerpání“ na Fakturaci ukazovala neplatné limity (Free 0/0/1) u uživatelů s odměnou PRO z doporučení.
+- **Kontext**: Editor `/posts/new` měl jednu obří kartu se všemi 9 bloky pod sebou – neintuitivne, bez logické hierarchie.
 - **Změny**:
-  - ✅ `src/app/api/webhooks/stripe/route.ts`: Po `checkout.session.completed` se nově čte `referred_by` kupujícího a volá `rewardPurchaseBonus` (+14 za Creator, +30 za Pro). Bonus blok byl dosud jen v pracovním stromě (necommitnutný), proto se v produkci neudělil – nyní je commitnutý.
-  - ✅ `src/app/[locale]/(dashboard)/settings/billing/usage-dashboard.tsx`: Řešení limitů sjednoceno s fakturační stránkou – vázaná Free master instance z registrace se bere jako „žádný nákup“ a limity se resolve podle `users.plan`; kouplená placená instance si drží vlastní limity.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Live data backfill: referrer `06696fdd` expiry → 2026-09-24 (+14 dní), kupující `2c0e4d36` `purchase_bonus_granted=true` (idempotentní). Manuálně potvrzeno uživatelem.
+  - ✅ Rozbito obří kartu na 3 Double-Bezel glass karty + samostatná „publish bar": **1. Obsah a média** (Content + Media), **2. Cílové účty** (výběr účtů + TikTok/X panely), **3. Metadata** (Lokace, Hashtagy, Interní štítky), **4. Čas a publikace** (Schedule + akční tlačítka). Double-Bezel: outer shell `rounded-[20px] ring-1 ring-white/10 p-1.5 overflow-hidden` + inner core `rounded-[14px] bg-card/40 shadow-[inset...] p-6`.
+  - ✅ Konzistentní Shape Consistency: 20px karty / 14px vnitřné / pill tlačítka; hover ikony sekcí (FileText/Users/Tags/Calendar) s indigo glow.
+  - ✅ Performance guardrail: odstrané `backdrop-blur` ze skrolujících prvkov (dropzone, media mřížka, TikTok panel) – glass efekt zůstal přes jemný tinted bg, bez GPU repaintů na mobilu.
+  - ✅ i18n: nové klíče `sectionContent/sectionAccounts/sectionMeta/sectionSchedule` v cs/en/uk.
+  - 🐛 Kosmetika po extra testu: inner padding `p-5`→`p-6` (obsah „levituje"), `overflow-hidden` na outer (nic nepřetéká přes rám), publish bar vzdušněji (`pt-3`, `gap-3`, `justify-end`).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (karty vzdušné, nic nepřetéká, profesionální rozvržení).
 
 
-### 🐛 Fix – Návrat tlačítka "Zobrazit na síti" pro TikTok Sandbox ✅
+### 🎨 Prompt 067 – KROK 1: Split Layout s Live Preview pro `/posts/new` ✅
 
-- **Kontext**: Předchozí fix (zrušení fallbacku na `publish_id`) byl příliš striktní – v Sandboxu TikTok nevrací `publicaly_available_post_id`, takže tlačítko zmizelo úplně. Pro App Review ale musí být vždy dostupné.
+- **Kontext**: Editor nového příspěvku měl jediný sloupec `max-w-3xl` bez jakéhokoli náhledu – uživatel musel skrolovat a neviděl, jak bude post vypadat na sítích.
 - **Změny**:
-  - ✅ `src/lib/live-url.ts`: nová `buildLiveUrlInfo()` vrací `{ url, profileFallback }` – TikTok bez `external_id` (nebo s legacy `v_pub_...` ID) odkazuje na profil `https://www.tiktok.com/@{username}`. `buildLiveUrl()` zůstává jako wrapper.
-  - ✅ `src/lib/actions/publish-tiktok.ts`: status/fetch nyní fallbackuje na `video_id` z odpovědi, pokud `publicaly_available_post_id` chybí (sandbox) – ID se i tak persistuje.
-  - ✅ `preview-dialog.tsx` + `edit-post-dialog.tsx`: tlačítko se zobrazuje vždy pro published platformy; při `profileFallback` pod ním info text "V Sandbox režimu odkazujeme na profil…".
-  - ✅ `preview-dialog.tsx`: oprava skutečné příčiny chybějícího tlačítka v náhledech – `PostCard` ani `Calendar` nepředávaly prop `userId`, takže `loadProfiles` se vůbec nespustil → TikTok handle nebyl nikdy k dispozici → `buildLiveUrlInfo` vrátil null. Dialog si nyní sám dořeší uživatele ze `supabase.auth.getUser()` (stejně jako EditPostDialog).
-  - ✅ `messages/{cs,en,uk}.json`: nový klíč `tiktokSandboxProfileHint` (v bloku `posts`, kde ho obě komponenty resolvují).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), JSON validní, dev server kompiluje bez chyb (starý syntax error v logu byl z přerušené editace; po vyčištění `.next` cache čisté).
+  - ✅ `posts/new/page.tsx`: kontejner rozšířen na `max-w-[1200px]`, dvousloupcový grid `lg:grid-cols-[1fr_42%]` – formulář vlevo, sticky Live Preview vpravo (`lg:sticky lg:top-0`, `max-h-[70vh]`); na mobilu (<1024px) preview plynule pod formulářem (již není skryté jako v EditPostDialog).
+  - ✅ Hlavička zarovnaná vlevo: kulaté zpětné tlačítko + H1 v jedné řadě (zrušen `text-center`).
+  - ✅ Napojena hotová komponenta `PostPreview` (taby FB/IG/YT/LI/TikTok/X, média, lokace): profily účtů ze `social_accounts` (priorita) + `users` (fallback), `previewMedia` z `useMediaUpload`, `availablePreviewPlatforms` odvozeno z vybraných účtů, `previewLabels` s i18n fallbacky (zrcadlo EditPostDialog).
+  - 🐛 Oprava video náhledu (zjistěné při extra testе): `previewMedia` preferuje stabilný `url` (public) pro ready media místo zrušeného blob `previewUrl` (živý upload mizí náhled při výbere 2. platformy; koncept flow fungoval bo používá public URL) – opraveno identicky v `posts/new/page.tsx` i `edit-post-dialog.tsx`. Navíc `post-preview.tsx`: `autoPlay loop` na video elementy + `key={previewUrl}` (čistý remount při změnе URL).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (desktop: form+preview vedle sebe, sticky; mobil: preview pod formulářem; video náhled funguje živě i při výbere více platforem).
 
-### 🐛 Fix – TikTok "Zobrazit na síti" otevíral neplatnou URL ✅
 
-- **Kontext**: Tlačítko "Zobrazit na síti" u TikTok postů otevíralo `tiktok.com/@user/video/v_pub_file...` – do `external_id` se ukládal dočasný `publish_id`, když TikTok nevrátil veřejné ID, a UI sestavovalo URL s tvrdě nakódovaným `@user`.
-- **Změny**:
-  - ✅ `src/lib/actions/publish-tiktok.ts`: zrušen fallback `externalId = publicPostId ?? publishId`; ukládá se jen skutečné `publicaly_available_post_id`. Typ `TikTokPublishActionResult.externalId` nyní `string | null` (null pro soukromá/sandbox videa – odkaz se pak nekreslí).
-  - ✅ `src/lib/actions/publish.ts`: `handlePublishSuccess` akceptuje `string | null`; obě volání TikTok akceptují `null` a do DB zapíšou `null` místo prázdného řetězce.
-  - ✅ Nový `src/lib/live-url.ts` – jediný zdroj pravdy `buildLiveUrl(platform, externalId, { tiktokUsername })` → TikTok: `https://www.tiktok.com/@{username}/video/{external_id}` (bez username vrátí null, never fabricates @user). Instagram: zachováno parsování `shortcode|media_id`.
-  - ✅ `src/components/preview-dialog.tsx` (Náhled z Posts i Calendar): resolver `resolveTikTokUsername` načítá handle z `meta_data.creator_info_cache.creator_username` (fallback `account_name`), předán do `buildLiveUrl`.
-  - ✅ `src/components/edit-post-dialog.tsx`: sdílený `buildLiveUrl` + state/effect `tiktokUsername` (načte handle ze `social_accounts` při otevření).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Zámek 🔒 a zakázaná editace pro publikované TikTok posty zůstávají v obou sekcích (PreviewDialog nemá editační pole, `isTikTokPublished` banner s Lock nezměněn).
 
-### 🎬 Prompt 062 – KROK 3: Oprava TikTok panelu v editoru nového příspěvku ✅
-
-- **Kontext**: Po výběru TikTok účtu se v editoru nového příspěvku nezobrazoval panel "Nastavení soukromí / Možnosti videa" a v konzoli byly chyby `MISSING_MESSAGE` pro klíče `posts.tiktokPrivacy*`.
-- **Změny**:
-  - ✅ `src/app/[locale]/(dashboard)/posts/new/page.tsx`: kompletní TikTok infra – state (`tiktokCreatorInfo`, `tiktokPrivacyLevel`), `hasTikTokIntent` memo, best-effort fetch `creator_info` přes `getTikTokCreatorInfoAction`, `platformMetadata` (#tiktok privacy) předán do všech 3 volání `createPostAction` (draft/scheduled, publish now, queue). Přidán prémiový Glassmorphism panel (3 privacy toggle + sandbox varování s `Info` ikonou + box s možnostmi účtu) mezi výběr platforem a pole Lokalita.
-  - ✅ `src/messages/{cs,en,uk}.json`: 12 TikTok klíčů (`tiktokPrivacyTitle`, `tiktokPrivacyHint`, …) přesunuto z bloku `calendar` do bloku `posts` – editor je resolvuje pod namespace `posts`, proto měly `MISSING_MESSAGE` error (uk měl v `posts` částečně jen `tiktokPrivacyTitle`).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), JSON validní ve všech 3 jazycích. Manuálně potvrzeno uživatelem (panel se zobrazuje bez MISSING errorů).
-
-### 🚀 Prompt 065 – ÚKOL G: Vyčištění notifikačních teček + indikátor tarifu v záhlaví ✅
-
-- **Kontext**: Pro uživatele s tarifem Pro jsou fialové tečky (novinka u "Nastavení", tečka u "Upgrade plánu") bezpředmětné; záhlaví Dashboardu neukazovalo aktuální tarif.
-- **Změny**:
-  - ✅ `sidebar.tsx` + `feedback-sidebar-wrapper.tsx` + `layout.tsx`: nová prop `currentPlan` (select `plan` z `users`) – pro tarif `pro` se skryje indikační tečka u "Nastavení" i tečka u "Upgrade plánu".
-  - ✅ `dashboard/page.tsx`: prémiový Glassmorphism badge v záhlaví vedle nadpisu – Crown (Pro) / Zap (Creator) / Sparkles (Free) + lokalizovaný název tarifu (reuse klíčů `dashboard.free`/`planCreator`/`planPro`), tlumené barvy, `flex-wrap` pro mobil.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (tečky u Pro zmizely, indikátor Pro v záhlaví vypadá prémiově).
-
-### 🚀 Prompt 065 – ÚKOL F: Inteligentní viditelnost Upgrade banneru ✅
-
-- **Kontext**: Uživatel s tarifem Pro viděl banner "Upgrade na Pro", který je pro něj bezpředmětný.
-- **Změny**:
-  - ✅ `dashboard/page.tsx` (`UpgradeBanner`): early return `null` při `currentPlan === "pro"` – banner se pro Pro uživatele nevykresluje vůbec; pro Creator/Free zůstává viditelný. Zjednodušen `planLabel` (jen `planCreator`/`free`).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (Pro – banner skryt, Creator/Free – viditelný).
-
-### 🎬 Prompt 065 – Dashboardová operace (ÚKOLY B + C + D + E) ✅
-
-- **Kontext**: Prázdný dashboard se schovával do samotného checklistu a skrýval mřížku statistik; inline `OnboardingChecklist` duplicitně konkuroval plovoucímu `SetupGuide`.
-- **Změny**:
-  - ✅ `welcome-section.tsx` (nová): dvě prémiové Glassmorphism karty uprostřed prázdného dashboardu. Krok 1 "Propojte své sítě" = aktivní link na `/accounts` (indigo glow, ikony sítí, CTA s `ArrowRight`); Krok 2 "Vytvořte první příspěvek" = uzamčená (`Lock`, `opacity-60`), odemyká se po propojení první sítě.
-  - ✅ `dashboard/page.tsx`: prázdný stav teď zachovává title + mřížku statistik se 4 `StatSkeleton` ghost kartami, vkládá Welcome sekci pod stats grid; analytics row a quick actions při prázdném stavu skryté; `UpgradeBanner` + `PreviewDialog` vždy. Odebrán import i inline `OnboardingChecklist`.
-  - ✅ Smazán `onboarding-checklist.tsx` (mrtvý kód); jediný průvodce = plovoucí `SetupGuide` (layout.tsx), bez duplicity.
-  - ✅ Lokalizace cs/en/uk: nové `welcomeStep1*`/`welcomeStep2*` klíče (dashboard), odstraněny nepoužívané `onboarding*`.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (prázdný účet: ghost stats + Welcome sekce + SetupGuide v rohu, bez duplicity).
 

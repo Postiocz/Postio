@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
 import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
-import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X, Info } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X, Info, FileText, Users, Tags } from "lucide-react";
 import {
   getTikTokCreatorInfoAction,
   type TikTokCreatorInfo,
@@ -21,6 +21,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlatformIconMap } from "@/components/calendar/post-calendar-chip";
 import {
@@ -33,6 +34,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { TagPicker } from "@/components/tag-picker";
+import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/components/post-preview";
+import { ScheduleQuickSlots } from "@/components/schedule-quick-slots";
 
 type AccountInfo = {
   id: string;
@@ -90,6 +93,8 @@ export default function NewPostPage() {
   const t = useTranslations("posts");
   const td = useTranslations("dashboard");
   const ta = useTranslations("accounts");
+  const previewPlaceholderName = t("previewPlaceholderName") ?? "Postio";
+  const reduce = useReducedMotion();
    const router = useRouter();
   const { locale } = useParams();
   const [content, setContent] = useState("");
@@ -111,6 +116,23 @@ export default function NewPostPage() {
       ),
     ];
   }, [selectedAccountIds, allAccounts]);
+
+  // Which preview tabs to render, in display order. Only platforms the post
+  // actually targets are shown (mirrors EditPostDialog for the new-post case).
+  const availablePreviewPlatforms = useMemo<
+    Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok" | "twitter">
+  >(() => {
+    const order: Array<"facebook" | "instagram" | "youtube" | "linkedin" | "tiktok" | "twitter"> = [
+      "facebook",
+      "instagram",
+      "youtube",
+      "linkedin",
+      "tiktok",
+      "twitter",
+    ];
+    return order.filter((id) => selectedPlatforms.includes(id));
+  }, [selectedPlatforms]);
+
   // Hybridní X režim (Prompt 031-X-COMBO, Krok 4): je mezi vybranými účty
   // manuální X (publishing_type='manual')? Pak tlačítko zní jinak.
   const hasManualTwitter = selectedAccountIds.some((id) => {
@@ -167,6 +189,16 @@ export default function NewPostPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
+  // Live preview profiles (platform name + avatar for PostPreview). Loaded
+  // from social_accounts with the `users` row as a graceful fallback.
+  const [facebookProfile, setFacebookProfile] = useState<PostPreviewProfile | null>(null);
+  const [instagramProfile, setInstagramProfile] = useState<PostPreviewProfile | null>(null);
+  const [youtubeProfile, setYoutubeProfile] = useState<PostPreviewProfile | null>(null);
+  const [linkedinProfile, setLinkedinProfile] = useState<PostPreviewProfile | null>(null);
+  const [tiktokProfile, setTikTokProfile] = useState<PostPreviewProfile | null>(null);
+  const [twitterProfile, setTwitterProfile] = useState<PostPreviewProfile | null>(null);
+  const supabase = useMemo(() => createClient(), []);
+
   // Get current user ID
   useEffect(() => {
     const supabase = createClient();
@@ -202,6 +234,71 @@ export default function NewPostPage() {
       cancelled = true;
     };
   }, [userId]);
+
+  // Load the user's profile + connected social accounts for the live preview.
+  // Runs once we have a userId. The social account takes priority (it reflects
+  // the actual page/username on the network); the `users` row is a fallback.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const loadProfiles = async () => {
+      try {
+        const [userRes, accountsRes] = await Promise.all([
+          supabase
+            .from("users")
+            .select("full_name, avatar_url")
+            .eq("id", userId)
+            .maybeSingle(),
+          supabase
+            .from("social_accounts")
+            .select("platform, account_name, avatar_url")
+            .eq("user_id", userId)
+            .eq("is_active", true)
+            .in("platform", ["facebook", "instagram", "youtube", "linkedin", "tiktok", "twitter"]),
+        ]);
+        if (cancelled) return;
+        const fallbackName = userRes.data?.full_name ?? previewPlaceholderName;
+        const fallbackAvatar = userRes.data?.avatar_url ?? null;
+        const find = (p: string) => accountsRes.data?.find((a) => a.platform === p);
+        const fb = find("facebook");
+        const ig = find("instagram");
+        const yt = find("youtube");
+        const li = find("linkedin");
+        const tt = find("tiktok");
+        const tw = find("twitter");
+        setFacebookProfile({
+          displayName: fb?.account_name ?? fallbackName,
+          avatarUrl: fb?.avatar_url ?? fallbackAvatar,
+        });
+        setInstagramProfile({
+          displayName: ig?.account_name ?? fallbackName,
+          avatarUrl: ig?.avatar_url ?? fallbackAvatar,
+        });
+        setYoutubeProfile({
+          displayName: yt?.account_name ?? fallbackName,
+          avatarUrl: yt?.avatar_url ?? fallbackAvatar,
+        });
+        setLinkedinProfile({
+          displayName: li?.account_name ?? fallbackName,
+          avatarUrl: li?.avatar_url ?? fallbackAvatar,
+        });
+        setTikTokProfile({
+          displayName: tt?.account_name ?? fallbackName,
+          avatarUrl: tt?.avatar_url ?? fallbackAvatar,
+        });
+        setTwitterProfile({
+          displayName: tw?.account_name ?? fallbackName,
+          avatarUrl: tw?.avatar_url ?? fallbackAvatar,
+        });
+      } catch {
+        // non-fatal – preview falls back to placeholder name
+      }
+    };
+    loadProfiles();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, previewPlaceholderName, supabase]);
 
   // Best-effort load of TikTok creator capabilities (privacy options etc.).
   // In the sandbox this may fail – the privacy toggles still render with all
@@ -336,6 +433,62 @@ export default function NewPostPage() {
     const firstImage = mediaItems.find((item) => item.kind === "image" && item.status === "ready" && item.url);
     return firstImage?.url ?? null;
   }, [mediaItems]);
+
+  // Media items projected into the shape PostPreview expects. For READY
+  // uploads we prefer the stable public URL (`url`) over the temporary object
+  // URL (`previewUrl`, a blob: URL that is revoked once the upload settles) so
+  // the preview keeps rendering after the upload finishes. In-progress items
+  // fall back to the object URL so the preview updates live.
+  const previewMedia = useMemo<PostPreviewMedia[]>(
+    () =>
+      mediaItems
+        .filter((i) => i.status !== "error")
+        .map((i) => ({
+          previewUrl:
+            i.status === "ready" && i.url ? i.url : i.previewUrl,
+          kind: i.kind,
+        })),
+    [mediaItems],
+  );
+
+  // Labels for PostPreview with safe fallbacks (mirrors EditPostDialog).
+  const previewLabels = useMemo(
+    () => ({
+      previewTitle: t("previewTitle") ?? "Náhled",
+      facebookTab: t("previewFacebookTab") ?? "Facebook",
+      instagramTab: t("previewInstagramTab") ?? "Instagram",
+      youtubeTab: t("previewYoutubeTab") ?? "YouTube",
+      linkedinTab: t("previewLinkedinTab") ?? "LinkedIn",
+      tiktokTab: t("previewTikTokTab") ?? "TikTok",
+      twitterTab: t("previewTwitterTab") ?? "X",
+      noMedia: t("previewNoMedia") ?? "Žádná média",
+      tiktokVideoRequired: t("tiktokVideoRequired") ?? "TikTok vyžaduje video",
+      placeholderName: t("previewPlaceholderName") ?? "Postio",
+      captionHint: t("previewCaptionHint") ?? "Sem napište text příspěvku…",
+      now: t("previewNow") ?? "Právě teď",
+      actionLike: t("previewActionLike") ?? "Líbí se mi",
+      actionComment: t("previewActionComment") ?? "Komentovat",
+      actionShare: t("previewActionShare") ?? "Sdílet",
+      actionRepost: t("previewActionRepost") ?? "Přeposlat",
+      actionSend: t("previewActionSend") ?? "Odeslat",
+      actionSubscribe: t("previewActionSubscribe") ?? "Odebírat",
+      actionDislike: t("previewActionDislike") ?? "Nelíbí",
+      actionBookmark: t("previewActionBookmark") ?? "Záložka",
+      professionalDegree: t("previewProfessionalDegree") ?? "Professional · 1. stupeň",
+      likesCount: t("previewLikesCount") ?? "0 líbenek",
+      subscribersCount: t("previewSubscribersCount") ?? "0 odběratelů",
+      viewsNow: t("previewViewsNow") ?? "0 zhlédnutí · právě teď",
+      commentShareStats: t("previewCommentShareStats") ?? "0 komentářů · 0 sdílení",
+      commentStats: t("previewCommentStats") ?? "0 komentářů",
+      originalSound: t("previewOriginalSound") ?? "původní zvuk - {name}",
+      repostsLabel: t("previewRepostsLabel") ?? "Reposty",
+      viewsLabel: t("previewViewsLabel") ?? "Zobrazení",
+      twitterSource: t("previewTwitterSource") ?? "X Web App",
+      repliesLabel: t("previewRepliesLabel") ?? "Odpovědi",
+      mediaAlt: t("previewMediaAlt") ?? "Náhled média",
+    }),
+    [t],
+  );
 
   // Prompt 023 (Krok 1) – Media presence flags that gate platform selection.
   // TikTok/YouTube require a video; Instagram requires any media. Excluding
@@ -689,32 +842,42 @@ export default function NewPostPage() {
       <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-indigo-500/10 blur-[120px]" />
       <div className="pointer-events-none absolute -right-32 -bottom-32 h-96 w-96 rounded-full bg-purple-500/10 blur-[120px]" />
 
-      <div className="relative mx-auto max-w-3xl space-y-8">
-        {/* Top bar: Logo + Back */}
-        <div className="flex items-center justify-between">
+      <div className="relative mx-auto max-w-[1200px] space-y-8">
+        {/* Header: back + title, left-aligned */}
+        <div className="flex items-center gap-3">
           <Link
             href={`/${locale}/posts`}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground/60 transition-colors hover:text-foreground"
+            aria-label={t("title")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/70 transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
           >
             <ArrowLeft className="h-4 w-4" />
-            {t("title")}
           </Link>
+          <h1 className="text-2xl font-bold tracking-tight">{t("newPost")}</h1>
         </div>
 
-        <h1 className="text-center text-3xl font-bold">{t("newPost")}</h1>
-
-        {/* Glass form container */}
-        <div className="bg-card/40 backdrop-blur-md border border-white/5 rounded-[24px] p-8 shadow-2xl space-y-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,42%)]">
+          {/* Left column - form */}
+          <div className="space-y-6">
           {error && (
             <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
+          {/* ===== Card 1: Content & media ===== */}
+          <div className="rounded-[20px] border border-slate-200/60 bg-white/70 p-1.5 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03] dark:backdrop-blur-none">
+            <div className="rounded-[14px] border border-black/5 bg-card/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] p-6 space-y-6">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/10">
+                  <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-foreground">{t("sectionContent")}</h2>
+              </div>
+
           {/* Content */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="content" className="text-sm font-medium text-muted-foreground/80">
+              <Label htmlFor="content" className="text-sm font-medium text-muted-foreground">
                 {t("content")}
               </Label>
               <AIAssistantButton
@@ -737,7 +900,7 @@ export default function NewPostPage() {
               placeholder={t("contentPlaceholder")}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="min-h-[200px] resize-y bg-black/20 border-white/10 rounded-xl focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30"
+              className="min-h-[200px] resize-y bg-white/50 border-slate-200 rounded-xl shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] focus:border-indigo-500/50 focus:ring-0 transition-all placeholder:text-muted-foreground/30 dark:bg-black/20 dark:border-white/10 dark:shadow-none"
             />
             <div className="flex justify-between text-xs text-muted-foreground/60">
               <span />
@@ -749,7 +912,7 @@ export default function NewPostPage() {
 
           {/* Media */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-muted-foreground/80">{t("mediaFiles")}</Label>
+            <Label className="text-sm font-medium text-muted-foreground">{t("mediaFiles")}</Label>
             <input
               ref={mediaInputRef}
               type="file"
@@ -802,12 +965,12 @@ export default function NewPostPage() {
                 }
               }}
               className={cn(
-                "group relative w-full rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] p-6 text-left backdrop-blur-md transition-colors hover:bg-white/[0.05]",
+                "group relative w-full rounded-[24px] border border-dashed border-slate-200 bg-white/40 p-6 text-left transition-colors hover:bg-white/60 dark:border-white/10 dark:bg-white/[0.02] dark:hover:bg-white/[0.05]",
                 isDraggingMedia && "border-indigo-500/50 bg-white/[0.05]"
               )}
             >
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-white/[0.03] backdrop-blur-md">
+                <div className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-white dark:bg-white/[0.03]">
                   <ImageIcon className="h-6 w-6 text-muted-foreground/70" />
                 </div>
                 <div className="flex-1">
@@ -827,11 +990,11 @@ export default function NewPostPage() {
                 {mediaItems.map((item) => (
                   <div
                     key={item.id}
-                    className="group relative overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.02] backdrop-blur-md"
+                    className="group relative overflow-hidden rounded-[20px] border border-slate-200 bg-white/60 dark:border-white/10 dark:bg-white/[0.02]"
                   >
                     {/* Image optimization overlay */}
                     {item.status === "optimizing" && (
-                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60">
                         <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
                         <span className="text-[10px] font-medium text-purple-200/80">{t("optimizingImage")}</span>
                       </div>
@@ -839,7 +1002,7 @@ export default function NewPostPage() {
 
                     {/* Upload progress overlay */}
                     {item.status === "uploading" && (
-                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm">
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/60">
                         <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
                         <span className="text-[10px] font-medium text-indigo-200/80">{t("uploading")}</span>
                       </div>
@@ -847,7 +1010,7 @@ export default function NewPostPage() {
 
                     {/* Upload success indicator */}
                     {item.status === "ready" && (
-                      <div className="absolute left-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/80 backdrop-blur-md">
+                      <div className="absolute left-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/80">
                         <CheckCircle2 className="h-4 w-4 text-white" />
                       </div>
                     )}
@@ -877,7 +1040,7 @@ export default function NewPostPage() {
                     <button
                       type="button"
                       onClick={() => handleRemoveMedia(item.id)}
-                      className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
+                      className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
                       aria-label="Remove"
                     >
                       <X className="h-4 w-4" />
@@ -888,13 +1051,26 @@ export default function NewPostPage() {
             )}
           </div>
 
+            </div>
+          </div>
+
+          {/* ===== Card 2: Target accounts ===== */}
+          <div className="rounded-[20px] border border-slate-200/60 bg-white/70 p-1.5 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03] dark:backdrop-blur-none">
+            <div className="rounded-[14px] border border-black/5 bg-card/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] p-6 space-y-6">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/10">
+                  <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-foreground">{t("sectionAccounts")}</h2>
+              </div>
+
           {/* Platform selection - account picker (mirrors EditPostDialog) */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               {t("selectPlatforms")}
             </Label>
             {allAccounts.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
+              <div className="rounded-[20px] border border-dashed border-slate-200 bg-white/40 p-6 text-center dark:border-white/10 dark:bg-white/[0.02]">
                 <p className="pb-3 text-sm text-muted-foreground">{t("noConnectedAccounts")}</p>
                 <Button
                   type="button"
@@ -939,7 +1115,7 @@ export default function NewPostPage() {
                           <div
                             key={platformId}
                             className={cn(
-                              "rounded-[20px] border bg-white/[0.04] p-3 backdrop-blur-sm transition-all duration-200",
+                              "rounded-[20px] border bg-white/[0.04] p-3 transition-all duration-200",
                               accounts.some((a) => selectedAccountIds.includes(a.id))
                                 ? "border-indigo-500/30"
                                 : "border-white/10",
@@ -949,7 +1125,7 @@ export default function NewPostPage() {
                               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06]">
                                 {Icon && <Icon className={cn("h-4 w-4", platformColor)} />}
                               </div>
-                              <span className="text-xs font-medium text-muted-foreground/80">
+                              <span className="text-xs font-medium text-muted-foreground">
                                 {platformLabel}
                               </span>
                               {/* KROK 5: Twitter auto-credits indicator */}
@@ -1000,11 +1176,13 @@ export default function NewPostPage() {
                                     ? getPlatformRequirementTooltip(platformId)
                                     : null;
                                 const chip = (
-                                  <button
+                                  <motion.button
                                     key={account.id}
                                     type="button"
+                                    layoutId={`account-chip-${account.id}`}
                                     disabled={isPlatformDisabled}
                                     onClick={() => toggleAccount(account.id)}
+                                    transition={{ layout: { duration: 0.35, ease: [0.32, 0.72, 0, 1] } }}
                                     className={cn(
                                       "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all duration-200",
                                       isSelected
@@ -1027,7 +1205,7 @@ export default function NewPostPage() {
                                     <span className="max-w-[90px] truncate">
                                       {account.account_name}
                                     </span>
-                                  </button>
+                                  </motion.button>
                                 );
                                 if (tooltipMessage) {
                                   return (
@@ -1053,10 +1231,18 @@ export default function NewPostPage() {
           </div>
 
           {/* TikTok privacy & video settings (mirrors EditPostDialog) */}
-          {hasTikTokIntent && (
-            <div className="space-y-3 rounded-[20px] border border-black/5 bg-white/60 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03]">
+          <AnimatePresence>
+            {hasTikTokIntent && (
+              <motion.div
+                key="tiktok-privacy"
+                initial={reduce ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? undefined : { opacity: 0, y: 8 }}
+                transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+                className="space-y-3 rounded-[20px] border border-black/5 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]"
+              >
               <div className="space-y-1">
-                <Label className="text-sm font-medium text-muted-foreground/80">
+                <Label className="text-sm font-medium text-muted-foreground">
                   {t("tiktokPrivacyTitle")}
                 </Label>
                 <p className="text-xs text-muted-foreground/60">
@@ -1142,32 +1328,46 @@ export default function NewPostPage() {
                   </p>
                 )}
               </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
             </div>
-          )}
+          </div>
+
+          {/* ===== Card 3: Metadata ===== */}
+          <div className="rounded-[20px] border border-slate-200/60 bg-white/70 p-1.5 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03] dark:backdrop-blur-none">
+            <div className="rounded-[14px] border border-black/5 bg-card/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] p-6 space-y-6">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/10">
+                  <Tags className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-foreground">{t("sectionMeta")}</h2>
+              </div>
 
           {/* Location */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">Lokace</Label>
+            <Label className="text-sm font-medium text-muted-foreground">Lokace</Label>
             <div className="relative">
               <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder={t("locationPlaceholder")}
-                className="h-12 rounded-xl border-white/10 bg-black/20 pl-10 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
+                className="h-12 rounded-xl border-slate-200 bg-white/50 pl-10 shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30 dark:border-white/10 dark:bg-black/20 dark:shadow-none"
               />
             </div>
           </div>
 
           {/* Tags */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">{t("addTags")}</Label>
+            <Label className="text-sm font-medium text-muted-foreground">{t("addTags")}</Label>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-gradient-to-br from-indigo-600/30 to-purple-600/30 px-3 py-1 text-sm text-indigo-100 shadow-[0_0_16px_rgba(99,102,241,0.15)]"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-gradient-to-br from-indigo-600/15 to-purple-600/15 px-3 py-1 text-sm text-indigo-700 shadow-sm dark:border-white/10 dark:from-indigo-600/30 dark:to-purple-600/30 dark:text-indigo-100 dark:shadow-[0_0_16px_rgba(99,102,241,0.15)]"
                   >
                     {tag}
                     <button
@@ -1196,13 +1396,13 @@ export default function NewPostPage() {
               }}
               onBlur={() => commitTag(tagDraft)}
               placeholder={t("addTags")}
-              className="h-12 rounded-xl border-white/10 bg-black/20 focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30"
+              className="h-12 rounded-xl border-slate-200 bg-white/50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] focus-visible:ring-0 focus-visible:border-indigo-500/50 placeholder:text-muted-foreground/30 dark:border-white/10 dark:bg-black/20 dark:shadow-none"
             />
           </div>
 
           {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               {t("internalTags")}
             </Label>
             <TagPicker
@@ -1219,9 +1419,22 @@ export default function NewPostPage() {
             />
           </div>
 
+            </div>
+          </div>
+
+          {/* ===== Publish bar: schedule + actions ===== */}
+          <div className="rounded-[20px] border border-slate-200/60 bg-white/70 p-1.5 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03] dark:backdrop-blur-none">
+            <div className="rounded-[14px] border border-black/5 bg-card/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] p-6 space-y-6">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/10">
+                  <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-foreground">{t("sectionSchedule")}</h2>
+              </div>
+
           {/* Schedule */}
           <div className="space-y-2">
-            <Label htmlFor="scheduledAt" className="text-sm font-medium text-muted-foreground/80">
+            <Label htmlFor="scheduledAt" className="text-sm font-medium text-muted-foreground">
               {t("scheduledAt")}
             </Label>
             <DateTimePicker
@@ -1229,29 +1442,40 @@ export default function NewPostPage() {
               onChange={setScheduledAt}
               locale={typeof locale === "string" ? locale : "en"}
             />
+            <ScheduleQuickSlots
+              value={scheduledAt}
+              onSelect={setScheduledAt}
+              locale={typeof locale === "string" ? locale : "en"}
+              labels={{
+                queue: t("quickSlotQueue"),
+                today18: t("quickSlotToday18"),
+                tomorrow9: t("quickSlotTomorrow9"),
+                queueLoading: t("quickSlotQueueLoading"),
+              }}
+            />
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-col gap-2 pt-2">
+          <div className="flex flex-col gap-3 pt-3">
             {/* Instagram video-resolution hard-block banner. */}
             {isInstagramVideoIncompatible && (
               <div
-                className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200/90"
+                className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-200/90"
                 role="alert"
               >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500 dark:text-rose-400" />
                 <div className="space-y-0.5">
                   <p className="font-medium">{t("instagramVideoTooSmall")}</p>
-                  <p className="text-xs text-rose-200/70">{t("instagramVideoTooSmallHint")}</p>
+                  <p className="text-xs text-rose-600 dark:text-rose-200/70">{t("instagramVideoTooSmallHint")}</p>
                 </div>
               </div>
             )}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 justify-end">
               <Button
                 onClick={() => handleSubmit("draft")}
                 disabled={!content.trim() || loading || publishing || hasUploading()}
                 variant="outline"
-                className="rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06] transition-all active:scale-[0.98]"
               >
                 {(loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {(loading || hasUploading()) ? t("saving") : t("saveDraft")}
@@ -1261,7 +1485,7 @@ export default function NewPostPage() {
                 disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || queuing || hasUploading() || isInstagramVideoIncompatible}
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 variant="outline"
-                className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all"
+                className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all active:scale-[0.98]"
               >
                 {queuing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListOrdered className="mr-2 h-4 w-4" />}
                 {queuing ? t("queueLoading") : t("addToQueue")}
@@ -1270,7 +1494,7 @@ export default function NewPostPage() {
                 onClick={() => handleSubmit("scheduled")}
                 disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
-                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
                 {(loading || hasUploading()) ? t("saving") : t("schedule")}
@@ -1279,7 +1503,7 @@ export default function NewPostPage() {
                 onClick={handlePublishNow}
                 disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
-                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {(publishing || loading || hasUploading()) ? t("saving") : (hasManualTwitter ? t("prepareToDo") : t("publishNow"))}
@@ -1292,6 +1516,28 @@ export default function NewPostPage() {
               </p>
             )}
           </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column - sticky live preview on desktop, below form on mobile */}
+        <div className="min-w-0">
+          <div className="lg:sticky lg:top-0 lg:max-h-[70vh] lg:overflow-y-auto">
+            <PostPreview
+              content={content}
+              media={previewMedia}
+              facebookProfile={facebookProfile}
+              instagramProfile={instagramProfile}
+              youtubeProfile={youtubeProfile}
+              linkedinProfile={linkedinProfile}
+              tiktokProfile={tiktokProfile}
+              twitterProfile={twitterProfile}
+              availablePlatforms={availablePreviewPlatforms}
+              location={location}
+              labels={previewLabels}
+            />
+          </div>
+        </div>
         </div>
       </div>
     </div>

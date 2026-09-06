@@ -83,6 +83,9 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
         ? selectedTagIds.filter((x) => x !== id)
         : [...selectedTagIds, id],
     );
+    // Close the dropdown after a selection so it does not overlap the next
+    // section (publish bar) and the user can keep moving through the form.
+    setOpen(false);
   };
 
   const handleCreate = async () => {

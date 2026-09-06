@@ -182,7 +182,7 @@ export function AIAssistantButton({
           type="button"
           disabled={isLoading}
           className={
-            "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-1 text-xs flex items-center gap-2 transition-all hover:bg-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg px-3 py-1 text-xs flex items-center gap-2 transition-all active:scale-[0.98] hover:bg-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           }
         >
           {isLoading ? (

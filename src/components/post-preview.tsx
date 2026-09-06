@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 /**
  * Props shared between the preview and the form.
@@ -150,6 +151,7 @@ export function PostPreview({
   // Fall back to the default platform list when the parent does not
   // explicitly opt in – preserves backward compatibility for callers that
   // haven't migrated to the dynamic list yet.
+  const reduce = useReducedMotion();
   const tabs = availablePlatforms ?? DEFAULT_AVAILABLE_PLATFORMS;
   const firstTab = tabs[0] ?? "facebook";
 
@@ -223,10 +225,10 @@ export function PostPreview({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-[20px] border border-white/5 bg-card/40 p-4 backdrop-blur-md">
+    <div className="flex h-full min-h-0 flex-col rounded-[20px] border-l border-slate-200 bg-white/40 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-black/40 dark:backdrop-blur-md">
       {/* Header: title + segmented control */}
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium text-muted-foreground/80">
+        <h3 className="text-sm font-medium text-slate-900 dark:text-muted-foreground/80">
           {labels.previewTitle}
         </h3>
         {tabDescriptors.length > 0 ? (
@@ -239,8 +241,16 @@ export function PostPreview({
       </div>
 
       {/* Phone mock – constrained height to mimic a mobile feed card */}
-      <div className="relative flex-1 overflow-hidden rounded-[20px] border border-white/5 bg-black min-h-0">
-        {effectivePlatform === "facebook" ? (
+      <div className="relative flex-1 overflow-hidden rounded-[20px] border border-slate-200 bg-white min-h-0 dark:border-white/5 dark:bg-black">
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={effectivePlatform}
+            initial={reduce ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+            className="h-full w-full"
+          >
+            {effectivePlatform === "facebook" ? (
           <FacebookPreview
             content={content}
             media={media}
@@ -283,7 +293,9 @@ export function PostPreview({
             profile={activeProfile}
             labels={labels}
           />
-        )}
+          )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -306,9 +318,16 @@ function TikTokPreview({
 }) {
   // TikTok only supports video
   const videoMedia = media.find((m) => m.kind === "video") ?? media[0];
+  // Over a real video/image the bottom scrim + white rail match real TikTok and are
+  // theme-independent. In the empty state the placeholder owns the background, so the
+  // rail follows the theme instead (readable over slate / #121212).
+  const overlayScrimClass = videoMedia
+    ? "bg-gradient-to-t from-black/80 via-black/20 to-transparent"
+    : "bg-gradient-to-t from-white/90 via-white/30 to-transparent dark:from-black/80 dark:via-black/20 dark:to-transparent";
+  const overlayTextClass = videoMedia ? "text-white" : "text-[#0f0f0f] dark:text-white";
 
   return (
-    <div className="flex h-full flex-col bg-black text-white">
+    <div className="flex h-full flex-col bg-white text-[#0f0f0f] dark:bg-black dark:text-white">
       {/* Feed card – same scrollable pattern as Facebook/IG */}
       <div className="flex-1 overflow-y-auto px-3 pb-3 postio-scrollbar">
         <article className="relative h-full">
@@ -322,6 +341,8 @@ function TikTokPreview({
                   className="h-full w-full object-cover"
                   muted
                   playsInline
+                  loop
+                  autoPlay
                   preload="metadata"
                 >
                   <track kind="captions" />
@@ -335,8 +356,8 @@ function TikTokPreview({
                 />
               )
             ) : (
-              <div className="flex h-full items-center justify-center bg-[#121212]">
-                <div className="text-center text-white/50">
+              <div className="flex h-full items-center justify-center bg-slate-100 dark:bg-[#121212]">
+                <div className="text-center text-[#606060] dark:text-white/50">
                   <span className="mb-2 block text-4xl">🎵</span>
                   <p className="text-sm font-medium">
                     {labels.tiktokVideoRequired ?? labels.noMedia ?? "TikTok requires video"}
@@ -347,10 +368,10 @@ function TikTokPreview({
           </div>
 
           {/* Overlay gradient for text readability */}
-          <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+          <div className={`absolute inset-x-0 bottom-0 h-2/3 ${overlayScrimClass} pointer-events-none`} />
 
           {/* Content overlay – pushed to bottom */}
-          <div className="relative z-10 flex flex-col justify-end min-h-full p-4 pb-6">
+          <div className={`relative z-10 flex flex-col justify-end min-h-full p-4 pb-6 ${overlayTextClass}`}>
             <div className="flex flex-row items-end justify-between">
               {/* Left column: Author & Description */}
               <div className="flex-1 pr-12 min-w-0">
@@ -359,13 +380,13 @@ function TikTokPreview({
                 </div>
 
                 {content ? (
-                  <div className="text-sm text-white/90 font-normal leading-[1.3] line-clamp-3 mb-2">
+                  <div className="text-sm font-normal leading-[1.3] line-clamp-3 mb-2">
                     {content}
                   </div>
                 ) : null}
 
                 {/* Original Sound */}
-                <div className="flex items-center gap-2 text-sm text-white/80">
+                <div className="flex items-center gap-2 text-sm">
                   <svg className="w-4 h-4 animate-[spin_3s_linear_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 18V5l12-2v13"></path>
                     <circle cx="6" cy="18" r="3"></circle>
@@ -449,7 +470,7 @@ function TwitterPreview({
   const handle = `@${(profile.displayName ?? "user").replace(/\s+/g, "").toLowerCase()}`;
 
   return (
-    <div className="flex h-full flex-col bg-black text-[#e7e9ea]">
+    <div className="flex h-full flex-col bg-white text-[#0f1419] dark:bg-black dark:text-[#e7e9ea]">
       {/* Tweet card – scrollable, faithful to X mobile feed */}
       <div className="flex-1 overflow-y-auto postio-scrollbar">
         <article className="flex flex-col">
@@ -458,7 +479,7 @@ function TwitterPreview({
             <Avatar url={profile.avatarUrl} name={profile.displayName} size={40} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1">
-                <span className="truncate text-[15px] font-bold leading-5 text-[#e7e9ea]">
+                <span className="truncate text-[15px] font-bold leading-5 text-[#0f1419] dark:text-[#e7e9ea]">
                   {profile.displayName}
                 </span>
                 {/* Verified badge */}
@@ -470,14 +491,14 @@ function TwitterPreview({
                   <path d="M20.396 11c-.063-.214-.188-.57-.312-.813.5-.688.656-1.542.375-2.344-.281-.781-.906-1.375-1.656-1.614-.25-.083-.531-.125-.844-.125h-.271c-.135-.49-.324-1.016-.583-1.51-.614-1.177-1.615-2.135-2.937-2.682-.656-.271-1.354-.416-2.083-.416-.729 0-1.427.145-2.083.416-1.322.547-2.323 1.505-2.937 2.682-.26.494-.448 1.02-.583 1.51h-.271c-.313 0-.594.042-.844.125-.75.239-1.375.833-1.656 1.614-.281.802-.125 1.656.375 2.344-.124.244-.249.599-.312.813-.374 1.505-.124 3.083.791 4.385.906 1.302 2.333 2.12 3.937 2.26.104.01.208.01.312.01.625 0 1.375-.083 2.083-.427 1.385.672 2.979.531 4.208-.26 1.125-.739 1.906-1.927 2.177-3.271.083-.344.083-.708.083-1.042 0-.333 0-.666-.083-1.01z" />
                 </svg>
               </div>
-              <p className="truncate text-[15px] leading-5 text-[#71767b]">
+              <p className="truncate text-[15px] leading-5 text-[#536471] dark:text-[#71767b]">
                 {handle}
               </p>
             </div>
             {/* … menu */}
             <button
               type="button"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-[#71767b] transition-colors hover:bg-[#1d9bf0]/10 hover:text-[#1d9bf0]"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-[#536471] transition-colors hover:bg-[#1d9bf0]/10 dark:text-[#71767b] hover:text-[#1d9bf0]"
               tabIndex={-1}
               aria-hidden
             >
@@ -488,7 +509,7 @@ function TwitterPreview({
           </header>
 
           {/* ── 2. Timestamp ── */}
-          <div className="px-4 pb-1 text-[15px] text-[#71767b]">
+          <div className="px-4 pb-1 text-[15px] text-[#536471] dark:text-[#71767b]">
             {new Intl.DateTimeFormat("cs", {
               hour: "2-digit",
               minute: "2-digit",
@@ -505,33 +526,33 @@ function TwitterPreview({
           {/* ── 3. Tweet text ── */}
           <div className="px-4">
             {content.trim() ? (
-              <p className="whitespace-pre-wrap break-words text-[15px] leading-normal text-[#e7e9ea]">
+              <p className="whitespace-pre-wrap break-words text-[15px] leading-normal text-[#0f1419] dark:text-[#e7e9ea]">
                 {content}
               </p>
             ) : (
-              <p className="text-[15px] italic text-[#71767b]">
+              <p className="text-[15px] italic text-[#536471] dark:text-[#71767b]">
                 {labels.captionHint}
               </p>
             )}
           </div>
 
           {/* ── 4. Media ── */}
-          <div className="mx-4 mt-3 overflow-hidden rounded-2xl border border-[#2f3336] bg-black">
+          <div className="mx-4 mt-3 overflow-hidden rounded-2xl border border-[#e1e8ed] bg-white dark:border-[#2f3336] dark:bg-black">
             <MediaArea media={media} aspect="feed" labels={labels} />
           </div>
 
           {/* ── 5. Stats row (replies · reposts · likes) ── */}
-          <div className="mx-4 mt-2 flex items-center gap-1 text-[14px] text-[#71767b]">
-            <span className="font-medium text-[#e7e9ea]">0</span>
+          <div className="mx-4 mt-2 flex items-center gap-1 text-[14px] text-[#536471] dark:text-[#71767b]">
+            <span className="font-medium text-[#0f1419] dark:text-[#e7e9ea]">0</span>
             <span className="mr-2.5">{labels.repostsLabel ?? "Reposts"}</span>
-            <span className="font-medium text-[#e7e9ea]">0</span>
+            <span className="font-medium text-[#0f1419] dark:text-[#e7e9ea]">0</span>
             <span className="mr-2.5">{labels.actionLike ?? "Likes"}</span>
-            <span className="font-medium text-[#e7e9ea">0</span>
+            <span className="font-medium text-[#0f1419] dark:text-[#e7e9ea]">0</span>
             <span>{labels.viewsLabel ?? "Views"}</span>
           </div>
 
           {/* ── 6. Divider ── */}
-          <div className="mx-4 my-1 border-t border-[#2f3336]" />
+          <div className="mx-4 my-1 border-t border-[#e1e8ed] dark:border-[#2f3336]" />
 
           {/* ── 7. Interaction toolbar ── */}
           <div className="flex items-center justify-between px-4 py-0.5 max-w-[470px]">
@@ -604,7 +625,7 @@ function TwitterPreview({
           </div>
 
           {/* ── 8. Bottom divider ── */}
-          <div className="mx-4 mt-1 border-t border-[#2f3336]" />
+          <div className="mx-4 mt-1 border-t border-[#e1e8ed] dark:border-[#2f3336]" />
         </article>
       </div>
     </div>
@@ -658,7 +679,7 @@ function PlatformTabs({
     <div
       role="tablist"
       aria-label="Platform preview"
-      className="inline-flex flex-wrap justify-end gap-0.5 rounded-full border border-white/10 bg-white/[0.03] p-0.5"
+      className="inline-flex flex-wrap justify-end gap-0.5 rounded-full border border-slate-200 bg-white/70 p-0.5 dark:border-white/10 dark:bg-white/[0.03]"
     >
       {tabs.map((tab) => (
         <TabButton
@@ -692,9 +713,9 @@ function TabButton({
       onClick={onClick}
       className={cn(
         "relative rounded-full px-3 py-1 text-xs font-medium transition-all",
-        active ? "text-white" : "text-muted-foreground hover:text-foreground",
+        active ? "text-slate-900 dark:text-white" : "text-muted-foreground hover:text-foreground",
       )}
-      style={active ? { backgroundColor: `${accent}22`, color: accent } : undefined}
+      style={active ? { backgroundColor: `${accent}22` } : undefined}
     >
       {label}
     </button>
@@ -775,7 +796,7 @@ function MediaArea({
     return (
       <div
         className={cn(
-          "flex w-full items-center justify-center bg-white/[0.02] text-xs text-muted-foreground/50",
+          "flex w-full items-center justify-center bg-slate-100 text-xs text-slate-500 dark:bg-white/[0.02] dark:text-muted-foreground/50",
           emptyAspect,
         )}
       >
@@ -788,7 +809,7 @@ function MediaArea({
   // composition is always visible. The container height follows the
   // natural aspect ratio of the uploaded file.
   return (
-    <div className="relative w-full overflow-hidden bg-black">
+    <div className="relative w-full overflow-hidden bg-white dark:bg-black">
       {first.kind === "image" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -798,10 +819,13 @@ function MediaArea({
         />
       ) : (
         <video
+          key={first.previewUrl}
           src={first.previewUrl}
           className="w-full h-auto object-contain"
           muted
           playsInline
+          loop
+          autoPlay
           preload="metadata"
         >
           <track kind="captions" />
@@ -834,18 +858,18 @@ function FacebookPreview({
   labels: PostPreviewProps["labels"];
 }) {
   return (
-    <div className="flex h-full flex-col bg-[#242526] text-[#e4e6eb]">
+    <div className="flex h-full flex-col bg-[#f0f2f5] text-[#050505] dark:bg-[#242526] dark:text-[#e4e6eb]">
       {/* Feed card – no top bar, starts directly with the post */}
       <div className="flex-1 overflow-y-auto px-3 pb-3 postio-scrollbar">
-        <article className="rounded-lg bg-[#18191a] p-2.5">
+        <article className="rounded-lg bg-white p-2.5 dark:bg-[#18191a]">
           {/* Header: avatar + name + time */}
           <header className="mb-1.5 flex items-center gap-2">
             <Avatar url={profile.avatarUrl} name={profile.displayName} size={32} />
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold text-[#e4e6eb]">
+              <p className="truncate text-[13px] font-semibold text-[#050505] dark:text-[#e4e6eb]">
                 {profile.displayName}
               </p>
-              <p className="flex items-center gap-1 text-[10px] text-[#b0b3b8]">
+              <p className="flex items-center gap-1 text-[10px] text-[#65676b] dark:text-[#b0b3b8]">
                 {location ? <span>{location} · </span> : null}
                 <span>{labels.now ?? "Právě teď"}</span>
                 <span aria-hidden> · 🌐</span>
@@ -855,11 +879,11 @@ function FacebookPreview({
 
           {/* Caption text – above media (FB feed style) */}
           {content.trim() ? (
-            <p className="mb-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#e4e6eb]">
+            <p className="mb-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#050505] dark:text-[#e4e6eb]">
               {content}
             </p>
           ) : (
-            <p className="mb-1.5 text-[13px] italic text-[#b0b3b8]/60">
+            <p className="mb-1.5 text-[13px] italic text-[#65676b]/60 dark:text-[#b0b3b8]/60">
               {labels.captionHint}
             </p>
           )}
@@ -868,7 +892,7 @@ function FacebookPreview({
           <MediaArea media={media} aspect="feed" labels={labels} />
 
           {/* Engagement summary */}
-          <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#b0b3b8]">
+          <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#65676b] dark:text-[#b0b3b8]">
             <span className="flex items-center gap-1">
               <span className="flex -space-x-1">
                 <span className="inline-block rounded-full bg-[#1877F2] h-4 w-4 flex items-center justify-center text-[8px] text-white">👍</span>
@@ -880,19 +904,19 @@ function FacebookPreview({
           </div>
 
           {/* Divider */}
-          <div className="my-1.5 border-t border-white/5" />
+          <div className="my-1.5 border-t border-black/10 dark:border-white/5" />
 
           {/* Action row: Like / Comment / Share – FB mobile icons */}
-          <div className="grid grid-cols-3 gap-1 text-[11px] font-medium text-[#b0b3b8]">
-            <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
+          <div className="grid grid-cols-3 gap-1 text-[11px] font-medium text-[#65676b] dark:text-[#b0b3b8]">
+            <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-default">
               <span aria-hidden className="text-base">👍</span>
               {labels.actionLike ?? "Líbí se mi"}
             </span>
-            <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
+            <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-default">
               <span aria-hidden className="text-base">💬</span>
               {labels.actionComment ?? "Komentář"}
             </span>
-            <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-default">
+            <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-default">
               <span aria-hidden className="text-base">↗</span>
               {labels.actionShare ?? "Sdílet"}
             </span>
@@ -919,13 +943,13 @@ function InstagramPreview({
   labels: PostPreviewProps["labels"];
 }) {
   return (
-    <div className="flex h-full flex-col bg-black text-white">
+    <div className="flex h-full flex-col bg-white text-[#262626] dark:bg-black dark:text-white">
       {/* Feed card – no top bar, starts directly with the post */}
       <article className="flex-1 overflow-y-auto postio-scrollbar">
         {/* Header: avatar (with IG-style gradient ring) + username */}
         <header className="flex items-center gap-2 px-3 py-2">
           <div className="rounded-full bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-[2px]">
-            <div className="rounded-full bg-black p-[2px]">
+            <div className="rounded-full bg-white p-[2px] dark:bg-black">
               <Avatar url={profile.avatarUrl} name={profile.displayName} size={28} />
             </div>
           </div>
@@ -954,7 +978,7 @@ function InstagramPreview({
               {content}
             </p>
           ) : (
-            <p className="italic text-white/40">{labels.captionHint}</p>
+            <p className="italic text-[#8e8e8e] dark:text-white/40">{labels.captionHint}</p>
           )}
         </div>
       </article>
@@ -988,7 +1012,7 @@ function YouTubePreview({
   labels: PostPreviewProps["labels"];
 }) {
   return (
-    <div className="flex h-full flex-col bg-[#0f0f0f] text-white">
+    <div className="flex h-full flex-col bg-white text-[#0f0f0f] dark:bg-[#0f0f0f] dark:text-white">
       {/* Feed card – no top bar, starts directly with video player */}
       <article className="flex-1 overflow-y-auto postio-scrollbar">
         {/* 16:9 video player frame */}
@@ -996,13 +1020,13 @@ function YouTubePreview({
 
         {/* Title – mirrors snippet.title from the publisher (post.content).
             Truncated visually by line-clamp to mimic YT's 2-line title. */}
-        <h2 className="px-3 pt-2 text-[13px] font-semibold leading-snug text-white">
+        <h2 className="px-3 pt-2 text-[13px] font-semibold leading-snug text-[#0f0f0f] dark:text-white">
           {content.trim() ? (
             <span className="line-clamp-2 whitespace-pre-wrap break-words">
               {content}
             </span>
           ) : (
-            <span className="italic text-white/40">{labels.captionHint}</span>
+            <span className="italic text-[#606060] dark:text-white/40">{labels.captionHint}</span>
           )}
         </h2>
 
@@ -1010,10 +1034,10 @@ function YouTubePreview({
         <div className="flex items-center gap-2 px-3 pt-2">
           <Avatar url={profile.avatarUrl} name={profile.displayName} size={28} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-white">
+            <p className="truncate text-[13px] font-medium text-[#0f0f0f] dark:text-white">
               {profile.displayName}
             </p>
-            <p className="text-[10px] text-white/60">{labels.subscribersCount ?? "0 subscribers"}</p>
+            <p className="text-[10px] text-[#606060] dark:text-white/60">{labels.subscribersCount ?? "0 subscribers"}</p>
           </div>
           <span
             aria-hidden
@@ -1024,8 +1048,8 @@ function YouTubePreview({
         </div>
 
         {/* Description chip */}
-        <div className="mx-3 mt-2 rounded-xl bg-white/[0.06] p-2 text-[11px] text-white/85">
-          <p className="font-medium text-white/70">{labels.viewsNow ?? "0 views · just now"}</p>
+        <div className="mx-3 mt-2 rounded-xl bg-slate-100 p-2 text-[11px] text-[#0f0f0f] dark:bg-white/[0.06] dark:text-white/85">
+          <p className="font-medium text-[#606060] dark:text-white/70">{labels.viewsNow ?? "0 views · just now"}</p>
           {content.trim() ? (
             <p className="mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
               {content}
@@ -1034,7 +1058,7 @@ function YouTubePreview({
         </div>
 
         {/* Action bar – LIKE / DISLIKE / SHARE, faithful to YT mobile */}
-        <div className="flex items-center justify-around px-3 py-2 text-[10px] text-white/80">
+        <div className="flex items-center justify-around px-3 py-2 text-[10px] text-[#606060] dark:text-white/80">
           <span className="flex flex-col items-center gap-0.5">
             <span aria-hidden className="text-sm leading-none">👍</span>
             <span>Like</span>
@@ -1083,21 +1107,21 @@ function LinkedInPreview({
   labels: PostPreviewProps["labels"];
 }) {
   return (
-    <div className="flex h-full flex-col bg-[#1a1a2e] text-[#e4e6eb]">
+    <div className="flex h-full flex-col bg-[#f3f2ef] text-[#191919] dark:bg-[#1a1a2e] dark:text-[#e4e6eb]">
       {/* Feed card – no top bar, starts directly with the post */}
       <div className="flex-1 overflow-y-auto px-3 py-2.5 postio-scrollbar">
-        <article className="rounded-lg bg-[#1e1e36] shadow-sm">
+        <article className="rounded-lg bg-white shadow-sm dark:bg-[#1e1e36]">
           {/* Header: avatar + name + headline + time + globe */}
           <header className="flex items-start gap-2 px-2.5 pt-2.5">
             <Avatar url={profile.avatarUrl} name={profile.displayName} size={36} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-[#e4e6eb]">
+              <p className="truncate text-[13px] font-semibold text-[#191919] dark:text-[#e4e6eb]">
                 {profile.displayName}
               </p>
-              <p className="truncate text-[10px] text-[#b0b3b8]">
+              <p className="truncate text-[10px] text-[#666] dark:text-[#b0b3b8]">
                 {labels.professionalDegree ?? "Professional · 1. stupeň"}
               </p>
-              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#b0b3b8]">
+              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#666] dark:text-[#b0b3b8]">
                 <span>{labels.now ?? "Právě teď"}</span>
                 <span aria-hidden>·</span>
                 <span aria-hidden>🌐</span>
@@ -1105,7 +1129,7 @@ function LinkedInPreview({
             </div>
             <span
               aria-hidden
-              className="text-sm text-[#b0b3b8]"
+              className="text-sm text-[#666] dark:text-[#b0b3b8]"
               title="More"
             >
               ⋯
@@ -1114,33 +1138,33 @@ function LinkedInPreview({
 
           {/* Caption text */}
           {content.trim() ? (
-            <p className="whitespace-pre-wrap break-words px-2.5 pt-1.5 text-[13px] leading-relaxed text-[#e4e6eb]">
+            <p className="whitespace-pre-wrap break-words px-2.5 pt-1.5 text-[13px] leading-relaxed text-[#191919] dark:text-[#e4e6eb]">
               {content}
             </p>
           ) : (
-            <p className="px-2.5 pt-1.5 text-[13px] italic text-[#b0b3b8]/60">
+            <p className="px-2.5 pt-1.5 text-[13px] italic text-[#666] dark:text-[#b0b3b8]/60">
               {labels.captionHint}
             </p>
           )}
 
           {/* Media – LinkedIn feed crop */}
           {media.length > 0 ? (
-            <div className="mt-1.5 overflow-hidden bg-black">
+            <div className="mt-1.5 overflow-hidden bg-white dark:bg-black">
               <MediaArea media={media} aspect="feed" labels={labels} />
             </div>
           ) : null}
 
           {/* Social proof row */}
-          <div className="flex items-center justify-between px-2.5 pb-0.5 pt-1.5 text-[10px] text-[#b0b3b8]">
+          <div className="flex items-center justify-between px-2.5 pb-0.5 pt-1.5 text-[10px] text-[#666] dark:text-[#b0b3b8]">
             <span aria-hidden>👍❤️👏 0</span>
             <span>{labels.commentStats ?? "0 komentářů"}</span>
           </div>
 
           {/* Divider */}
-          <div className="mx-2.5 border-t border-white/5" />
+          <div className="mx-2.5 border-t border-black/10 dark:border-white/5" />
 
           {/* Reaction row – Like / Comment / Repost / Send */}
-          <div className="grid grid-cols-4 gap-1 px-1.5 py-1 text-[10px] font-medium text-[#b0b3b8]">
+          <div className="grid grid-cols-4 gap-1 px-1.5 py-1 text-[10px] font-medium text-[#666] dark:text-[#b0b3b8]">
             <span className="flex flex-col items-center gap-0.5 py-0.5">
               <span aria-hidden className="text-sm leading-none">👍</span>
               <span>{labels.actionLike ?? "To se mi líbí"}</span>

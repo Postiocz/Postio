@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { motion } from "framer-motion";
 import {
   DEFAULT_TIKTOK_SANDBOX_PRIVATE_ONLY_MESSAGE_CS,
   isTikTokSandboxPrivateOnlyError,
@@ -365,7 +366,8 @@ export function EditPostDialog({
       mediaItems
         .filter((i) => i.status !== "error")
         .map((i) => ({
-          previewUrl: i.previewUrl,
+          previewUrl:
+            i.status === "ready" && i.url ? i.url : i.previewUrl,
           kind: i.kind,
         })),
     [mediaItems],
@@ -2018,7 +2020,7 @@ export function EditPostDialog({
           {/* Status pills – only in edit mode */}
           {isEdit && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground/80">
+              <Label className="text-sm font-medium text-muted-foreground">
                 {t("statusDraft")}
               </Label>
               <div className="flex flex-wrap gap-2">
@@ -2052,7 +2054,7 @@ export function EditPostDialog({
           {/* Content */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="edit-content" className="text-sm font-medium text-muted-foreground/80">
+              <Label htmlFor="edit-content" className="text-sm font-medium text-muted-foreground">
                 {t("content")}
               </Label>
               <AIAssistantButton
@@ -2086,7 +2088,7 @@ export function EditPostDialog({
 
           {/* Media */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               {t("addMedia")}
             </Label>
             <input
@@ -2232,7 +2234,7 @@ export function EditPostDialog({
 
           {/* Platforms / Accounts */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               {t("selectPlatforms")}
             </Label>
             {allAccounts.length === 0 ? (
@@ -2309,7 +2311,7 @@ export function EditPostDialog({
                                 {Icon && <Icon className={cn("h-4 w-4", platformColor)} />}
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-xs font-medium text-muted-foreground/80">
+                                <span className="text-xs font-medium text-muted-foreground">
                                   {platformLabel}
                                 </span>
                               </div>
@@ -2366,11 +2368,13 @@ export function EditPostDialog({
                                     : null;
 
                                 const chip = (
-                                  <button
+                                  <motion.button
                                     key={account.id}
                                     type="button"
+                                    layoutId={`account-chip-${account.id}`}
                                     disabled={isPlatformDisabled}
                                     onClick={() => !isPublished && !isArchived && toggleAccount(account.id)}
+                                    transition={{ layout: { duration: 0.35, ease: [0.32, 0.72, 0, 1] } }}
                                     className={cn(
                                       "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all duration-200",
                                       isPublished
@@ -2398,7 +2402,7 @@ export function EditPostDialog({
                                       {account.account_name}
                                     </span>
                                     {isPublished && <Check className="h-3 w-3 shrink-0 text-green-500" />}
-                                  </button>
+                                  </motion.button>
                                 );
 
                                 if (tooltipMessage) {
@@ -2427,7 +2431,7 @@ export function EditPostDialog({
           {hasTikTokIntent && (
             <div className="space-y-3 rounded-[20px] border border-black/5 bg-white/60 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03]">
               <div className="space-y-1">
-                <Label className="text-sm font-medium text-muted-foreground/80">
+                <Label className="text-sm font-medium text-muted-foreground">
                   {t("tiktokPrivacyTitle")}
                 </Label>
                 <p className="text-xs text-muted-foreground/60">
@@ -2518,7 +2522,7 @@ export function EditPostDialog({
 
           {/* Location */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               Lokace
             </Label>
             <div className="relative">
@@ -2534,7 +2538,7 @@ export function EditPostDialog({
 
           {/* Tags */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               {t("addTags")}
             </Label>
             {tags.length > 0 && (
@@ -2576,7 +2580,7 @@ export function EditPostDialog({
 
           {/* Internal organization tags (Nastavení → Štítky) – interní, neodesílá se na sítě */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               {t("internalTags")}
             </Label>
             <TagPicker
@@ -2595,7 +2599,7 @@ export function EditPostDialog({
 
           {/* Schedule */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground/80">
+            <Label className="text-sm font-medium text-muted-foreground">
               {t("scheduledAt")}
             </Label>
             <DateTimePicker
@@ -2664,7 +2668,7 @@ export function EditPostDialog({
                     type="button"
                     onClick={() => handlePublishAdditional(p)}
                     disabled={isPublishingAdditional || hasUploading()}
-                    className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPublishingAdditional && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {Icon && <Icon className="mr-2 h-4 w-4" />}
@@ -2713,7 +2717,7 @@ export function EditPostDialog({
                         type="button"
                         onClick={() => handleUpdatePlatform(p)}
                         disabled={isUpdatingThis || mediaChanged || hasUploading()}
-                        className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isUpdatingThis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {Icon && <Icon className="mr-2 h-4 w-4" />}
@@ -2780,7 +2784,7 @@ export function EditPostDialog({
                 }
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
                 variant="outline"
-                className="rounded-xl border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all"
+                className="rounded-xl border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all active:scale-[0.98]"
               >
                 {queuing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <ListOrdered className="mr-2 h-4 w-4" />
@@ -2798,7 +2802,7 @@ export function EditPostDialog({
                   isInstagramVideoIncompatible
                 }
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
-                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? t("saving") : t("schedule")}
@@ -2814,7 +2818,7 @@ export function EditPostDialog({
                   isInstagramVideoIncompatible
                 }
                 title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
-                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+                className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {publishing ? t("saving") : t("publishNow")}

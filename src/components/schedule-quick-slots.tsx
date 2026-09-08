@@ -32,6 +32,8 @@ export function ScheduleQuickSlots({
     today18: string;
     tomorrow9: string;
     queueLoading: string;
+    wordToday: string;
+    wordTomorrow: string;
   };
 }) {
   // Next free queue slot, fetched lazily on mount so the chip can show the
@@ -88,6 +90,25 @@ export function ScheduleQuickSlots({
     }
   };
 
+  const fmtDay = (iso: string): string => {
+    if (!iso) return "";
+    try {
+      const target = new Date(iso);
+      const now = new Date();
+      const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+      const dayDiff = Math.round((startTarget.getTime() - startToday.getTime()) / 86_400_000);
+      if (dayDiff === 0) return labels.wordToday;
+      if (dayDiff === 1) return labels.wordTomorrow;
+      return target.toLocaleDateString(
+        locale && locale !== "en" ? `${locale}-${locale.toUpperCase()}` : "en-US",
+        { weekday: "short" },
+      );
+    } catch {
+      return "";
+    }
+  };
+
   const isActive = (iso: string): boolean => {
     if (!value || !iso) return false;
     const a = Date.parse(value);
@@ -106,12 +127,12 @@ export function ScheduleQuickSlots({
     <button
       type="button"
       disabled={disabled}
-      onClick={() => onSelect(iso)}
+      onClick={() => (isActive(iso) && !disabled ? onSelect("") : onSelect(iso))}
       aria-pressed={isActive(iso) && !disabled}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
         isActive(iso) && !disabled
-          ? "border-indigo-500/70 bg-indigo-500/20 text-indigo-300 shadow-[0_0_14px_rgba(99,102,241,0.35)] dark:border-indigo-500/90 dark:bg-indigo-500/30 dark:text-indigo-200"
+          ? "border-indigo-500/70 bg-indigo-500/20 text-indigo-700 shadow-[0_0_14px_rgba(99,102,241,0.35)] dark:border-indigo-500/90 dark:bg-indigo-500/30 dark:text-indigo-200"
           : "border-black/5 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground",
         disabled && "cursor-not-allowed opacity-40",
       )}
@@ -123,7 +144,7 @@ export function ScheduleQuickSlots({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {chip(queueAt ?? "", queueLoading ? labels.queueLoading : `${labels.queue} · ${fmtTime(queueAt ?? "")}`, {
+      {chip(queueAt ?? "", queueLoading ? labels.queueLoading : `${fmtDay(queueAt ?? "")} · ${fmtTime(queueAt ?? "")}`, {
         load: queueLoading,
         disabled: !queueAt,
       })}

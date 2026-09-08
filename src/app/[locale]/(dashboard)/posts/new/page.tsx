@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
 import { publishPost } from "@/lib/actions/publish";
 import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
-import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X, Info, FileText, Users, Tags } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X, Info, FileText, Users, Tags, Settings } from "lucide-react";
 import {
   getTikTokCreatorInfoAction,
   type TikTokCreatorInfo,
@@ -1430,6 +1430,20 @@ export default function NewPostPage() {
                   <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-foreground">{t("sectionSchedule")}</h2>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={`/${typeof locale === "string" ? locale : "cs"}/settings/preferences`}
+                        aria-label={t("editSchedule")}
+                        className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-indigo-500/10 hover:text-indigo-600 dark:text-muted-foreground dark:hover:bg-indigo-500/15 dark:hover:text-indigo-400"
+                      >
+                        <Settings className="h-3.5 w-3.5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("editSchedule")}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
 
           {/* Schedule */}
@@ -1451,6 +1465,8 @@ export default function NewPostPage() {
                 today18: t("quickSlotToday18"),
                 tomorrow9: t("quickSlotTomorrow9"),
                 queueLoading: t("quickSlotQueueLoading"),
+                wordToday: t("quickSlotWordToday"),
+                wordTomorrow: t("quickSlotWordTomorrow"),
               }}
             />
           </div>

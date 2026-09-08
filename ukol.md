@@ -41,3 +41,15 @@
 ---
 
 ## 10. AKTUÁLNÍ ÚKOLY
+
+### 🎨 Prompt 070 – Sjednotit EditPostDialog s funkcemi /posts/new (2026-09-08)
+
+- **Kontext**: Při editaci hotového příspěvku i konceptu se z `/posts` otevírá `EditPostDialog` (vzhled modálu uživateli vyhovuje, beze změny), ale edit modál nemá všechny funkce jako stránka `/posts/new`. Analýza dialogu (2849 řádků) vs. posledních feature `/posts/new` ukázala, že v sekci „Čas" chybí právě Quick slot čipy + odkaz do nastavení rozvrhu (ostatní bloky – Content/AI, Media, Účty, TikTok privacy, Lokace, Hashtagy, Interní štítky, Live Preview, akční tlačítka – v modálu JSOU).
+- [ ] KROK 1: Quick slot čipy (`ScheduleQuickSlots`) do edit modálu.
+     * Sekce „Čas" má jen `DateTimePicker` (edit-post-dialog.tsx ř. ~2605); chybí čipy Fronta / Dnes 18:00 / Zítra 09:00 z `/posts/new`.
+     * Importovat sdílenou `<ScheduleQuickSlots>` (props `value`/`onSelect`/`locale` + `labels` přes `t(...)` z posts namespace – klíče `quickSlotQueue`, `quickSlotToday18`, `quickSlotTomorrow9`, `quickSlotQueueLoading`, `quickSlotWordToday`, `quickSlotWordTomorrow`), vykreslit pod `DateTimePicker` v edit modu; toggle odznačení funguje přes `onSelect("")` (vynuluje `scheduledAt`).
+- [ ] KROK 2: Odkaz do nastavení rozvrhu v edit modálu.
+     * Vedle labelu sekce „Čas" ikona `Settings` (Lucide) v Radix tooltipu + `Link` na `/{locale}/settings/preferences`, i18n `editSchedule` (cs/en/uk), `aria-label` – shodně s `/posts/new` (KROK 2, Prompt 068).
+- [ ] KROK 3: Vizuální kontrola (Light/Dark).
+     * Aktivní čip v modálu = indigo dle design manuálů (Light `text-indigo-700`, dark `text-indigo-200`), kontrast WCAG AA; settings ikona `text-slate-500 hover:text-indigo-600 dark:text-muted-foreground`.
+     * Ověřit `npx tsc --noEmit` + manuální test obou režimů.

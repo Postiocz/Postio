@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Prompt 068 – KROK 1-3: Dynamický čip Fronty + odkaz do nastavení rozvrhu + kontrast Light ✅
+
+- **Kontext**: Čip Fronty (CalendarClock) v Quick slotech `/posts/new` ukazoval jen statický text „Fronta (příští volný slot)" + čas; aktivní čip šlo odznačit jen kliknutím na jiný čip. Chyběl rychlý přístup k nastavení rozvrhu.
+- **Změny** (`schedule-quick-slots.tsx`, `posts/new/page.tsx`, messages cs/en/uk):
+  - ✅ Dynamický text čipu Fronty: místo statického `labels.queue` zobrazuje i DEN odvozený z `queueAt` ISO (user timezone) přes novou funkci `fmtDay` – „Dnes · 09:00" / „Zítra · 09:00" / zkrácený název dne (Po, Tue, пн) lokálně dle locale. Nové i18n klíče `quickSlotWordToday`/`quickSlotWordTomorrow`.
+  - ✅ Toggle odznačení: klik na aktivní čip vymaže `scheduledAt` (`onSelect("")`) – čip se odznačí a deaktivuje Schedule; konzistentně pro všechny 3 čipy.
+  - ✅ Rychlý odkaz do nastavení rozvrhu: v hlavičce sekce „Čas a publikace" (ml-auto vpravo) ikona `Settings` v Radix tooltipu, `Link` na `/{locale}/settings/preferences`, i18n `editSchedule` (cs/en/uk), `aria-label`.
+  - ✅ Kontrast Light: aktivní chip text `text-indigo-300`→`text-indigo-700` (~2.3:1→~5.5:1, WCAG AA), dark `text-indigo-200` zachován; neaktivní chip `text-slate-700`, link `text-slate-500 hover:text-indigo-600` – dle manuálů.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (čipy + odkaz + Light/Dark).
+
 ### 🎨 Prompt 069 – KROK 5: Kontrast captionu + Final polish ✅
 
 - **Kontext**: Po KROKU 1–4 mají všechny platformy Light skiny; zbývalo doladit čitelnost captionu a jednotných mikro-detailů v live preview.
@@ -91,15 +101,6 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (karty vzdušné, nic nepřetéká, profesionální rozvržení).
 
 
-### 🎨 Prompt 067 – KROK 1: Split Layout s Live Preview pro `/posts/new` ✅
-
-- **Kontext**: Editor nového příspěvku měl jediný sloupec `max-w-3xl` bez jakéhokoli náhledu – uživatel musel skrolovat a neviděl, jak bude post vypadat na sítích.
-- **Změny**:
-  - ✅ `posts/new/page.tsx`: kontejner rozšířen na `max-w-[1200px]`, dvousloupcový grid `lg:grid-cols-[1fr_42%]` – formulář vlevo, sticky Live Preview vpravo (`lg:sticky lg:top-0`, `max-h-[70vh]`); na mobilu (<1024px) preview plynule pod formulářem (již není skryté jako v EditPostDialog).
-  - ✅ Hlavička zarovnaná vlevo: kulaté zpětné tlačítko + H1 v jedné řadě (zrušen `text-center`).
-  - ✅ Napojena hotová komponenta `PostPreview` (taby FB/IG/YT/LI/TikTok/X, média, lokace): profily účtů ze `social_accounts` (priorita) + `users` (fallback), `previewMedia` z `useMediaUpload`, `availablePreviewPlatforms` odvozeno z vybraných účtů, `previewLabels` s i18n fallbacky (zrcadlo EditPostDialog).
-  - 🐛 Oprava video náhledu (zjistěné při extra testе): `previewMedia` preferuje stabilný `url` (public) pro ready media místo zrušeného blob `previewUrl` (živý upload mizí náhled při výbere 2. platformy; koncept flow fungoval bo používá public URL) – opraveno identicky v `posts/new/page.tsx` i `edit-post-dialog.tsx`. Navíc `post-preview.tsx`: `autoPlay loop` na video elementy + `key={previewUrl}` (čistý remount při změnе URL).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (desktop: form+preview vedle sebe, sticky; mobil: preview pod formulářem; video náhled funguje živě i při výbere více platforem).
 
 
 

@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock, ListOrdered } from "lucide-react";
+import { X, MapPin, Loader2, Film, Image as ImageIcon, AlertTriangle, Info, Check, ExternalLink, Pencil, Lock, ListOrdered, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +45,7 @@ import { TagPicker } from "@/components/tag-picker";
 import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/components/post-preview";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildLiveUrlInfo, type LiveUrlResult } from "@/lib/live-url";
+import { ScheduleQuickSlots } from "@/components/schedule-quick-slots";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -2599,13 +2600,42 @@ export function EditPostDialog({
 
           {/* Schedule */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">
-              {t("scheduledAt")}
-            </Label>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium text-muted-foreground">
+                {t("scheduledAt")}
+              </Label>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/${locale}/settings/preferences`}
+                      aria-label={t("editSchedule")}
+                      className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-indigo-500/10 hover:text-indigo-600 dark:text-muted-foreground dark:hover:bg-indigo-500/15 dark:hover:text-indigo-400"
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("editSchedule")}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <DateTimePicker
               value={scheduledAt}
               onChange={setScheduledAt}
               locale={locale}
+            />
+            <ScheduleQuickSlots
+              value={scheduledAt}
+              onSelect={setScheduledAt}
+              locale={locale}
+              labels={{
+                queue: t("quickSlotQueue"),
+                today18: t("quickSlotToday18"),
+                tomorrow9: t("quickSlotTomorrow9"),
+                queueLoading: t("quickSlotQueueLoading"),
+                wordToday: t("quickSlotWordToday"),
+                wordTomorrow: t("quickSlotWordTomorrow"),
+              }}
             />
           </div>
         </div>

@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Prompt 070 – KROK 1-3: Sjednocení EditPostDialog s /posts/new + fix obnovy modálu ✅
+
+- **Kontext**: EditPostDialog (z `/posts`) měl v sekci „Čas" jen `DateTimePicker`; `/posts/new` navíc nabízí Quick slot čipy (Fronta / Dnes 18:00 / Zítra 09:00) + odkaz do nastavení rozvrhu. Sjednocení vyžadoval i Light mod v poli „Interní štítky" – vybrané štítky měly moc tmavé pozadí.
+- **Změny**:
+  - ✅ KROK 1 – `edit-post-dialog.tsx`: pod `DateTimePicker` vložena sdílená `<ScheduleQuickSlots>` (props `value`/`onSelect`/`locale`, `labels` přes `t("quickSlot*")` z posts namespace). Toggle odznačení aktivního čipu funguje přes `onSelect("")` (vynuluje `scheduledAt`).
+  - ✅ `tag-picker.tsx` (Light fix, platí i pro `/posts/new` – sdílená komponenta): pole čipů `bg-black/20`→`bg-white/50 dark:bg-black/20`, dropdown `bg-card/95`→`bg-white/95 dark:bg-card/95`, inputy `bg-black/30`→`bg-white/60 dark:bg-black/30`, hover `bg-white/5`→`bg-black/5 dark:hover:bg-white/5`, text „Vytvořit štítek" `text-indigo-600 dark:text-indigo-400`, bordery `border-white/10`→`border-black/5 dark:border-white/10`.
+  - ✅ KROK 2 – `edit-post-dialog.tsx`: vedle labelu sekce „Čas" ikona `Settings` (Lucide) v Radix tooltipu + `Link` na `/{locale}/settings/preferences`, i18n `editSchedule` (cs/en/uk), `aria-label` – shodně s `/posts/new`.
+  - ✅ Bugfix – `_post-card.tsx`: otevření edit modálu přesunuto z lokálního `useState` do URL query (`?edit=<postId>`). Po kliku na ozubené kolečko (→ `/settings/preferences`) a návratu zpět se modál znovu otevře místo prázdné stránky příspěvků.
+  - ✅ KROK 3 – vizuální kontrola Light/Dark: aktivní čip `text-indigo-700` / dark `text-indigo-200` (WCAG AA), settings ikona `text-slate-500 hover:text-indigo-600 dark:text-muted-foreground` – dle design manuálů.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (čipy + Light/Dark Interní štítky + odkaz + nová navigace i obnovení modálu).
+
 ### 🎨 Prompt 068 – KROK 1-3: Dynamický čip Fronty + odkaz do nastavení rozvrhu + kontrast Light ✅
 
 - **Kontext**: Čip Fronty (CalendarClock) v Quick slotech `/posts/new` ukazoval jen statický text „Fronta (příští volný slot)" + čas; aktivní čip šlo odznačit jen kliknutím na jiný čip. Chyběl rychlý přístup k nastavení rozvrhu.
@@ -88,17 +99,6 @@
   - 🐛 Fix overflow: odstraněn `overflow-hidden` ze 4 karet editoru (page.tsx) – dropdown „Interní štítky“ se nyní vykresluje nad okraji karet; ořez médií zůstává na media kontejneru (`overflow-hidden rounded-[20px]`).
   - 🐛 UX: `TagPicker` se po výběru štítku sám zavře (`setOpen(false)` v `toggle`) – nepřekrývá další sekce a uživatel nemusí klikat vedle.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (dropdown celý viditelný a po výběru se sám schová; chip má viditelný indigo glow).
-
-### 🎨 Prompt 067 – KROK 2: Vizuální seskupení formuláře (3 glass karty + publish bar) ✅
-
-- **Kontext**: Editor `/posts/new` měl jednu obří kartu se všemi 9 bloky pod sebou – neintuitivne, bez logické hierarchie.
-- **Změny**:
-  - ✅ Rozbito obří kartu na 3 Double-Bezel glass karty + samostatná „publish bar": **1. Obsah a média** (Content + Media), **2. Cílové účty** (výběr účtů + TikTok/X panely), **3. Metadata** (Lokace, Hashtagy, Interní štítky), **4. Čas a publikace** (Schedule + akční tlačítka). Double-Bezel: outer shell `rounded-[20px] ring-1 ring-white/10 p-1.5 overflow-hidden` + inner core `rounded-[14px] bg-card/40 shadow-[inset...] p-6`.
-  - ✅ Konzistentní Shape Consistency: 20px karty / 14px vnitřné / pill tlačítka; hover ikony sekcí (FileText/Users/Tags/Calendar) s indigo glow.
-  - ✅ Performance guardrail: odstrané `backdrop-blur` ze skrolujících prvkov (dropzone, media mřížka, TikTok panel) – glass efekt zůstal přes jemný tinted bg, bez GPU repaintů na mobilu.
-  - ✅ i18n: nové klíče `sectionContent/sectionAccounts/sectionMeta/sectionSchedule` v cs/en/uk.
-  - 🐛 Kosmetika po extra testu: inner padding `p-5`→`p-6` (obsah „levituje"), `overflow-hidden` na outer (nic nepřetéká přes rám), publish bar vzdušněji (`pt-3`, `gap-3`, `justify-end`).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (karty vzdušné, nic nepřetéká, profesionální rozvržení).
 
 
 

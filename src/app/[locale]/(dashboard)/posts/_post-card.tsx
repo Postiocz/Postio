@@ -2,6 +2,7 @@
 
 /* eslint-disable prefer-const */
 import { useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,6 @@ import {
   TikTok,
 } from "@/components/ui/social-icons";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
 import { deleteFromMeta, markAsPublishedManual } from "@/lib/actions/publish";
 import { EditPostDialog } from "@/components/edit-post-dialog";
@@ -114,7 +114,6 @@ export function PostCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [smartDeleteOpen, setSmartDeleteOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
@@ -124,6 +123,28 @@ export function PostCard({
   // #13 — Content expand/collapse state
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
+  // Edit dialog open state is derived from the URL (?edit=<id>) so that
+  // after navigating away (e.g. to /settings/preferences from the schedule
+  // section) the browser Back button restores the same URL and the modal
+  // reopens instead of landing on a bare list.
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const editParam = searchParams.get("edit");
+  const editOpen = editParam === post.id;
+
+  const openEdit = () => {
+    const p = new URLSearchParams(searchParams.toString());
+    p.set("edit", post.id);
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+  };
+
+  const closeEdit = () => {
+    const p = new URLSearchParams(searchParams.toString());
+    p.delete("edit");
+    const qs = p.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
   const t = useTranslations("posts");
   const td = useTranslations("dashboard");
   // next-intl's parameterized t() can return undefined; this helper always returns string
@@ -382,7 +403,7 @@ export function PostCard({
           size="icon-sm"
           className="h-8 w-8 relative z-[50] cursor-pointer bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-black/[0.06] dark:border-white/10"
           title={tv("editPost", {}, "Edit")}
-          onClick={() => setEditOpen(true)}
+          onClick={openEdit}
         >
           <Edit className="h-3.5 w-3.5" />
         </Button>
@@ -648,7 +669,7 @@ export function PostCard({
 
     <EditPostDialog
       open={editOpen}
-      onOpenChange={setEditOpen}
+      onOpenChange={(v) => (v ? openEdit() : closeEdit())}
       post={{
         id: post.id,
         content: post.content,

@@ -112,7 +112,7 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
       {/* Selected tag chips + click area */}
       <div
         onClick={() => setOpen(true)}
-        className="flex min-h-[42px] cursor-text flex-wrap items-center gap-2 rounded-[20px] border border-white/10 bg-black/20 px-3 py-2 transition-colors hover:border-white/20"
+        className="flex min-h-[42px] cursor-text flex-wrap items-center gap-2 rounded-[20px] border border-black/5 dark:border-white/10 bg-white/50 dark:bg-black/20 px-3 py-2 transition-colors hover:border-indigo-500/30 dark:hover:border-white/20"
       >
         {selected.length === 0 && (
           <span className="text-sm text-muted-foreground/40">
@@ -151,13 +151,13 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-2 w-full rounded-[20px] border border-white/10 bg-card/95 p-2 shadow-2xl backdrop-blur-xl">
+        <div className="absolute z-50 mt-2 w-full rounded-[20px] border border-black/5 dark:border-white/10 bg-white/95 dark:bg-card/95 p-2 shadow-2xl backdrop-blur-xl">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t.placeholder}
-            className="mb-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/40 focus:border-indigo-500/50"
+            className="mb-2 w-full rounded-xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/40 focus:border-indigo-500/50"
             autoFocus
           />
 
@@ -168,7 +168,7 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
                   key={tag.id}
                   type="button"
                   onClick={() => toggle(tag.id)}
-                  className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-white/5"
+                  className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <span
                     className="h-3 w-3 flex-shrink-0 rounded-full"
@@ -184,7 +184,7 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
             </p>
           )}
 
-          <div className="mt-2 border-t border-white/5 pt-2">
+          <div className="mt-2 border-t border-black/5 pt-2 dark:border-white/5">
             {!createOpen ? (
               <button
                 type="button"
@@ -193,7 +193,7 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
                   // If the user has typed something in the search, prefill the new tag name
                   if (search.trim()) setNewName(search.trim());
                 }}
-                className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-indigo-400 transition-colors hover:bg-white/5"
+                className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-indigo-600 transition-colors hover:bg-black/5 dark:text-indigo-400 dark:hover:bg-white/5"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {search ? `${t.createTag} "${search}"` : t.createTag}
@@ -205,7 +205,7 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder={t.createTag}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-2 py-1.5 text-sm outline-none focus:border-indigo-500/50"
+                  className="w-full rounded-xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2 py-1.5 text-sm outline-none focus:border-indigo-500/50"
                   autoFocus
                 />
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -217,7 +217,7 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
                       onClick={() => setNewColor(c)}
                       className={cn(
                         "h-6 w-6 rounded-full transition-transform",
-                        newColor === c && "scale-110 ring-2 ring-white/40",
+                        newColor === c && "scale-110 ring-2 ring-white/40 dark:ring-white/40",
                       )}
                       style={{ backgroundColor: c }}
                       aria-label={`Color ${c}`}
@@ -231,7 +231,7 @@ export function TagPicker({ selectedTagIds, onChange, placeholder, t }: TagPicke
                       setCreateOpen(false);
                       setNewName("");
                     }}
-                    className="rounded-xl px-3 py-1 text-xs text-muted-foreground hover:bg-white/5"
+                    className="rounded-xl px-3 py-1 text-xs text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
                   >
                     {t.cancel}
                   </button>

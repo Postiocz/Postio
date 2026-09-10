@@ -3,6 +3,29 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔄 Prompt 065 – Meta App Review fix v2 (DOKONČENO): Revize justifikací + scénář v3 + config_id verifikace + submission notes ✅
+
+- **Kontext**: Meta revizor i po Prompt 065 zamítl 3 oprávnění (`pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`) s důvodem "Screencast fails to demonstrate the end-to-end experience". Chyběl live proof na FB/IG, ukázka obsahu postu v UI a editace/smazání. Zároveň consent dialog (Facebook Login for Business) nezobrazoval `pages_manage_posts` — i když byl v scope stringech, v Login Configu ho nebylo.
+- **Změny** (dokumentace + úprava OAuth scope stringu v `accounts/page.tsx`):
+  - ✅ `docs/meta-review-justifications.md` (v2.1): nové zdůvodnění všech 3 oprávnění kotvené v reálném kódu (publish.ts: `POST /{page_id}/feed`/`photos`/`videos`; IG `media` + `media_publish`; `updateOnPlatformAction` = remote edit `POST /{external_id}`; `deleteFromMeta` = `DELETE /{external_id}`; `analytics/actions.ts` = `GET /insights?metric=…`; `_post-card.tsx` = obsah post.Is v UI). `pages_read_engagement` nyní pokrývá OBĚ strany: zobrazení obsahu postů (Posts) i metriky (Analytics).
+  - ✅ `docs/meta-review-v2.md` (v3): kompletní přepis scénáře pro nahrávání. Nové POVINNÉ scény: **Scene 4** live FB Page po publishi, **Scene 5** remote EDIT captionu (→ live FB ukáže změněný text), **Scene 6** DELETE (→ live FB post zmizí), **Scene 7** obsah postu v UI (`/posts`, obsah+karta+thumbnail+datum+odkaz), **Scene 8** Analytics s reálnými nenulovými daty (48h přednatáčení post + engagement ze 2. účtu), samostatný **modul B pro IG** (`instagram_content_publish`, publish fotky + live IG profil). Modrý Facebook consent dialog ≥5 s se všemi zaškrtnutými scopy; na začátek PŘÍPRAVY přidán ✅ bod „`pages_manage_posts` přidán do Login Configu `891876470597727`"; k Scene 5/6 doplněno **HARD REQUIREMENT** – scény MUSÍ proběhnout bez chybové hlášky (capability error #3), jinak se video nesmí použít.
+  - ✅ Submission Notes šablona na konci justifikací: demo účet (placeholdery), postup pro revizora (kde Connect Facebook, kde Analytics), Business Verification = COMPLETED, mapping oprávnění↔scény↔timestamps.
+  - ✅ (Meta dashboard, mimo kód) `pages_manage_posts` přidáno do Login Configu `891876470597727` (uživatelem). Consent dialog nyní zobrazuje přesně 6 oprávnění: `business_management`, `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `pages_manage_posts` (text „Create, edit and delete posts on your Pages").
+  - ✅ `accounts/page.tsx` — config_id `891876470597727` ověřen: hardcoded ve 2 blocích (r. 1100 IG, r. 1121 FB), NENÍ v `.env.local`/`.env.example`, žádný zdvojení → kód neměněn. Z IG scopes (r. 1096) odebrány `instagram_manage_comments` a `instagram_manage_insights` (v Login Configu nejsou a fully repo grep ukázal, že je kód reálně NEPOUŽÍVÁ – jediný výskyt byl scope string). IG větev = `public_profile,email,instagram_basic,instagram_content_publish,business_management,pages_show_list,pages_read_engagement,pages_manage_posts` — nyní odpovídá configu.
+  - ✅ `docs/meta-review-submission-notes.md` (NOVÝ): čistý anglický copy-paste text pro Meta App Dashboard (Use case description + App Verification Details), placeholdery `[DEMO_EMAIL]`, `[DEMO_PASSWORD]`, `[VIDEO_URL]`, `[MM:SS]`, tabulka oprávnění↔scény↔timestamps.
+  - ✅ `posts.ts` — fix falešného `removed_externally` u IG post: Meta reconcile (`syncPostStatus` a `syncPublishedPosts`) vkládal do URL celý `external_id` = `"shortcode|media_id"`, co Meta odmítal s 400/#100 → post omylou označen jako „removed on Instagram". Nová sdílená helper `resolveMetaReconcileId` extrahuje `media_id` z pipe formátu (analogicky k `deleteFromMeta`); FB chování beze změny; nepoužitélný/poškozený id → skip reconcile s `console.warn`, output: `npx tsc --noEmit` ✅ (0 chyb). POZNÁMKA: `cron-sync.ts` nemá Meta reconcile branch (IG/FB padají do `else` a jen zapisují `last_sync_at`), proto tam oprava nebyla nutná.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Code-level audit bod 2a (Analytics má `?? 0`, EmptyChartMessage, žádné NaN/undefined), 2b (obrazovka obsahu = `/posts` přes `_post-card.tsx`), 2c (EDIT/DELETE funkční přes Graph API u FB). 🐛 POZOR: remote edit u FB může narazit na Meta capability chybu #3 ("remote editing requires App Review") – toto právě řeší submission; v kódu je ošetřeno.
+- **STOP dle Pravidla 2**: texty + audit hotové, video nahrává uživatel sám.
+
+### 🔄 Prompt 065 – Meta App Review fix: Revidované justifikace + scénář videa v2 + UI audit ✅
+
+- **Kontext**: Meta revizor zamítl 3 oprávnění (`pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`) s důvodem "Screencast fails to demonstrate the end-to-end experience". Revizor chce vidět (1) skutečný post na FB/IG po odeslání z app a (2) jak app zobrazuje engagement data v UI.
+- **Změny**:
+  - ✅ `docs/meta-review-justifications.md` (nový): Konkrétné anglické zdůvodnění pro všech 3 zamítnuté permissiony. Kotví každý text v pravdom kódu: publish přes Graph API v20.0 (`POST /{page_id}/feed`; IG media container + `media_publish`), čtení engagement přes `GET /{external_id}/insights` (metric `impressions,engagement,likes_count,comments_count,shares,outbound_clicks,saved_posts`) a jeho zobrazení na stránce **Analytics** (metric cards Reach/Engagements/Engagement Rate/Likes/Comments/Shares/Clicks/Saves, area chart Performance Over Time, Top Performing Posts, Posts by Tag) – ospravedlnuje `pages_read_engagement`.
+  - ✅ `docs/meta-review-v2.md` (nový): Vylepšený scénář screencastu. Nová **povinná Scene 5** – otevření live Facebook Page + Instagram profilu v stejném browseru a ukázka publikovaného postu; **Scene 6** – Sync Analytics a ukázka renderovaných engagement metrik v UI; **Scene 7** – čistý prázdný stav s nulami jako poctivý fallback.
+  - ✅ UI audit (bez code změn): Stránka `/analytics` už zobrazuje čisté nuly na metric kartách a vkusné empty stavy v chartech (EmptyChartMessage), Top Performing Posts (ikona + `noDataSubtitle`) a Posts by Tag (`noTagsBreakdown`), plus Skeleton na Dashboardu prý prázdném stavu – nemusel být žádný kód meněn.
+- **Ověření**: Code-level audit (úprava netřeba). Dokumenty připravené pro natočení nového videa – uživatel nahrává video sám.
+
 ### 🎨 Prompt 070 – KROK 1-3: Sjednocení EditPostDialog s /posts/new + fix obnovy modálu ✅
 
 - **Kontext**: EditPostDialog (z `/posts`) měl v sekci „Čas" jen `DateTimePicker`; `/posts/new` navíc nabízí Quick slot čipy (Fronta / Dnes 18:00 / Zítra 09:00) + odkaz do nastavení rozvrhu. Sjednocení vyžadoval i Light mod v poli „Interní štítky" – vybrané štítky měly moc tmavé pozadí.
@@ -78,27 +101,7 @@
   - ✅ Aktivní tab: zrušen inline `color: accent` (TikTok cyan by na bílém byl nečitelný), text `text-slate-900 dark:text-white`, barevný podtón accentu (`${accent}22`) zachován – brand identita drží v obou režimech.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark přepnutí bez refresh). Vnitřní karty sítí (FB/IG/YT/LI/TikTok/X) zatím stále tmavé – KROK 2–4.
 
-### 🎨 Prompt 067 – KROK 4: Animace a mikro-interakce (Framer Motion) ✅
 
-- **Kontext**: Editor a preview po KROKU 1-3 byly statické – přepínání platforem, zobrazování TikTok panelu i klikání na tlačítka probíhalo bez animovaného feedbacku.
-- **Změny**:
-  - ✅ `post-preview.tsx`: `AnimatePresence mode="popLayout"` + `motion.div` (`key={effectivePlatform}`, `opacity 0→1` + `y: 8→0`, `0.35s`, ease `[0.32,0.72,0,1]`) kolem platform-switch – přepnutí tabu crossfaduje starý preview ven / nový dovnitř.
-  - ✅ `posts/new/page.tsx`: TikTok privacy panel obalen v `AnimatePresence` (fade+slide při zobrazení/skrytí dle `hasTikTokIntent`); `active:scale-[0.98]` na 4 akční tlačítka (draft/queue/schedule/publish); account chip → `motion.button` s `layoutId` + `layout` spring animací ringu.
-  - ✅ `edit-post-dialog.tsx`: account chip → `motion.button` s `layout` animací; `active:scale-[0.98]` na 5 akčních tlačítek (queue/schedule/publish + media/AI).
-  - ✅ `ai-assistant-button.tsx`: `active:scale-[0.98]` na trigger (dropdown animuje skrz Radix `data-[state]` třídy).
-  - ✅ Respektování `useReducedMotion()` na obou místech (`initial={reduce ? false : …}`, `exit={reduce ? undefined : …}`).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem.
-
-### 🎨 Prompt 067 – KROK 3: Quick slots pro výběr času (oprava overflow + chip state) ✅
-
-- **Kontext**: Pod `DateTimePicker` uživatel neměl předvolby času; výběr vyžadoval otevření kalendáře, dropddowny karet navíc cliplovalo `overflow-hidden` z KROKU 2.
-- **Změny**:
-  - ✅ Nová komponenta `components/schedule-quick-slots.tsx` – 3 pill chipy pod pickerem: **Fronta (příští volný slot)** (fetch `getNextAvailableQueueSlot()`), **Dnes 18:00** (disable po 18:00), **Zítra 09:00**; klik předvyplní `scheduledAt` (ISO shodný s `normalizeScheduledAt`), picker zůstává plně editovatelný.
-  - ✅ Aktivní chip: jasný indigo ring + glow (`border-indigo-500/70`, stín `0 0 14px rgba(99,102,241,0.35)`, dark `/90`/`/30`) + `aria-pressed`. `isActive` porovnává na úrovni minuty (odolné přepisu sekund/ms pickerem), předpočítané sloty nulované na ms.
-  - ✅ i18n: `quickSlotQueue/quickSlotToday18/quickSlotTomorrow9/quickSlotQueueLoading` v cs/en/uk + oprava překlepu cs „veřní volný slot“→„příští volný slot“ (en/uk korektní).
-  - 🐛 Fix overflow: odstraněn `overflow-hidden` ze 4 karet editoru (page.tsx) – dropdown „Interní štítky“ se nyní vykresluje nad okraji karet; ořez médií zůstává na media kontejneru (`overflow-hidden rounded-[20px]`).
-  - 🐛 UX: `TagPicker` se po výběru štítku sám zavře (`setOpen(false)` v `toggle`) – nepřekrývá další sekce a uživatel nemusí klikat vedle.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (dropdown celý viditelný a po výběru se sám schová; chip má viditelný indigo glow).
 
 
 

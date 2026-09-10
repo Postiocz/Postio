@@ -18,6 +18,36 @@ function revalidateAllLocales(path: string) {
   }
 }
 
+/**
+ * Resolve the node id used by Meta status reconciliation (`GET /{id}?fields=id`).
+ *
+ * Facebook stores `external_id` as the raw Page post id. Instagram stores it as
+ * "shortcode|media_id" (new posts) so the *piped* form would hit the Meta API
+ * as an invalid node id (HTTP 400 → #100) and get misread as `removed_externally`.
+ * Only the media_id part is a valid node id. This mirrors `deleteFromMeta` in
+ * publish.ts. Returns null when the stored value is unusable – in that case
+ * callers MUST skip the reconcile rather than risk a false positive.
+ */
+function resolveMetaReconcileId(
+  platform: string,
+  externalId: string | null | undefined,
+): string | null {
+  if (!externalId) return null;
+  const id = externalId.trim();
+  if (!id) return null;
+
+  if (platform !== "instagram") return id;
+
+  const pipeIdx = id.indexOf("|");
+  if (pipeIdx > 0) {
+    // "shortcode|media_id" → use the media_id part after the pipe.
+    const mediaId = id.slice(pipeIdx + 1).trim();
+    return mediaId || null;
+  }
+  // Old formats: bare numeric media_id or a raw shortcode – use as-is.
+  return id;
+}
+
 type PostPlatformStatusRow = {
   platform: string;
   status: string;
@@ -670,8 +700,17 @@ export async function syncPostStatus(id: string): Promise<{
     return { success: false, error: `Missing access token for ${targetPlatform}.` };
   }
 
+  // Meta Graph API node id. Instagram stores "shortcode|media_id" – only the
+  // media_id part is a valid node id; the piped form would 400 and we'd misread
+  // it as `removed_externally`. Unusable id → skip reconcile, never mark removed.
+  const checkId = resolveMetaReconcileId(targetPlatform, externalId);
+  if (checkId === null) {
+    console.warn(`[syncPostStatus] Skipping reconcile for post ${id} on ${targetPlatform}: unusable external_id "${externalId}"`);
+    return { success: true };
+  }
+
   // GET request to check if the post still exists on Meta
-  const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`);
+  const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(checkId)}`);
   graphUrl.searchParams.set("access_token", accessToken);
   graphUrl.searchParams.set("fields", "id");
 
@@ -1158,7 +1197,16 @@ export async function syncPublishedPosts(): Promise<{
         continue;
       }
 
-      const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}`);
+      // Same IG pipe handling as syncPostStatus: only the media_id part of
+      // "shortcode|media_id" is a valid node id; a piped id would 400 and be
+      // misread as removed_externally. Skip reconcile on unusable id.
+      const checkId = resolveMetaReconcileId(targetPlatform, externalId);
+      if (checkId === null) {
+        console.warn(`[syncPublishedPosts] Skipping reconcile for post ${postId} on ${targetPlatform}: unusable external_id "${externalId}"`);
+        continue;
+      }
+
+      const graphUrl = new URL(`https://graph.facebook.com/v20.0/${encodeURIComponent(checkId)}`);
       graphUrl.searchParams.set("access_token", accessToken);
       graphUrl.searchParams.set("fields", "id");
 

@@ -1093,7 +1093,7 @@ export default function AccountsPage() {
                 provider: "facebook",
                 options: {
                   scopes:
-                    "public_profile,email,instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_insights,business_management,pages_show_list,pages_read_engagement,pages_manage_posts",
+                    "public_profile,email,instagram_basic,instagram_content_publish,business_management,pages_show_list,pages_read_engagement,pages_manage_posts",
                   redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&platform=instagram`,
                   queryParams: {
                     auth_type: "rerequest",

@@ -481,7 +481,7 @@ async function fetchMetaInsights(params: {
   // the explicit period=lifetime parameter below.
   const metricNames =
     platform === "instagram"
-      ? ["reach", "follower_count", "website_clicks", "profile_views", "online_followers", "accounts_engaged"]
+      ? ["impressions", "reach", "likes", "comments", "shares", "saved", "follows", "total_interactions", "profile_visits", "link_clicks"]
       : ["post_clicks", "post_total_media_view_unique", "post_media_view"];
 
   const periodParam = platform === "facebook" ? "&period=lifetime" : "";
@@ -507,13 +507,13 @@ async function fetchMetaInsights(params: {
 
     if (platform === "instagram") {
       return {
-        impressions: metricMap.get("reach") ?? 0,
-        engagements: metricMap.get("accounts_engaged") ?? 0,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        clicks: metricMap.get("website_clicks") ?? 0,
-        saves: 0,
+        impressions: metricMap.get("reach") ?? metricMap.get("impressions") ?? 0,
+        engagements: metricMap.get("total_interactions") ?? 0,
+        likes: metricMap.get("likes") ?? 0,
+        comments: metricMap.get("comments") ?? 0,
+        shares: metricMap.get("shares") ?? 0,
+        clicks: metricMap.get("link_clicks") ?? 0,
+        saves: metricMap.get("saved") ?? 0,
       };
     }
 

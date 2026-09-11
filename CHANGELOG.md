@@ -9,6 +9,7 @@
 - **Změny** (`analytics/actions.ts`):
   - ✅ Zdroj hodnoty změnený na `item.values?.[0]?.value ?? 0` (bezpečný fallback na 0) – metriky (impressions, engagement, likes, comments, shares, clicks, saves) nyní se reálně populují z Meta.
   - ✅ Odstranený mrtvý kód: větev `Array.isArray(val)` s obranou `[{ metric_name, value }]` – `val` je nyní vždy number, takže ta větev by se nikdy nevykonala. Smyčka zjednodušena na `if (name) metricMap.set(name, val)`.
+  - ✅ **Fáza 2 – verze API v26.0 + skutečné metriky per platform**: sjednoceno na `graph.facebook.com/v26.0`; IG `external_id` ve formě `shortcode|media_id` → extrakce `media_id` (zrcadlí `resolveMetaReconcileId`); IG použita account-level sada `reach, follower_count, website_clicks, profile_views, online_followers, accounts_engaged` (mapping `reach→impressions`, `accounts_engaged→engagements`, `website_clicks→clicks`); FB new valid Page-post metrics `post_clicks, post_total_media_view_unique, post_media_view` + `&period=lifetime` (IG default `day`); `likes/comments/shares/saves = 0` pro obě (Meta account/page-level v26.0 je neposkytuje), TODO komentár pro budoucí řešení (FB `post_reactions_*` / IG media-level).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb).
 
 ### 🔄 Prompt 065 – Meta App Review fix v2 (DOKONČENO): Revize justifikací + scénář v3 + config_id verifikace + submission notes ✅

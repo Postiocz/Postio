@@ -488,22 +488,9 @@ async function fetchMetaInsights(params: {
 
     const metricMap = new Map<string, number>();
     for (const item of values) {
-      const val = item.value;
-      if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object") {
-        // Some metrics return [{ metric_name, value }]
-        for (const v of val) {
-          if (typeof v === "object" && v !== null && "value" in v) {
-            const key = (v as Record<string, unknown>).name ?? (v as Record<string, unknown>).metric;
-            if (key && typeof (v as Record<string, unknown>).value === "number") {
-              metricMap.set(String(key), Number((v as Record<string, unknown>).value));
-            }
-          }
-        }
-      } else if (typeof val === "number") {
-        // Single numeric value — map by metric name
-        const name = item.name;
-        if (name) metricMap.set(name, val);
-      }
+      const val = item.values?.[0]?.value ?? 0;
+      const name = item.name;
+      if (name) metricMap.set(name, val);
     }
 
     return {

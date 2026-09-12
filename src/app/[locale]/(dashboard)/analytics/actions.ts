@@ -475,13 +475,14 @@ async function fetchMetaInsights(params: {
     return externalId;
   })();
 
-  // IG: account-level Business Account insights metrics.
+  // IG: media-level insights metrics (verified 200 OK on a live media node for
+  // v26.0): reach, likes, comments, shares, saved, total_interactions.
   // FB: Page-post insights valid metrics for v26.0 (verified in Graph API Explorer) —
   // post_clicks, post_total_media_view_unique, post_media_view. These require
   // the explicit period=lifetime parameter below.
   const metricNames =
     platform === "instagram"
-      ? ["impressions", "reach", "likes", "comments", "shares", "saved", "follows", "total_interactions", "profile_visits", "link_clicks"]
+      ? ["reach", "likes", "comments", "shares", "saved", "total_interactions"]
       : ["post_clicks", "post_total_media_view_unique", "post_media_view"];
 
   const periodParam = platform === "facebook" ? "&period=lifetime" : "";
@@ -507,23 +508,24 @@ async function fetchMetaInsights(params: {
 
     if (platform === "instagram") {
       return {
-        impressions: metricMap.get("reach") ?? metricMap.get("impressions") ?? 0,
+        // Media-level IG insights have no separate "impressions" metric —
+        // Reach (unique accounts) is the only reach-like value we request.
+        impressions: metricMap.get("reach") ?? 0,
         engagements: metricMap.get("total_interactions") ?? 0,
         likes: metricMap.get("likes") ?? 0,
         comments: metricMap.get("comments") ?? 0,
         shares: metricMap.get("shares") ?? 0,
-        clicks: metricMap.get("link_clicks") ?? 0,
+        // link_clicks is not available on the media-level endpoint, so clicks
+        // are 0 for Instagram (account-level only).
+        clicks: 0,
         saves: metricMap.get("saved") ?? 0,
       };
     }
 
-    // TODO: likes/comments/shares/saves jsou aktuálně 0 pro FB i IG,
-    // protože account/page-level insights v26.0 tyto metriky neposkytují
-    // přímo. Do budoucna prozkoumat: pro FB post_reactions_like_total,
-    // post_reactions_by_type_total, post_activity_by_action_type (comments/shares);
-    // pro IG media-level insights endpoint (ne account-level) může mít
-    // likes/comments jako pole u konkrétního média - vyžaduje ověření
-    // v Graph API Exploreru stejným postupem jako u ostatních metrik.
+    // TODO: FB Page-post insights v26.0 neposkytuje likes/comments/shares/saves
+    // přímo (aktuálně 0 pro FB). Prozkoumat: post_reactions_like_total,
+    // post_reactions_by_type_total, post_activity_by_action_type (comments/shares).
+    // IG media-level (výše) likes/comments/shares/saved vrací reálně (ověřeno).
     return {
       impressions: metricMap.get("post_total_media_view_unique") ?? 0,
       engagements: metricMap.get("post_media_view") ?? 0,

@@ -83,11 +83,19 @@ deleted on the Page side is flagged in the UI rather than shown as live.
 
 **(2) The app reads and renders engagement metrics per post.** On the **Analytics** page
 (`/analytics`) the user explicitly presses **Sync Analytics**, and `syncAnalyticsInsights`
-(`src/app/[locale]/(dashboard)/analytics/actions.ts`) calls the Graph API insights endpoint
-per published post:
+(`src/app/[locale]/(dashboard)/analytics/actions.ts`) calls the Graph API **v26.0**
+insights endpoint per published post. Facebook Page-post metrics (verified in the Graph API
+Explorer for v26.0, requires the explicit `period=lifetime`):
 
 ```
-GET /{external_id}/insights?metric=impressions,engagement,likes_count,comments_count,shares,outbound_clicks,saved_posts
+GET /{external_id}/insights?metric=post_clicks,post_total_media_view_unique,post_media_view&period=lifetime
+```
+
+Instagram media-level insights (per published IG media node — the app extracts the
+`media_id` from the stored `"shortcode|media_id"` external id):
+
+```
+GET /{media_id}/insights?metric=impressions,reach,likes,comments,shares,saved,follows,total_interactions,profile_visits,link_clicks
 ```
 
 The returned values are rendered in `analytics-dashboard.tsx` as:

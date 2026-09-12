@@ -462,24 +462,36 @@ async function fetchMetaInsights(params: {
 }): Promise<AnalyticsMetrics | null> {
   const { accessToken, externalId, platform } = params;
 
-  // Meta Graph API metrics available for both FB pages and IG business accounts
-  const metrics = [
-    "impressions",
-    "engagement",
-    "likes_count",
-    "comments_count",
-    "shares",
-    "outbound_clicks",
-    "saved_posts",
-  ].join(",");
+  // IG external_id = "shortcode|media_id" (new posts) → /insights needs the media_id.
+  // Mirrors resolveMetaReconcileId (posts.ts) / deleteFromMeta (publish.ts).
+  const nodeId = (() => {
+    if (platform === "instagram") {
+      const pipeIdx = externalId.indexOf("|");
+      if (pipeIdx > 0) {
+        const mediaId = externalId.slice(pipeIdx + 1).trim();
+        if (mediaId) return mediaId;
+      }
+    }
+    return externalId;
+  })();
 
-  const url = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/insights?metric=${metrics}&access_token=${accessToken}`;
+  // IG: account-level Business Account insights metrics.
+  // FB: Page-post insights valid metrics for v26.0 (verified in Graph API Explorer) —
+  // post_clicks, post_total_media_view_unique, post_media_view. These require
+  // the explicit period=lifetime parameter below.
+  const metricNames =
+    platform === "instagram"
+      ? ["impressions", "reach", "likes", "comments", "shares", "saved", "follows", "total_interactions", "profile_visits", "link_clicks"]
+      : ["post_clicks", "post_total_media_view_unique", "post_media_view"];
+
+  const periodParam = platform === "facebook" ? "&period=lifetime" : "";
+  const url = `https://graph.facebook.com/v26.0/${encodeURIComponent(nodeId)}/insights?metric=${metricNames.join(",")}${periodParam}&access_token=${accessToken}`;
 
   try {
     const response = await fetch(url, { headers: { Accept: "application/json" } });
 
     if (!response.ok) {
-      logger.warn(`[Analytics] Meta API ${response.status} for ${platform}/${externalId}`);
+      logger.warn(`[Analytics] Meta API ${response.status} for ${platform}/${nodeId}`);
       return null;
     }
 
@@ -488,32 +500,38 @@ async function fetchMetaInsights(params: {
 
     const metricMap = new Map<string, number>();
     for (const item of values) {
-      const val = item.value;
-      if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object") {
-        // Some metrics return [{ metric_name, value }]
-        for (const v of val) {
-          if (typeof v === "object" && v !== null && "value" in v) {
-            const key = (v as Record<string, unknown>).name ?? (v as Record<string, unknown>).metric;
-            if (key && typeof (v as Record<string, unknown>).value === "number") {
-              metricMap.set(String(key), Number((v as Record<string, unknown>).value));
-            }
-          }
-        }
-      } else if (typeof val === "number") {
-        // Single numeric value — map by metric name
-        const name = item.name;
-        if (name) metricMap.set(name, val);
-      }
+      const val = item.values?.[0]?.value ?? 0;
+      const name = item.name;
+      if (name) metricMap.set(name, val);
     }
 
+    if (platform === "instagram") {
+      return {
+        impressions: metricMap.get("reach") ?? metricMap.get("impressions") ?? 0,
+        engagements: metricMap.get("total_interactions") ?? 0,
+        likes: metricMap.get("likes") ?? 0,
+        comments: metricMap.get("comments") ?? 0,
+        shares: metricMap.get("shares") ?? 0,
+        clicks: metricMap.get("link_clicks") ?? 0,
+        saves: metricMap.get("saved") ?? 0,
+      };
+    }
+
+    // TODO: likes/comments/shares/saves jsou aktuálně 0 pro FB i IG,
+    // protože account/page-level insights v26.0 tyto metriky neposkytují
+    // přímo. Do budoucna prozkoumat: pro FB post_reactions_like_total,
+    // post_reactions_by_type_total, post_activity_by_action_type (comments/shares);
+    // pro IG media-level insights endpoint (ne account-level) může mít
+    // likes/comments jako pole u konkrétního média - vyžaduje ověření
+    // v Graph API Exploreru stejným postupem jako u ostatních metrik.
     return {
-      impressions: metricMap.get("impressions") ?? 0,
-      engagements: metricMap.get("engagement") ?? 0,
-      likes: metricMap.get("likes_count") ?? 0,
-      comments: metricMap.get("comments_count") ?? 0,
-      shares: metricMap.get("shares") ?? 0,
-      clicks: metricMap.get("outbound_clicks") ?? 0,
-      saves: metricMap.get("saved_posts") ?? 0,
+      impressions: metricMap.get("post_total_media_view_unique") ?? 0,
+      engagements: metricMap.get("post_media_view") ?? 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      clicks: metricMap.get("post_clicks") ?? 0,
+      saves: 0,
     };
   } catch (err) {
     logger.error(`[Analytics] Meta API error for ${platform}/${externalId}:`, err);

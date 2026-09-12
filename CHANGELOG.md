@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Meta Insights sync – parsování metrik opraveno (Meta Graph API `values[]`) ✅
+
+- **Kontext**: Sync analytiky ve `analytics/actions.ts` (`fetchMetaInsights`) četl `item.value`, ale Meta Graph API Insights vracá itemy jako `{"name":"impressions","values":[{"value":123}]}` – hodnota je uvnitř poles `values[0].value`. Následek: `item.value` byl vždy `undefined`, žádná smyčka větev se nevykonala a všechny metriky se zapísaly jako 0.
+- **Změny** (`analytics/actions.ts`):
+  - ✅ Zdroj hodnoty změnený na `item.values?.[0]?.value ?? 0` (bezpečný fallback na 0) – metriky (impressions, engagement, likes, comments, shares, clicks, saves) nyní se reálně populují z Meta.
+  - ✅ Odstranený mrtvý kód: větev `Array.isArray(val)` s obranou `[{ metric_name, value }]` – `val` je nyní vždy number, takže ta větev by se nikdy nevykonala. Smyčka zjednodušena na `if (name) metricMap.set(name, val)`.
+  - ✅ **Fáza 2 – verze API v26.0 + skutečné metriky per platform**: sjednoceno na `graph.facebook.com/v26.0`; IG `external_id` ve formě `shortcode|media_id` → extrakce `media_id` (zrcadlí `resolveMetaReconcileId`); FB new valid Page-post metrics `post_clicks, post_total_media_view_unique, post_media_view` + `&period=lifetime` (IG default `day`).
+  - ✅ **Fáza 3 – IG přepnuto na media-level insights**: Meta account-level metric names (`follower_count, website_clicks, profile_views, online_followers, accounts_engaged`) Meta pro `/{media_id}/insights` odmítala #100; nahrazeny media-level sadou `impressions, reach, likes, comments, shares, saved, follows, total_interactions, profile_visits, link_clicks`. Mapování: `impressions ← reach ?? impressions` (karta „Celkový dosah" čte pole `impressions`, i18n label je „reach" – proto reach primární), `engagements ← total_interactions`, `likes ← likes`, `comments ← comments`, `shares ← shares`, `clicks ← link_clicks`, `saves ← saved`. IG likes/comments/shares/saved už **nejsou natvrdo 0** (media-level je poskytuje). FB likes/comments/shares/saved zůstávají 0 (Page-post v26.0 je neposkytuje, TODO viz komentár v kódu).
+  - ✅ **Dokumentácia App Review zaktualizowana do stanu kódu**: `docs/meta-review-justifications.md`, `docs/meta-review-submission-notes.md`, `docs/meta-review-v2.md` — staré insight endpoint příklady (v20.0, metric `impressions,engagement,likes_count,comments_count,shares,outbound_clicks,saved_posts`) nahrazené aktuálními: FB `GET /{external_id}/insights?metric=post_clicks,post_total_media_view_unique,post_media_view&period=lifetime` (v26.0) + IG media-level `GET /{media_id}/insights?metric=impressions,reach,likes,comments,shares,saved,follows,total_interactions,profile_visits,link_clicks`. Checklist PŘÍPRAVA PŘED NATÁČENÍM popisuje precisa scattere text, coa reviewer v Scene 8 uvidí.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb).
+
 ### 🔄 Prompt 065 – Meta App Review fix v2 (DOKONČENO): Revize justifikací + scénář v3 + config_id verifikace + submission notes ✅
 
 - **Kontext**: Meta revizor i po Prompt 065 zamítl 3 oprávnění (`pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`) s důvodem "Screencast fails to demonstrate the end-to-end experience". Chyběl live proof na FB/IG, ukázka obsahu postu v UI a editace/smazání. Zároveň consent dialog (Facebook Login for Business) nezobrazoval `pages_manage_posts` — i když byl v scope stringech, v Login Configu ho nebylo.
@@ -89,22 +100,3 @@
   - ✅ Instagram: light = `bg-white` + text `#262626`, avatar mezikruží `bg-white`, caption hint `#8e8e8e` → dark `bg-black` + `text-white` zachován. Gradient ring `#F58529→#DD2A7B→#8134AF` drží v obou režimech.
   - ✅ Shodné třídy s jinými platformami (LinkedIn jméno, TikTok root) vyčleněny přes okolní kontext – KROK 3 a 4.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark).
-
-### 🎨 Prompt 069 – KROK 1: Adaptivní kontejner Live Preview (Light mode) ✅
-
-- **Kontext**: Levá strana editoru už v Light modu funguje (Milky Glass), ale pravý panel Live Preview zůstával vždy tmavý – vizuální nesoulad.
-- **Změny** (`post-preview.tsx`):
-  - ✅ Adaptivní kontejner panelu: light = Milky Glass (`bg-white/40 backdrop-blur-xl border-l border-slate-200`), dark = černé sklo (`bg-black/40 border-white/10`) – přesně dle zadání.
-  - ✅ Nadpis „Náhled": light `text-slate-900`, dark zachováno `text-muted-foreground/80`.
-  - ✅ Rám „telefonu": light `bg-white border-slate-200`, dark `bg-black border-white/5`.
-  - ✅ Segmentovaný přepínač platforem: light `bg-white/70 border-slate-200`, dark zachováno.
-  - ✅ Aktivní tab: zrušen inline `color: accent` (TikTok cyan by na bílém byl nečitelný), text `text-slate-900 dark:text-white`, barevný podtón accentu (`${accent}22`) zachován – brand identita drží v obou režimech.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark přepnutí bez refresh). Vnitřní karty sítí (FB/IG/YT/LI/TikTok/X) zatím stále tmavé – KROK 2–4.
-
-
-
-
-
-
-
-

@@ -27,8 +27,10 @@
     account, caption e.g. *"Meta review demo – published from Postio 🚀"* (unique string,
     easy to spot).
   - From a *second* account (a friend / your personal), like, comment and share that post.
-  - Let it sit ≥ 24–48h so Meta aggregates `impressions, engagement, likes_count,
-    comments_count, shares`.
+  - Let it sit ≥ 24–48h so Meta aggregates the metrics Postio reads back in Analytics
+    — Facebook Page-post: `post_clicks, post_total_media_view_unique, post_media_view`
+    (`period=lifetime`); Instagram media-level: `impressions, reach, likes, comments,
+    shares, saved, follows, total_interactions, profile_visits, link_clicks`.
 - [ ] **Public demo Facebook Page** ready (about/completed, profile photo; admin=test account).
 - [ ] **Instagram Business account** linked to that Page (Settings → *Professional account*
     → *Linked accounts*).

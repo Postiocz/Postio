@@ -95,7 +95,7 @@ Instagram media-level insights (per published IG media node — the app extracts
 `media_id` from the stored `"shortcode|media_id"` external id):
 
 ```
-GET /{media_id}/insights?metric=impressions,reach,likes,comments,shares,saved,follows,total_interactions,profile_visits,link_clicks
+GET /{media_id}/insights?metric=reach,likes,comments,shares,saved,total_interactions
 ```
 
 The returned values are rendered in `analytics-dashboard.tsx` as:

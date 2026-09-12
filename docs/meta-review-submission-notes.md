@@ -25,7 +25,7 @@ used strictly for the user's own accounts:
   Facebook posts in the app UI (text, media, dates, live link on the Posts screen), and
   (2) read per-post engagement metrics via the Graph API **v26.0** insights endpoint:
   Facebook `GET /{external_id}/insights?metric=post_clicks,post_total_media_view_unique,post_media_view&period=lifetime`,
-  Instagram `GET /{media_id}/insights?metric=impressions,reach,likes,comments,shares,saved,follows,total_interactions,profile_visits,link_clicks`.
+  Instagram `GET /{media_id}/insights?metric=reach,likes,comments,shares,saved,total_interactions`.
   Postio renders the returned values on the user's **Analytics** page. Reads happen only
   when the user presses "Sync Analytics"; there is no background polling.
 - **`instagram_content_publish`** — publish to the user's own Instagram Business account

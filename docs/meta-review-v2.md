@@ -29,8 +29,8 @@
   - From a *second* account (a friend / your personal), like, comment and share that post.
   - Let it sit ≥ 24–48h so Meta aggregates the metrics Postio reads back in Analytics
     — Facebook Page-post: `post_clicks, post_total_media_view_unique, post_media_view`
-    (`period=lifetime`); Instagram media-level: `impressions, reach, likes, comments,
-    shares, saved, follows, total_interactions, profile_visits, link_clicks`.
+    (`period=lifetime`); Instagram media-level: `reach, likes, comments, shares, saved,
+    total_interactions`.
 - [ ] **Public demo Facebook Page** ready (about/completed, profile photo; admin=test account).
 - [ ] **Instagram Business account** linked to that Page (Settings → *Professional account*
     → *Linked accounts*).

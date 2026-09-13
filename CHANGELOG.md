@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Notifikace: dedikovaná stránka /settings/notifications ✅
+
+- **Kontext**: Menu položka „Notifikace" mířila na /settings/notifications, jež nikdy neexistovala → 404 na každé dashboard stránce. Dle výboru Opci A přesunuta sekci „E-mailová upozornění" z /settings/preferences na vlastnu stránku, aby menu vedlo na reálně existující stránku a „Notifikace"/„Předvolby" byly opravdu dvě oddělené věci.
+- **Změny**:
+  - ✅ Nová stránka `settings/notifications/` (page.tsx + notifications-form.tsx + actions.ts). Nová akce `updateNotifications` píše **jen** pole `email_low_credit_alert`/`email_weekly_summary` do **stejných DB sloupců** jako dřív preferences (žádná nová migrácia, žádná ztráta nastavení uživatelů).
+  - ✅ `preferences-form.tsx`/`page.tsx` – sekci, state, submit, labels a importy pro e-mail toggle odstranené (−84 řádků).
+  - ✅ Sidebar/mobile-nav – href „Notifikace" opět na /settings/notifications; menu už nevede dvě položky na stejné místo.
+  - ✅ i18n: nové klíče `notificationsDescription`, `notificationsSaved` v cs/en/uk.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). UI test manuálně (potřebuje Supabase env + přihlašenie).
+
 ### 🐛 Meta Insights sync – parsování metrik opraveno (Meta Graph API `values[]`) ✅
 
 - **Kontext**: Sync analytiky ve `analytics/actions.ts` (`fetchMetaInsights`) četl `item.value`, ale Meta Graph API Insights vracá itemy jako `{"name":"impressions","values":[{"value":123}]}` – hodnota je uvnitř poles `values[0].value`. Následek: `item.value` byl vždy `undefined`, žádná smyčka větev se nevykonala a všechny metriky se zapísaly jako 0.
@@ -92,11 +102,3 @@
   - ✅ LinkedIn: light = reálný světlý LI (`bg-[#f3f2ef]`, karta `bg-white`, text `#191919`, sekundární `#666`, divider `border-black/10`, media rám `bg-white`) → dark zachován (`#1a1a2e` / `#1e1e36` / `#e4e6eb` / `#b0b3b8`).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark pro obě platformy).
 
-### 🎨 Prompt 069 – KROK 2: Light skiny Facebook + Instagram ✅
-
-- **Kontext**: Po KROKU 1 panel Live Preview v Light modu „sedí" (Milky Glass), ale vnitřní karty sociálních sítí zůstávaly vždy tmavé.
-- **Změny** (`post-preview.tsx`):
-  - ✅ Facebook: light = skutečný světlý FB feed (pozadí `#f0f2f5`, karta `bg-white`, text `#050505`, sekundární `#65676b`, divider `border-black/10`, hover akcí `bg-black/5`) → dark zachován (`#242526` / `#18191a` / `#e4e6eb` / `#b0b3b8`).
-  - ✅ Instagram: light = `bg-white` + text `#262626`, avatar mezikruží `bg-white`, caption hint `#8e8e8e` → dark `bg-black` + `text-white` zachován. Gradient ring `#F58529→#DD2A7B→#8134AF` drží v obou režimech.
-  - ✅ Shodné třídy s jinými platformami (LinkedIn jméno, TikTok root) vyčleněny přes okolní kontext – KROK 3 a 4.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark).

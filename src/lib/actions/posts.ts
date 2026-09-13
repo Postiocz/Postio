@@ -130,14 +130,28 @@ export async function createPostAction(inputData: {
         .in("id", cleanData.accountIds);
       const accountMap = new Map(accounts?.map((a) => [a.id, a.platform]) ?? []);
 
-      platformRows = cleanData.accountIds.map((accountId) => ({
-        post_id: post.id,
-        platform: accountMap.get(accountId) ?? "facebook",
-        account_id: accountId,
-        status: cleanData.status === "scheduled" ? "scheduled" : "draft",
-        scheduled_at: cleanData.scheduledAt,
-        metadata: cleanData.platformMetadata?.[accountMap.get(accountId) ?? ""] ?? {},
-      }));
+      // Skip accounts that no longer exist in social_accounts (e.g. deleted
+      // meanwhile). Falling back to "facebook" would silently publish to the
+      // wrong platform – log a warning instead and drop the row.
+      platformRows = cleanData.accountIds
+        .filter((accountId) => {
+          const platform = accountMap.get(accountId);
+          if (!platform) {
+            console.warn(
+              `[posts.createPostAction] Skip unknown account ${accountId}: not found in social_accounts (platform unknown).`,
+            );
+            return false;
+          }
+          return true;
+        })
+        .map((accountId) => ({
+          post_id: post.id,
+          platform: accountMap.get(accountId)!,
+          account_id: accountId,
+          status: cleanData.status === "scheduled" ? "scheduled" : "draft",
+          scheduled_at: cleanData.scheduledAt,
+          metadata: cleanData.platformMetadata?.[accountMap.get(accountId)!] ?? {},
+        }));
     } else {
       // Legacy platform-based selection
       platformRows = (cleanData.platforms ?? []).map((p) => ({
@@ -149,12 +163,14 @@ export async function createPostAction(inputData: {
       }));
     }
 
-    const { error: ppError } = await supabase.from("post_platforms").insert(platformRows);
+    if (platformRows.length > 0) {
+      const { error: ppError } = await supabase.from("post_platforms").insert(platformRows);
 
-    if (ppError) {
-      console.error("❌ DUAL-WRITE ERROR:", ppError.message);
-    } else {
-      console.log("✅ DUAL-WRITE SUCCESS:", platformRows.length, "instancí zapsáno.");
+      if (ppError) {
+        console.error("❌ DUAL-WRITE ERROR:", ppError.message);
+      } else {
+        console.log("✅ DUAL-WRITE SUCCESS:", platformRows.length, "instancí zapsáno.");
+      }
     }
   }
 
@@ -268,20 +284,35 @@ export async function updatePost(id: string, inputData: {
           .in("id", toAdd);
         const accountMap = new Map(accounts?.map((a) => [a.id, a.platform]) ?? []);
 
-        await supabase.from("post_platforms").insert(
-          toAdd.map((accountId) => ({
-            post_id: id,
-            platform: accountMap.get(accountId) ?? "facebook",
-            account_id: accountId,
-            status: safeStatus === "scheduled" ? "scheduled" : "draft",
-            scheduled_at:
-              safeStatus === "scheduled"
-                ? (cleanData.scheduledAt ?? post.scheduled_at)
-                : null,
-            metadata:
-              cleanData.platformMetadata?.[accountMap.get(accountId) ?? ""] ?? {},
-          })),
-        );
+        // Skip accounts missing from social_accounts – never fall back to a
+        // guessed platform that would publish to the wrong Page/Channel.
+        const validToAdd = toAdd.filter((accountId) => {
+          const platform = accountMap.get(accountId);
+          if (!platform) {
+            console.warn(
+              `[posts.updatePost] Skip unknown account ${accountId}: not found in social_accounts (platform unknown).`,
+            );
+            return false;
+          }
+          return true;
+        });
+
+        if (validToAdd.length > 0) {
+          await supabase.from("post_platforms").insert(
+            validToAdd.map((accountId) => ({
+              post_id: id,
+              platform: accountMap.get(accountId)!,
+              account_id: accountId,
+              status: safeStatus === "scheduled" ? "scheduled" : "draft",
+              scheduled_at:
+                safeStatus === "scheduled"
+                  ? (cleanData.scheduledAt ?? post.scheduled_at)
+                  : null,
+              metadata:
+                cleanData.platformMetadata?.[accountMap.get(accountId)!] ?? {},
+            })),
+          );
+        }
       }
 
       // To remove: accounts deselected (skip published/publishing)

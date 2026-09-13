@@ -14,7 +14,12 @@
    - Nepoužívej staré verze Supabase knihoven.
    - `auth.users` slouží pouze pro primární identitu (E-mail/Heslo). Sociální integrace ukládej výhradně do `public.social_accounts`.
 3. **Pracovní postup:**
+   - Komunikuj VŽDY v češtině.
+   - VŽDY prováděj POUZE jeden krok. Jakmile daný krok dokončíš, OKAMŽITĚ ZASTAV PRÁCI a počkej na schválení uživatele pro pokračování. Nikdy nedělej více kroků najednou! (stejné jako ukol.md Pravidlo 2)
    - Než vytvoříš velké množství kódu, nejprve mi napiš krátký plán, co přesně půjdeš udělat.
+   - Před JAKOUKOLIV úpravou kódu zkontroluj aktuální git větev (`git branch --show-current`). Pokud jsi na `main`, NESMÍŠ rovnou editovat – navrhni novou pracovní větev podle řešeného úkolu, vytvoř ji (`git checkout -b <název>`) a teprve pak edituj. Na jiné než main větvi pokračuj normálně.
+   - `git commit` provedu automaticky po schváleném a otestovaném kroku. `git push` NEprovádím sám – až po explicitním vyzvání uživatelem.
+   - Kontext spravuj bez pevného token limitu (praktická zásada úspory kontextu viz ukol.md Pravidlo 5).
    - Po úspěšném vyřešení složitého problému si zapiš ponaučení sem dolů do sekce "Ponaučení z chyb".
 4. **CHANGELOG Zero-Token Auto-Drop:**
    - Soubor `CHANGELOG.md` smí obsahovat STRIKTNĚ MAXIMÁLNĚ 10 nejnovějších časových záznamů/milníků.

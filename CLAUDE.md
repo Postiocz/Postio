@@ -148,10 +148,9 @@ Tato pravidla mají nejvyšší prioritu a musí být dodržována vždy:
    - Zjisti aktuální stav projektu čtením souborů – neptej se mě
 
 2. **Během práce:**
-   - Pokračuj automaticky bez čekání na schválení každého kroku
+   - Vždy prováděj POUZE jeden krok. Jakmile daný krok naprogramuješ, OKAMŽITĚ ZASTAV PRÁCI, nepokračuj na další bod a počkej na schválení uživatele. Nikdy nedělej více kroků najednou!
    - Nepokládej otázky které lze zodpovědět čtením souborů projektu
    - Pokud narazíš na nejasnost, zvol nejrozumnější řešení a vysvětli proč
-   - Dělej více kroků najednou pokud na sobě logicky navazují
 
 3. **Otázky pokládej POUZE když:**
    - Neexistuje žádné rozumné výchozí řešení
@@ -161,25 +160,33 @@ Tato pravidla mají nejvyšší prioritu a musí být dodržována vždy:
 4. **Po dokončení každého kroku:**
    - Vysvětli co jsi udělal a proč – v češtině
    - Aktualizuj CHANGELOG.md
-   - Pokračuj automaticky na další logický krok
+   - ZASTAV a počkej na schválení uživatele pro pokračování dalšího kroku (viz bod 2)
 
 5. **Při překročení kontextu:**
    - Přečti CHANGELOG.md pro orientaci kde jsi skončil
-   - Pokračuj od posledního nedokončeného kroku bez dotazování
+   - Pokračuj znovu jednokrokově – navrhni a počkej na schválení dalšího kroku
 
-6. **Správa kontextového okna (token limit 65536):**
-   - Během práce hlídej spotřebu tokenů – limit je ~65k tokenů
+6. **Správa kontextového okna (bez pevného token limitu):**
+   - Kontext spravuj věcně a stručně – žádné pevné token limity (žádné 65536/40k hard limity v tomto souboru)
    - Piš stručně: jen updates pro uživatele, žádné dlouhé summary
    - Čti pouze soubory které potřebuješ, ne celé stromy
    - Po dokončení každého kroku smaž staré výstupy z paměti pokračováním dál
-   - Pokud přebíháš 40k tokenů: shrň stav do CHANGELOG.md a požádej o novou session
+   - Praktická zásada úspory kontextu viz ukol.md Pravidlo 5
 
 7. **Git commit/push:**
-   - **Nikdy nedělám `git commit` ani `git push`** – uživatel si commit i push po kontrole změn vždy udělá sám.
-   - Výjimka: Pouze pokud mě uživatel explicitně požádá o commit/push.
+   - `git commit` provedu automaticky po schváleném a otestovaném kroku.
+   - `git push` NEprovádím sám – až po explicitním vyzvání uživatelem.
 
 8. **CHANGELOG max 10 záznamů (Zero-Token Auto-Drop):**
    - `CHANGELOG.md` smí mít maximálně 10 nejnovějších časových milníků. Při přidání nového záznamu se ten nejstarší ze dna smaže. Žádný archivní soubor nevytvářej – historie žije v Git commit history.
+
+9. **Kontrola git větve před úpravou kódu:**
+   - Před JAKOUKOLIV úpravou kódu vždy nejdřív zkontroluj aktuální git větev (`git branch --show-current` nebo ekvivalent).
+   - Pokud jsi na `main`, NESMÍŠ rovnou editovat – místo toho:
+     a) Navrhni vhodný název nové pracovní větve podle řešeného úkolu/problému (např. `fix/notifications-link`, `feature/target-accounts`).
+     b) Vytvoř tuto větev a přepni se na ni (`git checkout -b <název>`).
+     c) Teprve pak pokračuj v editaci podle běžného workflow (jeden krok, stop, schválení).
+   - Pokud už jsi na jiné než main větvi, pokračuj normálně bez vytváření nové.
 
 ## 🗂️ Budoucí úkoly čekající na trigger
 

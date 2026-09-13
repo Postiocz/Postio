@@ -49,6 +49,18 @@
 
 ## 11. AKTUÁLNÍ ÚKOLY
 
+### 🐛 ÚKOL: FB Preview přetéká přes okraje karty (editor náhledu) ✅
+
+- **Kontext (2026-09-13):** V editoru postu (Preview panel) má Facebook záložka vizuální bug – obrázek/podklad přetéká přes zaoblené okraje karty náhledu (hrany fotky nesou zarovnané s `rounded` rohy karty), na rozdíl od Instagram záložky, která je v pořádku.
+- **Analýza:** komponenta `post-preview.tsx` – `MediaArea` (r. 812) má `overflow-hidden` ale bez `border-radius`; FB article (r. 864) má `rounded-lg` ale bez `overflow-hidden` → ostré rohy media přetékajу mimo zooblené rohy karty. IG je v pořádku, protože media leží flush k vnější karte viewportu (`rounded-[20px] overflow-hidden`, r. 244).
+- **Oprava (✅ testováno):** FB media wrappovaná v `overflow-hidden rounded-lg`; LinkedIn media (`rounded-lg` article) dostala `rounded-lg` na wrapper (stejný latentní bug). Diff: post-preview.tsx r. 891 + r. 1153.
+
+### 🐛 ÚKOL v2: FB/LinkedIn Preview – portrétový obrázek s tmavým okrajem (letterboxing) ⏳
+
+- **Kontext (2026-09-13):** Po opravě přetékání vizuální test ukázal: kolem portrétového obrázku v FB a LinkedIn náhledu je vidět nechtěný tmavý okraj/pruh po stranách – obrázek nevyplňuje šířku karty tak, jak na reálné síti. IG tab je v pořádku.
+- **Analýza:** řéšit – jak se řeší object-fit / šířka kontejnera pro portrétové obrázky (`w-full h-auto object-contain` v MediaArea vs IG). Potenciální příčina: `object-contain` lityczne + kontejner bez aspekt-ratio → při portrétu vzniká letterbox. Zhoduj s IG.
+- **Oprava:** navrhni (needituj kód, dokud neschválím).
+
 ### 🎯 ÚKOL: Jednotná per-platform validace médií (všech 6 platforem)
 
 **Problém / stav 2026-09-13:** Validace médií je dnes fragmentovaná a platforma-specifická (neexistuje vlastně, mimo dvou obecných checků):

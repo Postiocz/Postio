@@ -888,8 +888,11 @@ function FacebookPreview({
             </p>
           )}
 
-          {/* Media below text (FB style) */}
-          <MediaArea media={media} aspect="feed" labels={labels} />
+          {/* Media below text (FB style) – clipped to the card's rounded
+              corners (matches X/IG preview; MediaArea has no radius itself). */}
+          <div className="overflow-hidden rounded-lg">
+            <MediaArea media={media} aspect="feed" labels={labels} />
+          </div>
 
           {/* Engagement summary */}
           <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#65676b] dark:text-[#b0b3b8]">
@@ -1147,9 +1150,10 @@ function LinkedInPreview({
             </p>
           )}
 
-          {/* Media – LinkedIn feed crop */}
+          {/* Media – LinkedIn feed crop, clipped to the card's rounded corners
+              (matches the FB/X/IG preview standard). */}
           {media.length > 0 ? (
-            <div className="mt-1.5 overflow-hidden bg-white dark:bg-black">
+            <div className="mt-1.5 overflow-hidden rounded-lg bg-white dark:bg-black">
               <MediaArea media={media} aspect="feed" labels={labels} />
             </div>
           ) : null}

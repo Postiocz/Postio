@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🎨 Onboarding checklist: trvale schování po 4/4 (`onboarding_checklist_dismissed`) ✅
+
+- **Kontext**: Setup-guide modál „Dokončete nastavení" se schovával křížkem jen přes `localStorage` (`setup-dismissed`) – po přihlášení v jiném browseru/device se vrátil i po kompletním checklistu (4/4).
+- **Změny**:
+  - ✅ Migrace `059_add_onboarding_checklist_dismissed.sql` – nový sloupec `users.onboarding_checklist_dismissed BOOLEAN NOT NULL DEFAULT false` (bezpečný pro existující uživatele: výchozí false = chování bez změny).
+  - ✅ `setup-guide.tsx` – `handleDismiss` píše flag do DB jen po kliku na křížek při 4/4 (automatické schování bez kliku se nedělá – užívatel musí scena zavřít). Čtenie flag na mount před `ready` (bez bliknutí modálu); `localStorage` zůstává jako rychlá session cesta.
+  - ✅ `types.ts` – sloupec doplnen v users Row/Insert/Update.
+  - ✅ i18n: bez nových textů (Variant A – zero extra UI). RLS bez změny – „Users can update own row" existuje.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Migrace spuštěná ručně na produkční DB. Commit `ffaee8c`, push main + `feature/fix_checklist_modal` (fast-forward).
+
 ### 🎨 Notifikace: dedikovaná stránka /settings/notifications ✅
 
 - **Kontext**: Menu položka „Notifikace" mířila na /settings/notifications, jež nikdy neexistovala → 404 na každé dashboard stránce. Dle výboru Opci A přesunuta sekci „E-mailová upozornění" z /settings/preferences na vlastnu stránku, aby menu vedlo na reálně existující stránku a „Notifikace"/„Předvolby" byly opravdu dvě oddělené věci.
@@ -94,11 +104,4 @@
   - 🐛 Bonus fix: chybějící `]` v `text-[#e7e9ea>` u Views count v X (statistika dědila špatnou barvu) – opraveno a vloženo do light varianty.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark pro obě platformy).
 
-### 🎨 Prompt 069 – KROK 3: Light skiny YouTube + LinkedIn ✅
-
-- **Kontext**: Po KROKU 2 (FB/IG) zůstávaly YouTube a LinkedIn karty v Light modu tmavé.
-- **Změny** (`post-preview.tsx`):
-  - ✅ YouTube: light = `bg-white` + text `#0f0f0f`, sekundární `#606060`, popisný chip `bg-slate-100` → dark zachován (`bg-[#0f0f0f]` / `text-white`). Červené tlačítko Subscribe drží v obou režimech (věrně realitě YT).
-  - ✅ LinkedIn: light = reálný světlý LI (`bg-[#f3f2ef]`, karta `bg-white`, text `#191919`, sekundární `#666`, divider `border-black/10`, media rám `bg-white`) → dark zachován (`#1a1a2e` / `#1e1e36` / `#e4e6eb` / `#b0b3b8`).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark pro obě platformy).
 

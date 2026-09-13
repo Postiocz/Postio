@@ -154,7 +154,7 @@ export function Sidebar({
       account: [
         { href: `/${locale}/settings/profile`, label: settingsLabels.profile, icon: User },
         { href: `/${locale}/settings/preferences`, label: settingsLabels.preferences, icon: SlidersHorizontal },
-        { href: `/${locale}/settings/preferences`, label: settingsLabels.notifications, icon: Bell },
+        { href: `/${locale}/settings/notifications`, label: settingsLabels.notifications, icon: Bell },
         { href: `/${locale}/settings/referrals`, label: settingsLabels.referrals, icon: Gift },
       ],
       organization: [

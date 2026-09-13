@@ -271,7 +271,7 @@ export default function MobileNav({ locale, isAdmin, adminLabel, settingsLabels 
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
-                <Link href={`/${locale}/settings/preferences`} className="flex items-center gap-3 px-3 py-2">
+                <Link href={`/${locale}/settings/notifications`} className="flex items-center gap-3 px-3 py-2">
                   <Bell className="h-4 w-4 text-slate-600 dark:text-white/70" />
                   <span className="text-sm">{settingsLabels.notifications}</span>
                 </Link>

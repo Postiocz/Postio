@@ -774,6 +774,8 @@
     "deleteAccount": "Delete Account",
     "preferences": "Preferences",
     "notifications": "Notifications",
+    "notificationsDescription": "Set email notifications about running low on credits and regular usage summaries.",
+    "notificationsSaved": "Notifications saved!",
     "general": "General",
     "billing": "Billing",
     "referrals": "Referrals",

@@ -774,6 +774,8 @@
     "deleteAccount": "Smazat účet",
     "preferences": "Předvolby",
     "notifications": "Notifikace",
+    "notificationsDescription": "Nastavte e-mailová upozornění o docházejících kreditech a pravidelné souhrny čerpání.",
+    "notificationsSaved": "Upozornění uložené!",
     "general": "Obecné",
     "billing": "Fakturace",
     "referrals": "Doporučení",

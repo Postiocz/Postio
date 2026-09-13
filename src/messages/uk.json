@@ -774,6 +774,8 @@
     "deleteAccount": "Видалити акаунт",
     "preferences": "Передбачення",
     "notifications": "Сповіщення",
+    "notificationsDescription": "Налаштуйте email-сповіщення про те, що кредити закінчуються, та регулярні звіти про використання.",
+    "notificationsSaved": "Сповіщення збережено!",
     "general": "Загальне",
     "billing": "Оплата",
     "referrals": "Запрошення",

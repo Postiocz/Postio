@@ -790,13 +790,20 @@ function MediaArea({
   labels: PostPreviewProps["labels"];
 }) {
   if (media.length === 0) {
-    // For YouTube we use the 16:9 frame even in the empty state so the
-    // "no media" placeholder visually communicates "video slot".
-    const emptyAspect = aspect === "video" ? "aspect-video" : "aspect-square";
+    // The empty frame must match the filled media frame exactly so the
+    // placeholder's top edge aligns with where a real media block would
+    // start (feed = 4:5, video = 16:9, otherwise square). No background:
+    // a grey box would draw a visible frame around the placeholder.
+    const emptyAspect =
+      aspect === "feed"
+        ? "aspect-[4/5]"
+        : aspect === "video"
+          ? "aspect-video"
+          : "aspect-square";
     return (
       <div
         className={cn(
-          "flex w-full items-center justify-center bg-slate-100 text-xs text-slate-500 dark:bg-white/[0.02] dark:text-muted-foreground/50",
+          "flex w-full items-center justify-center text-xs text-muted-foreground/70",
           emptyAspect,
         )}
       >
@@ -805,23 +812,39 @@ function MediaArea({
     );
   }
   const first = media[0];
-  // Prompt 013 – object-contain + no forced aspect ratio so the full
-  // composition is always visible. The container height follows the
-  // natural aspect ratio of the uploaded file.
+  // FB/LinkedIn share the "feed" frame. Real networks CROP the photo to a
+  // fixed frame (object-cover) – `object-contain` + h-auto would leave a
+  // letterbox (dark side bars) around portrait images. IG ("square"), X and
+  // YouTube keep the natural contain behavior, which is fine there.
+  const isFeedFrame = aspect === "feed";
   return (
-    <div className="relative w-full overflow-hidden bg-white dark:bg-black">
+    <div
+      className={cn(
+        // No own background: the media sits directly on the card (the rounded
+        // corners of the card clip it). An explicit bg would draw a visible
+        // grey/dark frame around the photo.
+        "relative w-full overflow-hidden",
+        isFeedFrame && "aspect-[4/5]",
+      )}
+    >
       {first.kind === "image" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={first.previewUrl}
           alt="Preview"
-          className="w-full h-auto object-contain"
+          className={cn(
+            "w-full h-full object-cover",
+            !isFeedFrame && "h-auto object-contain",
+          )}
         />
       ) : (
         <video
           key={first.previewUrl}
           src={first.previewUrl}
-          className="w-full h-auto object-contain"
+          className={cn(
+            "w-full h-full object-cover",
+            !isFeedFrame && "h-auto object-contain",
+          )}
           muted
           playsInline
           loop
@@ -861,9 +884,9 @@ function FacebookPreview({
     <div className="flex h-full flex-col bg-[#f0f2f5] text-[#050505] dark:bg-[#242526] dark:text-[#e4e6eb]">
       {/* Feed card – no top bar, starts directly with the post */}
       <div className="flex-1 overflow-y-auto px-3 pb-3 postio-scrollbar">
-        <article className="rounded-lg bg-white p-2.5 dark:bg-[#18191a]">
+        <article className="rounded-lg overflow-hidden bg-white dark:bg-[#18191a]">
           {/* Header: avatar + name + time */}
-          <header className="mb-1.5 flex items-center gap-2">
+          <header className="mb-1.5 flex items-center gap-2 px-2.5">
             <Avatar url={profile.avatarUrl} name={profile.displayName} size={32} />
             <div className="min-w-0">
               <p className="truncate text-[13px] font-semibold text-[#050505] dark:text-[#e4e6eb]">
@@ -879,23 +902,21 @@ function FacebookPreview({
 
           {/* Caption text – above media (FB feed style) */}
           {content.trim() ? (
-            <p className="mb-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#050505] dark:text-[#e4e6eb]">
+            <p className="mb-1.5 whitespace-pre-wrap break-words px-2.5 text-[13px] leading-relaxed text-[#050505] dark:text-[#e4e6eb]">
               {content}
             </p>
           ) : (
-            <p className="mb-1.5 text-[13px] italic text-[#65676b]/60 dark:text-[#b0b3b8]/60">
+            <p className="mb-1.5 px-2.5 text-[13px] italic text-[#65676b]/60 dark:text-[#b0b3b8]/60">
               {labels.captionHint}
             </p>
           )}
 
-          {/* Media below text (FB style) – clipped to the card's rounded
-              corners (matches X/IG preview; MediaArea has no radius itself). */}
-          <div className="overflow-hidden rounded-lg">
-            <MediaArea media={media} aspect="feed" labels={labels} />
-          </div>
+          {/* Media – flush edge-to-edge (like IG/real FB); the article's
+              overflow-hidden clips it to the rounded corners. */}
+          <MediaArea media={media} aspect="feed" labels={labels} />
 
           {/* Engagement summary */}
-          <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#65676b] dark:text-[#b0b3b8]">
+          <div className="mt-1.5 flex items-center justify-between px-2.5 text-[11px] text-[#65676b] dark:text-[#b0b3b8]">
             <span className="flex items-center gap-1">
               <span className="flex -space-x-1">
                 <span className="inline-block rounded-full bg-[#1877F2] h-4 w-4 flex items-center justify-center text-[8px] text-white">👍</span>
@@ -907,10 +928,10 @@ function FacebookPreview({
           </div>
 
           {/* Divider */}
-          <div className="my-1.5 border-t border-black/10 dark:border-white/5" />
+          <div className="mx-2.5 my-1.5 border-t border-black/10 dark:border-white/5" />
 
           {/* Action row: Like / Comment / Share – FB mobile icons */}
-          <div className="grid grid-cols-3 gap-1 text-[11px] font-medium text-[#65676b] dark:text-[#b0b3b8]">
+          <div className="grid grid-cols-3 gap-1 px-2.5 pb-0.5 text-[11px] font-medium text-[#65676b] dark:text-[#b0b3b8]">
             <span className="flex items-center justify-center gap-1.5 py-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-default">
               <span aria-hidden className="text-base">👍</span>
               {labels.actionLike ?? "Líbí se mi"}
@@ -1113,7 +1134,7 @@ function LinkedInPreview({
     <div className="flex h-full flex-col bg-[#f3f2ef] text-[#191919] dark:bg-[#1a1a2e] dark:text-[#e4e6eb]">
       {/* Feed card – no top bar, starts directly with the post */}
       <div className="flex-1 overflow-y-auto px-3 py-2.5 postio-scrollbar">
-        <article className="rounded-lg bg-white shadow-sm dark:bg-[#1e1e36]">
+        <article className="rounded-lg overflow-hidden bg-white shadow-sm dark:bg-[#1e1e36]">
           {/* Header: avatar + name + headline + time + globe */}
           <header className="flex items-start gap-2 px-2.5 pt-2.5">
             <Avatar url={profile.avatarUrl} name={profile.displayName} size={36} />
@@ -1150,12 +1171,10 @@ function LinkedInPreview({
             </p>
           )}
 
-          {/* Media – LinkedIn feed crop, clipped to the card's rounded corners
-              (matches the FB/X/IG preview standard). */}
+          {/* Media – flush edge-to-edge (like FB/IG); the article's
+              overflow-hidden clips it to the rounded corners. */}
           {media.length > 0 ? (
-            <div className="mt-1.5 overflow-hidden rounded-lg bg-white dark:bg-black">
-              <MediaArea media={media} aspect="feed" labels={labels} />
-            </div>
+            <MediaArea media={media} aspect="feed" labels={labels} />
           ) : null}
 
           {/* Social proof row */}

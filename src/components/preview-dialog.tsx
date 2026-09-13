@@ -487,11 +487,20 @@ function PreviewMediaArea({
   noMediaLabel: string;
 }) {
   if (media.length === 0) {
-    const emptyAspect = aspect === "video" ? "aspect-video" : "aspect-square";
+    // The empty frame must match the filled media frame exactly so the
+    // placeholder's top edge aligns with where a real media block would
+    // start (feed = 4:5, video = 16:9, otherwise square). No background:
+    // a grey box would draw a visible frame around the placeholder.
+    const emptyAspect =
+      aspect === "feed"
+        ? "aspect-[4/5]"
+        : aspect === "video"
+          ? "aspect-video"
+          : "aspect-square";
     return (
       <div
         className={cn(
-          "flex w-full items-center justify-center bg-white/[0.02] text-xs text-muted-foreground/50",
+          "flex w-full items-center justify-center text-xs text-muted-foreground/70",
           emptyAspect,
         )}
       >
@@ -500,22 +509,38 @@ function PreviewMediaArea({
     );
   }
   const first = media[0];
-  // Prompt 013 – object-contain + no forced aspect ratio so the full
-  // composition is always visible. The container height follows the
-  // natural aspect ratio of the uploaded file.
+  // FB/LinkedIn share the "feed" frame. Real networks CROP the photo to a
+  // fixed frame (object-cover) – object-contain + h-auto would leave a
+  // letterbox (dark side bars) around portrait images. IG/X/YT keep the
+  // natural contain behavior, which is fine there.
+  const isFeedFrame = aspect === "feed";
   return (
-    <div className="relative w-full overflow-hidden bg-black">
+    <div
+      className={cn(
+        // No own background: the media sits directly on the card (the rounded
+        // corners of the card clip it). An explicit bg would draw a visible
+        // grey/dark frame around the photo.
+        "relative w-full overflow-hidden",
+        isFeedFrame && "aspect-[4/5]",
+      )}
+    >
       {first.kind === "image" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={first.previewUrl}
           alt="Preview"
-          className="w-full h-auto object-contain"
+          className={cn(
+            "w-full h-full object-cover",
+            !isFeedFrame && "h-auto object-contain",
+          )}
         />
       ) : (
         <video
           src={first.previewUrl}
-          className="w-full h-auto object-contain"
+          className={cn(
+            "w-full h-full object-cover",
+            !isFeedFrame && "h-auto object-contain",
+          )}
           muted
           playsInline
           preload="metadata"
@@ -551,8 +576,8 @@ function renderPreviewForPlatform(
       return (
         <div className="flex flex-col min-h-0 bg-[#242526] text-[#e4e6eb]">
           <div className="flex-1 overflow-visible px-2.5 pb-2.5">
-            <article className="rounded-lg bg-[#18191a] p-2">
-              <header className="mb-1 flex items-center gap-1.5">
+            <article className="rounded-lg overflow-hidden bg-[#18191a]">
+              <header className="mb-1 flex items-center gap-1.5 px-2.5">
                 <AvatarInline url={profile.avatarUrl} name={profile.displayName} size={28} />
                 <div className="min-w-0">
                   <p className="truncate text-[12px] font-semibold text-[#e4e6eb]">
@@ -566,16 +591,17 @@ function renderPreviewForPlatform(
                 </div>
               </header>
               {content.trim() ? (
-                <p className="mb-1 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[#e4e6eb]">
+                <p className="mb-1 whitespace-pre-wrap break-words px-2.5 text-[12px] leading-relaxed text-[#e4e6eb]">
                   {content}
                 </p>
               ) : (
-                <p className="mb-1 text-[12px] italic text-[#b0b3b8]/60">
+                <p className="mb-1 px-2.5 text-[12px] italic text-[#b0b3b8]/60">
                   {captionHintLabel}
                 </p>
               )}
+              {/* Media flush edge-to-edge (same as IG/real FB). */}
               <PreviewMediaArea media={media} aspect="feed" noMediaLabel={noMediaLabel} />
-              <div className="mt-1 flex items-center justify-between text-[10px] text-[#b0b3b8]">
+              <div className="mt-1 flex items-center justify-between px-2.5 text-[10px] text-[#b0b3b8]">
                 <span className="flex items-center gap-1">
                   <span className="flex -space-x-1">
                     <span className="inline-block rounded-full bg-[#1877F2] h-3.5 w-3.5 flex items-center justify-center text-[7px] text-white">👍</span>
@@ -585,8 +611,8 @@ function renderPreviewForPlatform(
                 </span>
                 <span>{labels.commentShareStats}</span>
               </div>
-              <div className="my-1 border-t border-white/5" />
-              <div className="grid grid-cols-3 gap-0.5 text-[10px] font-medium text-[#b0b3b8]">
+              <div className="mx-2.5 my-1 border-t border-white/5" />
+              <div className="grid grid-cols-3 gap-0.5 px-2.5 pb-0.5 text-[10px] font-medium text-[#b0b3b8]">
                 <span className="flex items-center justify-center gap-1 py-0.5 rounded-md hover:bg-white/5 transition-colors cursor-default">
                   <span aria-hidden className="text-sm">👍</span>
                   {labels.actionLike}
@@ -698,7 +724,7 @@ function renderPreviewForPlatform(
       return (
         <div className="flex flex-col min-h-0 bg-[#1a1a2e] text-[#e4e6eb]">
           <div className="flex-1 overflow-visible px-2.5 py-2">
-            <article className="rounded-lg bg-[#1e1e36] shadow-sm">
+            <article className="rounded-lg overflow-hidden bg-[#1e1e36] shadow-sm">
               <header className="flex items-start gap-1.5 px-2 pt-2">
                 <AvatarInline url={profile.avatarUrl} name={profile.displayName} size={32} />
                 <div className="min-w-0 flex-1">
@@ -728,9 +754,8 @@ function renderPreviewForPlatform(
                 </p>
               )}
               {media.length > 0 ? (
-                <div className="mt-1 overflow-hidden bg-black">
-                  <PreviewMediaArea media={media} aspect="feed" noMediaLabel={noMediaLabel} />
-                </div>
+                /* Media flush edge-to-edge (same as FB/IG). */
+                <PreviewMediaArea media={media} aspect="feed" noMediaLabel={noMediaLabel} />
               ) : null}
               <div className="flex items-center justify-between px-2 pb-0.5 pt-1 text-[9px] text-[#b0b3b8]">
                 <span aria-hidden>👍❤️👏 0</span>

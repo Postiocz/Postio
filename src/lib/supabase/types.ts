@@ -39,6 +39,7 @@ export interface Database {
           referral_reward_days: number | null
           email_low_credit_alert: boolean
           email_weekly_summary: boolean
+          onboarding_checklist_dismissed: boolean
           is_active: boolean
           created_at: string
         }
@@ -65,6 +66,7 @@ export interface Database {
           referral_reward_days?: number | null
           email_low_credit_alert?: boolean
           email_weekly_summary?: boolean
+          onboarding_checklist_dismissed?: boolean
           is_active?: boolean
           created_at?: string
         }
@@ -92,6 +94,7 @@ export interface Database {
           referral_reward_days?: number | null
           email_low_credit_alert?: boolean
           email_weekly_summary?: boolean
+          onboarding_checklist_dismissed?: boolean
           is_active?: boolean
           created_at?: string
         }

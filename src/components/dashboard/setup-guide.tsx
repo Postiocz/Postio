@@ -35,15 +35,69 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
   const [ready, setReady] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    setDismissed(localStorage.getItem("setup-dismissed") === "true");
-    setReady(true);
-  }, []);
+  const completedCount = tasks.filter((t) => t.isCompleted).length;
+  const totalCount = tasks.length;
 
-  const handleDismiss = useCallback(() => {
+  useEffect(() => {
+    const localDismissed = localStorage.getItem("setup-dismissed") === "true";
+    if (localDismissed) {
+      setDismissed(true);
+      setReady(true);
+      return;
+    }
+    // Persistent dismiss: read the per-user DB flag (server of truth for the
+    // "checklist complete (4/4) → hide forever" case). Read before `ready`,
+    // so a returning user never sees a flash of the modal before it hides.
+    let cancelled = false;
+    const fetchDismissed = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (cancelled || !user) return;
+        const { data: row } = await supabase
+          .from("users")
+          .select("onboarding_checklist_dismissed")
+          .eq("id", user.id)
+          .single();
+        if (cancelled) return;
+        setDismissed(row?.onboarding_checklist_dismissed === true);
+      } catch {
+        // Supabase unavailable – keep session-only behavior.
+      } finally {
+        setReady(true);
+      }
+    };
+    void fetchDismissed();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  const handleDismiss = useCallback(async () => {
     setDismissed(true);
     localStorage.setItem("setup-dismissed", "true");
-  }, []);
+
+    // Persist the dismiss permanently only when the checklist is complete
+    // (4/4). A partial checklist must keep reappearing across sessions so
+    // the user knows what is still missing.
+    if (completedCount === totalCount) {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from("users")
+            .update({ onboarding_checklist_dismissed: true })
+            .eq("id", user.id);
+        }
+      } catch {
+        // Supabase unavailable – the localStorage hide below still applies
+        // for this session.
+      }
+    }
+  }, [completedCount, totalCount, supabase]);
 
   useEffect(() => {
     if (!ready || dismissed) return;
@@ -104,8 +158,6 @@ export default function SetupGuide({ locale }: SetupGuideProps) {
     };
   }, [dismissed, ready, supabase]);
 
-  const completedCount = tasks.filter((t) => t.isCompleted).length;
-  const totalCount = tasks.length;
   const progressPercent = (completedCount / totalCount) * 100;
 
   if (!ready || dismissed) return null;

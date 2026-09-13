@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ⚙️ Media validace: per-platform policies registry + validator (KROK 1/5) ✅
+
+- **Kontext**: Validace médií v Postio byla obecná (MIME allow-list, velikostové capy, video rez. warning) + jediný IG-specific block (video <640 px). Pravidlo „IG = JPEG-only + poměr 4:5–1.91:1" z CLAUDE.md „Bibla pravidel" existovalo JEN v dokumentaci, nikdy v kódu. Rozhodováno: sjednotit validaci per-platform pro všech 6 platforem (FB, IG, LI, YT, X, TikTok) je moderný mechanismus.
+- **Změny**:
+  - ✅ Nový čistý (pure TS) modul `src/lib/media/platform-policies.ts` – jediný zdroj pravdy: `MediaPolicy` per platform (support, allowed MIME, max velikost, poměr, min rez., max délku, max počet médií), registry `MEDIA_POLICIES` + `getPlatformPolicy`, validator `validateCandidate` / `validateMediaForPolicies` / `isMediaCompatibleWithPlatform`. Poměr → warning, ostatní → error. Požiadavky z officialní dokumentace (Meta Graph API, LinkedIn Assets API, Sprout Social specs, X API, TikTok API).
+  - ✅ KROK 2 – `posts/new` editor: platform badge + tooltip u platform card, konsolidovane varování banner, hard-block Publish/Schedule/Queue na media error (nahradil IG-specific video block).
+  - ✅ KROK 3 – `edit-post-dialog`: integráci validatoru + sdílená komponenta `PlatformMediaBadge` (extrahovaná z posts/new, používaná obojí editorom), nahrazené 5 IG-only guardov obecným mechanismem.
+  - ✅ KROK 4 – Server-side media pre-flight v `publish.ts` (`preflightPlatformMedia`): refuze publish před platform API (obraz → TikTok/YouTube, video → LinkedIn, count > maxFiles), skip row s explicit error; obojí entry points (`publishPost` + `publishAdditionalPlatforms`); nová `validateMediaCount` v platform-policies (count check sdílený klient/server); poznámka pro scheduled Edge Function. Otestováno: X+5 obrázków → blokován, TikTok+obrázek → skip s msg.
+  - ⏳ KROK 5 plánované: i18n + aktualizace CLAUDE.md/AGENTS.md „Bibla pravidel".
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb) – čistý modul a editor integrace, dev server kompiluje `/cs/posts/new`.
+
 ### 🎨 Onboarding checklist: trvale schování po 4/4 (`onboarding_checklist_dismissed`) ✅
 
 - **Kontext**: Setup-guide modál „Dokončete nastavení" se schovával křížkem jen přes `localStorage` (`setup-dismissed`) – po přihlášení v jiném browseru/device se vrátil i po kompletním checklistu (4/4).
@@ -94,14 +105,5 @@
   - ✅ i18n konzistence: nové/přepsané klíče v cs/en/uk validní, žádný `MISSING_MESSAGE`.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem.
 
-### 🎨 Prompt 069 – KROK 4: Light skiny TikTok + X + MediaArea ✅
-
-- **Kontext**: Po KROKU 3 (YT/LI) zůstávaly TikTok a X karty v Light modu tmavé; prázdný stav médií byl poblýsknutý.
-- **Změny** (`post-preview.tsx`):
-  - ✅ TikTok: light = světlá simulace (`bg-white` + text `#0f0f0f`), placeholder `bg-slate-100`, overlay gradient v light zesvětlen (`from-white/90 via-white/30`) aby texty zůstaly čitelné nad videem → dark zachován (`bg-black` / `from-black/80`).
-  - ✅ X (Twitter): light = reálná X paleta (`bg-white` + text `#0f1419`, sekundární `#536471`, bordery `#e1e8ed`) → dark zachován (`#e7e9ea` / `#71767b` / `#2f3336`).
-  - ✅ MediaArea: empty state light `bg-slate-100 text-slate-500`, media kontejner light `bg-white` (dark zachovány). Avatar: gradient indigo→purple + bílé písmo funguje v obou režimech, úprava netřeba.
-  - 🐛 Bonus fix: chybějící `]` v `text-[#e7e9ea>` u Views count v X (statistika dědila špatnou barvu) – opraveno a vloženo do light varianty.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (Light + Dark pro obě platformy).
 
 

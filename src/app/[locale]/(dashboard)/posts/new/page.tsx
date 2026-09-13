@@ -29,6 +29,14 @@ import {
   isTikTokSandboxPrivateOnlyError,
   TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
 } from "@/lib/tiktok-publish-errors";
+import {
+  getPlatformPolicy,
+  validateCandidate,
+  validateMediaCount,
+  type MediaCandidate,
+  type ValidationIssue,
+} from "@/lib/media/platform-policies";
+import { PlatformMediaBadge } from "@/components/platform-media-badge";
 import NextImage from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useMediaUpload } from "@/hooks/use-media-upload";
@@ -426,7 +434,7 @@ export default function NewPostPage() {
     fileOptimized: t("fileOptimized"),
     compressionError: t("compressionError"),
   };
-  const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading, getInstagramIncompatibleVideos, addImageUrl } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
+  const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading, addImageUrl } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
   // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
   const firstImageUrl = useMemo(() => {
@@ -545,14 +553,52 @@ export default function NewPostPage() {
     return null;
   }
 
-  // Instagram video-resolution hard-block. When the post is destined for
-  // Instagram and contains a video with shorter side < 640 px, we surface
-  // a banner and disable Publish / Schedule (see EditPostDialog for the
-  // matching copy and rationale).
-  const isInstagramVideoIncompatible = useMemo(() => {
-    if (!selectedPlatforms.includes("instagram")) return false;
-    return getInstagramIncompatibleVideos().length > 0;
-  }, [selectedPlatforms, getInstagramIncompatibleVideos]);
+  // KROK 2 (media policies): map the uploaded media to the pure validator
+  // contract. Only "ready" items are validated – items still uploading are
+  // handled by the `hasUploading()` guard, and failed items never reach the
+  // post.
+  const mediaCandidates = useMemo<MediaCandidate[]>(() => {
+    return mediaItems
+      .filter((i) => i.status === "ready")
+      .map((i) => ({
+        id: i.id,
+        kind: i.kind,
+        mimeType: i.file?.type ?? undefined,
+        fileSizeBytes: i.file?.size,
+        dimensions: i.dimensions,
+      }));
+  }, [mediaItems]);
+
+  // Per-platform media validation issues (from platform-policies.ts).
+  // Error severity hard-blocks Publish/Schedule; warnings (e.g. aspect
+  // ratio) only surface in the banner/tooltip.
+  const platformMediaIssues = useMemo<Record<string, ValidationIssue[]>>(() => {
+    const out: Record<string, ValidationIssue[]> = {};
+    for (const platformId of selectedPlatforms) {
+      const policy = getPlatformPolicy(platformId);
+      out[platformId] = [
+        ...validateMediaCount(mediaCandidates, policy),
+        ...mediaCandidates.flatMap((c) => validateCandidate(c, policy)),
+      ];
+    }
+    return out;
+  }, [selectedPlatforms, mediaCandidates]);
+
+  /** True when any selected platform has a hard media error. */
+  const hasBlockingMediaErrors = useMemo(() => {
+    return selectedPlatforms.some((p) =>
+      (platformMediaIssues[p] ?? []).some((i) => i.severity === "error"),
+    );
+  }, [selectedPlatforms, platformMediaIssues]);
+
+  /** Flat list of error messages (used by the Publish/Schedule guards). */
+  const blockingErrorMessages = useMemo(() => {
+    return selectedPlatforms.flatMap((p) =>
+      (platformMediaIssues[p] ?? [])
+        .filter((i) => i.severity === "error")
+        .map((i) => i.message),
+    );
+  }, [selectedPlatforms, platformMediaIssues]);
 
   const toggleAccount = (id: string) => {
     setSelectedAccountIds((prev) =>
@@ -597,8 +643,8 @@ export default function NewPostPage() {
     // a plain draft can still be saved so the user can keep working on
     // other parts of the post and fix the media later.
     // -------------------------------------------------------------------
-    if (isInstagramVideoIncompatible && status === "scheduled") {
-      const msg = t("instagramVideoTooSmall");
+    if (hasBlockingMediaErrors && status === "scheduled") {
+      const msg = blockingErrorMessages.join(" ");
       setError(msg);
       toast.error(msg);
       return;
@@ -658,13 +704,12 @@ export default function NewPostPage() {
       return;
     }
     // -------------------------------------------------------------------
-    // Instagram video-resolution hard-block. If the post is destined for
-    // Instagram but contains a video whose shorter side is below 640 px,
-    // we refuse to even attempt publishing – Meta's API would just fail
-    // with error_subcode 2207082 and the user would see a cryptic error.
+    // Media-policy hard-block (KROK 2): when any selected platform has a
+    // media-format/resolution error we refuse to attempt publishing – the
+    // platform API would just fail with a cryptic error.
     // -------------------------------------------------------------------
-    if (isInstagramVideoIncompatible) {
-      const msg = t("instagramVideoTooSmall");
+    if (hasBlockingMediaErrors) {
+      const msg = blockingErrorMessages.join(" ");
       setError(msg);
       toast.error(msg);
       return;
@@ -749,8 +794,8 @@ export default function NewPostPage() {
       toast.info(t("uploading"));
       return;
     }
-    if (isInstagramVideoIncompatible) {
-      const msg = t("instagramVideoTooSmall");
+    if (hasBlockingMediaErrors) {
+      const msg = blockingErrorMessages.join(" ");
       setError(msg);
       toast.error(msg);
       return;
@@ -1128,6 +1173,11 @@ export default function NewPostPage() {
                               <span className="text-xs font-medium text-muted-foreground">
                                 {platformLabel}
                               </span>
+                              {/* Media-policy status badge (sdílená komponenta, KROK 3). */}
+                              <PlatformMediaBadge
+                                label={platformLabel}
+                                issues={platformMediaIssues[platformId] ?? []}
+                              />
                               {/* KROK 5: Twitter auto-credits indicator */}
                               {platformId === "twitter" && (
                                 <>
@@ -1473,19 +1523,41 @@ export default function NewPostPage() {
 
           {/* Action buttons */}
           <div className="flex flex-col gap-3 pt-3">
-            {/* Instagram video-resolution hard-block banner. */}
-            {isInstagramVideoIncompatible && (
-              <div
-                className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-200/90"
-                role="alert"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500 dark:text-rose-400" />
-                <div className="space-y-0.5">
-                  <p className="font-medium">{t("instagramVideoTooSmall")}</p>
-                  <p className="text-xs text-rose-600 dark:text-rose-200/70">{t("instagramVideoTooSmallHint")}</p>
+            {/* Media-policy warning/error banner (any selected platform). */}
+            {
+              selectedPlatforms.some((p) => (platformMediaIssues[p] ?? []).length > 0) && (
+                <div className="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm" role="alert">
+                  {selectedPlatforms.map((p) => {
+                    const issues = platformMediaIssues[p] ?? [];
+                    if (issues.length === 0) return null;
+                    const hasError = issues.some((i) => i.severity === "error");
+                    return (
+                      <div
+                        key={p}
+                        className={cn(
+                          "flex items-start gap-3",
+                          hasError
+                            ? "text-rose-700 dark:text-rose-200/90"
+                            : "text-amber-800 dark:text-amber-200/90",
+                        )}
+                      >
+                        <AlertTriangle className={cn("mt-0.5 h-4 w-4 shrink-0", hasError ? "text-rose-500 dark:text-rose-400" : "text-amber-500 dark:text-amber-400")} />
+                        <div className="space-y-0.5">
+                          <p className="font-medium">
+                            {(PLATFORMS.find((x) => x.id === p)?.[typeof locale === "string" && locale === "en" ? "labelEn" : typeof locale === "string" && locale === "uk" ? "labelUk" : "labelCs"] as string | undefined) ?? p}
+                          </p>
+                          {issues.map((i) => (
+                            <p key={i.code} className="text-xs">
+                              {i.message}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              )
+            }
             <div className="flex flex-wrap gap-3 justify-end">
               <Button
                 onClick={() => handleSubmit("draft")}
@@ -1498,8 +1570,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={handleQueueToSchedule}
-                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || queuing || hasUploading() || isInstagramVideoIncompatible}
-                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || queuing || hasUploading() || hasBlockingMediaErrors}
+                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
                 variant="outline"
                 className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all active:scale-[0.98]"
               >
@@ -1508,8 +1580,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={() => handleSubmit("scheduled")}
-                disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
-                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading() || hasBlockingMediaErrors}
+                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
@@ -1517,8 +1589,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={handlePublishNow}
-                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || hasUploading() || isInstagramVideoIncompatible}
-                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || hasUploading() || hasBlockingMediaErrors}
+                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

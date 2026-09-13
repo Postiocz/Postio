@@ -48,3 +48,64 @@
 ---
 
 ## 11. AKTUÁLNÍ ÚKOLY
+
+### 🎯 ÚKOL: Jednotná per-platform validace médií (všech 6 platforem)
+
+**Problém / stav 2026-09-13:** Validace médií je dnes fragmentovaná a platforma-specifická (neexistuje vlastně, mimo dvou obecných checků):
+
+- Obecná MIME allow-list (JPEG/PNG/WEBP image, MP4/MOV video) v `src/lib/constants.ts`, aplikovaná při přidání souboru v `src/hooks/use-media-upload.ts` (`addFiles`).
+- Obecná velikostová ochrana: `MAX_VIDEO_SIZE` 50 MB, `ABSOLUTE_HARD_LIMIT` 50 MB (tamté).
+- Obecné varování nízkého rozlišení video: `MIN_VIDEO_DIMENSION = 640` (toast `videoLowResolution`).
+- IG-specific: `getInstagramIncompatibleVideos` (video s kratší stranou <640 px) → rose banner + disable Publish/Schedule v obou editorach (`posts/new/page.tsx`, `components/edit-post-dialog.tsx`).
+- Platform-vyžadující checky presence: `isPlatformMediaRequirementMet` (tiktok/youtube → video, instagram → jakékoli médium), tooltipy.
+
+**⚠️ DŮLEŽITÉ ZJIŠTĚNÍ:** Pravidlo „IG = JPEG-only + poměr stran 4:5–1.91:1" existuje JEN v CLAUDE.md/AGENTS.md (`## 📱 Sociální sítě – UI/UX & API pravidla`, bod 2 „Validace médií"). **V KÓDU TU VALIDACI NENÍ ANI IMPLEMENTOVANÁ** — žiaden kód nekontroluje formát/poměr obrazu per-platform.
+
+**Oficiální požadavka (ověřeno z dokumentace 2026-09-13):**
+
+| Platforma | Format obrázků | Max velikost obr. | Poměr obrázků | Format videí | Max délka videí | Max velikost videí | Pozn. |
+|---|---|---|---|---|---|---|---|
+| Facebook | jpeg/bmp/png/gif/tiff | 10 MB (png doporuč. <1 MB) | — | MP4/MOV | do 240 min | 10 GB | Graph API Page Photos |
+| Instagram | jpeg/png | 8 MB (organic) | feed 4:5·1:1·1.91:1; story 9:16 | MP4/MOV | 3 s–60 min (Reels 3 min) | 4 GB | feed ratio z CLAUDE.md 4:5–1.91:1 ✓ |
+| LinkedIn | jpeg/gif/png | <36 MP px | 1:1 nebo 2.4:1 vid. | MP4/MOV/AVI/WebM/MKV | do 10 min | <200 MB (jedno; nad = multipart) | Assets API; v Postio v1 **video NEní podporované** (error) |
+| YouTube | — | — | 16:9 default (4:3 kategori) | MP4/MOV/AVI/WMV/WebM… | do 12 h | 256 GB | Shorts 9:16/1:1 do 3 min |
+| X (Twitter) | jpg/png/gif | 5 MB (gif 15 MB) | 16:9, 1:1 (+portrait 9:16) | MP4/MOV (H.264/AAC) | 0.5–140 s | 512 MB | X publish v Postio = „ready" (manual, bez API) |
+| TikTok | jpg/png (photo) | — | 9:16 (i 1:1, 16:9) | MP4/MOV | do 3 min (10 min ze zdroja) | 72–278 MB (in-app) | min rez. 540×960 |
+
+**Návrh obecného mechanismu:**
+
+1. **Čistá per-platform politika** (`src/lib/media/platform-policies.ts`, pure TS, bez deps):
+   ```
+   type MediaPolicy = {
+     platformId: string;
+     requires: "image" | "video" | "any" | "none";
+     allowedImageTypes: string[];   // MIME
+     allowedVideoTypes: string[];
+     maxImageBytes?: number;
+     maxVideoBytes?: number;
+     minRatio?: number;             // width/height
+     maxRatio?: number;
+     minDimension?: number;         // px, klatší strana
+     maxDurationSec?: number;
+     maxFiles?: number;             // počet médií na post
+     notes?: string;                // i18n návrh
+   };
+   function validateMediaForPolicy(mediaItems, policy): ValidationIssue[];
+   ```
+   Registry pro všechny 6 + sdílená cnt funkce. Staré konstanty (`MIN_VIDEO_DIMENSION` a spol.) se přesunou sem jako výchozí/politiky.
+
+2. **Klientová validacia sdílena** – jeden validator používaný OBA editora (posts/new + edit-post-dialog), místo dnešní IG-only logiky.
+
+3. **UI štítek u KAŽDEJ vybranej platformy** – malý status odznak na chipu platformy (✓ zelený / ⚠ oranžový / ✕ červený) + tooltip s krádkým „čo nejsedí", plus místo IG-only banner: konsolidované varování s vypsanými všíemi problémovými platformami.
+
+4. **Server-side pre-flight** v `publish.ts` (a scheduled Edge Function) – dřím pomocou stejných politik, skip + explicitní error pres silent-fail (stejný princip jako accountMap fix).
+
+5. **i18n** – nové klíče per-platform (cs/en/uk); CHANGELOG záznam; aktualizace CLAUDE.md/AGENTS.md „Bibla pravidel" k markeru realizováno + shoda s realnou (JPEG-only nuance – IG akceptuje i PNG).
+
+**Dílčí kroky (pořadě):**
+- ✅ **KROK 1** – `platform-policies.ts` registry (všech 6 platforem) + validator fn (pure, názadno testovatelné). Bez UI.
+- ✅ **KROK 2** – Zapojenie validatoru do `posts/new` editoru: platform badge + tooltip + konsolidovane varování (IG banner proho environment zamění obecný, ale zobrazuje se pro každú vybr. platformu).
+- ✅ **KROK 3** – Stejné do `edit-post-dialog` (extrakce sdílené komponenty `PlatformMediaBadge` – `src/components/platform-media-badge.tsx`, používaná obojí editorom).
+- ✅ **KROK 4** – Server-side pre-flight v `publish.ts` (+ poznámka pro scheduled Edge Function), skip + explicit error.
+- **KROK 5** – i18n (cs/en/uk), CHANGELOG, aktualizace CLAUDE.md/AGENTS.md „Bibla pravidel".
+- **Ověření každého kroku:** `npx tsc --noEmit` + manuál test v UI editoru.

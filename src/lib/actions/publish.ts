@@ -12,6 +12,12 @@ import {
   isTikTokSandboxPrivateOnlyError,
   TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
 } from "@/lib/tiktok-publish-errors";
+import {
+  getPlatformPolicy,
+  validateCandidate,
+  validateMediaCount,
+  type MediaCandidate,
+} from "@/lib/media/platform-policies";
 import { logger } from "@/lib/logger";
 
 const LOCALES = ["cs", "en", "uk"] as const;
@@ -100,6 +106,59 @@ function getFacebookMediaType(mediaUrls: unknown): FacebookPublishMediaType {
   }
 
   return "text";
+}
+
+/**
+ * Server-side media pre-flight (KROK 4).
+ *
+ * The server only has public media URLs (strings), so it validates what it
+ * CAN know without downloading files: the media kind (inferred from the URL
+ * extension) against the platform's `support`, plus the per-post media count
+ * against `maxFiles`. Gól: refuse the publish BEFORE hitting the platform
+ * API, which would otherwise answer with a cryptic error (e.g. image →
+ * TikTok/YouTube, video → LinkedIn, too many files for X). Aspect ratio,
+ * resolution and exact size are validated client-side at upload time.
+ *
+ * Returns a flat list of error-severity messages (empty = OK).
+ */
+function preflightPlatformMedia(mediaUrls: string[], platformId: string): string[] {
+  const policy = getPlatformPolicy(platformId);
+  const candidates: MediaCandidate[] = [];
+
+  for (const url of mediaUrls) {
+    const withoutHash = url.split("#")[0] ?? "";
+    const withoutQuery = (withoutHash.split("?")[0] ?? "").toLowerCase();
+    const kind =
+      withoutQuery.endsWith(".mp4") ||
+      withoutQuery.endsWith(".mov") ||
+      withoutQuery.endsWith(".webm") ||
+      withoutQuery.endsWith(".mkv")
+        ? "video"
+        : withoutQuery.endsWith(".jpg") ||
+            withoutQuery.endsWith(".jpeg") ||
+            withoutQuery.endsWith(".png") ||
+            withoutQuery.endsWith(".webp") ||
+            withoutQuery.endsWith(".gif")
+          ? "image"
+          : null;
+
+    // Unknown extension – cannot classify server-side; client already
+    // validated these files, so don't block on them here.
+    if (!kind) continue;
+
+    candidates.push({ id: url, kind, mimeType: undefined, fileSizeBytes: undefined });
+  }
+
+  const messages: string[] = [];
+  for (const c of candidates) {
+    for (const issue of validateCandidate(c, policy)) {
+      if (issue.severity === "error") messages.push(issue.message);
+    }
+  }
+  for (const issue of validateMediaCount(candidates, policy)) {
+    if (issue.severity === "error") messages.push(issue.message);
+  }
+  return messages;
 }
 
 function getGraphErrorMessage(payload: unknown): string | null {
@@ -607,6 +666,18 @@ export async function publishPost(input: { postId: string }): Promise<{
         platform: targetPlatform,
       },
     };
+  }
+
+  // KROK 4 – Server-side media pre-flight (defense-in-depth on top of the
+  // client validator). Refuse publishing when the attached media cannot be
+  // accepted by the target platform – skip this row with an explicit error
+  // instead of letting the platform API fail with a cryptic message.
+  // (Matches the accountMap fix in posts.ts: no silent fallback.)
+  const preflightErrors = preflightPlatformMedia(rawUrls, targetPlatform);
+  if (preflightErrors.length > 0) {
+    const msg = preflightErrors.join(" ");
+    await handlePublishError(supabase, userId, postId, msg, targetPlatform, targetAccountId);
+    return { success: false, error: msg };
   }
 
   // --- Instagram ---
@@ -2225,6 +2296,15 @@ export async function publishAdditionalPlatforms(input: {
     location: rawLocation,
     tags: rawTags,
   });
+
+  // KROK 4 – Server-side media pre-flight (mirrors publishPost). Refuse the
+  // platform API call when the attached media cannot be accepted.
+  const preflightErrors = preflightPlatformMedia(rawUrls, targetPlatform);
+  if (preflightErrors.length > 0) {
+    const msg = preflightErrors.join(" ");
+    await handlePublishError(supabase, user.id, post.id, msg, targetPlatform, targetAccountId);
+    return { success: false, error: msg };
+  }
 
   // --- Instagram ---
   if (targetPlatform === "instagram") {

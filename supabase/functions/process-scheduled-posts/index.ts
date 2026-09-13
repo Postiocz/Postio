@@ -1992,6 +1992,16 @@ Deno.serve(async (request: Request) => {
       // (pp.account_id), falling back to a platform-based lookup only for
       // legacy rows where account_id is NULL.
 
+      // POZNÁMKA (KROK 4, media policies): the scheduled path deliberately
+      // has NO server-side media pre-flight like publish.ts does – the Deno
+      // runtime cannot import `@/lib/media/platform-policies`. Scheduled
+      // posts were already media-validated client-side in the editor when
+      // they were queued/scheduled (platform badge + hard-block), and each
+      // per-platform publisher below refuses clearly (e.g. YouTube "vyžaduje
+      // video", TikTok "vyžaduje video"). Keep that contract: new platform
+      // media rules should be enforced here only if they cannot be enforced
+      // at schedule time in the editor.
+
       if (targetPlatform === "instagram") {
         // --- Instagram publish ---
         console.log(`>>> Hledám Instagram účet pro user_id: ${post.user_id}`);

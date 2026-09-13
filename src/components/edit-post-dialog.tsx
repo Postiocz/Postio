@@ -46,6 +46,14 @@ import { PostPreview, type PostPreviewMedia, type PostPreviewProfile } from "@/c
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildLiveUrlInfo, type LiveUrlResult } from "@/lib/live-url";
 import { ScheduleQuickSlots } from "@/components/schedule-quick-slots";
+import {
+  getPlatformPolicy,
+  validateCandidate,
+  validateMediaCount,
+  type MediaCandidate,
+  type ValidationIssue,
+} from "@/lib/media/platform-policies";
+import { PlatformMediaBadge } from "@/components/platform-media-badge";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
   instagram: Instagram,
@@ -348,7 +356,6 @@ export function EditPostDialog({
     loadExistingUrls,
     getMediaUrls,
     hasUploading,
-    getInstagramIncompatibleVideos,
     addImageUrl,
   } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
 
@@ -665,19 +672,54 @@ export function EditPostDialog({
   }, [isEdit, post, selectedTagIds, location, tags, selectedPlatforms]);
 
   // ---------------------------------------------------------------------
-  // Instagram hard-block: if the post is destined for Instagram AND it has
-  // at least one video whose shorter side is below the platform minimum
-  // (< 640 px), we surface a banner and disable Publish / Schedule buttons.
-  //
-  // Phrased as a platform limitation (Instagram nepodporuje…), not an
-  // app limitation – the user must regenerate the file, we cannot help.
+  // Media-policy hard-block (KROK 3): maps the uploaded media to the pure
+  // validator contract and surfaces per-platform issues. Error severity
+  // disables Publish/Schedule; warnings (e.g. aspect ratio) only surface
+  // in the banner/badge. Replaces the former Instagram-only <640 px block.
   // ---------------------------------------------------------------------
-  const instagramIncompatibleVideos = useMemo(() => {
-    if (!selectedPlatforms.includes("instagram")) return [];
-    return getInstagramIncompatibleVideos();
-  }, [selectedPlatforms, getInstagramIncompatibleVideos]);
+  const mediaCandidates = useMemo<MediaCandidate[]>(() => {
+    return mediaItems
+      .filter((i) => i.status === "ready")
+      .map((i) => ({
+        id: i.id,
+        kind: i.kind,
+        mimeType: i.file?.type ?? undefined,
+        fileSizeBytes: i.file?.size,
+        dimensions: i.dimensions,
+      }));
+  }, [mediaItems]);
 
-  const isInstagramVideoIncompatible = instagramIncompatibleVideos.length > 0;
+  const platformMediaIssues = useMemo<Record<string, ValidationIssue[]>>(() => {
+    const out: Record<string, ValidationIssue[]> = {};
+    const platforms = [
+      ...new Set([
+        ...selectedPlatforms,
+        ...(post?.post_platforms ?? []).map((pp) => pp.platform),
+      ]),
+    ];
+    for (const platformId of platforms) {
+      const policy = getPlatformPolicy(platformId);
+      out[platformId] = [
+        ...validateMediaCount(mediaCandidates, policy),
+        ...mediaCandidates.flatMap((c) => validateCandidate(c, policy)),
+      ];
+    }
+    return out;
+  }, [selectedPlatforms, mediaCandidates, post?.post_platforms]);
+
+  const hasBlockingMediaErrors = useMemo(() => {
+    return selectedPlatforms.some((p) =>
+      (platformMediaIssues[p] ?? []).some((i) => i.severity === "error"),
+    );
+  }, [selectedPlatforms, platformMediaIssues]);
+
+  const blockingErrorMessages = useMemo(() => {
+    return selectedPlatforms.flatMap((p) =>
+      (platformMediaIssues[p] ?? [])
+        .filter((i) => i.severity === "error")
+        .map((i) => i.message),
+    );
+  }, [selectedPlatforms, platformMediaIssues]);
 
   const getInitialTikTokPrivacyLevel = useCallback(
     (sourcePost: EditPostData | null): TikTokPrivacyLevel => {
@@ -899,16 +941,14 @@ export function EditPostDialog({
         return;
       }
       // -------------------------------------------------------------------
-      // Instagram video-resolution hard-block. Applies only to "scheduled"
-      // (and to "draft" too – we silently allow the draft to be saved
-      // without media, but if the user picked Instagram AND attached an
-      // incompatible video, even saving a draft is meaningless because it
-      // can never be published).
+      // Media-policy hard-block (KROK 3). Applies to "scheduled" (and to
+      // "draft" too – we silently allow the draft to be saved without
+      // media, but if the user picked a platform whose media fails its
+      // validation, even saving a draft is meaningless because it can
+      // never be published).
       // -------------------------------------------------------------------
-      if (isInstagramVideoIncompatible && selectedPlatforms.includes("instagram") && newStatus === "scheduled") {
-        const msg =
-          t("instagramVideoTooSmall") ??
-          "Toto video nelze na Instagramu publikovat.";
+      if (hasBlockingMediaErrors && newStatus === "scheduled") {
+        const msg = blockingErrorMessages.join(" ");
         setError(msg);
         toast.error(msg);
         return;
@@ -1014,14 +1054,15 @@ export function EditPostDialog({
       }
     },
     [
+      blockingErrorMessages,
       content,
       getMediaUrls,
       handleCommitRemainingTag,
+      hasBlockingMediaErrors,
       hasUploading,
       isAnyPublished,
       isEdit,
       isInstagramPublished,
-      isInstagramVideoIncompatible,
       isTwitterPublished,
       location,
       normalizeScheduledAt,
@@ -1153,22 +1194,20 @@ export function EditPostDialog({
     // Instagram video-resolution hard-block.
     //
     // The user is about to (re-)publish an existing post to a new
-    // platform. If that platform is Instagram AND the post contains a
-    // video that we already know is below 640 px on its shorter side,
-    // we refuse the call here. Without this guard the request would
-    // reach `publishAdditionalPlatforms` and the Meta container would
-    // just fail with error_subcode 2207082 after ~30 s of polling –
-    // a confusing experience for the user.
+    // platform. If that platform's media fails policy validation we refuse
+    // the call here – without this guard the request would reach the
+    // platform API and just fail with a cryptic error after a long wait.
     // -------------------------------------------------------------------
-    if (targetPlatform === "instagram" && isInstagramVideoIncompatible) {
-      const msg =
-        t("instagramVideoTooSmall") ??
-        "Toto video nelze na Instagramu publikovat.";
+    if ((platformMediaIssues[targetPlatform] ?? []).some((i) => i.severity === "error")) {
+      const msg = (platformMediaIssues[targetPlatform] ?? [])
+        .filter((i) => i.severity === "error")
+        .map((i) => i.message)
+        .join(" ");
       // NOTE: we intentionally do NOT call `setError(msg)` here – that would
       // show a red error banner at the top of the dialog (in the scrollable
-      // area), which would compete with the dedicated Instagram resolution
-      // banner that already lives next to the action buttons. A single
-      // unified banner + a toast is enough feedback.
+      // area), which would compete with the dedicated media-policy banner
+      // that already lives next to the action buttons. A single unified
+      // banner + a toast is enough feedback.
       toast.error(msg);
       return;
     }
@@ -1211,15 +1250,12 @@ export function EditPostDialog({
       return;
     }
     // -------------------------------------------------------------------
-    // Instagram video-resolution hard-block. If the post is destined for
-    // Instagram but contains a video whose shorter side is below 640 px,
-    // we refuse to even attempt publishing – Meta's API would just fail
-    // with error_subcode 2207082 and the user would see a cryptic error.
+    // Media-policy hard-block (KROK 3). If a selected platform's media
+    // fails validation we refuse to even attempt publishing – the platform
+    // API would just fail with a cryptic error.
     // -------------------------------------------------------------------
-    if (isInstagramVideoIncompatible) {
-      const msg =
-        t("instagramVideoTooSmall") ??
-        "Toto video nelze na Instagramu publikovat.";
+    if (hasBlockingMediaErrors) {
+      const msg = blockingErrorMessages.join(" ");
       setError(msg);
       toast.error(msg);
       return;
@@ -1322,10 +1358,8 @@ export function EditPostDialog({
       toast.info(t("uploading"));
       return;
     }
-    if (isInstagramVideoIncompatible) {
-      const msg =
-        t("instagramVideoTooSmall") ??
-        "Toto video nelze na Instagramu publikovat.";
+    if (hasBlockingMediaErrors) {
+      const msg = blockingErrorMessages.join(" ");
       setError(msg);
       toast.error(msg);
       return;
@@ -2316,6 +2350,11 @@ export function EditPostDialog({
                                   {platformLabel}
                                 </span>
                               </div>
+                              {/* Media-policy status badge (sdílená komponenta, KROK 3). */}
+                              <PlatformMediaBadge
+                                label={platformLabel}
+                                issues={platformMediaIssues[platformId] ?? []}
+                              />
                               {/* KROK 5: Twitter auto-credits indicator */}
                               {platformId === "twitter" && (
                                 <>
@@ -2664,28 +2703,44 @@ export function EditPostDialog({
 
         {/* Action buttons */}
         <div className="px-6 pb-6 pt-4 border-t border-white/5 space-y-3">
-          {/* Instagram video-resolution hard-block banner.
+          {/* Media-policy warning/error banner (KROK 3).
               Single source of truth – shown for BOTH new posts and existing
               (already published) posts, so the user always sees the same
-              message in the same place. */}
-          {isInstagramVideoIncompatible && (
-            <div
-              className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200/90"
-              role="alert"
-            >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
-              <div className="space-y-0.5">
-                <p className="font-medium">
-                  {t("instagramVideoTooSmall") ??
-                    "Toto video nelze na Instagramu publikovat."}
-                </p>
-                <p className="text-xs text-rose-200/70">
-                  {t("instagramVideoTooSmallHint") ??
-                    "Instagram nepodporuje videa s nízkým rozlišením (minimálně 640 × 1138 px). Přegenerujte prosím video ve vyšším rozlišení (doporučeno 1080 × 1920 px)."}
-                </p>
+              messages in the same place. */}
+          {(() => {
+            const affected = Object.entries(platformMediaIssues)
+              .filter(([, issues]) => issues.length > 0);
+            if (affected.length === 0) return null;
+            return (
+              <div className="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm" role="alert">
+                {affected.map(([p, issues]) => {
+                  const hasError = issues.some((i) => i.severity === "error");
+                  const platformLabel = PLATFORMS.find((pl) => pl.id === p)?.label ?? p;
+                  return (
+                    <div
+                      key={p}
+                      className={cn(
+                        "flex items-start gap-3",
+                        hasError
+                          ? "text-rose-700 dark:text-rose-200/90"
+                          : "text-amber-700 dark:text-amber-200/90",
+                      )}
+                    >
+                      <AlertTriangle className={cn("mt-0.5 h-4 w-4 shrink-0", hasError ? "text-rose-500 dark:text-rose-400" : "text-amber-500 dark:text-amber-400")} />
+                      <div className="space-y-0.5">
+                        <p className="font-medium">{platformLabel}</p>
+                        {issues.map((i) => (
+                          <p key={i.code} className="text-xs">
+                            {i.message}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
+            );
+          })()}
           {isEdit && isAnyPublished ? (
             <>
               {/* Additional publish buttons – publish to platforms not yet published */}
@@ -2697,7 +2752,7 @@ export function EditPostDialog({
                     key={p}
                     type="button"
                     onClick={() => handlePublishAdditional(p)}
-                    disabled={isPublishingAdditional || hasUploading()}
+                    disabled={isPublishingAdditional || hasUploading() || (platformMediaIssues[p] ?? []).some((i) => i.severity === "error")}
                     className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPublishingAdditional && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -2789,8 +2844,8 @@ export function EditPostDialog({
             </>
           ) : (
             <>
-              {/* The Instagram video-resolution hard-block banner is rendered
-                  once above this conditional, so we don't repeat it here. */}
+              {/* The media-policy warning/error banner is rendered once above this
+                  conditional, so we don't repeat it here. */}
               <Button
                 type="button"
                 onClick={() => handleSubmit("draft")}
@@ -2810,9 +2865,9 @@ export function EditPostDialog({
                   loading ||
                   queuing ||
                   publishing ||
-                  isInstagramVideoIncompatible
+                  hasBlockingMediaErrors
                 }
-                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
                 variant="outline"
                 className="rounded-xl border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all active:scale-[0.98]"
               >
@@ -2829,9 +2884,9 @@ export function EditPostDialog({
                   selectedAccountIds.length === 0 ||
                   loading ||
                   publishing ||
-                  isInstagramVideoIncompatible
+                  hasBlockingMediaErrors
                 }
-                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -2845,9 +2900,9 @@ export function EditPostDialog({
                   selectedAccountIds.length === 0 ||
                   loading ||
                   publishing ||
-                  isInstagramVideoIncompatible
+                  hasBlockingMediaErrors
                 }
-                title={isInstagramVideoIncompatible ? t("instagramVideoTooSmall") : undefined}
+                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

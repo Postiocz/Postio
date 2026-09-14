@@ -154,7 +154,7 @@
     "selectPlatforms": "Оберіть платформи",
     "saveDraft": "Конспект",
     "schedule": "Запланувати",
-     "publishNow": "Опублікувати зараз",
+    "publishNow": "Опублікувати зараз",
     "scheduledAt": "Запланувати",
     "saving": "Збереження...",
     "addTags": "Додати теги",
@@ -903,8 +903,7 @@
     "on": "Увімкнено",
     "off": "Вимкнено",
     "savePreferences": "Зберегти налаштування",
-    "close": "Закрити",
-    "title": "Ми використовуємо файли cookie"
+    "close": "Закрити"
   },
   "privacy": {
     "title": "Політика конфіденційності",
@@ -1101,13 +1100,6 @@
       "closeMenu": "Закрити меню",
       "features": "Функції",
       "pricing": "Тарифи",
-      "flashSale": {
-        "countdownEnds": "Закінчується через {time}",
-        "countdownDays": "{days}д {hours}г",
-        "countdownHours": "{hours}:{minutes}:{seconds}",
-        "offerEnded": "Акція закінчилася",
-        "flashSale": "Блискавична акція"
-      },
       "faq": "FAQ",
       "login": "Увійти",
       "dashboard": "Огляд"

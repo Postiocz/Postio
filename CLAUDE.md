@@ -103,10 +103,10 @@ Tato pravidla mají striktní prioritu při implementaci features spojených s p
 
 ### 2. Validace médií (před odesláním)
 
-- **Instagram:**
-  - Povol pouze **JPEG** formát.
-  - Validuj poměr stran v rozmezí **4:5 až 1.91:1**.
-  - Pokud poměr nesedí, zobraz **varování předem** (před odesláním).
+- **Platí pro VŠECH 6 platforem** (Facebook, Instagram, LinkedIn, YouTube, X, TikTok) – jediný zdroj pravdy je `src/lib/media/platform-policies.ts` (registry `MEDIA_POLICIES` + validator `validateCandidate` / `validateMediaCount`).
+- Per-platform limity (formát, velikost, poměr stran, minimální rozlišení, délka videa, počet médií) se validují **jak v editoru** (badge/tooltip/výstraha u každé vybrané platformy), **tak server-side** (pre-flight v `publish.ts`).
+- **Instagram:** JPG/PNG, poměr feed 4:5–1.91:1, min rozlišení 640 px (video).
+- Podrobné hodnoty limitu viz `platform-policies.ts`; i18n texty viz klíče `mediaPolicy_*` v `/messages/*.json`.
 
 ### 3. Logika tokenů
 

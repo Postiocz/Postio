@@ -58,7 +58,14 @@ export type ValidationIssue = {
   platformId: string;
   severity: ValidationSeverity;
   code: string;
+  /** Human-readable English fallback (used by server publish.ts where there
+   *  is no i18n). UI maps `code` + `params` to a translated next-intl key. */
   message: string;
+  /**
+   * Interpolation values for the localized message (next-intl). Keys map to
+   * the `{param}` placeholders in `mediaPolicy_<code>` translations.
+   */
+  params?: Record<string, string | number>;
   /** When the issue is tied to one specific media file. */
   candidateId?: string;
 };
@@ -232,8 +239,13 @@ export function validateCandidate(
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const pt = policy.platformId;
-  const failing = (severity: ValidationSeverity, code: string, message: string) =>
-    issues.push({ platformId: pt, severity, code, message, candidateId: media.id });
+  const failing = (
+    severity: ValidationSeverity,
+    code: string,
+    message: string,
+    params?: ValidationIssue["params"],
+  ) =>
+    issues.push({ platformId: pt, severity, code, message, params, candidateId: media.id });
 
   // --- Support (does the platform accept this media kind at all?) ---
   if (policy.support === "none" || policy.support === "image_only") {
@@ -243,16 +255,18 @@ export function validateCandidate(
     ) {
       failing(
         "error",
-        "media_kind_unsupported",
+        "media_kind_not_allowed",
         `Platform "${pt}" does not accept ${media.kind}s.`,
+        { platform: pt },
       );
     }
   }
   if (policy.support === "video_only" && media.kind === "image") {
     failing(
       "error",
-      "media_kind_unsupported",
+      "media_kind_video_required",
       `Platform "${pt}" requires a video – images are not accepted.`,
+      { platform: pt },
     );
   }
 
@@ -263,6 +277,7 @@ export function validateCandidate(
       "error",
       "media_format_unsupported",
       `Format ${media.mimeType || "unknown"} is not accepted on "${pt}".`,
+      { platform: pt, mime: media.mimeType || "unknown" },
     );
   }
 
@@ -274,6 +289,7 @@ export function validateCandidate(
       "error",
       media.kind === "image" ? "image_too_large" : "video_too_large",
       `${media.kind === "image" ? "Image" : "Video"} exceeds the ${maxBytes / MB} MB limit on "${pt}".`,
+      { platform: pt, maxMB: maxBytes / MB },
     );
   }
 
@@ -291,12 +307,13 @@ export function validateCandidate(
       (policy.minRatio !== undefined && ratio < policy.minRatio)
     ) {
       const from =
-        policy.minRatio !== undefined ? `${policy.minRatio.toFixed(2)}:1` : "";
-      const to = policy.maxRatio !== undefined ? `–${policy.maxRatio.toFixed(2)}:1` : "";
+        policy.minRatio !== undefined ? `${policy.minRatio.toFixed(2)}:1` : "—";
+      const to = policy.maxRatio !== undefined ? `${policy.maxRatio.toFixed(2)}:1` : "—";
       failing(
         severityOf(policy, "ratio"),
         "media_aspect_ratio",
-        `Aspect ratio ${ratio.toFixed(2)}:1 is outside the allowed ${from}${to} range on "${pt}".`,
+        `Aspect ratio ${ratio.toFixed(2)}:1 is outside the allowed ${from}–${to} range on "${pt}".`,
+        { platform: pt, ratio: `${ratio.toFixed(2)}:1`, min: from, max: to },
       );
     }
   }
@@ -314,6 +331,7 @@ export function validateCandidate(
         severityOf(policy, "resolution"),
         "media_low_resolution",
         `Shorter side ${minSide}px is below the ${policy.minDimension}px minimum on "${pt}".`,
+        { platform: pt, px: minSide, min: policy.minDimension },
       );
     }
   }
@@ -329,6 +347,7 @@ export function validateCandidate(
       "error",
       "video_too_long",
       `Video is ${media.durationSec}s, over the ${policy.maxDurationSec}s limit on "${pt}".`,
+      { platform: pt, sec: media.durationSec, max: policy.maxDurationSec },
     );
   }
 
@@ -368,6 +387,7 @@ export function validateMediaCount(
       severity: "error",
       code: "media_count_too_many",
       message: `Platform "${policy.platformId}" accepts at most ${policy.maxFiles} media files.`,
+      params: { platform: policy.platformId, count: media.length, max: policy.maxFiles },
     },
   ];
 }

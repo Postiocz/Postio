@@ -36,6 +36,7 @@ import {
   type MediaCandidate,
   type ValidationIssue,
 } from "@/lib/media/platform-policies";
+import { mediaIssueText } from "@/lib/media/media-message";
 import { PlatformMediaBadge } from "@/components/platform-media-badge";
 import NextImage from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -1548,7 +1549,7 @@ export default function NewPostPage() {
                           </p>
                           {issues.map((i) => (
                             <p key={i.code} className="text-xs">
-                              {i.message}
+                              {mediaIssueText(t, i)}
                             </p>
                           ))}
                         </div>
@@ -1571,7 +1572,7 @@ export default function NewPostPage() {
               <Button
                 onClick={handleQueueToSchedule}
                 disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || queuing || hasUploading() || hasBlockingMediaErrors}
-                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
                 variant="outline"
                 className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all active:scale-[0.98]"
               >
@@ -1581,7 +1582,7 @@ export default function NewPostPage() {
               <Button
                 onClick={() => handleSubmit("scheduled")}
                 disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading() || hasBlockingMediaErrors}
-                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
@@ -1590,7 +1591,7 @@ export default function NewPostPage() {
               <Button
                 onClick={handlePublishNow}
                 disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || hasUploading() || hasBlockingMediaErrors}
-                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

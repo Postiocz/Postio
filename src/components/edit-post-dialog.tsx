@@ -53,6 +53,7 @@ import {
   type MediaCandidate,
   type ValidationIssue,
 } from "@/lib/media/platform-policies";
+import { mediaIssueText } from "@/lib/media/media-message";
 import { PlatformMediaBadge } from "@/components/platform-media-badge";
 
 const PlatformIconMap: Record<string, React.ElementType> = {
@@ -1664,7 +1665,7 @@ export function EditPostDialog({
                 </p>
               )}
               {previewMedia.length > 0 && (
-                <div className="mt-1.5 overflow-hidden bg-black">
+                <div className="mt-1.5 overflow-hidden rounded-lg bg-black">
                   <PreviewMediaArea media={previewMedia} aspect="feed" />
                 </div>
               )}
@@ -2731,7 +2732,7 @@ export function EditPostDialog({
                         <p className="font-medium">{platformLabel}</p>
                         {issues.map((i) => (
                           <p key={i.code} className="text-xs">
-                            {i.message}
+                            {mediaIssueText(t, i)}
                           </p>
                         ))}
                       </div>
@@ -2867,7 +2868,7 @@ export function EditPostDialog({
                   publishing ||
                   hasBlockingMediaErrors
                 }
-                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
                 variant="outline"
                 className="rounded-xl border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all active:scale-[0.98]"
               >
@@ -2886,7 +2887,7 @@ export function EditPostDialog({
                   publishing ||
                   hasBlockingMediaErrors
                 }
-                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -2902,7 +2903,7 @@ export function EditPostDialog({
                   publishing ||
                   hasBlockingMediaErrors
                 }
-                title={hasBlockingMediaErrors ? "Média nesplňajú požadavky vybrané platformy" : undefined}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

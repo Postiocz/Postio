@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ValidationIssue } from "@/lib/media/platform-policies";
+import { mediaIssueText } from "@/lib/media/media-message";
 
 /**
  * Small status badge shown next to a platform label when the selected media
@@ -23,18 +25,18 @@ export function PlatformMediaBadge({
   label: string;
   issues: readonly ValidationIssue[];
 }) {
+  const t = useTranslations("posts");
   if (issues.length === 0) return null;
 
   const hasError = issues.some((i) => i.severity === "error");
+  const ariaLabel = hasError
+    ? t("mediaPolicyBadgeError", { label })
+    : t("mediaPolicyBadgeWarning", { label });
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
-          className="ml-1 inline-flex"
-          role="img"
-          aria-label={`${label}: ${hasError ? "chyba" : "varování"} médií`}
-        >
+        <span className="ml-1 inline-flex" role="img" aria-label={ariaLabel}>
           <AlertTriangle
             className={cn(
               "h-3 w-3",
@@ -49,7 +51,7 @@ export function PlatformMediaBadge({
         <div className="flex flex-col gap-1">
           {issues.map((i) => (
             <span key={i.code} className="text-xs">
-              {i.message}
+              {mediaIssueText(t, i)}
             </span>
           ))}
         </div>

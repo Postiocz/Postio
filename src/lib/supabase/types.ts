@@ -333,6 +333,7 @@ export interface Database {
         Row: {
           id: string
           post_id: string
+          post_platform_id: string | null
           impressions: number
           engagements: number
           likes: number
@@ -345,6 +346,7 @@ export interface Database {
         Insert: {
           id?: string
           post_id: string
+          post_platform_id?: string | null
           impressions?: number
           engagements?: number
           likes?: number
@@ -357,6 +359,7 @@ export interface Database {
         Update: {
           id?: string
           post_id?: string
+          post_platform_id?: string | null
           impressions?: number
           engagements?: number
           likes?: number

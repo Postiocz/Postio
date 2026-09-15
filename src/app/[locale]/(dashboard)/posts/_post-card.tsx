@@ -48,6 +48,11 @@ const platformIcons: Record<string, React.ComponentType<{ className?: string }>>
   tiktok: TikTok,
 };
 
+export type PostPlatformAccount = {
+  account_name: string;
+  avatar_url: string | null;
+};
+
 export type PostPlatform = {
   id: string;
   post_id: string;
@@ -67,6 +72,8 @@ export type PostPlatform = {
   archive_reason?: string | null;
   created_at: string;
   updated_at: string;
+  /** Joined social_accounts row (account_name + avatar). Populated by Posts page select. */
+  account?: PostPlatformAccount | null;
 };
 
 export type PostListItem = {
@@ -122,6 +129,13 @@ export function PostCard({
   const [isMarking, setIsMarking] = useState(false);
   // #13 — Content expand/collapse state
   const [isExpanded, setIsExpanded] = useState(false);
+  // Per-target account switcher: active post_platforms.id when post has 2+ targets.
+  // Default = first platform row (sorted by platform name in normalizePost).
+  const platformTargets = post.post_platforms ?? [];
+  const showAccountSwitcher = platformTargets.length > 1;
+  const [activePlatformId, setActivePlatformId] = useState<string>(
+    () => platformTargets[0]?.id ?? "",
+  );
   const router = useRouter();
   // Edit dialog open state is derived from the URL (?edit=<id>) so that
   // after navigating away (e.g. to /settings/preferences from the schedule
@@ -505,11 +519,11 @@ export function PostCard({
 
         {/* Content – right on desktop, bottom on mobile */}
         <div className="flex flex-col flex-1 min-w-0 relative">
-          {/* Header: platform icons + status */}
-          <div className="flex items-center gap-3 mb-3">
+          {/* Header: platform icons + status (+ hover account switcher when multi-target) */}
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
             <div className="flex -space-x-2">
               {/* Zobrazujeme platformy z post_platforms */}
-              {(post.post_platforms || []).map((p) => {
+              {platformTargets.map((p) => {
                 const Icon = platformIcons[p.platform.toLowerCase()] ?? FileText;
                 const isPublished = p.status === "published";
                 const isFailed = p.status === "failed";
@@ -517,18 +531,34 @@ export function PostCard({
                 // Hybridní X režim (Prompt 031-X-COMBO, Krok 5): manuální
                 // X účet čeká na ruční vyřízení (status 'ready').
                 const isReady = p.status === "ready";
+                const isActive = showAccountSwitcher && activePlatformId === p.id;
                 return (
-                  <div
+                  <button
                     key={p.id || p.platform}
+                    type="button"
+                    onClick={() => showAccountSwitcher && setActivePlatformId(p.id)}
                     className={cn(
-                      "relative flex h-9 w-9 items-center justify-center rounded-full border shadow-sm shrink-0",
+                      "relative flex h-9 w-9 items-center justify-center rounded-full border shadow-sm shrink-0 transition-all duration-200",
+                      showAccountSwitcher && "cursor-pointer hover:scale-105 hover:z-10",
+                      !showAccountSwitcher && "cursor-default",
+                      isActive && "ring-2 ring-indigo-500/60 ring-offset-1 ring-offset-white dark:ring-offset-card z-10",
                       isPublished ? "bg-white dark:bg-white/[0.03] border-emerald-200 dark:border-emerald-500/30" :
                       isFailed ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30" :
                       isRemovedExternally ? "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30" :
                       isReady ? "bg-sky-50 dark:bg-sky-500/15 border-sky-300 dark:border-sky-500/30" :
                       "bg-white/50 dark:bg-white/[0.02] border-black/5 dark:border-white/5 opacity-60"
                     )}
-                    title={`Status: ${p.status}`}
+                    title={
+                      p.account?.account_name
+                        ? `${p.account.account_name} · ${p.status}`
+                        : `Status: ${p.status}`
+                    }
+                    aria-pressed={showAccountSwitcher ? isActive : undefined}
+                    aria-label={
+                      p.account?.account_name
+                        ? `${p.platform}: ${p.account.account_name}`
+                        : p.platform
+                    }
                   >
                     <Icon className={cn("h-4 w-4", isPublished ? "text-emerald-600 dark:text-emerald-400" : isFailed ? "text-red-600 dark:text-red-400" : isRemovedExternally ? "text-orange-600 dark:text-orange-400" : isReady ? "text-sky-600 dark:text-sky-400" : "text-foreground/80")} />
                     {isPublished && (
@@ -551,10 +581,61 @@ export function PostCard({
                         <Clock className="h-2 w-2 text-white" strokeWidth={4} />
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
+
+            {/* Multi-target account switcher — hover-revealed pills (only when 2+ targets) */}
+            {showAccountSwitcher && (
+              <div
+                className={cn(
+                  "flex items-center gap-1.5 max-w-full overflow-x-auto",
+                  // Mobile: always visible (no hover). Desktop: reveal on card hover.
+                  "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100",
+                  "transition-opacity duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                )}
+                role="tablist"
+                aria-label="Target accounts"
+              >
+                {platformTargets.map((p) => {
+                  const Icon = platformIcons[p.platform.toLowerCase()] ?? FileText;
+                  const isActive = activePlatformId === p.id;
+                  const name =
+                    p.account?.account_name?.trim() ||
+                    p.platform.charAt(0).toUpperCase() + p.platform.slice(1);
+                  return (
+                    <button
+                      key={`sw-${p.id}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => setActivePlatformId(p.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium",
+                        "border backdrop-blur-sm transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                        isActive
+                          ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.15)]"
+                          : "bg-white/60 dark:bg-white/[0.04] border-black/[0.06] dark:border-white/10 text-muted-foreground hover:border-indigo-500/30 hover:text-foreground",
+                      )}
+                      title={name}
+                    >
+                      {p.account?.avatar_url ? (
+                        <img
+                          src={p.account.avatar_url}
+                          alt=""
+                          className="h-3.5 w-3.5 rounded-full object-cover"
+                        />
+                      ) : (
+                        <Icon className="h-3 w-3 shrink-0" />
+                      )}
+                      <span className="truncate max-w-[7rem]">{name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs ${statusStyle}`}>
               {statusLabel}
             </Badge>

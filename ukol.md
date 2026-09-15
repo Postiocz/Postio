@@ -121,3 +121,4 @@
 - ✅ **KROK 4** – Server-side pre-flight v `publish.ts` (+ poznámka pro scheduled Edge Function), skip + explicit error.
 - **KROK 5** – i18n (cs/en/uk), CHANGELOG, aktualizace CLAUDE.md/AGENTS.md „Bibla pravidel".
 - **Ověření každého kroku:** `npx tsc --noEmit` + manuál test v UI editoru.
+

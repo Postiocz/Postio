@@ -226,9 +226,40 @@ type PostPlatformRow = {
   post_id: string;
   platform: string;
   status: string;
+  account_id: string | null;
   external_id: string | null;
   last_sync_at: string | null;
 };
+
+/** True when every metric is zero (used by the zero-overwrite guard). */
+function isEmptyMetrics(m: AnalyticsMetrics): boolean {
+  return (
+    m.impressions === 0 &&
+    m.engagements === 0 &&
+    m.likes === 0 &&
+    m.comments === 0 &&
+    m.shares === 0 &&
+    m.clicks === 0 &&
+    m.saves === 0
+  );
+}
+
+/**
+ * True when an existing analytics row (per-target, keyed by post_platform_id)
+ * already contains non-zero data. Overwriting such a row with zeros would
+ * destroy real engagement numbers, so these rows are guarded.
+ */
+function hasNonZeroData(existing: AnalyticsMetrics): boolean {
+  return (
+    existing.impressions > 0 ||
+    existing.engagements > 0 ||
+    existing.likes > 0 ||
+    existing.comments > 0 ||
+    existing.shares > 0 ||
+    existing.clicks > 0 ||
+    existing.saves > 0
+  );
+}
 
 // ============================================================
 // Orchestrator — syncAnalyticsInsights
@@ -236,8 +267,19 @@ type PostPlatformRow = {
 
 /**
  * Main orchestrator that fetches real analytics from social APIs and
- * upserts them into the `analytics` table. Multi-platform posts have
- * their metrics summed (aggregated) per post_id before upsert.
+ * upserts them into the `analytics` table.
+ *
+ * Per-target model (migration 060/061): EVERY post_platforms row is stored
+ * as its OWN analytics row, keyed by `post_platform_id` — no more summing
+ * FB+IG into a single per-post row. Each target is fetched with the exact
+ * social account it was published to (`pp.account_id`), which also fixes
+ * the previous multi-account bug where all posts of one platform shared the
+ * first active account's token.
+ *
+ * Zero-overwrite guard (per-target): if a target already has non-zero
+ * analytics data and the fresh fetch returns all zeros, the write is SKIPPED
+ * so a flaky API response never wipes real numbers. Fresh targets (no row
+ * yet) are always written, even with zeros.
  */
 export async function syncAnalyticsInsights(): Promise<{
   success: boolean;
@@ -272,7 +314,7 @@ export async function syncAnalyticsInsights(): Promise<{
   // B2: Load published post_platforms with external_id for this user's posts
   const { data: ppRows, error: ppErr } = await admin
     .from("post_platforms")
-    .select("id, post_id, platform, status, external_id, last_sync_at")
+    .select("id, post_id, platform, status, account_id, external_id, last_sync_at")
     .in("post_id", userPostIds)
     .eq("status", "published")
     .not("external_id", "is", null);
@@ -296,143 +338,151 @@ export async function syncAnalyticsInsights(): Promise<{
     return { success: false, error: accErr?.message ?? "Failed to fetch social accounts" };
   }
 
-  // Build platform → account lookup (use first active account per platform)
-  const accountByPlatform = new Map<string, SocialAccountRow>();
+  // Account lookup by exact id — per-target fetch uses the account the row
+  // was actually published to (`pp.account_id`), not a per-platform guess.
+  const accountById = new Map<string, SocialAccountRow>();
   for (const acc of accounts) {
-    if (!accountByPlatform.has(acc.platform)) {
-      accountByPlatform.set(acc.platform, acc as SocialAccountRow);
-    }
+    accountById.set(acc.id, acc as SocialAccountRow);
   }
 
   // B3: Throttle — skip items synced < 60 min ago
-  const sixtyMinAgo = Date.now() - 60 * 60 * 1000;
   const THROTTLE_MS = 60 * 60 * 1000;
-
-  // Group by post_id so we can aggregate multi-platform metrics
-  const groupedByPost = new Map<string, PostPlatformRow[]>();
-  for (const row of ppRows) {
-    const group = groupedByPost.get(row.post_id) ?? [];
-    group.push(row as PostPlatformRow);
-    groupedByPost.set(row.post_id, group);
-  }
 
   let synced = 0;
   let skipped = 0;
   let errors = 0;
 
-  // Per-post aggregated metrics (sum across platforms)
-  const postAggregated = new Map<string, AnalyticsMetrics>();
+  // Per-target fetched metrics: post_platform_id → { post_id, platform, metrics }
+  const fetchedTargets = new Map<
+    string,
+    { post_id: string; platform: string; metrics: AnalyticsMetrics }
+  >();
   // Track which post_platform rows need last_sync_at update
   const updatedRows = new Set<string>();
 
-  for (const [postId, platformRows] of groupedByPost) {
-    let postMetrics: AnalyticsMetrics | null = null;
-    let anySynced = false;
-
-    for (const pp of platformRows) {
-      // B3: Throttle check
-      const lastSyncMs = pp.last_sync_at ? new Date(pp.last_sync_at).getTime() : 0;
-      if (Date.now() - lastSyncMs < THROTTLE_MS) {
-        skipped++;
-        continue;
-      }
-
-      // Get access token for this platform
-      const account = accountByPlatform.get(pp.platform);
-      if (!account || !account.access_token) {
-        logger.debug(`[Analytics] Skipping ${pp.platform} for post ${postId}: no active account or token`);
-        skipped++;
-        continue;
-      }
-
-      // Fetch metrics based on platform
-      let metrics: AnalyticsMetrics | null = null;
-
-      try {
-        if (pp.platform === "facebook" || pp.platform === "instagram") {
-          metrics = await fetchMetaInsights({
-            accessToken: account.access_token!,
-            externalId: pp.external_id!,
-            platform: pp.platform as "facebook" | "instagram",
-          });
-        } else if (pp.platform === "youtube") {
-          metrics = await fetchYouTubeInsights({
-            account,
-            videoId: pp.external_id!,
-          });
-        } else if (pp.platform === "twitter") {
-          // B6: X placeholder
-          logger.debug(`[Analytics] TODO: X/Twitter insights not implemented — skipping post ${postId}`);
-          skipped++;
-          continue;
-        } else if (pp.platform === "linkedin") {
-          // B7: LinkedIn placeholder
-          logger.debug(`[Analytics] TODO: LinkedIn insights not implemented — skipping post ${postId}`);
-          skipped++;
-          continue;
-        } else if (pp.platform === "tiktok") {
-          // B8: TikTok placeholder
-          logger.debug(`[Analytics] TODO: TikTok insights not implemented — skipping post ${postId}`);
-          skipped++;
-          continue;
-        }
-      } catch (err) {
-        logger.error(`[Analytics] Error fetching ${pp.platform} for post ${postId}:`, err);
-        errors++;
-        continue;
-      }
-
-      if (!metrics) {
-        skipped++;
-        continue;
-      }
-
-      anySynced = true;
-
-      // Accumulate metrics across platforms (B-requirement: sum for multi-platform posts)
-      const existing = postAggregated.get(postId) ?? { ...ZERO_METRICS };
-      postAggregated.set(postId, {
-        impressions: existing.impressions + metrics.impressions,
-        engagements: existing.engagements + metrics.engagements,
-        likes: existing.likes + metrics.likes,
-        comments: existing.comments + metrics.comments,
-        shares: existing.shares + metrics.shares,
-        clicks: existing.clicks + metrics.clicks,
-        saves: existing.saves + metrics.saves,
-      });
-
-      // Track which post_platform rows to update
-      updatedRows.add(pp.id);
+  for (const pp of ppRows as PostPlatformRow[]) {
+    // B3: Throttle check
+    const lastSyncMs = pp.last_sync_at ? new Date(pp.last_sync_at).getTime() : 0;
+    if (Date.now() - lastSyncMs < THROTTLE_MS) {
+      skipped++;
+      continue;
     }
 
-    if (anySynced) {
-      synced++;
+    // Get access token for THIS target's account. Legacy rows without
+    // account_id fall back to the first active account of the platform.
+    const account =
+      (pp.account_id ? accountById.get(pp.account_id) : undefined) ??
+      accounts.find((a) => a.platform === pp.platform) ??
+      undefined;
+
+    if (!account || !account.access_token) {
+      logger.debug(`[Analytics] Skipping ${pp.platform} for post_platform ${pp.id}: no active account or token`);
+      skipped++;
+      continue;
     }
+
+    // Fetch metrics based on platform
+    let metrics: AnalyticsMetrics | null = null;
+
+    try {
+      if (pp.platform === "facebook" || pp.platform === "instagram") {
+        metrics = await fetchMetaInsights({
+          accessToken: account.access_token!,
+          externalId: pp.external_id!,
+          platform: pp.platform as "facebook" | "instagram",
+        });
+      } else if (pp.platform === "youtube") {
+        metrics = await fetchYouTubeInsights({
+          account,
+          videoId: pp.external_id!,
+        });
+      } else {
+        // X / LinkedIn / TikTok placeholders
+        logger.debug(`[Analytics] TODO: ${pp.platform} insights not implemented — skipping post_platform ${pp.id}`);
+        skipped++;
+        continue;
+      }
+    } catch (err) {
+      logger.error(`[Analytics] Error fetching ${pp.platform} for post_platform ${pp.id}:`, err);
+      errors++;
+      continue;
+    }
+
+    if (!metrics) {
+      skipped++;
+      continue;
+    }
+
+    fetchedTargets.set(pp.id, { post_id: pp.post_id, platform: pp.platform, metrics });
+    updatedRows.add(pp.id);
   }
 
-  // B9: Upsert aggregated results into analytics table
   const now = new Date().toISOString();
-  for (const [postId, metrics] of postAggregated) {
-    const { error: upsertErr } = await admin
-      .from("analytics")
-      .upsert(
-        {
-          post_id: postId,
-          impressions: metrics.impressions,
-          engagements: metrics.engagements,
-          likes: metrics.likes,
-          comments: metrics.comments,
-          shares: metrics.shares,
-          clicks: metrics.clicks,
-          saves: metrics.saves,
-          recorded_at: now,
-        },
-        { onConflict: "post_id" }
-      );
 
-    if (upsertErr) {
-      logger.error(`[Analytics] Upsert failed for post ${postId}:`, upsertErr.message);
-      errors++;
+  // Per-target zero-overwrite guard: load existing analytics rows for all
+  // targets we just fetched, then skip writes that would replace non-zero
+  // data with all-zero values.
+  if (fetchedTargets.size > 0) {
+    const targetIds = [...fetchedTargets.keys()];
+
+    const { data: existingRows } = await admin
+      .from("analytics")
+      .select("post_platform_id, impressions, engagements, likes, comments, shares, clicks, saves")
+      .in("post_platform_id", targetIds);
+
+    const existingByTarget = new Map<string, AnalyticsMetrics>();
+    for (const row of existingRows ?? []) {
+      if (!row.post_platform_id) continue;
+      existingByTarget.set(row.post_platform_id, {
+        impressions: row.impressions,
+        engagements: row.engagements,
+        likes: row.likes ?? 0,
+        comments: row.comments ?? 0,
+        shares: row.shares ?? 0,
+        clicks: row.clicks ?? 0,
+        saves: row.saves ?? 0,
+      });
+    }
+
+    for (const [ppId, { post_id, metrics }] of fetchedTargets) {
+      const existing = existingByTarget.get(ppId);
+
+      // Guard: skip when fresh data is all zeros but the target already has
+      // real (non-zero) numbers — a broken API call must not wipe them.
+      if (existing && isEmptyMetrics(metrics) && hasNonZeroData(existing)) {
+        logger.debug(
+          `[Analytics] Guard: existing non-zero analytics for post_platform ${ppId}, fetched metrics are all zeros — skip overwrite`,
+        );
+        skipped++;
+        updatedRows.delete(ppId);
+        continue;
+      }
+
+      // Upsert one row per target (per-target model).
+      const { error: upsertErr } = await admin
+        .from("analytics")
+        .upsert(
+          {
+            post_id,
+            post_platform_id: ppId,
+            impressions: metrics.impressions,
+            engagements: metrics.engagements,
+            likes: metrics.likes,
+            comments: metrics.comments,
+            shares: metrics.shares,
+            clicks: metrics.clicks,
+            saves: metrics.saves,
+            recorded_at: now,
+          },
+          { onConflict: "post_platform_id" }
+        );
+
+      if (upsertErr) {
+        logger.error(`[Analytics] Upsert failed for post_platform ${ppId}:`, upsertErr.message);
+        errors++;
+      } else {
+        synced++;
+      }
     }
   }
 

@@ -24,10 +24,30 @@ export type NormalizedPost = {
  * Shared between page.tsx (initial render) and fetchMorePosts() (load more).
  */
 export function normalizePost(post: Record<string, unknown>): NormalizedPost {
-  const postPlatforms = (post.post_platforms as any[]) || [];
-  postPlatforms.sort((a, b) => a.platform.localeCompare(b.platform));
+  const rawPlatforms = (post.post_platforms as any[]) || [];
 
-  const statuses: PostStatus[] = postPlatforms.map((p: any) => p.status);
+  // Flatten Supabase join: social_accounts may arrive as object or single-element array.
+  const postPlatforms: PostPlatform[] = rawPlatforms
+    .map((p: any) => {
+      const sa = Array.isArray(p.social_accounts)
+        ? p.social_accounts[0]
+        : p.social_accounts;
+      const { social_accounts: _sa, ...rest } = p;
+      return {
+        ...rest,
+        account: sa
+          ? {
+              account_name: String(sa.account_name ?? ""),
+              avatar_url: (sa.avatar_url as string | null) ?? null,
+            }
+          : null,
+      } as PostPlatform;
+    })
+    .sort((a, b) => a.platform.localeCompare(b.platform));
+
+  // PlatformStatus includes 'ready' which is not a PostStatus; cast for the
+  // computed multi-platform status rollup (same as the previous `any` path).
+  const statuses = postPlatforms.map((p) => p.status as PostStatus);
   let computedStatus: PostStatus = "draft";
   if (statuses.includes("failed")) computedStatus = "failed";
   else if (statuses.includes("publishing")) computedStatus = "publishing";
@@ -47,8 +67,8 @@ export function normalizePost(post: Record<string, unknown>): NormalizedPost {
     id: String(post.id),
     content: String(post.content ?? ""),
     status: computedStatus,
-    platforms: postPlatforms.map((p: any) => p.platform),
-    post_platforms: postPlatforms as PostPlatform[],
+    platforms: postPlatforms.map((p) => p.platform),
+    post_platforms: postPlatforms,
     scheduled_at: (post.scheduled_at as string | null) ?? null,
     created_at: String(post.created_at),
     location: (post.location as string | null) ?? null,

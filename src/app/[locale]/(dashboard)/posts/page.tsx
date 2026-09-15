@@ -56,7 +56,7 @@ export default async function PostsPage({
   // Keyset pagination: fetch PAGE_SIZE + 1 to detect "has more"
   const { data: rawPosts, error: postsError } = await supabase
     .from("posts")
-    .select("*, post_platforms(*), post_tags(tags(id, name, color))")
+    .select("*, post_platforms(*, social_accounts(account_name, avatar_url)), post_tags(tags(id, name, color))")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(PAGE_SIZE + 1);

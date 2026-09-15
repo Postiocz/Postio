@@ -134,7 +134,7 @@ async function fetchPostPage(
 
   let query = supabase
     .from("posts")
-    .select("*, post_platforms(*), post_tags(tags(id, name, color))")
+    .select("*, post_platforms(*, social_accounts(account_name, avatar_url)), post_tags(tags(id, name, color))")
     .eq("user_id", userId)
     .order(orderBy, { ascending: orderAsc });
 

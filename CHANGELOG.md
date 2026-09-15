@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔄 Analytika per-target (KROK 1–4): DB + sync + UI přepínač účtů ✅
+
+- **Kontext**: Analytika přechází z agregovaného modelu (1 řádek na `post_id`, sčítá FB+IG) na per-target model (1 řádek na `post_platform_id`). Na Posts kartě se u multi-target postů zobrazí přepínač účtů.
+- **Změny**:
+  - ✅ **KROK 1** `060_analytics_post_platform_id.sql`: DROP `analytics_post_id_unique`, sloupec `post_platform_id` (FK CASCADE), `UNIQUE(post_platform_id)`; `post_id` zůstává běžný indexovaný sloupec. Prod: DELETE test řádků + migrace OK.
+  - ✅ **KROK 1b** `061_analytics_post_platform_id_not_null.sql`: `post_platform_id SET NOT NULL` (+ safety DELETE NULL).
+  - ✅ **KROK 2** `analytics/actions.ts`: per-target upsert (`onConflict: post_platform_id`), lookup tokenu přes `account_id`, zero-overwrite guard (skip zápisu nul přes nenulová data). `types.ts` + `post_platform_id`.
+  - ✅ **KROK 3–4** Posts: select join `social_accounts(account_name, avatar_url)`; `normalize-post` flatten; `_post-card` hover-přepínač (jen `length > 1`) — indigo ring + pilulky se jmény/avatary (mobile vždy, desktop group-hover).
+- **Ověření**: `npx tsc --noEmit` ✅. Manuál UI test přepínače na `/posts` (2026-09-15). Analytics page + Kalendář = budoucí krok.
+
 ### 🐛 Preview: media přetékala přes zooblené rohy na FB/LinkedIn karte ✅
 
 - **Kontext:** `MediaArea` v `post-preview.tsx` má `overflow-hidden` ale bez `border-radius`; FB/LinkedIn article mají `rounded-lg` ale bez klipovania enfants → ostré rohy obrázku přetékaly mimo zaoblené rohy karty. IG bola v pořádku (media flush k vnější viewportu `rounded-[20px] overflow-hidden`).
@@ -84,32 +94,6 @@
   - ✅ Bugfix – `_post-card.tsx`: otevření edit modálu přesunuto z lokálního `useState` do URL query (`?edit=<postId>`). Po kliku na ozubené kolečko (→ `/settings/preferences`) a návratu zpět se modál znovu otevře místo prázdné stránky příspěvků.
   - ✅ KROK 3 – vizuální kontrola Light/Dark: aktivní čip `text-indigo-700` / dark `text-indigo-200` (WCAG AA), settings ikona `text-slate-500 hover:text-indigo-600 dark:text-muted-foreground` – dle design manuálů.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (čipy + Light/Dark Interní štítky + odkaz + nová navigace i obnovení modálu).
-
-### 🎨 Prompt 068 – KROK 1-3: Dynamický čip Fronty + odkaz do nastavení rozvrhu + kontrast Light ✅
-
-- **Kontext**: Čip Fronty (CalendarClock) v Quick slotech `/posts/new` ukazoval jen statický text „Fronta (příští volný slot)" + čas; aktivní čip šlo odznačit jen kliknutím na jiný čip. Chyběl rychlý přístup k nastavení rozvrhu.
-- **Změny** (`schedule-quick-slots.tsx`, `posts/new/page.tsx`, messages cs/en/uk):
-  - ✅ Dynamický text čipu Fronty: místo statického `labels.queue` zobrazuje i DEN odvozený z `queueAt` ISO (user timezone) přes novou funkci `fmtDay` – „Dnes · 09:00" / „Zítra · 09:00" / zkrácený název dne (Po, Tue, пн) lokálně dle locale. Nové i18n klíče `quickSlotWordToday`/`quickSlotWordTomorrow`.
-  - ✅ Toggle odznačení: klik na aktivní čip vymaže `scheduledAt` (`onSelect("")`) – čip se odznačí a deaktivuje Schedule; konzistentně pro všechny 3 čipy.
-  - ✅ Rychlý odkaz do nastavení rozvrhu: v hlavičce sekce „Čas a publikace" (ml-auto vpravo) ikona `Settings` v Radix tooltipu, `Link` na `/{locale}/settings/preferences`, i18n `editSchedule` (cs/en/uk), `aria-label`.
-  - ✅ Kontrast Light: aktivní chip text `text-indigo-300`→`text-indigo-700` (~2.3:1→~5.5:1, WCAG AA), dark `text-indigo-200` zachován; neaktivní chip `text-slate-700`, link `text-slate-500 hover:text-indigo-600` – dle manuálů.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (čipy + odkaz + Light/Dark).
-
-### 🎨 Prompt 069 – KROK 5: Kontrast captionu + Final polish ✅
-
-- **Kontext**: Po KROKU 1–4 mají všechny platformy Light skiny; zbývalo doladit čitelnost captionu a jednotných mikro-detailů v live preview.
-- **Změny** (`post-preview.tsx`):
-  - ✅ Kontrastní audit napříč 6 platformami (Light + Dark): primární texty `#0f0f0f`–`#050505` na bílých kartách (~15–20:1), sekundární `#536471`/`#606060`/`#666`/`#65676b` čitelné, `--muted-foreground` ≈ AA – žádný kódový edit nebyl nutný.
-  - ✅ TikTok overlay nad médiem sjednocen na vždy bílý text/ikony + tmavý scrim (`from-black/80 via-black/20 to-transparent`), nezávisle na tématu (lépe čitelné na videu); v empty stavu zůstává adaptivní dle tématu.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), dev server kompiluje (`/cs/posts/new` → 307). Manuálně potvrzeno uživatelem (všech 6 platforem, Light + Dark, bez refresh).
-
-### 🎨 Prompt 067 – KROK 5: i18n a Final Polish ✅
-
-- **Kontext**: Dle 📌 POZNÁMKY se KROK 5 Promptu 067 dokončuje spolu s dokončením Promptu 069 – sjednocení live preview se týká i editoru a edit dialogu.
-- **Změny**:
-  - ✅ Sjednocení náhledu (Live Preview) s Light modem finální: editor `/posts/new` i `EditPostDialog` zobrazují identický `PostPreview` s plnými Light/Dark skiny všech 6 platforem.
-  - ✅ i18n konzistence: nové/přepsané klíče v cs/en/uk validní, žádný `MISSING_MESSAGE`.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem.
 
 
 

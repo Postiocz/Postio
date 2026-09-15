@@ -93,16 +93,4 @@
   - ✅ UI audit (bez code změn): Stránka `/analytics` už zobrazuje čisté nuly na metric kartách a vkusné empty stavy v chartech (EmptyChartMessage), Top Performing Posts (ikona + `noDataSubtitle`) a Posts by Tag (`noTagsBreakdown`), plus Skeleton na Dashboardu prý prázdném stavu – nemusel být žádný kód meněn.
 - **Ověření**: Code-level audit (úprava netřeba). Dokumenty připravené pro natočení nového videa – uživatel nahrává video sám.
 
-### 🎨 Prompt 070 – KROK 1-3: Sjednocení EditPostDialog s /posts/new + fix obnovy modálu ✅
-
-- **Kontext**: EditPostDialog (z `/posts`) měl v sekci „Čas" jen `DateTimePicker`; `/posts/new` navíc nabízí Quick slot čipy (Fronta / Dnes 18:00 / Zítra 09:00) + odkaz do nastavení rozvrhu. Sjednocení vyžadoval i Light mod v poli „Interní štítky" – vybrané štítky měly moc tmavé pozadí.
-- **Změny**:
-  - ✅ KROK 1 – `edit-post-dialog.tsx`: pod `DateTimePicker` vložena sdílená `<ScheduleQuickSlots>` (props `value`/`onSelect`/`locale`, `labels` přes `t("quickSlot*")` z posts namespace). Toggle odznačení aktivního čipu funguje přes `onSelect("")` (vynuluje `scheduledAt`).
-  - ✅ `tag-picker.tsx` (Light fix, platí i pro `/posts/new` – sdílená komponenta): pole čipů `bg-black/20`→`bg-white/50 dark:bg-black/20`, dropdown `bg-card/95`→`bg-white/95 dark:bg-card/95`, inputy `bg-black/30`→`bg-white/60 dark:bg-black/30`, hover `bg-white/5`→`bg-black/5 dark:hover:bg-white/5`, text „Vytvořit štítek" `text-indigo-600 dark:text-indigo-400`, bordery `border-white/10`→`border-black/5 dark:border-white/10`.
-  - ✅ KROK 2 – `edit-post-dialog.tsx`: vedle labelu sekce „Čas" ikona `Settings` (Lucide) v Radix tooltipu + `Link` na `/{locale}/settings/preferences`, i18n `editSchedule` (cs/en/uk), `aria-label` – shodně s `/posts/new`.
-  - ✅ Bugfix – `_post-card.tsx`: otevření edit modálu přesunuto z lokálního `useState` do URL query (`?edit=<postId>`). Po kliku na ozubené kolečko (→ `/settings/preferences`) a návratu zpět se modál znovu otevře místo prázdné stránky příspěvků.
-  - ✅ KROK 3 – vizuální kontrola Light/Dark: aktivní čip `text-indigo-700` / dark `text-indigo-200` (WCAG AA), settings ikona `text-slate-500 hover:text-indigo-600 dark:text-muted-foreground` – dle design manuálů.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuálně potvrzeno uživatelem (čipy + Light/Dark Interní štítky + odkaz + nová navigace i obnovení modálu).
-
-
 

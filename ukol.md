@@ -267,5 +267,5 @@ const filteredAnalytics = useMemo(() => {
 ### 📋 AKTUÁLNÍ ÚKOLY (přidáno 2026-09-15)
 
 - [x] **KROK A** – `page.tsx`: Přepsat fetch `analytics` – server-side filtr období (`recorded_at >= cutoff`) + zajistit načtení VŠECHNY per-target řádků ✅
-- [ ] **KROK B** – `analytics-dashboard.tsx`: Ověřit všechny widgety (metric cards, charts, top posts) fungují s multi-target daty; potvrzení `npx tsc --noEmit`
+- [x] **KROK B** – `analytics-dashboard.tsx`: Ověřit všechny widgety (metric cards, charts, top posts) fungují s multi-target daty; potvrzení `npx tsc --noEmit` ✅ (ručně ověřeno)
 - [ ] **KROK C** (později) – Přidat platform-specific drill-down/přepínač na analytics dashboard

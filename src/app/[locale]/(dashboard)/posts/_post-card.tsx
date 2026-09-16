@@ -9,14 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
 import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Eye, CheckSquare, Square } from "lucide-react";
-import {
-  Instagram,
-  Facebook,
-  Linkedin,
-  XIcon,
-  Youtube,
-  TikTok,
-} from "@/components/ui/social-icons";
+import { platformIconFor } from "@/components/ui/social-icons";
 import Link from "next/link";
 import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
 import { deleteFromMeta, markAsPublishedManual } from "@/lib/actions/publish";
@@ -36,16 +29,6 @@ const STATUS_STYLES: Record<PostStatus, string> = {
   failed: "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30",
   removed_externally: "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/30",
   archived: "bg-gray-100 text-gray-700 border border-gray-200 dark:bg-white/5 dark:text-gray-300 dark:border-white/10",
-};
-
-const platformIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  instagram: Instagram,
-  facebook: Facebook,
-  twitter: XIcon,
-  x: XIcon,
-  linkedin: Linkedin,
-  youtube: Youtube,
-  tiktok: TikTok,
 };
 
 export type PostPlatformAccount = {
@@ -524,7 +507,7 @@ export function PostCard({
             <div className="flex -space-x-2">
               {/* Zobrazujeme platformy z post_platforms */}
               {platformTargets.map((p) => {
-                const Icon = platformIcons[p.platform.toLowerCase()] ?? FileText;
+                const Icon = platformIconFor(p.platform) ?? FileText;
                 const isPublished = p.status === "published";
                 const isFailed = p.status === "failed";
                 const isRemovedExternally = p.status === "removed_externally";
@@ -599,7 +582,7 @@ export function PostCard({
                 aria-label="Target accounts"
               >
                 {platformTargets.map((p) => {
-                  const Icon = platformIcons[p.platform.toLowerCase()] ?? FileText;
+                  const Icon = platformIconFor(p.platform) ?? FileText;
                   const isActive = activePlatformId === p.id;
                   const name =
                     p.account?.account_name?.trim() ||

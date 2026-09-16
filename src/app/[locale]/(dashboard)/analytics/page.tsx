@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import { AnalyticsDashboard } from "./analytics-dashboard";
+import { AnalyticsDashboard, type PostTarget } from "./analytics-dashboard";
 
 export default async function AnalyticsPage({
   params,
@@ -54,10 +54,41 @@ export default async function AnalyticsPage({
     }
   }
 
+  // Fetch post_platforms targets for these posts (platform + joined account
+  // info). Analytics rows are keyed by post_platform_id, so the drill-down
+  // (KROK C) needs these target rows to label each metric breakdown.
+  const postPlatforms: PostTarget[] = [];
+  if (postIds.length > 0) {
+    const { data: ppRows, error: ppError } = await supabase
+      .from("post_platforms")
+      .select("id, post_id, platform, account_id, social_accounts(account_name, avatar_url)")
+      .in("post_id", postIds);
+
+    if (!ppError && ppRows) {
+      postPlatforms.push(
+        ...ppRows.map((pp: Record<string, unknown>) => {
+          const socialAccounts = (pp as { social_accounts?: unknown }).social_accounts;
+          const sa = Array.isArray(socialAccounts) ? socialAccounts[0] : socialAccounts;
+          return {
+            id: String(pp.id),
+            post_id: String(pp.post_id),
+            platform: String(pp.platform),
+            account_id: pp.account_id ? String(pp.account_id) : null,
+            account_name: sa && typeof sa === "object" && "account_name" in sa ? String((sa as { account_name: unknown }).account_name) : null,
+            avatar_url: sa && typeof sa === "object" && "avatar_url" in sa && (sa as { avatar_url: unknown }).avatar_url
+              ? String((sa as { avatar_url: unknown }).avatar_url)
+              : null,
+          } as PostTarget;
+        })
+      );
+    }
+  }
+
   return (
     <AnalyticsDashboard
       analytics={analyticsRecords}
       posts={posts || []}
+      postPlatforms={postPlatforms}
     />
   );
 }

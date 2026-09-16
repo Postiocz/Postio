@@ -25,16 +25,21 @@ import {
   TrendingUp,
   CalendarDays,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  FileText,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TagBreakdown, type TagBreakdownData } from "@/components/analytics/tag-breakdown";
+import { platformIconFor } from "@/components/ui/social-icons";
 import { getTagBreakdown, syncAnalyticsInsights } from "./actions";
 
 type AnalyticsRecord = {
   id: string;
   post_id: string;
+  post_platform_id: string | null;
   impressions: number;
   engagements: number;
   likes: number | null;
@@ -53,9 +58,22 @@ type PostRecord = {
 
 type Period = "7" | "30" | "90";
 
+/** A single published platform-target row (post_platforms) with joined account info.
+ *  Analytics rows are keyed by post_platform_id — this labels the target in the
+ *  per-platform drill-down (KROK C). */
+export type PostTarget = {
+  id: string;
+  post_id: string;
+  platform: string;
+  account_id: string | null;
+  account_name: string | null;
+  avatar_url: string | null;
+};
+
 interface AnalyticsDashboardProps {
   analytics: AnalyticsRecord[];
   posts: PostRecord[];
+  postPlatforms: PostTarget[];
 }
 
 const customTooltipStyle: React.CSSProperties = {
@@ -67,7 +85,7 @@ const customTooltipStyle: React.CSSProperties = {
   backdropFilter: "blur(12px)",
 };
 
-export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ analytics, posts, postPlatforms }: AnalyticsDashboardProps) {
   const t = useTranslations("analytics");
   const [period, setPeriod] = useState<Period>("30");
   const [tagData, setTagData] = useState<TagBreakdownData[]>([]);
@@ -75,6 +93,7 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
   const [tagLoading, setTagLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setIsMounted(true);
@@ -119,6 +138,32 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
     cutoff.setDate(cutoff.getDate() - parseInt(period));
     return analytics.filter((a) => new Date(a.recorded_at) >= cutoff);
   }, [analytics, period]);
+
+  // Per-target drill-down maps (KROK C). analytics rows are keyed by
+  // post_platform_id, so these label each row with its platform/account.
+  const targetById = useMemo(() => {
+    const m = new Map<string, PostTarget>();
+    for (const t of postPlatforms) m.set(t.id, t);
+    return m;
+  }, [postPlatforms]);
+
+  const targetsByPost = useMemo(() => {
+    const m = new Map<string, PostTarget[]>();
+    for (const t of postPlatforms) {
+      const arr = m.get(t.post_id) ?? [];
+      arr.push(t);
+      m.set(t.post_id, arr);
+    }
+    return m;
+  }, [postPlatforms]);
+
+  const analyticsByTarget = useMemo(() => {
+    const m = new Map<string, AnalyticsRecord>();
+    for (const a of filteredAnalytics) {
+      if (a.post_platform_id) m.set(a.post_platform_id, a);
+    }
+    return m;
+  }, [filteredAnalytics]);
 
   const totals = useMemo(() => {
     return filteredAnalytics.reduce(
@@ -520,38 +565,77 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
           </div>
         ) : (
           <div className="space-y-3">
-            {postsWithAnalytics.map(({ post, analytics: a }) => (
-              <Card
-                key={post.id}
-                className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] transition-all duration-200 hover:border-white/10"
-              >
-                <CardContent className="p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="line-clamp-2 min-w-0 max-w-xl text-sm">
-                      {post.content}
+            {postsWithAnalytics.map(({ post, analytics: a }) => {
+              const targets = targetsByPost.get(post.id) ?? [];
+              const hasMultipleTargets = targets.length > 1;
+              const isExpanded = expandedPosts.has(post.id);
+              const postImpressions = a?.impressions ?? 0;
+              const toggleExpand = () => {
+                const next = new Set(expandedPosts);
+                if (next.has(post.id)) next.delete(post.id);
+                else next.add(post.id);
+                setExpandedPosts(next);
+              };
+              return (
+                <Card
+                  key={post.id}
+                  className="bg-card/40 backdrop-blur-md border-white/5 rounded-[20px] transition-all duration-200 hover:border-white/10"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="line-clamp-2 min-w-0 max-w-xl text-sm">
+                        {post.content}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          {postImpressions}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Heart className="h-3 w-3" />
+                          {a?.engagements ?? 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="h-3 w-3" />
+                          {a?.likes ?? 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Repeat className="h-3 w-3" />
+                          {a?.shares ?? 0}
+                        </span>
+                        {hasMultipleTargets && (
+                          <button
+                            type="button"
+                            onClick={toggleExpand}
+                            aria-expanded={isExpanded}
+                            aria-label={t("platformBreakdown")}
+                            className="ml-1 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-muted-foreground transition-all hover:border-indigo-500/30 hover:text-foreground"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3 w-3" />
-                        {a?.impressions ?? 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="h-3 w-3" />
-                        {a?.engagements ?? 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MessageCircle className="h-3 w-3" />
-                        {a?.likes ?? 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Repeat className="h-3 w-3" />
-                        {a?.shares ?? 0}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    {isExpanded && hasMultipleTargets && (
+                      <div className="mt-3 border-t border-white/5 pt-3">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                          {t("platformBreakdown")}
+                        </p>
+                        <PostTargetBreakdown
+                          targets={targets}
+                          analyticsByTarget={analyticsByTarget}
+                          postEngagements={a?.engagements ?? 0}
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -560,6 +644,65 @@ export function AnalyticsDashboard({ analytics, posts }: AnalyticsDashboardProps
       <div className="relative">
         <TagBreakdown tags={tagData} total={tagTotal} isLoading={tagLoading} />
       </div>
+    </div>
+  );
+}
+
+function PostTargetBreakdown({
+  targets,
+  analyticsByTarget,
+  postEngagements,
+}: {
+  targets: PostTarget[];
+  analyticsByTarget: Map<string, AnalyticsRecord>;
+  postEngagements: number;
+}) {
+  const t = useTranslations("analytics");
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {targets.map((target) => {
+        const Icon = platformIconFor(target.platform) ?? FileText;
+        const a = analyticsByTarget.get(target.id);
+        const impressions = a?.impressions ?? 0;
+        const engagements = a?.engagements ?? 0;
+        // Share is based on the same headline metric as the post card
+        // (engagements). Guard: zero-total post → 0 %, never NaN.
+        const sharePct = postEngagements > 0 ? Math.round((engagements / postEngagements) * 100) : 0;
+        const name =
+          target.account_name?.trim() ||
+          target.platform.charAt(0).toUpperCase() + target.platform.slice(1);
+        return (
+          <div
+            key={target.id}
+            className="flex items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              {target.avatar_url ? (
+                // Avatar pattern reused from the Posts target-account switcher.
+                <img
+                  src={target.avatar_url}
+                  alt=""
+                  className="h-4 w-4 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="truncate text-xs font-medium">{name}</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Eye className="h-3 w-3" />
+                {impressions}
+              </span>
+              <span className="flex items-center gap-1">
+                <Heart className="h-3 w-3" />
+                {engagements}
+              </span>
+              <span className="w-10 text-right text-indigo-400">{sharePct} %</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

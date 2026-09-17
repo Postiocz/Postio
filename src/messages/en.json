@@ -702,6 +702,7 @@
     "connectionError": "Could not connect account: {error}",
     "tokenExpired": "Token expired",
     "tokenExpiringSoon": "Token expires in {days} days",
+    "accountsLoadFailed": "Failed to load connected accounts. Please try again.",
     "tokenExpiredStatus": "Expired",
     "tokenExpiringStatus": "Expiring soon",
     "reconnect": "Reconnect",

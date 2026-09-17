@@ -702,6 +702,7 @@
     "connectionError": "Не вдалося підключити акаунт: {error}",
     "tokenExpired": "Термін дії токену минув",
     "tokenExpiringSoon": "Термін дії токену мине через {days} днів",
+    "accountsLoadFailed": "Не вдалося завантажити підключені акаунти. Спробуйте ще раз.",
     "tokenExpiredStatus": "Минув",
     "tokenExpiringStatus": "Скоро мине",
     "reconnect": "Підключити знову",

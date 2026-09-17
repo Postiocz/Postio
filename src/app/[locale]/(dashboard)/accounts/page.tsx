@@ -311,12 +311,25 @@ export default function AccountsPage() {
       };
 
       if (!res.ok) {
+        // FIX (P0, 2026-09-17): this used to silently empty the list,
+        // hiding failures (e.g. `/api/accounts` 500 when `scope_list` was
+        // selected against a DB where migration 062 was not applied). Log
+        // + surface the error so similar breakage is visible, not a blank
+        // page.
+        console.error(
+          "[accounts] fetchAccounts failed:",
+          res.status,
+          result.error ?? "(no error message)"
+        );
+        toast.error(result.error || t("accountsLoadFailed"));
         setAccounts([]);
         return;
       }
 
       setAccounts(result.accounts ?? []);
-    } catch {
+    } catch (err) {
+      console.error("[accounts] fetchAccounts threw:", err);
+      toast.error(t("accountsLoadFailed"));
       setAccounts([]);
     } finally {
       setLoading(false);

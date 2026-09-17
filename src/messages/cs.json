@@ -702,6 +702,7 @@
     "connectionError": "Nepodařilo se propojit účet: {error}",
     "tokenExpired": "Token vypršel",
     "tokenExpiringSoon": "Token vyprší za {days} dní",
+    "accountsLoadFailed": "Nepodařilo se načíst propojené účty. Zkuste to prosím znovu.",
     "tokenExpiredStatus": "Vypršel",
     "tokenExpiringStatus": "Vyprší brzy",
     "reconnect": "Znovu připojit",

@@ -702,6 +702,7 @@
     "connectionError": "Nepodařilo se propojit účet: {error}",
     "tokenExpired": "Token vypršel",
     "tokenExpiringSoon": "Token vyprší za {days} dní",
+    "scopeReconnectPrompt": "Pro zobrazení analytiky znovu propoj účet",
     "accountsLoadFailed": "Nepodařilo se načíst propojené účty. Zkuste to prosím znovu.",
     "tokenExpiredStatus": "Vypršel",
     "tokenExpiringStatus": "Vyprší brzy",

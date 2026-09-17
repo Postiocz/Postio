@@ -33,6 +33,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Clock,
+  Lock,
 } from "lucide-react";
 import {
   Instagram,
@@ -148,6 +149,12 @@ type SocialAccount = {
   platform_id?: string | null;
   token_expires_at?: string | null;
   publishing_type?: "direct" | "manual" | null;
+  /**
+   * OAuth scopes granted for this account's token. `null` = account
+   * connected before this field was tracked ("scope unknown"). Used by the
+   * LinkedIn analytics banner (FÁZE 2) – see migration 062.
+   */
+  scope_list?: string[] | null;
   /**
    * Per-platform JSON blob. Shape varies by platform:
    *
@@ -951,6 +958,30 @@ export default function AccountsPage() {
                         {t("tokenExpiringSoon", { days: tokenStatus.daysLeft })}
                       </div>
                     )}
+                    {/* LinkedIn analytics scope warning (FÁZE 2, KROK B).
+                        Shown only when scope_list is KNOWN (not null) and the
+                        `r_member_postAnalytics` scope is missing. NULL (legacy
+                        account connected before the column existed) is treated
+                        as "scope unknown" and intentionally NOT flagged. The
+                        scope is only requested after LinkedIn approves the
+                        Community Management API (KROK D) – until then every
+                        account has scope_list = NULL, so this never renders. */}
+                    {account.platform === "linkedin" &&
+                      account.scope_list != null &&
+                      !account.scope_list.includes("r_member_postAnalytics") && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-amber-400">
+                          <Lock className="h-3.5 w-3.5" />
+                          <span>{t("scopeReconnectPrompt")}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-md px-2 text-xs underline-offset-2 hover:bg-amber-500/10 hover:text-amber-300"
+                            onClick={() => handleReconnect(account.platform as PlatformId)}
+                          >
+                            {t("reconnect")}
+                          </Button>
+                        </div>
+                      )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

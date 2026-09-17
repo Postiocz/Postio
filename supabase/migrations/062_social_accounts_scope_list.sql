@@ -1,0 +1,25 @@
+-- 062_social_accounts_scope_list.sql
+--
+-- FÁZE 2 – LinkedIn Analytics (přípravná migrace, ČEKÁ NA APLIKACI)
+--
+-- Cíl: umožnit detekci, které OAuth scopes má daný connected účet.
+-- Důvod: LinkedIn scope `r_member_postAnalytics` (Member Post Analytics,
+-- součást produktu "Community Management API") není dosud schválen.
+-- Až bude, začneme ho žádat v OAuth (route /api/accounts/linkedin).
+-- Stávající tokeny ale scope získají až po reconnectu, takže potřebujeme
+-- vědět, kterým účtům chybí, abychom jim mohli v UI navrhnout reconnect.
+--
+-- Sloupec je TEXT[] (pole scope stringů, jak je vrací LinkedIn) s
+-- DEFAULT NULL a záměrně BEZ NOT NULL:
+--   - nově připojený účet  → scope_list = ['w_member_social', ...]
+--   - legacy účet          → scope_list = NULL ("scope neznámo")
+-- NULL u legacy účtů je důležité: UI banner se pak nezobrazí, protože
+-- necháme tyto účty na pokoji (viz KROK B).
+--
+-- Žádný index: tabulka social_accounts je malá (řádově desítky řádků
+-- na uživatele), GIN index by byl zbytečná režie bez přínosu.
+--
+-- Typy v src/lib/supabase/types.ts jsou již doplněny o
+-- `scope_list: string[] | null` (Row/Insert/Update) – viz KROK A.
+
+ALTER TABLE social_accounts ADD COLUMN scope_list TEXT[] DEFAULT NULL;

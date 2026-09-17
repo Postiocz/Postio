@@ -142,6 +142,11 @@ export interface Database {
           avatar_url: string | null
           token_expires_at: string | null
           publishing_type: 'direct' | 'manual'
+          // OAuth scopes granted for this account's token. NULL for
+          // accounts connected before this column existed ("scope
+          // unknown") – used by FÁZE 2 (LinkedIn `r_member_postAnalytics`
+          // detection). See migration 062_social_accounts_scope_list.sql.
+          scope_list: string[] | null
           is_active: boolean
           created_at: string
         }
@@ -155,6 +160,7 @@ export interface Database {
           avatar_url?: string | null
           token_expires_at?: string | null
           publishing_type?: 'direct' | 'manual'
+          scope_list?: string[] | null
           is_active?: boolean
           created_at?: string
         }
@@ -168,6 +174,7 @@ export interface Database {
           avatar_url?: string | null
           token_expires_at?: string | null
           publishing_type?: 'direct' | 'manual'
+          scope_list?: string[] | null
           is_active?: boolean
           created_at?: string
         }

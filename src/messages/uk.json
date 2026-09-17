@@ -702,6 +702,7 @@
     "connectionError": "Не вдалося підключити акаунт: {error}",
     "tokenExpired": "Термін дії токену минув",
     "tokenExpiringSoon": "Термін дії токену мине через {days} днів",
+    "scopeReconnectPrompt": "Підключи акаунт повторно, щоб бачити аналітику",
     "accountsLoadFailed": "Не вдалося завантажити підключені акаунти. Спробуйте ще раз.",
     "tokenExpiredStatus": "Минув",
     "tokenExpiringStatus": "Скоро мине",

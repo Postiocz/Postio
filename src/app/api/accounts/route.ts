@@ -16,6 +16,10 @@ type SocialAccountRow = {
   platform_id: string | null;
   token_expires_at: string | null;
   publishing_type: "direct" | "manual" | null;
+  // OAuth scopes granted for this account's token. NULL = account connected
+  // before this field was tracked ("scope unknown"). Not sensitive – scope
+  // names only, passed through untouched (unlike metadata which is sanitized).
+  scope_list: string[] | null;
   created_at: string;
   metadata: SocialAccountMetadata | null;
 };
@@ -30,6 +34,7 @@ function sanitizeSocialAccount(row: SocialAccountRow) {
     platform_id: row.platform_id,
     token_expires_at: row.token_expires_at,
     publishing_type: row.publishing_type,
+    scope_list: row.scope_list,
     metadata: row.metadata
       ? {
           category: row.metadata.category ?? null,
@@ -53,15 +58,8 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("social_accounts")
-      // FIX: `scope_list` TEMPORARILY removed from this select. Migration
-      // `062_social_accounts_scope_list.sql` (scope_list column) is only
-      // PREPARED, NOT applied to production yet – selecting the missing
-      // column makes Supabase fail the whole query and the endpoint returns
-      // an empty accounts list (the client swallows the error). Restore
-      // `, scope_list` here only together with applying migration 062
-      // (KROK C / PR for FÁZE 2). Types + sanitize below stay ready.
       .select(
-        "id, platform, account_name, is_active, avatar_url, platform_id, token_expires_at, publishing_type, created_at, metadata"
+        "id, platform, account_name, is_active, avatar_url, platform_id, token_expires_at, publishing_type, created_at, metadata, scope_list"
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });

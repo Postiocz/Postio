@@ -3,6 +3,18 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🔶 FÁZE 2 (příprava): LinkedIn Analytics – DB migrace + UI banner (KROK A+B) ⏳
+
+- **Kontext**: Čekáme na schválení LinkedIn produktu „Community Management API" (mimo appku). Až projde, začneme žádat scope `r_member_postAnalytics` (Member Post Analytics – impressions/engagement na osobním profilu). Stávající tokeny scope ale získají až po reconnectu, takže aplikace potřebuje vědět, které účty ho nemají.
+- **⚠️ Rozlišení**: `r_member_postAnalytics` (analytics, cíl této fáze) ≠ `r_member_social` (čtení posts, historický scope – byl přidán a zase odebrán 2026-08, protože LinkedIn developer app ho nemá schválený). Historie `r_member_social` se touto fází neřeší.
+- **Změny**:
+  - ✅ **KROK A** – `supabase/migrations/062_social_accounts_scope_list.sql`: `ALTER TABLE social_accounts ADD COLUMN scope_list TEXT[] DEFAULT NULL` (záměrně bez NOT NULL → legacy účty zůstanou `NULL` = „scope neznámo"). Bez indexu – tabulka je malá, GIN by byl zbytečná režie. **Aplikováno na produkční DB 2026-09-17** (sloupec `scope_list` TEXT[] nullable potvrzen).
+  - ✅ `src/lib/supabase/types.ts` – `scope_list: string[] | null` doplněn do `social_accounts` Row/Insert/Update. Čistě typová definice na straně klienta (nic nespouští, nic nemění chování appky, dokud sloupec reálně nevznikne v DB) – připravuje kód pro KROK B/C.
+  - ✅ **KROK B** – LinkedIn scope-warning banner v `src/app/[locale]/(dashboard)/accounts/page.tsx` (inline blok za existující expired/expiring varováními): ikona `Lock` + `scopeReconnectPrompt` + Reconnect. Podmínka: `platform === "linkedin" && scope_list != null && !scope_list.includes("r_member_postAnalytics")` (NULL = legacy = nezobrazí). Reconnect využuje existující `handleReconnect` → `/api/accounts/linkedin` (scope string SE NEMĚNÍ – až KROK D).
+  - ✅ **KROK B (data flow):** `src/app/api/accounts/route.ts` – `scope_list` doplněn do `.select()` GET + typ `SocialAccountRow` + `sanitizeSocialAccount` (scope list je nesenzitivní, na rozdíl od `metadata`); typ `SocialAccount` v page.tsx + `scope_list?: string[] | null`. i18n klíč `scopeReconnectPrompt` v cs/en/uk (key-tree identický).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). JSON i18n validní ve všech 3 localech. **Banner se dnes NIKDE nezobrazí** (scope_list u všech účtů NULL → podmínka false) – správně, ověřeno staticky.
+- **Následující kroky (čekají)**: KROK B (UI banner na `/accounts` pro účty bez scope), KROK C (ukládání `scope_list` v `linkedin/route.ts`), KROK D (přidání scope do OAuth stringu – až po LinkedIn schválení).
+
 ### 📊 Analytics: per-target drill-down v "Výkon příspěvků" (KROK C) ✅
 
 - **Kontext**: Po migraci per-target (1 řádek analytiky na `post_platform_id`) zůstávala Analytics stránka agregovaná – post s FB+IG se zobrazoval jak jeden řádek, nešlo vidět, kolik přinesla konkrétní síť/účet. KROK C přidává per-post rozpad podle cílených sítí.
@@ -93,13 +105,5 @@
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Code-level audit bod 2a (Analytics má `?? 0`, EmptyChartMessage, žádné NaN/undefined), 2b (obrazovka obsahu = `/posts` přes `_post-card.tsx`), 2c (EDIT/DELETE funkční přes Graph API u FB). 🐛 POZOR: remote edit u FB může narazit na Meta capability chybu #3 ("remote editing requires App Review") – toto právě řeší submission; v kódu je ošetřeno.
 - **STOP dle Pravidla 2**: texty + audit hotové, video nahrává uživatel sám.
 
-### 🔄 Prompt 065 – Meta App Review fix: Revidované justifikace + scénář videa v2 + UI audit ✅
-
-- **Kontext**: Meta revizor zamítl 3 oprávnění (`pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`) s důvodem "Screencast fails to demonstrate the end-to-end experience". Revizor chce vidět (1) skutečný post na FB/IG po odeslání z app a (2) jak app zobrazuje engagement data v UI.
-- **Změny**:
-  - ✅ `docs/meta-review-justifications.md` (nový): Konkrétné anglické zdůvodnění pro všech 3 zamítnuté permissiony. Kotví každý text v pravdom kódu: publish přes Graph API v20.0 (`POST /{page_id}/feed`; IG media container + `media_publish`), čtení engagement přes `GET /{external_id}/insights` (metric `impressions,engagement,likes_count,comments_count,shares,outbound_clicks,saved_posts`) a jeho zobrazení na stránce **Analytics** (metric cards Reach/Engagements/Engagement Rate/Likes/Comments/Shares/Clicks/Saves, area chart Performance Over Time, Top Performing Posts, Posts by Tag) – ospravedlnuje `pages_read_engagement`.
-  - ✅ `docs/meta-review-v2.md` (nový): Vylepšený scénář screencastu. Nová **povinná Scene 5** – otevření live Facebook Page + Instagram profilu v stejném browseru a ukázka publikovaného postu; **Scene 6** – Sync Analytics a ukázka renderovaných engagement metrik v UI; **Scene 7** – čistý prázdný stav s nulami jako poctivý fallback.
-  - ✅ UI audit (bez code změn): Stránka `/analytics` už zobrazuje čisté nuly na metric kartách a vkusné empty stavy v chartech (EmptyChartMessage), Top Performing Posts (ikona + `noDataSubtitle`) a Posts by Tag (`noTagsBreakdown`), plus Skeleton na Dashboardu prý prázdném stavu – nemusel být žádný kód meněn.
-- **Ověření**: Code-level audit (úprava netřeba). Dokumenty připravené pro natočení nového videa – uživatel nahrává video sám.
 
 

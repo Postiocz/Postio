@@ -1,4 +1,5 @@
 import type { PostStatus } from "@/lib/types";
+import type { AnalyticsSummary } from "@/lib/analytics-summary";
 import type { PostPlatform } from "./_post-card";
 
 /** Minimal shape returned by normalizePost — structurally matches PostListItem. */
@@ -17,6 +18,8 @@ export type NormalizedPost = {
   deleted_at: string | null;
   published_platforms: string[];
   external_ids: Record<string, string> | null;
+  /** Per-target analytics aggregated per post (attached by the pages, not normalizePost). */
+  analytics?: AnalyticsSummary;
 };
 
 /**

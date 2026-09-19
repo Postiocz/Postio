@@ -2,6 +2,7 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTags } from "@/lib/actions/tag-actions";
+import { fetchAnalyticsByPost } from "@/lib/analytics-summary";
 import { CalendarClient } from "./_calendar-client";
 import { PLATFORMS } from "@/lib/constants/platforms";
 
@@ -37,6 +38,11 @@ export default async function CalendarPage({
     return <div className="text-muted-foreground">Error loading posts.</div>;
   }
 
+  // FÁZE 1B (Krok 2): per-target analytics snapshot aggregated per post
+  // (shared helper – single source of truth, also used by the Posts page).
+  const postIds = (rawPosts ?? []).map((p: any) => p.id);
+  const analyticsByPost = await fetchAnalyticsByPost(supabase, postIds);
+
   // Process data to match Post type expected by CalendarClient
   const posts = rawPosts?.map((post) => {
     const postPlatforms = post.post_platforms || [];
@@ -59,6 +65,7 @@ export default async function CalendarPage({
     return {
       ...post,
       status: computedStatus,
+      analytics: analyticsByPost.get(post.id),
       platforms: postPlatforms.map((p: any) => p.platform),
       post_platforms: postPlatforms,
       scheduled_at: scheduledAt,

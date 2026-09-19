@@ -3,6 +3,24 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Preview modal: light mode – oprava natvrdo tmavého chrome ✅
+
+- **Kontext**: Modal "Zobrazit náhled" (`preview-dialog.tsx`, používán na Kalendáři i Posts) zůstával v light mode natvrdo tmavý – neladil s okolím. Samotná high-fidelity simulace feedů (FB/X/IG/TikTok) zůstává tmavá záměrně (věrná reálným sítím); opraveno okolní chrome modalu.
+- **Změny**:
+  - ✅ `DialogContent` – `bg-black/95 border-white/10` → `bg-background/95 border-black/5 dark:border-white/10` (theme-aware pomocí CSS proměnných).
+  - ✅ Tab bar – `border-white/10 bg-white/[0.03]` → `border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.03]`.
+  - ✅ View Live tlačítko – `text-indigo-300` → `text-indigo-600 dark:text-indigo-300` (kontrast ve světlém).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test v light + dark režimu (uživatel potvrdil).
+
+### 📊 Kalendář: per-target analytics (KROK 2+3, FÁZE 1B) + rozšíření Posts ✅
+
+- **Kontext**: FÁZE 1 per-target analytiky hotová pro DB/backend/Posts/Analytics; Kalendář byl poslední vynechaný dílek. Přidána server-side agregace + UI badge na kalendáři, stejný vzor přenesen na Posts stránku.
+- **Změny**:
+  - ✅ **KROK 2 (fetch + agregace)** – `calendar/page.tsx`: `postIds` + fetch `analytics` `.in("post_id")` (bez period filtru, aktuální stav snapshotu), agregace `Map<post_id,{impressions,engagements}>` reduce **SUM přes řádky**. Klíčové: tabulka není time-series (migrace 060/061 = `UNIQUE(post_platform_id)`, 1 řádek = 1 platforma) → FB+IG post = součet obou řádků, žádné dvojnásobení. `src/types/calendar.ts` – `Post.analytics?`.
+  - ✅ **KROK 3 (UI)** – `post-calendar-chip.tsx`: pro published se `engagements > 0` badge `Heart` + krácené číslo (`ml-auto`, jemné); `hover-preview.tsx`: published se `analytics` → řádek `Eye` (dosah) + `Heart` (interakce). Bez nových i18n klíčů.
+  - ✅ **Rozšíření Posts** – sdílený helper `src/lib/analytics-summary.ts` (`fetchAnalyticsByPost`, single source of truth, použit i Kalendářem – žádná duplicitní fetch logika); `formatCompactNumber` přesunut do `src/lib/format.ts` (re-export z calendar chip); analytics připojen ve 3 entry pointech Posts (`page.tsx`, `fetchMorePosts`, `fetchFilteredPosts`); `_post-card.tsx`: jemná pilulka `Eye`+`Heart` **v patičce karty** (datum vlevo, metriky vpravo `ml-auto`; hlavička kolidovala s hover ikonami → přesunuto).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb) + `npm run build` ✅ (celý projekt kompiluje). Viz open retest Kalendáře (refaktor 1:1 na helper, chování identické) a manuál test Posts (published badge, Load more/filtr).
+
 ### 🔶 FÁZE 2 (příprava): LinkedIn Analytics – ukládání scope_list (KROK C) ⏳
 
 - **Kontext**: Pokračování FÁZE 2. Migrace 062 (`scope_list` TEXT[] nullable) aplikovaná na produkci 2026-09-17; KROK B (banner + data flow) commitnutý (`9da23e9`). KROK C připravuje ukládání `scope_list` při OAuth reconnectu, akivace proběhne s KROKEM D (přidání `r_member_postAnalytics` do scope, až LinkedIn schválí CM API).
@@ -80,26 +98,6 @@
   - ✅ i18n: bez nových textů (Variant A – zero extra UI). RLS bez změny – „Users can update own row" existuje.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Migrace spuštěná ručně na produkční DB. Commit `ffaee8c`, push main + `feature/fix_checklist_modal` (fast-forward).
 
-### 🎨 Notifikace: dedikovaná stránka /settings/notifications ✅
-
-- **Kontext**: Menu položka „Notifikace" mířila na /settings/notifications, jež nikdy neexistovala → 404 na každé dashboard stránce. Dle výboru Opci A přesunuta sekci „E-mailová upozornění" z /settings/preferences na vlastnu stránku, aby menu vedlo na reálně existující stránku a „Notifikace"/„Předvolby" byly opravdu dvě oddělené věci.
-- **Změny**:
-  - ✅ Nová stránka `settings/notifications/` (page.tsx + notifications-form.tsx + actions.ts). Nová akce `updateNotifications` píše **jen** pole `email_low_credit_alert`/`email_weekly_summary` do **stejných DB sloupců** jako dřív preferences (žádná nová migrácia, žádná ztráta nastavení uživatelů).
-  - ✅ `preferences-form.tsx`/`page.tsx` – sekci, state, submit, labels a importy pro e-mail toggle odstranené (−84 řádků).
-  - ✅ Sidebar/mobile-nav – href „Notifikace" opět na /settings/notifications; menu už nevede dvě položky na stejné místo.
-  - ✅ i18n: nové klíče `notificationsDescription`, `notificationsSaved` v cs/en/uk.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). UI test manuálně (potřebuje Supabase env + přihlašenie).
-
-### 🐛 Meta Insights sync – parsování metrik opraveno (Meta Graph API `values[]`) ✅
-
-- **Kontext**: Sync analytiky ve `analytics/actions.ts` (`fetchMetaInsights`) četl `item.value`, ale Meta Graph API Insights vracá itemy jako `{"name":"impressions","values":[{"value":123}]}` – hodnota je uvnitř poles `values[0].value`. Následek: `item.value` byl vždy `undefined`, žádná smyčka větev se nevykonala a všechny metriky se zapísaly jako 0.
-- **Změny** (`analytics/actions.ts`):
-  - ✅ Zdroj hodnoty změnený na `item.values?.[0]?.value ?? 0` (bezpečný fallback na 0) – metriky (impressions, engagement, likes, comments, shares, clicks, saves) nyní se reálně populují z Meta.
-  - ✅ Odstranený mrtvý kód: větev `Array.isArray(val)` s obranou `[{ metric_name, value }]` – `val` je nyní vždy number, takže ta větev by se nikdy nevykonala. Smyčka zjednodušena na `if (name) metricMap.set(name, val)`.
-  - ✅ **Fáza 2 – verze API v26.0 + skutečné metriky per platform**: sjednoceno na `graph.facebook.com/v26.0`; IG `external_id` ve formě `shortcode|media_id` → extrakce `media_id` (zrcadlí `resolveMetaReconcileId`); FB new valid Page-post metrics `post_clicks, post_total_media_view_unique, post_media_view` + `&period=lifetime` (IG default `day`).
-  - ✅ **Fáza 3 – IG přepnuto na media-level insights**: Meta account-level metric names (`follower_count, website_clicks, profile_views, online_followers, accounts_engaged`) Meta pro `/{media_id}/insights` odmítala #100; nahrazeny media-level sadou `impressions, reach, likes, comments, shares, saved, follows, total_interactions, profile_visits, link_clicks`. Mapování: `impressions ← reach ?? impressions` (karta „Celkový dosah" čte pole `impressions`, i18n label je „reach" – proto reach primární), `engagements ← total_interactions`, `likes ← likes`, `comments ← comments`, `shares ← shares`, `clicks ← link_clicks`, `saves ← saved`. IG likes/comments/shares/saved už **nejsou natvrdo 0** (media-level je poskytuje). FB likes/comments/shares/saved zůstávají 0 (Page-post v26.0 je neposkytuje, TODO viz komentár v kódu).
-  - ✅ **Dokumentácia App Review zaktualizowana do stanu kódu**: `docs/meta-review-justifications.md`, `docs/meta-review-submission-notes.md`, `docs/meta-review-v2.md` — staré insight endpoint příklady (v20.0, metric `impressions,engagement,likes_count,comments_count,shares,outbound_clicks,saved_posts`) nahrazené aktuálními: FB `GET /{external_id}/insights?metric=post_clicks,post_total_media_view_unique,post_media_view&period=lifetime` (v26.0) + IG media-level `GET /{media_id}/insights?metric=impressions,reach,likes,comments,shares,saved,follows,total_interactions,profile_visits,link_clicks`. Checklist PŘÍPRAVA PŘED NATÁČENÍM popisuje precisa scattere text, coa reviewer v Scene 8 uvidí.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb).
 
 
 

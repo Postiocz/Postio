@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTags } from "@/lib/actions/tag-actions";
+import { fetchAnalyticsByPost } from "@/lib/analytics-summary";
 import { normalizePost, type NormalizedPost } from "./normalize-post";
 import { PostsContainer } from "./_posts-container";
 
@@ -70,7 +71,12 @@ export default async function PostsPage({
   const hasMore = (rawPosts?.length ?? 0) > PAGE_SIZE;
   const pagedPosts = rawPosts?.slice(0, PAGE_SIZE) ?? [];
 
-  const posts: NormalizedPost[] = pagedPosts.map(normalizePost);
+  // Attach per-target analytics summary (shared helper with Calendar page).
+  const analyticsByPost = await fetchAnalyticsByPost(supabase, pagedPosts.map((p) => String(p.id)));
+  const posts: NormalizedPost[] = pagedPosts.map((p) => ({
+    ...normalizePost(p),
+    analytics: analyticsByPost.get(String(p.id)),
+  }));
 
   // Cursor = created_at of the last rendered row (for next page).
   // IMPORTANT: send the cursor ONLY when there is another page (`hasMore`),

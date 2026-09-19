@@ -1,6 +1,8 @@
 import React from "react";
-import { Calendar as CalendarIcon, Check, Clock, Lock, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Clock, Heart, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCompactNumber } from "@/lib/format";
+export { formatCompactNumber };
 import { Instagram, Facebook, Twitter, Linkedin, Youtube, TikTok } from "@/components/ui/social-icons";
 import type { Post, PostPlatform } from "@/types/calendar";
 
@@ -174,6 +176,13 @@ export function PostCalendarChip({
       <span className="truncate">
         {post.content?.substring(0, contentLength)}
       </span>
+
+      {post.status === "published" && (post.analytics?.engagements ?? 0) > 0 && (
+        <span className="ml-auto flex shrink-0 items-center gap-0.5 text-muted-foreground/70">
+          <Heart className="h-2.5 w-2.5" />
+          {formatCompactNumber(post.analytics?.engagements ?? 0)}
+        </span>
+      )}
 
       {post.status === "archived" && (
         <Lock className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />

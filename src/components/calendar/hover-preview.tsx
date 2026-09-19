@@ -1,11 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Play } from "lucide-react";
+import { Clock, Eye, Heart, Play } from "lucide-react";
 import NextImage from "next/image";
 import { useTranslations } from "next-intl";
 import type { Post } from "@/types/calendar";
-import { PlatformIconMap } from "./post-calendar-chip";
+import { PlatformIconMap, formatCompactNumber } from "./post-calendar-chip";
 
 interface HoverPreviewProps {
   hoveredPost: Post | null;
@@ -84,6 +84,18 @@ export function HoverPreview({ hoveredPost, hoverPosition, getPostDisplayDate, l
               {hoveredPost.content?.substring(0, 80)}
               {hoveredPost.content?.length > 80 ? "..." : ""}
             </p>
+            {hoveredPost.status === "published" && hoveredPost.analytics && (
+              <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Eye className="h-3.5 w-3.5" />
+                  {formatCompactNumber(hoveredPost.analytics.impressions)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Heart className="h-3.5 w-3.5" />
+                  {formatCompactNumber(hoveredPost.analytics.engagements)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-black/5 dark:border-white/10 pt-3">
               <div className="flex items-center gap-1.5">
                 {(hoveredPost.platforms || []).slice(0, 4).map((platformId) => {

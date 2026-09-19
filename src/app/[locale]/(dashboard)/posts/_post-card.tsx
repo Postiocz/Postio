@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Eye, CheckSquare, Square } from "lucide-react";
+import { Trash2, Edit, Clock, FileText, Play, RotateCcw, AlertTriangle, Check, X, Eye, Heart, CheckSquare, Square } from "lucide-react";
+import { formatCompactNumber } from "@/lib/format";
+import type { AnalyticsSummary } from "@/lib/analytics-summary";
 import { platformIconFor } from "@/components/ui/social-icons";
 import Link from "next/link";
 import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
@@ -76,6 +78,8 @@ export type PostListItem = {
   deleted_at: string | null;
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
+  /** Per-target analytics aggregated per post (attached by Posts page). */
+  analytics?: AnalyticsSummary;
 };
 
 function toLocaleTag(locale: string) {
@@ -711,6 +715,18 @@ export function PostCard({
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {tv("scheduledAt", {}, "Published at")}: {scheduledTime}
+              </span>
+            )}
+            {post.status === "published" && post.analytics && (
+              <span className="ml-auto inline-flex items-center gap-3 rounded-full border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  {formatCompactNumber(post.analytics.impressions)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Heart className="h-3 w-3" />
+                  {formatCompactNumber(post.analytics.engagements)}
+                </span>
               </span>
             )}
             {readyTwitterRow && (

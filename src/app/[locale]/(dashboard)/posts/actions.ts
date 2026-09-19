@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAnalyticsByPost } from "@/lib/analytics-summary";
 import { normalizePost, type NormalizedPost } from "./normalize-post";
 
 const PAGE_SIZE = 20;
@@ -224,7 +225,12 @@ export async function fetchMorePosts(
   const hasMore = rawPosts.length > PAGE_SIZE;
   const pagedPosts = rawPosts.slice(0, PAGE_SIZE);
 
-  const normalized = pagedPosts.map(normalizePost);
+  // Attach per-target analytics summary (shared helper with Calendar page).
+  const analyticsByPost = await fetchAnalyticsByPost(supabase, pagedPosts.map((p) => String(p.id)));
+  const normalized = pagedPosts.map((p) => ({
+    ...normalizePost(p),
+    analytics: analyticsByPost.get(String(p.id)),
+  }));
 
   // Cursor column depends on active sort (#9). For DESC sorts the cursor is
   // the sort value of the LAST rendered row (we fetch strictly greater). For
@@ -279,7 +285,12 @@ export async function fetchFilteredPosts(
   const hasMore = rawPosts.length > PAGE_SIZE;
   const pagedPosts = rawPosts.slice(0, PAGE_SIZE);
 
-  const normalized = pagedPosts.map(normalizePost);
+  // Attach per-target analytics summary (shared helper with Calendar page).
+  const analyticsByPost = await fetchAnalyticsByPost(supabase, pagedPosts.map((p) => String(p.id)));
+  const normalized = pagedPosts.map((p) => ({
+    ...normalizePost(p),
+    analytics: analyticsByPost.get(String(p.id)),
+  }));
 
   // Cursor column depends on active sort (#9). ASC `oldest` uses the FIRST
   // rendered row's sort value as cursor (see fetchMorePosts for full note).

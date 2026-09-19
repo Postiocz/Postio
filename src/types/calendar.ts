@@ -27,4 +27,7 @@ export type Post = {
   media_urls: string[];
   published_platforms?: string[];
   external_ids?: Record<string, string> | null;
+  // FÁZE 1B (Krok 2): per-target analytics snapshot aggregated per post.
+  // Undefined for posts without any analytics rows (draft/scheduled).
+  analytics?: { impressions: number; engagements: number };
 };

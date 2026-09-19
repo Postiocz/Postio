@@ -124,6 +124,34 @@
 
 ---
 
+## 📊 FÁZE 1B: Kalendář – per-target analytika na kartách (badge interakcí)
+
+**Kontext (2026-09-19):** FÁZE 1 (per-target analytics model) je hotová pro DB, backend, Posts stránku i Analytics stránku (vč. drill-downu). Kalendář `/kalendar` je poslední zbývající díl – dle původního zadání byl záměrně vynechán. Úkol: zobrazit analytiku (počet interakcí) na kartách příspěvků v kalendáři konzistentně s per-target modelem.
+
+### Analýza aktuálního stavu Kalendáře (Krok 1)
+
+1. **Server fetch** (`src/app/[locale]/(dashboard)/calendar/page.tsx`): query čte `.from("posts").select("*, post_platforms(*), post_tags(tags(id, name, color))")` – **žádný dotaz na analytics tabulku**. Na kalendáři se nezobrazují žádné metriky.
+2. **Client komponenty** (`_calendar-view.tsx` → `PostCalendarChip` v `src/components/calendar/post-calendar-chip.tsx`): čip zobrazuje jen ikony platform (+ status check/X badge), čas, zkrácený obsah, status styling. `StatsCards` počítá jen počty postů dle statusu (bez analytics).
+3. **Srovnání s Analytics stránkou (Krok 4A/4B):** Analytics stránka čte `analytics` `.in("post_id", postIds)` + `.gte("recorded_at", cutoff)` a agreguje přes `postsWithAnalytics`/`totals` (reduce sum `impressions`, `engagements`, ...). Drill-down `analyticsByTarget` (Map klíčovaná `post_platform_id`) + `targetsByPost`.
+4. **Ověření agregace přes multi-target posty:** ✅ **Agregace na Analytics stránce je SPRÁVNÁ.** Migrace 060 (`analytics_post_id_unique` DROP) + 061 (`post_platform_id NOT NULL`) dělají z `analytics` **snapshot per `post_platform_id` s `UNIQUE(post_platform_id)`** (1 řádek = 1 platforma; upsert `onConflict: post_platform_id` v `analytics/actions.ts`). Není to time-series → součet řádků multi-target postu NEdvojnásobí data. Post FB+IG = 2 řádky → součet = celkový počet interakcí. **Žádná oprava agregace není potřeba** – Kalendář má jen ZOPAKOVAT stejný vzor (fetch + reduce po `post_id`).
+5. **Typ `Post`** (`src/types/calendar.ts`): nemá pole pro analytiku → nutno rozšířit.
+
+### Dílčí kroky (pořadí)
+
+- [ ] **KROK 1 – Analýza → tento plán** (zapsáno výše, žádný kód).
+- [x] **KROK 2 – Server-side fetch + agregace analytiky na Kalendář** ✅ (2026-09-19, implementace + `npx tsc --noEmit` 0 chyb; manuál test až se společným review s KROKEM 3):
+  - `calendar/page.tsx`: po fetch `posts` nasbírán `postIds`, fetch `analytics` `.in("post_id", postIds)` (bez period filtru – kalendář zobrazuje aktuální stav snapshotu; tabulka je per-target UNIQUE, není time-series).
+  - Agregace: `Map<post_id, { impressions, engagements }>` reduce **SUM přes řádky** (každý řádek = 1 platforma; FB+IG → součet). Edge: post bez analytics řádku (draft/scheduled) → `undefined` = bez badge.
+  - Rozšířen typ `Post` v `src/types/calendar.ts` o `analytics?: { impressions: number; engagements: number }`; agregace přiřazena k postu v `map` (protéká přes `_calendar-client` → `_calendar-view` automaticky).
+- [x] **KROK 3 – UI: badge interakcí na kartě postu (v rámci 20px radiusu)** ✅ (2026-09-19, otestováno + build):
+  - `post-calendar-chip.tsx`: pro posty se statusem `published` a `engagements > 0` kompaktní badge – ikona `Heart` + krácené číslo (`formatCompactNumber`), `ml-auto` doprava, jemné muted barvy.
+  - `hover-preview.tsx`: pro published se `analytics` řádek `Eye` (dosah) + `Heart` (interakce) – konzistentní s Analytics stránkou.
+  - Draft/scheduled posty bez analytiky → bez badge. i18n: bez nových klíčů (číselný badge).
+- [x] **ROZŠÍŘENÍ – Posts stránka (/prispevky)** ✅ (2026-09-19, otestováno + build): stejný vizuální prvek na kartě postu – jemná pilulka `Eye` (dosah) + `Heart` (interakce) **v patičce karty** (datum vlevo, metriky vpravo `ml-auto`; původní umístění v hlavičce za statusem kolidovalo s hover ikonami → přesunuto). Podmínka `published` + `analytics`. Sdílený fetch helper `src/lib/analytics-summary.ts` (`fetchAnalyticsByPost`, single source of truth – použit i Kalendářem, žádná duplikace), `formatCompactNumber` přesunut do `src/lib/format.ts` (re-export z calendar chip), analytics připojen ve všech 3 projections Posts (`page.tsx`, `fetchMorePosts`, `fetchFilteredPosts`).
+- **Ověření každého kroku:** `npx tsc --noEmit` + manuál test v prohlížeči.
+
+---
+
 ## 🔶 FÁZE 2: LinkedIn Analytics (čeká na LinkedIn Community Management API schválení)
 
 > **Stav (2026-09-16):** LinkedIn schvaluje produkt "Community Management API" mimo appku. Zatím čekáme. Tato fáze obsahuje PŘÍPRAVNÉ KROKY, které nevyžadují funkční analytics endpoint – jsou připravené k rychlému zapnutí, jakmile se scope schválení dočká.

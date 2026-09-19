@@ -219,16 +219,18 @@ ALTER TABLE social_accounts ADD COLUMN scope_list TEXT[] DEFAULT NULL;
 - **i18n:** nový klíč `scopeReconnectPrompt` v accounts sekci (cs/en/uk) + reuse existujícího `reconnect`.
 - **Ověření:** `npx tsc --noEmit` ✅ (0 chyb). JSON parses v 3 localech, key-tree identický. **Banner se dnes NIKDE nezobrazí** – `scope_list` je u všech účtů `NULL` (sloupec/typ připravené, ale scope se nikde neukládá) → podmínka `!= null` je false → správně, ověřeno staticky.
 
-#### KROK C – Příprava kódu pro ukládání scope do DB (zapínací příprava)
+#### KROK C – Ukládání scope do DB (příprava) ✅ implementováno, čeká na KROK D k aktivaci
 
-**Cíl:** Připravit kód v `src/app/api/accounts/linkedin/route.ts` pro ukládání `scope_list`.
+**Cíl:** Připravit kód pro ukládání `scope_list` při OAuth connectu.
 
-**Úpravy (příprava – NEZAPÍNAT):**
-1. Přidat proměnnou `const targetScopes = [...]` uloženou vedle scope stringu
-2. V upsertu do `social_accounts` připsat `scope_list: targetScopes` (nebo `scope_list: tokenScopes` z token response, pokud LinkedIn je vrátí)
-3. Připravit `hasScope()` helper ve `src/lib/` pro check `scope_list @> ARRAY['r_member_postAnalytics']`
+**Implementace (2026-09-17):**
+- **`src/app/api/accounts/linkedin/route.ts`:** nová konstanta `TARGET_SCOPES = ["openid", "profile", "email", "w_member_social"]` (single source of truth) – authorize URL i autoritativní zdroj pro `scope_list`. Hardcoded scope string v authorize URL nahrazen `TARGET_SCOPES.join(" ")` (stejný výsledek, identické OAuth chování).
+- **Upsert:** doplněn `scope_list` — uloží se **POUZE** když `TARGET_SCOPES` obsahuje `r_member_postAnalytics` (KROK D gate). Dnes = `NULL` → banner tichý, žádná změna OAuth. Po přidání do TARGET_SCOPES v KROKU D se ukládání zapne automaticky.
+- **`src/lib/scope-utils.ts` (nový):** dva helpery – `hasScope(scopeList, scope)` (NULL/undefined → `false`, bez pádu na `.includes()`; použit v gate v route) a **`needsReconnect(scopeList, scope)`** (použit v banneru `page.tsx`).
+- 🐛 **Bugfix banneru (2026-09-17):** původní `!hasScope(...)` sloučil dva případy – „nevíme" (NULL legacy → `false` z hasScope → `!false` = `true` = banner se ZOBRAZIL) a „víme, že nemá" → banner se chybně zobrazil i u legacy účtu (Kateřina Nyklová). **`needsReconnect`** vrací `true` POUZE pro ne-null pole bez scope; NULL/undefined („scope neznámo") → `false` (neobtěžovat). Rozlišení „nevíme" vs „víme, že nemá" je tím zachováno.
+- **Soulad s rozlišením:** `r_member_social` se NIKDY nevyžaduje (viz historie); `r_member_postAnalytics` je v KROKU D, čeká na LinkedIn CM API schválení.
 
-**Poznámka:** Tento kód se zapne až po LinkedIn schválení. Dosud zůstane zakomentovaný nebo v odštěpku.
+**Ověření:** `npx tsc --noEmit` ✅ (0 chyb). Banner se dnes nikde nezobrazuje (všichni účty mají `scope_list = NULL` → `needsReconnect` = `false`).
 
 #### KROK D – Přidání `r_member_postAnalytics` do scope stringu
 

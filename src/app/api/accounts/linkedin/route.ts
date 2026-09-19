@@ -2,11 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isNewAccountAllowed, accountLimitErrorMessage } from "@/lib/account-limit";
+import { hasScope } from "@/lib/scope-utils";
 import { logger } from "@/lib/logger";
 
 const LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 const LINKEDIN_USERINFO_URL = "https://api.linkedin.com/v2/userinfo";
+
+/**
+ * OAuth scopes Postio requests on LinkedIn connect (FÁZE 2, KROK C).
+ * Single source of truth for BOTH the authorize URL and the persisted
+ * `scope_list`. `r_member_postAnalytics` (Member Post Analytics, product
+ * "Community Management API") is NOT included yet – LinkedIn has not
+ * approved it, and requesting an unapproved scope makes the whole OAuth
+ * request fail with `unauthorized_scope_error`. KROK D = add it here once
+ * approval lands.
+ */
+const TARGET_SCOPES = ["openid", "profile", "email", "w_member_social"] as const;
 
 /**
  * Appends `?<key>=<value>` (or `&<key>=<value>` when the URL already has a
@@ -69,10 +81,7 @@ export async function GET(request: NextRequest) {
     // `unauthorized_scope_error`. Publishing only needs `w_member_social`
     // (write/post). Keep this lean – add scopes only when a real feature
     // needs them, otherwise OAuth fails before the user even consents.
-    redirectUrl.searchParams.set(
-      "scope",
-      "openid profile email w_member_social"
-    );
+    redirectUrl.searchParams.set("scope", TARGET_SCOPES.join(" "));
     redirectUrl.searchParams.set("state", state ?? "");
 
     return NextResponse.redirect(redirectUrl.toString());
@@ -186,6 +195,14 @@ export async function GET(request: NextRequest) {
           avatar_url: avatarUrl,
           token_expires_at: tokenExpiresAt,
           is_active: true,
+          // FÁZE 2, KROK C: persist the granted scopes so the UI can detect
+          // accounts missing `r_member_postAnalytics`. Stored ONLY once the
+          // analytics scope is actually requested (KROK D adds it to
+          // TARGET_SCOPES) – until then NULL keeps the banner quiet and the
+          // OAuth request identical to before (KROK D gate, not yet active).
+          scope_list: hasScope([...TARGET_SCOPES], "r_member_postAnalytics")
+            ? [...TARGET_SCOPES]
+            : null,
           // Persist `refresh_token` inside `metadata` (JSONB blob) – the
           // table itself does not have a dedicated `refresh_token`
           // column. LinkedIn returns the refresh token on the

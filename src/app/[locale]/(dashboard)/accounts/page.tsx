@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { logger } from "@/lib/logger";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { needsReconnect } from "@/lib/scope-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -967,8 +968,7 @@ export default function AccountsPage() {
                         Community Management API (KROK D) – until then every
                         account has scope_list = NULL, so this never renders. */}
                     {account.platform === "linkedin" &&
-                      account.scope_list != null &&
-                      !account.scope_list.includes("r_member_postAnalytics") && (
+                      needsReconnect(account.scope_list, "r_member_postAnalytics") && (
                         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-amber-400">
                           <Lock className="h-3.5 w-3.5" />
                           <span>{t("scopeReconnectPrompt")}</span>

@@ -298,7 +298,7 @@ export function PreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="lg:max-w-[540px] sm:max-w-[480px] max-h-[85vh] bg-black/95 backdrop-blur-xl border border-white/10 rounded-[20px] p-0 overflow-hidden flex flex-col"
+        className="lg:max-w-[540px] sm:max-w-[480px] max-h-[85vh] bg-background/95 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-[20px] p-0 overflow-hidden flex flex-col"
         onPointerDownOutside={(e) => e.preventDefault()}
       >
         {/* Header – fixed */}
@@ -318,7 +318,7 @@ export function PreviewDialog({
             <div
               role="tablist"
               aria-label="Platform preview"
-              className="inline-flex flex-wrap gap-0.5 rounded-full border border-white/10 bg-white/[0.03] p-0.5"
+              className="inline-flex flex-wrap gap-0.5 rounded-full border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.03] p-0.5"
             >
               {availableTabs.map((tab) => {
                 const isActive = activeTab === tab;
@@ -385,7 +385,7 @@ export function PreviewDialog({
                 href={liveUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-medium text-indigo-300 transition-all hover:bg-indigo-500/20"
+                className="flex items-center justify-center gap-2 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-medium text-indigo-600 dark:text-indigo-300 transition-all hover:bg-indigo-500/20"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 {t("viewLive")}

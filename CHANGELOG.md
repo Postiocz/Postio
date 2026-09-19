@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Preview modal: light mode – oprava natvrdo tmavého chrome ✅
+
+- **Kontext**: Modal "Zobrazit náhled" (`preview-dialog.tsx`, používán na Kalendáři i Posts) zůstával v light mode natvrdo tmavý – neladil s okolím. Samotná high-fidelity simulace feedů (FB/X/IG/TikTok) zůstává tmavá záměrně (věrná reálným sítím); opraveno okolní chrome modalu.
+- **Změny**:
+  - ✅ `DialogContent` – `bg-black/95 border-white/10` → `bg-background/95 border-black/5 dark:border-white/10` (theme-aware pomocí CSS proměnných).
+  - ✅ Tab bar – `border-white/10 bg-white/[0.03]` → `border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.03]`.
+  - ✅ View Live tlačítko – `text-indigo-300` → `text-indigo-600 dark:text-indigo-300` (kontrast ve světlém).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test v light + dark režimu (uživatel potvrdil).
+
 ### 📊 Kalendář: per-target analytics (KROK 2+3, FÁZE 1B) + rozšíření Posts ✅
 
 - **Kontext**: FÁZE 1 per-target analytiky hotová pro DB/backend/Posts/Analytics; Kalendář byl poslední vynechaný dílek. Přidána server-side agregace + UI badge na kalendáři, stejný vzor přenesen na Posts stránku.
@@ -89,15 +98,6 @@
   - ✅ i18n: bez nových textů (Variant A – zero extra UI). RLS bez změny – „Users can update own row" existuje.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Migrace spuštěná ručně na produkční DB. Commit `ffaee8c`, push main + `feature/fix_checklist_modal` (fast-forward).
 
-### 🎨 Notifikace: dedikovaná stránka /settings/notifications ✅
-
-- **Kontext**: Menu položka „Notifikace" mířila na /settings/notifications, jež nikdy neexistovala → 404 na každé dashboard stránce. Dle výboru Opci A přesunuta sekci „E-mailová upozornění" z /settings/preferences na vlastnu stránku, aby menu vedlo na reálně existující stránku a „Notifikace"/„Předvolby" byly opravdu dvě oddělené věci.
-- **Změny**:
-  - ✅ Nová stránka `settings/notifications/` (page.tsx + notifications-form.tsx + actions.ts). Nová akce `updateNotifications` píše **jen** pole `email_low_credit_alert`/`email_weekly_summary` do **stejných DB sloupců** jako dřív preferences (žádná nová migrácia, žádná ztráta nastavení uživatelů).
-  - ✅ `preferences-form.tsx`/`page.tsx` – sekci, state, submit, labels a importy pro e-mail toggle odstranené (−84 řádků).
-  - ✅ Sidebar/mobile-nav – href „Notifikace" opět na /settings/notifications; menu už nevede dvě položky na stejné místo.
-  - ✅ i18n: nové klíče `notificationsDescription`, `notificationsSaved` v cs/en/uk.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). UI test manuálně (potřebuje Supabase env + přihlašenie).
 
 
 

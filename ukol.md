@@ -49,10 +49,13 @@
 
 ## 11. AKTUÁLNÍ ÚKOLY
 
-### 🔧 TODO: Opravit `react-hooks/set-state-in-effect` warning v `edit-post-dialog.tsx`
+### ✅ ÚKOL: Opravit `react-hooks/set-state-in-effect` warning v `edit-post-dialog.tsx` ✅
 
-- **Kontext (2026-09-27):** 2 **předexistující** ESLint error v `src/components/edit-post-dialog.tsx` (řádky 793 a 855): `react-hooks/set-state-in-effect` — *"Calling setState synchronously within an effect can trigger cascading renders"*. Nejsou součástí i18n opravy tlačítek aktualizace (leží mimo diff hunky), proto **NEřešit** v rámci tohohle commitu.
-- **Oprava:** navrhni řešení odděleným krokem (pravděpodobně jiná architektura – setState mimo efekt, nebo přes callback). Cílová kontrola: `npx eslint src/components/edit-post-dialog.tsx` → 0 errors.
+- **Kontext (2026-09-27):** 2 **předexistující** ESLint error v `src/components/edit-post-dialog.tsx` (řádky 793 a 855): `react-hooks/set-state-in-effect` — *"Calling setState synchronously within an effect can trigger cascading renders"*. Zapsáno jako oddělený TODO úkol (neřešeno v rámci i18n commitu).
+- **Oprava (2026-09-28):**
+  - ✅ **X gating (ř. 793)** – filtr direct X účtů (při `twitter_auto_credits <= 0`) přesunut z `useEffect` do async fetch callbacku `loadAccounts` (`/api/accounts`) – data-load event → legitimní `setState` po `await`; chování identické.
+  - ✅ **TikTok username (ř. 855)** – state nahrazen derivaciou `const tiktokUsername = tiktokUsernameFromDb ?? tiktokCreatorInfo?.creatorUsername ?? null`; efekt robí jen async fetch do `tiktokUsernameFromDb`; `tiktokCreatorInfo` vypadl z efekt deps. Žádný synchronní set v efektě.
+- **Ověření:** `npx eslint src/components/edit-post-dialog.tsx` → **0 errors** (3 warningy předexistující), `npx tsc --noEmit` ✅, `npm run build` ✅ (EXITCODE=0). Manuál test X gating + TikTok live URL u uživatele ✅ (2026-09-28).
 
 ### ✅ ÚKOL: Analytics – FB lajky/komentáře se neukládaly (silent empty dataset) + sjednocení ikon ✅
 

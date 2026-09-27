@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 Editace postu: tlačítko „Aktualizovat na {platform}" + info popisek – i18n oprava ✅
+
+- **Kontext**: Na stránce editace publikovaného postu se u sítí s podporou editace (napr. Facebook) zobrazuje tlačítko „Aktualizovat na {platform}" a nad ním info popisek „Text byl změněn…" – obojí mělo natvrdo zacompilované české stringy ve frontend kódu, takže v EN/UK (a částečně i češtině, hybrid „Publikovat na Facebook") zůstávalo špatně. Kritické řádky: `src/components/edit-post-dialog.tsx` 1166, 2761, 2794, 2810.
+- **Změny**:
+  - ✅ 4 nové ICU klíče s placeholderem `{platform}` v namespacech `posts` **i** `calendar` v cs/en/uk: `publishToPlatform` (nahradil hybrid `{t("publishToSelected")} na {platformLabel}`), `updateOnPlatform`, `contentChangedUpdatePrompt`, `remoteUpdateSuccess` (toast po aktualizaci).
+  - ✅ Hardcoded stringy nahrazené voláním `t("...", { platform: platformLabel })` – překlad se nyní řídí vybranou lokálí (cs/en/uk).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXITCODE=0), ICU formátování ověřeno přes `next-intl` translator (vše 3 locale: „Update on Facebook", „Оновити на Facebook"…). ESLint: 2 errory na ř. 793/855 jsou **předexistující** (mimo diff hunky, `react-hooks/set-state-in-effect`), zatím netknuto.
+
 ### 🐛 Preview modal: light mode – oprava natvrdo tmavého chrome ✅
 
 - **Kontext**: Modal "Zobrazit náhled" (`preview-dialog.tsx`, používán na Kalendáři i Posts) zůstával v light mode natvrdo tmavý – neladil s okolím. Samotná high-fidelity simulace feedů (FB/X/IG/TikTok) zůstává tmavá záměrně (věrná reálným sítím); opraveno okolní chrome modalu.
@@ -88,17 +96,6 @@
   - ✅ **Konec tichých nul**: non-ok odpověď se loguje **včetně těla** (token maskován), prázdný insights dataset se loguje jako `EMPTY dataset`, a když není čitelné vůbec nic, řádek se **nezapíše** (žádné přepsání reálných čísel nulami). Logy jdou přes `logger.error` – `warn`/`debug` jsou v produkci potlačené.
   - ✅ `analytics-dashboard.tsx`: drill-down i řádek postu sjednoceny s horními kartami – `Heart` = `likes`, `MessageCircle` = `comments` (dřív srdce zobrazovalo `engagements`, tedy 4 místo 2, a komentář ikona ukazovala lajky).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Živý test skriptem `scripts/diagnose-meta-engagement.mjs --write` (reprodukce nové logiky + upsert): FB target `likes=2 comments=2 engagements=4`, IG target `likes=2 comments=2 engagements=4` → součty stránky **likes=4, comments=4** = přesně to, co je vidět živě na FB i IG.
-
-### ⚙️ Media validace: per-platform policies registry + validator (KROK 1/5) ✅
-
-- **Kontext**: Validace médií v Postio byla obecná (MIME allow-list, velikostové capy, video rez. warning) + jediný IG-specific block (video <640 px). Pravidlo „IG = JPEG-only + poměr 4:5–1.91:1" z CLAUDE.md „Bibla pravidel" existovalo JEN v dokumentaci, nikdy v kódu. Rozhodováno: sjednotit validaci per-platform pro všech 6 platforem (FB, IG, LI, YT, X, TikTok) je moderný mechanismus.
-- **Změny**:
-  - ✅ Nový čistý (pure TS) modul `src/lib/media/platform-policies.ts` – jediný zdroj pravdy: `MediaPolicy` per platform (support, allowed MIME, max velikost, poměr, min rez., max délku, max počet médií), registry `MEDIA_POLICIES` + `getPlatformPolicy`, validator `validateCandidate` / `validateMediaForPolicies` / `isMediaCompatibleWithPlatform`. Poměr → warning, ostatní → error. Požiadavky z officialní dokumentace (Meta Graph API, LinkedIn Assets API, Sprout Social specs, X API, TikTok API).
-  - ✅ KROK 2 – `posts/new` editor: platform badge + tooltip u platform card, konsolidovane varování banner, hard-block Publish/Schedule/Queue na media error (nahradil IG-specific video block).
-  - ✅ KROK 3 – `edit-post-dialog`: integráci validatoru + sdílená komponenta `PlatformMediaBadge` (extrahovaná z posts/new, používaná obojí editorom), nahrazené 5 IG-only guardov obecným mechanismem.
-  - ✅ KROK 4 – Server-side media pre-flight v `publish.ts` (`preflightPlatformMedia`): refuze publish před platform API (obraz → TikTok/YouTube, video → LinkedIn, count > maxFiles), skip row s explicit error; obojí entry points (`publishPost` + `publishAdditionalPlatforms`); nová `validateMediaCount` v platform-policies (count check sdílený klient/server); poznámka pro scheduled Edge Function. Otestováno: X+5 obrázków → blokován, TikTok+obrázek → skip s msg.
-  - ✅ KROK 5 – i18n: `ValidationIssue.params` + nový čistý helper `src/lib/media/media-message.ts` (`mediaIssueText`), badge aria-label/tooltip a banner v obojích editeřech mapujú `mediaPolicy_*` klíče (cs/en/uk); natvrdo slovenský title nahrazen `mediaPolicyBlockTitle`. Aktualizovaná „Bibla pravidel" (CLAUDE.md + AGENTS.md) – validace médií teraz platí pro všech 6 platforem přes `platform-policies.ts`.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb) – čistý modul, editorské integrace, i18n, dev server kompiluje `/cs/posts/new`.
 
 
 

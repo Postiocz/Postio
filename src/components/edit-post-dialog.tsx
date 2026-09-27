@@ -1163,7 +1163,7 @@ export function EditPostDialog({
       });
 
       if (result.success) {
-        toast.success(`Text na ${platformLabel} byl úspěšně upraven.`);
+        toast.success(t("remoteUpdateSuccess", { platform: platformLabel }));
         await router.refresh();
         onOpenChange(false);
         return;
@@ -2758,7 +2758,7 @@ export function EditPostDialog({
                   >
                     {isPublishingAdditional && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {Icon && <Icon className="mr-2 h-4 w-4" />}
-                    {t("publishToSelected") ?? "Publikovat"} na {platformLabel}
+                    {t("publishToPlatform", { platform: platformLabel })}
                   </Button>
                 );
               })}
@@ -2791,7 +2791,7 @@ export function EditPostDialog({
               {isContentChanged && updatablePlatforms.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground/60">
-                    Text byl změněn. Aktualizujte na vybraných sítích:
+                    {t("contentChangedUpdatePrompt")}
                   </p>
                   {updatablePlatforms.map((p) => {
                     const Icon = PlatformIconMap[p];
@@ -2807,7 +2807,7 @@ export function EditPostDialog({
                       >
                         {isUpdatingThis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {Icon && <Icon className="mr-2 h-4 w-4" />}
-                        Aktualizovat na {platformLabel}
+                        {t("updateOnPlatform", { platform: platformLabel })}
                       </Button>
                     );
                   })}

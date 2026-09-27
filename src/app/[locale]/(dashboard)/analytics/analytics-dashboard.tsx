@@ -591,13 +591,16 @@ export function AnalyticsDashboard({ analytics, posts, postPlatforms }: Analytic
                           <Eye className="h-3 w-3" />
                           {postImpressions}
                         </span>
+                        {/* Field→icon mapping matches the per-target drill-down
+                            and the headline cards: Heart = likes, MessageCircle
+                            = comments (never engagements / never swapped). */}
                         <span className="flex items-center gap-1">
                           <Heart className="h-3 w-3" />
-                          {a?.engagements ?? 0}
+                          {a?.likes ?? 0}
                         </span>
                         <span className="flex items-center gap-1">
                           <MessageCircle className="h-3 w-3" />
-                          {a?.likes ?? 0}
+                          {a?.comments ?? 0}
                         </span>
                         <span className="flex items-center gap-1">
                           <Repeat className="h-3 w-3" />
@@ -664,6 +667,12 @@ function PostTargetBreakdown({
         const Icon = platformIconFor(target.platform) ?? FileText;
         const a = analyticsByTarget.get(target.id);
         const impressions = a?.impressions ?? 0;
+        // Icon values mirror the headline cards on this page: Heart = plain
+        // `likes`, MessageCircle = plain `comments` (the same fields that feed
+        // "Total Likes" / "Total Comments"). `engagements` is a different,
+        // wider metric and would look like a wrong like count under the Heart.
+        const likes = a?.likes ?? 0;
+        const comments = a?.comments ?? 0;
         const engagements = a?.engagements ?? 0;
         // Share is based on the same headline metric as the post card
         // (engagements). Guard: zero-total post → 0 %, never NaN.
@@ -696,7 +705,11 @@ function PostTargetBreakdown({
               </span>
               <span className="flex items-center gap-1">
                 <Heart className="h-3 w-3" />
-                {engagements}
+                {likes}
+              </span>
+              <span className="flex items-center gap-1">
+                <MessageCircle className="h-3 w-3" />
+                {comments}
               </span>
               <span className="w-10 text-right text-indigo-400">{sharePct} %</span>
             </div>

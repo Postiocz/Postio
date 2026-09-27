@@ -49,6 +49,22 @@
 
 ## 11. AKTUÁLNÍ ÚKOLY
 
+### ✅ ÚKOL: Analytics – FB lajky/komentáře se neukládaly (silent empty dataset) + sjednocení ikon ✅
+
+- **Kontext (2026-09-27):** Post „Meta review demo" byl živě na FB i IG s **2 lajky + 2 komentáři na každé síti**, ale drill-down ukazoval FB řádek v samých nulách, IG řádek 4 u srdce (místo 2 lajků) a horní karta „Celkem lajků" = 2 (jen IG).
+- **Příčina (ověřeno ŽIVĚ na Graph API, v26.0, produkční Page token):**
+  - FB `/{post-id}/insights` vrací **HTTP 200 + `{"data":[]}`** (Meta to dokumentuje jako *„An empty dataset is returned"*, když app/token nemá insight přístup) → starý kód z prázdna vyrobil nuly a **zapsal je jako reálná data**. `read_insights` je navíc Meta deprecated a v OAuth už nejde žádat.
+  - FB lajky/komentáře **nejsou insights metriky** – FB branch je měla hardcoded `0`. Živě funguje pouze `?fields=likes.summary(total_count).limit(0)` (→ 2) a `comments.summary(total_count).limit(0)` (→ 2). Naopak `shares`, `reactions`, `sharedposts` vrací 400 `(#100) Tried accessing nonexisting field` – a **jedno neplatné pole v `fields=` shodí CELÝ request** (i platné lajky) → ve FB `fields=` nesmí být nic jiného než ověřená pole.
+- **Oprava:** `analytics/actions.ts` – nový `fetchFacebookPostEngagement()` (FB lajky/komentáře z post node, vlastní try/catch + log), FB `engagements = likes + comments + shares` (stejný význam jako IG `total_interactions` → podíl % dává smysl), prázdný insights dataset se loguje jako chyba (`logger.error`, protože `logger` v produkci potlačuje `warn`/`debug`), a když není čitelné nic → řádek se **nezapíše**. `analytics-dashboard.tsx` – drill-down i řádek postu sjednoceny: `Heart = likes`, `MessageCircle = comments`.
+- **Ověření:** `npx tsc --noEmit` ✅ 0 chyb, ESLint 0 errors. Živý běh `scripts/diagnose-meta-engagement.mjs --write` → FB `likes=2 comments=2 engagements=4`, IG `likes=2 comments=2 engagements=4`, součty stránky **likes=4, comments=4** (= shodné s live FB i IG).
+- **📌 Záznam DB zásahu (audit `last_sync_at`):** posunuty byly **pouze 2 řádky** `post_platforms` postu `17f218f8-d70a-4f9e-93b5-ddf56f8e1460` (Meta review demo), a to o **2 hodiny zpět**, aby uživatelský klik na „Sync Analytics" nepropadl 60minutovému throttlu a provedl reálný E2E fetch:
+  - `bb55ca11-151b-4b93-93f8-3b1a8b86496a` (facebook): `2026-09-27T12:15:55.224Z` → `2026-09-27T18:06:59.917Z`
+  - `dd4b209c-7d01-41bd-af46-cfd818fbd8fb` (instagram): `2026-09-27T12:15:55.224Z` → `2026-09-27T18:07:01.316Z`
+  - Ostatní řádky v DB nedotčeny (tiktok/draft maji NULL, IG jiného postu `2026-09-27T06:49:52.997Z`). Data ostatních postů se neměnila.
+- **Zbývá mimo kód (Meta strana):** FB dosah/kliky zůstanou 0, dokud appka nezíská insight přístup (App Dashboard → `pages_read_engagement` → **Increase Access**); FB sdílení API v26.0 vůbec nevrací (držíme 0 s komentářem v kódu); IG „reach: 0" je hodnota přímo od Meta.
+- **Stav:** commitnuto na větvi `fix/analytics-meta-fb-likes-comments`.
+
+
 ### 🐛 ÚKOL: FB Preview přetéká přes okraje karty (editor náhledu) ✅
 
 - **Kontext (2026-09-13):** V editoru postu (Preview panel) má Facebook záložka vizuální bug – obrázek/podklad přetéká přes zaoblené okraje karty náhledu (hrany fotky nesou zarovnané s `rounded` rohy karty), na rozdíl od Instagram záložky, která je v pořádku.

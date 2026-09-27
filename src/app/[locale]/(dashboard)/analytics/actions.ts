@@ -409,6 +409,10 @@ export async function syncAnalyticsInsights(): Promise<{
     }
 
     if (!metrics) {
+      // Nothing readable for this target — logged in detail by the fetcher above.
+      logger.error(
+        `[Analytics] No metrics returned for ${pp.platform} post_platform ${pp.id} — row skipped (see the API log line above for the exact cause).`
+      );
       skipped++;
       continue;
     }
@@ -505,6 +509,88 @@ export async function syncAnalyticsInsights(): Promise<{
 // B4 — Meta Graph API fetcher (Facebook + Instagram)
 // ============================================================
 
+/**
+ * Mask any access token that Meta echoes back inside error bodies / paging URLs,
+ * so we never write a live credential into the logs.
+ */
+function redactAccessTokenInBody(raw: string): string {
+  return raw.replace(/access_token=[^&\s"'\\]+/g, "access_token=***REDACTED***");
+}
+
+/**
+ * Facebook Page-post engagement counts (likes / comments).
+ *
+ * These are NOT insights metrics and the `/{post-id}/insights` endpoint can NOT
+ * deliver them — verified live against Graph API v26.0 (2026-09-27, Postio Page
+ * token) with these exact results:
+ *
+ *   GET /{post-id}?fields=likes.summary(total_count).limit(0)
+ *     → 200 {"likes":{"data":[],"summary":{"total_count":2}}}   ✅ real likes
+ *   GET /{post-id}?fields=comments.summary(total_count).limit(0)
+ *     → 200 {"comments":{"data":[],"summary":{"total_count":2}}} ✅ real comments
+ *   GET /{post-id}?fields=reactions...  → 400 (#100) nonexisting field (reactions)
+ *   GET /{post-id}?fields=shares        → 400 (#100) nonexisting field (shares)
+ *   GET /{post-id}?fields=sharedposts…  → 400 (#100) nonexisting field (sharedposts)
+ *
+ * IMPORTANT: a single unknown field makes Meta fail the WHOLE request with 400,
+ * so only the two verified fields are requested here. Adding `shares`/`reactions`
+ * next to them silently killed the likes/comments numbers before.
+ */
+async function fetchFacebookPostEngagement(params: {
+  accessToken: string;
+  nodeId: string;
+}): Promise<{ likes: number; comments: number } | null> {
+  const { accessToken, nodeId } = params;
+
+  const fields =
+    "id,likes.summary(total_count).limit(0),comments.summary(total_count).limit(0)";
+  const url = `https://graph.facebook.com/v26.0/${encodeURIComponent(
+    nodeId
+  )}?fields=${fields}&access_token=${accessToken}`;
+
+  try {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    const rawBody = await response.text();
+
+    if (!response.ok) {
+      // logger.error (not warn) on purpose — logger suppresses warn/debug in
+      // production, and a silent zero here is exactly the bug we are fixing.
+      logger.error(
+        `[Analytics] Facebook engagement fields ${response.status} for ${nodeId}: ${redactAccessTokenInBody(rawBody)}`
+      );
+      return null;
+    }
+
+    const body = (() => {
+      try {
+        return JSON.parse(rawBody) as {
+          likes?: { summary?: { total_count?: number } };
+          comments?: { summary?: { total_count?: number } };
+        };
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!body) {
+      logger.error(`[Analytics] Facebook engagement fields: unparsable body for ${nodeId}`);
+      return null;
+    }
+
+    const likes = Number(body.likes?.summary?.total_count ?? 0);
+    const comments = Number(body.comments?.summary?.total_count ?? 0);
+
+    logger.debug(
+      `[Analytics] Facebook engagement for ${nodeId}: likes=${likes} comments=${comments}`
+    );
+
+    return { likes, comments };
+  } catch (err) {
+    logger.error(`[Analytics] Facebook engagement fields request failed for ${nodeId}:`, err);
+    return null;
+  }
+}
+
 async function fetchMetaInsights(params: {
   accessToken: string;
   externalId: string;
@@ -527,9 +613,12 @@ async function fetchMetaInsights(params: {
 
   // IG: media-level insights metrics (verified 200 OK on a live media node for
   // v26.0): reach, likes, comments, shares, saved, total_interactions.
-  // FB: Page-post insights valid metrics for v26.0 (verified in Graph API Explorer) —
-  // post_clicks, post_total_media_view_unique, post_media_view. These require
-  // the explicit period=lifetime parameter below.
+  // FB: Page-post insights metrics for v26.0 — post_clicks,
+  // post_total_media_view_unique, post_media_view (need period=lifetime).
+  // NOTE (verified live 2026-09-27): for the Postio Page/token these FB metrics
+  // come back as HTTP 200 + `{"data":[]}` (empty dataset = no insight access),
+  // so FB reach/clicks are best-effort only. FB likes/comments are therefore
+  // read from the post node in fetchFacebookPostEngagement, not from insights.
   const metricNames =
     platform === "instagram"
       ? ["reach", "likes", "comments", "shares", "saved", "total_interactions"]
@@ -538,57 +627,106 @@ async function fetchMetaInsights(params: {
   const periodParam = platform === "facebook" ? "&period=lifetime" : "";
   const url = `https://graph.facebook.com/v26.0/${encodeURIComponent(nodeId)}/insights?metric=${metricNames.join(",")}${periodParam}&access_token=${accessToken}`;
 
+  // Insights are read best-effort: Meta answers HTTP 200 with `{"data":[]}` when
+  // the app/token has no access to post insights (documented: "An empty dataset
+  // is returned…"), which used to end up as silent zeros in the UI. Every
+  // failure mode is now logged with status + body instead.
+  let insightsOk = false;
+  const metricMap = new Map<string, number>();
+
   try {
     const response = await fetch(url, { headers: { Accept: "application/json" } });
+    const rawBody = await response.text();
 
     if (!response.ok) {
-      logger.warn(`[Analytics] Meta API ${response.status} for ${platform}/${nodeId}`);
+      logger.error(
+        `[Analytics] Meta insights ${response.status} for ${platform}/${nodeId}: ${redactAccessTokenInBody(rawBody)}`
+      );
+    } else {
+      insightsOk = true;
+      const body = (() => {
+        try {
+          return JSON.parse(rawBody) as {
+            data?: { name?: string; values?: { value?: unknown }[] }[];
+          };
+        } catch {
+          return null;
+        }
+      })();
+      const values = body?.data ?? [];
+
+      for (const item of values) {
+        const rawValue = item.values?.[0]?.value ?? 0;
+        const val = typeof rawValue === "number" ? rawValue : Number(rawValue) || 0;
+        if (item.name) metricMap.set(item.name, val);
+      }
+
+      if (values.length === 0) {
+        logger.error(
+          `[Analytics] Meta insights returned an EMPTY dataset (HTTP 200, data: []) for ${platform}/${nodeId}` +
+            ` — the app or token has no access to post insights, so reach/clicks stay 0. This is NOT a valid zero.`
+        );
+      }
+    }
+  } catch (err) {
+    logger.error(`[Analytics] Meta insights request failed for ${platform}/${nodeId}:`, err);
+  }
+
+  if (platform === "instagram") {
+    // IG has no second source for likes/comments — without insights there is
+    // nothing to report, so skip the write instead of storing fake zeros.
+    if (!insightsOk) {
+      logger.error(
+        `[Analytics] Instagram: no insights readable for media ${nodeId} — write skipped (no fallback source).`
+      );
       return null;
     }
 
-    const body = await response.json();
-    const values = body.data ?? [];
-
-    const metricMap = new Map<string, number>();
-    for (const item of values) {
-      const val = item.values?.[0]?.value ?? 0;
-      const name = item.name;
-      if (name) metricMap.set(name, val);
-    }
-
-    if (platform === "instagram") {
-      return {
-        // Media-level IG insights have no separate "impressions" metric —
-        // Reach (unique accounts) is the only reach-like value we request.
-        impressions: metricMap.get("reach") ?? 0,
-        engagements: metricMap.get("total_interactions") ?? 0,
-        likes: metricMap.get("likes") ?? 0,
-        comments: metricMap.get("comments") ?? 0,
-        shares: metricMap.get("shares") ?? 0,
-        // link_clicks is not available on the media-level endpoint, so clicks
-        // are 0 for Instagram (account-level only).
-        clicks: 0,
-        saves: metricMap.get("saved") ?? 0,
-      };
-    }
-
-    // TODO: FB Page-post insights v26.0 neposkytuje likes/comments/shares/saves
-    // přímo (aktuálně 0 pro FB). Prozkoumat: post_reactions_like_total,
-    // post_reactions_by_type_total, post_activity_by_action_type (comments/shares).
-    // IG media-level (výše) likes/comments/shares/saved vrací reálně (ověřeno).
     return {
-      impressions: metricMap.get("post_total_media_view_unique") ?? 0,
-      engagements: metricMap.get("post_media_view") ?? 0,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      clicks: metricMap.get("post_clicks") ?? 0,
-      saves: 0,
+      // Media-level IG insights have no separate "impressions" metric —
+      // Reach (unique accounts) is the only reach-like value we request.
+      impressions: metricMap.get("reach") ?? 0,
+      engagements: metricMap.get("total_interactions") ?? 0,
+      likes: metricMap.get("likes") ?? 0,
+      comments: metricMap.get("comments") ?? 0,
+      shares: metricMap.get("shares") ?? 0,
+      // link_clicks is not available on the media-level endpoint, so clicks
+      // are 0 for Instagram (account-level only).
+      clicks: 0,
+      saves: metricMap.get("saved") ?? 0,
     };
-  } catch (err) {
-    logger.error(`[Analytics] Meta API error for ${platform}/${externalId}:`, err);
+  }
+
+  // Facebook: likes/comments come from the post node (NOT from insights — see
+  // fetchFacebookPostEngagement above, verified live against v26.0).
+  const engagement = await fetchFacebookPostEngagement({ accessToken, nodeId });
+
+  if (!insightsOk && !engagement) {
+    logger.error(
+      `[Analytics] Facebook: nothing readable for post ${nodeId} (insights empty/failed AND engagement fields failed)` +
+        ` — write skipped so real numbers are never overwritten with zeros.`
+    );
     return null;
   }
+
+  const likes = engagement?.likes ?? 0;
+  const comments = engagement?.comments ?? 0;
+  // No supported FB field/edge for share counts on v26.0 (`shares`, `reactions`
+  // and `sharedposts` all fail with #100 "nonexisting field") → stays 0.
+  const shares = 0;
+
+  return {
+    impressions: metricMap.get("post_total_media_view_unique") ?? 0,
+    // `post_media_view` (media views) is unavailable for Page posts without
+    // insight access, so "engagements" uses the same meaning as IG's
+    // `total_interactions`: real interactions on the post.
+    engagements: likes + comments + shares,
+    likes,
+    comments,
+    shares,
+    clicks: metricMap.get("post_clicks") ?? 0,
+    saves: 0,
+  };
 }
 
 // ============================================================

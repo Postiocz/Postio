@@ -77,6 +77,18 @@
 - **Změny** (`post-preview.tsx`): FB media zamykana v `overflow-hidden rounded-lg` (r. 891), LinkedIn media dostala `rounded-lg` na wrapper (r. 1153). Vzor ze X preview (`overflow-hidden rounded-2xl`).
 - **Ověření:** `npx tsc --noEmit` ✅. Manuál vizuální test uživatelem (přetékání opravené).
 
+### 🐛 Analytics: FB lajky/komentáře se nikdy neukládaly (silent empty dataset) + sjednocení srdce = likes ✅
+
+- **Kontext**: Post „Meta review demo" měl živě na FB **2 lajky + 2 komentáře** i na IG **2 + 2**, ale drill-down ukazoval FB řádek jako samé nuly a horní karta „Celkem lajků" ukazovala 2 (jen IG). Report: analytika nesouhlasí s realitou.
+- **Příčina (ověřená živým API, v26.0, produkční Page token)**:
+  - ✅ FB `/insights` vrací **HTTP 200 + `{"data":[]}`** (prázdný dataset) → starý kód z něj udělal tiché nuly a zapsal je jako reálná data. Není to chyba parsování, ale chybějící insight přístup pro Page post (Meta dokumentuje: empty dataset místo chyby; `read_insights` je navíc deprecated a v OAuth už nejde žádat).
+  - ✅ Lajky/komentáře **nejsou insights metriky** – FB branch je měla hardcoded na `0` s TODO. Živě funguje pouze `?fields=likes.summary(total_count).limit(0)` (→ 2) a `comments.summary(total_count).limit(0)` (→ 2). Naopak `shares`, `reactions` i `sharedposts` vrací 400 `(#100) Tried accessing nonexisting field` – a **jedno neplatné pole shodí celý request** (proto se `shares` nikdy nesmí přidat do stejného dotazu).
+- **Změny**:
+  - ✅ `analytics/actions.ts`: nový `fetchFacebookPostEngagement()` – FB lajky/komentáře přes ověřená post-node pole (oddělený request, vlastní error handling); FB `engagements` = likes + comments + shares (stejný význam jako IG `total_interactions`), takže podíl % v drill-downu dává smysl (FB 4/8 = 50 %).
+  - ✅ **Konec tichých nul**: non-ok odpověď se loguje **včetně těla** (token maskován), prázdný insights dataset se loguje jako `EMPTY dataset`, a když není čitelné vůbec nic, řádek se **nezapíše** (žádné přepsání reálných čísel nulami). Logy jdou přes `logger.error` – `warn`/`debug` jsou v produkci potlačené.
+  - ✅ `analytics-dashboard.tsx`: drill-down i řádek postu sjednoceny s horními kartami – `Heart` = `likes`, `MessageCircle` = `comments` (dřív srdce zobrazovalo `engagements`, tedy 4 místo 2, a komentář ikona ukazovala lajky).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Živý test skriptem `scripts/diagnose-meta-engagement.mjs --write` (reprodukce nové logiky + upsert): FB target `likes=2 comments=2 engagements=4`, IG target `likes=2 comments=2 engagements=4` → součty stránky **likes=4, comments=4** = přesně to, co je vidět živě na FB i IG.
+
 ### ⚙️ Media validace: per-platform policies registry + validator (KROK 1/5) ✅
 
 - **Kontext**: Validace médií v Postio byla obecná (MIME allow-list, velikostové capy, video rez. warning) + jediný IG-specific block (video <640 px). Pravidlo „IG = JPEG-only + poměr 4:5–1.91:1" z CLAUDE.md „Bibla pravidel" existovalo JEN v dokumentaci, nikdy v kódu. Rozhodováno: sjednotit validaci per-platform pro všech 6 platforem (FB, IG, LI, YT, X, TikTok) je moderný mechanismus.
@@ -88,15 +100,7 @@
   - ✅ KROK 5 – i18n: `ValidationIssue.params` + nový čistý helper `src/lib/media/media-message.ts` (`mediaIssueText`), badge aria-label/tooltip a banner v obojích editeřech mapujú `mediaPolicy_*` klíče (cs/en/uk); natvrdo slovenský title nahrazen `mediaPolicyBlockTitle`. Aktualizovaná „Bibla pravidel" (CLAUDE.md + AGENTS.md) – validace médií teraz platí pro všech 6 platforem přes `platform-policies.ts`.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb) – čistý modul, editorské integrace, i18n, dev server kompiluje `/cs/posts/new`.
 
-### 🎨 Onboarding checklist: trvale schování po 4/4 (`onboarding_checklist_dismissed`) ✅
 
-- **Kontext**: Setup-guide modál „Dokončete nastavení" se schovával křížkem jen přes `localStorage` (`setup-dismissed`) – po přihlášení v jiném browseru/device se vrátil i po kompletním checklistu (4/4).
-- **Změny**:
-  - ✅ Migrace `059_add_onboarding_checklist_dismissed.sql` – nový sloupec `users.onboarding_checklist_dismissed BOOLEAN NOT NULL DEFAULT false` (bezpečný pro existující uživatele: výchozí false = chování bez změny).
-  - ✅ `setup-guide.tsx` – `handleDismiss` píše flag do DB jen po kliku na křížek při 4/4 (automatické schování bez kliku se nedělá – užívatel musí scena zavřít). Čtenie flag na mount před `ready` (bez bliknutí modálu); `localStorage` zůstává jako rychlá session cesta.
-  - ✅ `types.ts` – sloupec doplnen v users Row/Insert/Update.
-  - ✅ i18n: bez nových textů (Variant A – zero extra UI). RLS bez změny – „Users can update own row" existuje.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Migrace spuštěná ručně na produkční DB. Commit `ffaee8c`, push main + `feature/fix_checklist_modal` (fast-forward).
 
 
 

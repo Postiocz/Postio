@@ -312,9 +312,23 @@ export function EditPostDialog({
         if (res.ok) {
           const data = (await res.json()) as { accounts?: AccountInfo[]; credits?: { ai_credits: number; twitter_auto_credits: number } };
           if (!cancelled) {
-            setAllAccounts(data.accounts ?? []);
+            const accounts = data.accounts ?? [];
+            const twitterCredits = data.credits?.twitter_auto_credits ?? 0;
+            setAllAccounts(accounts);
             setAiCredits(data.credits?.ai_credits ?? 0);
-            setTwitterAutoCredits(data.credits?.twitter_auto_credits ?? 0);
+            setTwitterAutoCredits(twitterCredits);
+            // KROK 2 (Prompt 057): Hybrid X gating. With 0 X auto-credits, force-deselect
+            // any direct (API auto-publish) X account so the user must switch to the free
+            // manual-reminder mode (or upgrade). Done here (async data-load event) rather
+            // than in an effect to avoid a synchronous setState-in-effect cascade.
+            if (twitterCredits <= 0) {
+              setSelectedAccountIds((prev) =>
+                prev.filter((id) => {
+                  const account = accounts.find((a) => a.id === id);
+                  return !(account?.platform === "twitter" && account?.publishing_type === "direct");
+                }),
+              );
+            }
           }
         }
       } catch {
@@ -570,7 +584,10 @@ export function EditPostDialog({
   const [tiktokCreatorInfoLoading, setTikTokCreatorInfoLoading] = useState(false);
   // Authentic TikTok handle (`creator_username`) used to build the
   // "Open on network" URL. Falls back to a sanitized account name.
-  const [tiktokUsername, setTikTokUsername] = useState<string | null>(null);
+  const [tiktokUsernameFromDb, setTikTokUsernameFromDb] = useState<string | null>(null);
+  // Effective handle: the DB-resolved value wins, otherwise the creator_info
+  // cache. Derived (not stored) so no synchronous setState-in-effect is needed.
+  const tiktokUsername = tiktokUsernameFromDb ?? tiktokCreatorInfo?.creatorUsername ?? null;
   const [tiktokPrivacyLevel, setTikTokPrivacyLevel] =
     useState<TikTokPrivacyLevel>(DEFAULT_TIKTOK_PRIVACY_LEVEL);
 
@@ -785,20 +802,6 @@ export function EditPostDialog({
     });
   }, [getInitialTikTokPrivacyLevel, isEdit, loadExistingUrls, open, post]);
 
-  // KROK 2 (Prompt 057): Hybrid X gating. When the user has 0 X auto-credits,
-  // force-deselect any direct (API auto-publish) X account so they have to
-  // switch to the free manual-reminder mode (or upgrade).
-  useEffect(() => {
-    if (open && twitterAutoCredits <= 0) {
-      setSelectedAccountIds((prev) =>
-        prev.filter((id) => {
-          const account = allAccounts.find((a) => a.id === id);
-          return !(account?.platform === "twitter" && account?.publishing_type === "direct");
-        }),
-      );
-    }
-  }, [open, twitterAutoCredits, allAccounts]);
-
   useEffect(() => {
     if (!open || !hasTikTokIntent) return;
 
@@ -852,8 +855,6 @@ export function EditPostDialog({
     if (!open) return;
     let cancelled = false;
 
-    setTikTokUsername((prev) => prev ?? tiktokCreatorInfo?.creatorUsername ?? null);
-
     const loadTikTokUsername = async () => {
       try {
         const { data, error } = await supabase
@@ -874,7 +875,7 @@ export function EditPostDialog({
         const handle = (cachedHandle ?? data.account_name ?? "")
           .trim()
           .replace(/^@/, "");
-        if (handle) setTikTokUsername(handle.replace(/\s+/g, "").toLowerCase());
+        if (handle) setTikTokUsernameFromDb(handle.replace(/\s+/g, "").toLowerCase());
       } catch {
         // non-fatal – live URL simply stays hidden until a handle is known
       }
@@ -885,7 +886,7 @@ export function EditPostDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, supabase, tiktokCreatorInfo]);
+  }, [open, supabase]);
 
   const toggleAccount = useCallback((id: string) => {
     setSelectedAccountIds((prev) =>

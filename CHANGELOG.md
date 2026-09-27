@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🧹 ESLint: oprava `react-hooks/set-state-in-effect` v edit-post-dialog (2 errori) ✅
+
+- **Kontext**: `npx eslint src/components/edit-post-dialog.tsx` hlásil 2 errori `react-hooks/set-state-in-effect` (synchronní `setState` v těle efektu) – na ř. 793 (X gating filtr) a ř. 855 (TikTok username seed). Oba ležaly mimo i18n diffu (commit `49c7141`), proto zapsané jako oddělený TODO úkol.
+- **Změny** (`src/components/edit-post-dialog.tsx`):
+  - ✅ **X gating** – filtr direct X účtů (při `twitterAutoCredits <= 0`) přesunut z `useEffect` do async fetch callbacku `loadAccounts` (data-load event → legitimní `setState` po `await`; chování identické, žádná regrese).
+  - ✅ **TikTok username** – state `tiktokUsername` nahrazen derivaciou `tiktokUsernameFromDb ?? tiktokCreatorInfo?.creatorUsername ?? null` (DB-resolved hodnota má prioriteto, jinak `creator_info` cache); efekt robí jen async fetch do `tiktokUsernameFromDb`, `tiktokCreatorInfo` vypadl z efekt deps. Žádný synchronní set v efektě.
+- **Ověření**: `npx eslint src/components/edit-post-dialog.tsx` ✅ **0 errors** (3 warningy předexistující – exhaustive-deps, media-has-caption, no-img-element), `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXITCODE=0). Manuál test X gating + TikTok live URL u uživatele ✅ (2026-09-28).
+
 ### 🌐 Editace postu: tlačítko „Aktualizovat na {platform}" + info popisek – i18n oprava ✅
 
 - **Kontext**: Na stránce editace publikovaného postu se u sítí s podporou editace (napr. Facebook) zobrazuje tlačítko „Aktualizovat na {platform}" a nad ním info popisek „Text byl změněn…" – obojí mělo natvrdo zacompilované české stringy ve frontend kódu, takže v EN/UK (a částečně i češtině, hybrid „Publikovat na Facebook") zůstávalo špatně. Kritické řádky: `src/components/edit-post-dialog.tsx` 1166, 2761, 2794, 2810.
@@ -84,18 +92,6 @@
 - **Kontext:** `MediaArea` v `post-preview.tsx` má `overflow-hidden` ale bez `border-radius`; FB/LinkedIn article mají `rounded-lg` ale bez klipovania enfants → ostré rohy obrázku přetékaly mimo zaoblené rohy karty. IG bola v pořádku (media flush k vnější viewportu `rounded-[20px] overflow-hidden`).
 - **Změny** (`post-preview.tsx`): FB media zamykana v `overflow-hidden rounded-lg` (r. 891), LinkedIn media dostala `rounded-lg` na wrapper (r. 1153). Vzor ze X preview (`overflow-hidden rounded-2xl`).
 - **Ověření:** `npx tsc --noEmit` ✅. Manuál vizuální test uživatelem (přetékání opravené).
-
-### 🐛 Analytics: FB lajky/komentáře se nikdy neukládaly (silent empty dataset) + sjednocení srdce = likes ✅
-
-- **Kontext**: Post „Meta review demo" měl živě na FB **2 lajky + 2 komentáře** i na IG **2 + 2**, ale drill-down ukazoval FB řádek jako samé nuly a horní karta „Celkem lajků" ukazovala 2 (jen IG). Report: analytika nesouhlasí s realitou.
-- **Příčina (ověřená živým API, v26.0, produkční Page token)**:
-  - ✅ FB `/insights` vrací **HTTP 200 + `{"data":[]}`** (prázdný dataset) → starý kód z něj udělal tiché nuly a zapsal je jako reálná data. Není to chyba parsování, ale chybějící insight přístup pro Page post (Meta dokumentuje: empty dataset místo chyby; `read_insights` je navíc deprecated a v OAuth už nejde žádat).
-  - ✅ Lajky/komentáře **nejsou insights metriky** – FB branch je měla hardcoded na `0` s TODO. Živě funguje pouze `?fields=likes.summary(total_count).limit(0)` (→ 2) a `comments.summary(total_count).limit(0)` (→ 2). Naopak `shares`, `reactions` i `sharedposts` vrací 400 `(#100) Tried accessing nonexisting field` – a **jedno neplatné pole shodí celý request** (proto se `shares` nikdy nesmí přidat do stejného dotazu).
-- **Změny**:
-  - ✅ `analytics/actions.ts`: nový `fetchFacebookPostEngagement()` – FB lajky/komentáře přes ověřená post-node pole (oddělený request, vlastní error handling); FB `engagements` = likes + comments + shares (stejný význam jako IG `total_interactions`), takže podíl % v drill-downu dává smysl (FB 4/8 = 50 %).
-  - ✅ **Konec tichých nul**: non-ok odpověď se loguje **včetně těla** (token maskován), prázdný insights dataset se loguje jako `EMPTY dataset`, a když není čitelné vůbec nic, řádek se **nezapíše** (žádné přepsání reálných čísel nulami). Logy jdou přes `logger.error` – `warn`/`debug` jsou v produkci potlačené.
-  - ✅ `analytics-dashboard.tsx`: drill-down i řádek postu sjednoceny s horními kartami – `Heart` = `likes`, `MessageCircle` = `comments` (dřív srdce zobrazovalo `engagements`, tedy 4 místo 2, a komentář ikona ukazovala lajky).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Živý test skriptem `scripts/diagnose-meta-engagement.mjs --write` (reprodukce nové logiky + upsert): FB target `likes=2 comments=2 engagements=4`, IG target `likes=2 comments=2 engagements=4` → součty stránky **likes=4, comments=4** = přesně to, co je vidět živě na FB i IG.
 
 
 

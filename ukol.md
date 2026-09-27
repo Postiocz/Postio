@@ -49,6 +49,11 @@
 
 ## 11. AKTUÁLNÍ ÚKOLY
 
+### 🔧 TODO: Opravit `react-hooks/set-state-in-effect` warning v `edit-post-dialog.tsx`
+
+- **Kontext (2026-09-27):** 2 **předexistující** ESLint error v `src/components/edit-post-dialog.tsx` (řádky 793 a 855): `react-hooks/set-state-in-effect` — *"Calling setState synchronously within an effect can trigger cascading renders"*. Nejsou součástí i18n opravy tlačítek aktualizace (leží mimo diff hunky), proto **NEřešit** v rámci tohohle commitu.
+- **Oprava:** navrhni řešení odděleným krokem (pravděpodobně jiná architektura – setState mimo efekt, nebo přes callback). Cílová kontrola: `npx eslint src/components/edit-post-dialog.tsx` → 0 errors.
+
 ### ✅ ÚKOL: Analytics – FB lajky/komentáře se neukládaly (silent empty dataset) + sjednocení ikon ✅
 
 - **Kontext (2026-09-27):** Post „Meta review demo" byl živě na FB i IG s **2 lajky + 2 komentáři na každé síti**, ale drill-down ukazoval FB řádek v samých nulách, IG řádek 4 u srdce (místo 2 lajků) a horní karta „Celkem lajků" = 2 (jen IG).

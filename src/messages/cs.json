@@ -202,6 +202,9 @@
     "contentChangedUpdatePrompt": "Text byl změněn. Aktualizujte na vybraných sítích:",
     "remoteUpdateSuccess": "Text na {platform} byl úspěšně upraven.",
     "additionalPublishSuccess": "Příspěvek byl publikován",
+    "publishSuccess": "Příspěvek byl úspěšně publikován!",
+    "publishFailed": "Publikování selhalo.",
+    "selectPlatformToPublish": "Pro publikování vyber alespoň jednu platformu.",
     "saveMetadata": "Uložit interní metadata",
     "metadataSaved": "Interní metadata byla uložena.",
     "saveMetadataTooltip": "Uloží pouze interní metadata (interní štítky, inline hashtagy, lokaci). Text a média na sociálních sítích zůstanou nezměněny.",
@@ -277,7 +280,7 @@
     "select": "Vybrat",
     "deselect": "Zrušit výběr",
     "addToQueue": "Přidat do fronty",
-    "queuedSuccess": "Příspěvek byl zařazen do fronty na __DATE__",
+    "queuedSuccess": "Příspěvek byl zařazen do fronty na {date}",
     "queueLoading": "Výpočet času..."
   },
   "dashboard": {
@@ -467,6 +470,9 @@
     "contentChangedUpdatePrompt": "Text byl změněn. Aktualizujte na vybraných sítích:",
     "remoteUpdateSuccess": "Text na {platform} byl úspěšně upraven.",
     "additionalPublishSuccess": "Příspěvek byl publikován",
+    "publishSuccess": "Příspěvek byl úspěšně publikován!",
+    "publishFailed": "Publikování selhalo.",
+    "selectPlatformToPublish": "Pro publikování vyber alespoň jednu platformu.",
     "saveMetadata": "Uložit interní metadata",
     "metadataSaved": "Interní metadata byla uložena.",
     "saveMetadataTooltip": "Uloží pouze interní metadata (interní štítky, inline hashtagy, lokaci). Text a média na sociálních sítích zůstanou nezměněny.",

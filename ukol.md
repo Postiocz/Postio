@@ -276,3 +276,21 @@ scope = "openid profile email w_member_social r_member_postAnalytics"
 4. **Před každým krokem** zkontrolovat, zda se nezměnila situace na LinkedIn stránce
 5. Pokud se zdržujeme >1 týden bez pokroku → upozornit uživatele v chatu
 
+
+---
+
+## 12. BUDOUCÍ ÚKOLY (nízká priorita)
+
+### 🧹 Vyčištění natvrdo českých fallbacků `?? "..."` / `|| "..."` v publish flow
+
+**Kontext (2026-09-28):** Při i18n převodu toastů (branch `fix/publish-toasts-i18n`) zůstaly v publish flow desítky dead-code fallbacků ve tvaru `t("klíč") ?? "český text"` / `tCalendar.klíč || "český text"`. Klíče **existují ve všech 3 localech** (cs/en/uk), takže fallback **nikdy nenastane** – je to mrtvý kód s natvrdo českými stringy. Bez dopadu na uživatele (vizuálně se nic nezmění), čistě úklid.
+
+**Rozsah (reprezentativní řádky):**
+- `src/components/edit-post-dialog.tsx` – 464-466, 994, 1005, 1125, 1151, 1229, 1421, 1949-2288 a řada `preview*` fallbacků (1501-1911).
+- `src/app/[locale]/(dashboard)/calendar/_calendar-view.tsx` – 214-226, 400, 430, 444, 462, 468-472, 519, 529-533, 708-752, 853-1206.
+
+**Postup:** Odstranit české fallbacky → ponechat jen `t("klíč")` / `tCalendar.klíč`. Pozor na optional typy v `CalendarViewProps`/`CalendarClientProps` (klíče jsou `?: string`) – buď je zpovnit, nebo použít non-null. Ověřit `npx tsc --noEmit` + `npm run build`.
+
+### 🌐 Server-side české chybové stringy v publish.ts (střední priorita)
+
+**Kontext (2026-09-28):** `src/lib/actions/publish.ts` a související server actions vracejí natvrdo české chybové stringy (např. „Chybí propojený Instagram účet (platform_id / access_token).", „Neplatná URL média (po sanitizaci)...", „Pouze publikované příspěvky lze editovat na sociální síti."). Tyto se přes `result.error` zobrazují uživateli jako `toast.error(msg)` – v EN/UK se tedy zobrazí čeština. Větší zásah: vyžaduje buď chybové kódy (errorCode) a lokalizaci na klientu, nebo návrat lokalizovaného textu. Klient už má `resolvePublishErrorMessage` / `resolveLocalizedPublishError` pro část chyb (TikTok errorCode) – rozšířit na ostatní.

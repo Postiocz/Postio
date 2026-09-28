@@ -3,6 +3,16 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 Publish toasty: plný i18n převod (publish/schedule) ✅
+
+- **Kontext**: Po úspěšném publikování se zobrazil toast „Příspěvek byl úspěšně publikován!" natvrdo česky ve všech jazycích. Průzkum celého publish flow (publish akce, edit dialog, schedule, delete, update on networks) odkryl 9 natvrdo napsaných uživatelských hlášek bez `t()` v cs.json mimo namespace.
+- **Změny**:
+  - ✅ 3 nové ICU klíče v namespace `posts` **i** `calendar` v cs/en/uk: `publishSuccess`, `publishFailed`, `selectPlatformToPublish`.
+  - ✅ Napojené 9 míst na `t(...)`: `edit-post-dialog` (publish now + catch), `_calendar-view` (publish now + typy v `_calendar-client`/`page.tsx`), `posts/new` (validace platformy, publish now **s zachovaným X fallbackem** `td("markPublishedToast")`, catch, schedule), `posts/[id]` (validace + publish now).
+  - ✅ Schedule: opraven reálný bug – klíč `queuedSuccess` byl duplikovaný s oposným placeholderem (`posts` = `__DATE__`, `calendar` = `{date}`) → **datum se v toastě nezobrazoval**. Sjednoceno na ICU `{date}` v obou namespacech; `posts/new` napojen na `t("queuedSuccess", { date })`, calendar na `.replace("{date}")`. Formátování datumu v `posts/new` sjednoteno na vzor `cs-CZ`/`uk-UA` (dříve neplatný tag `cs-CS`).
+  - ✅ 2 budoucí úkoly zapsané do `ukol.md` (čištění mrtvých českých fallbacků `?? "…"` v publish flow; server-side české chybové stringy v `publish.ts`).
+- **Ověření**: `tsc --noEmit` ✅ (0 chyb) + `npm run build` ✅ (EXIT=0), JSON validní a shodný ve 3 localech (258 posts / 133 calendar), grep bez zbytého toast bez `t()` v publish flow.
+
 ### 🌐 Delete modály (koš) – plný i18n převod obou dialogů (Bug #2, KROK 1+2+3) ✅
 
 - **Kontext**: Bug #2 z ukol.md – delete modály (`DeletePostDialog` + `SmartDeleteDialog`) měly natvrdo česky texty, EN/UK chyběly.
@@ -87,15 +97,6 @@
   - ✅ **C2** Drill-down akordeon v Top Performing Posts: chevron ikona (jen u multi-target postů, `aria-expanded`) → rozpad per platforma/účet s avatarem/ikonou **znovupoužitým z Posts přepínače** (sdílená `platformIconFor` v `social-icons.tsx`, `_post-card` přepnut na ňu), metrika Dosah/Interakce + podíl %. **Podíl % se počítá z interakcí (stejná metrika co hlavní číslo karty), ne z dosahu** – guard `total > 0` jinak `0 %` (bez NaN); platformy bez analytics řádku → 0 (Varianta B). Mapy `targetById`/`targetsByPost`/`analyticsByTarget`.
   - ✅ **C3** i18n: **žádné nové klíče** – rozpad reusuje existující `platformBreakdown` (cs/en/uk); CHANGELOG.
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test: post s interakcemi 2/2 → postio.cz 100 % / druhá 0 % (bugfix % z interakcí potvrzený).
-
-### 📊 Analytics page: server-side filtr období (KROK A) ✅
-
-- **Kontext**: Analytics stránka `/[locale]/analytics` četla všechny analytics řádky ze Supabase bez server-side filtru na období. V per-target modelu to znamenalo větší payload (všechny historické řádky).
-- **Změny** (`src/app/[locale]/(dashboard)/analytics/page.tsx`):
-  - ✅ Přidán server-side filtr `gte("recorded_at", cutoff.toISOString())` do fetch query `analytics` – klient dostane jen řádky z daného období (7/30/90 dní).
-  - ✅ Přidán URL `searchParams` parameter `period` pro synchronizaci filtru mezi server-side a client-side.
-  - ✅ `AnalyticsDashboard` stále vlastní lokální `period` state a filtruje `analytics.filter(recorded_at >= cutoff)` – server-side filtr je optimace, klient si ponechává kontrolu nad UI.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb).
 
 
 

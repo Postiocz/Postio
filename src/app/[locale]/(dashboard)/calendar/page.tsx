@@ -165,6 +165,10 @@ export default async function CalendarPage({
           addToQueue: t("addToQueue"),
           queueLoading: t("queueLoading"),
           queuedSuccess: t("queuedSuccess"),
+          // Publish toasts
+          publishSuccess: t("publishSuccess"),
+          publishFailed: t("publishFailed"),
+          selectPlatformToPublish: t("selectPlatformToPublish"),
         }}
       />
     </div>

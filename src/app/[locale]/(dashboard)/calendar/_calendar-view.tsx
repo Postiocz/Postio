@@ -145,6 +145,10 @@ interface CalendarViewProps {
     addToQueue?: string;
     queueLoading?: string;
     queuedSuccess?: string;
+    // Publish toasts
+    publishSuccess?: string;
+    publishFailed?: string;
+    selectPlatformToPublish?: string;
   };
  }
 
@@ -431,7 +435,7 @@ export function CalendarView({
 
         const publishResult = await publishPost({ postId: String(createResult.data.id) });
         if (publishResult.success) {
-          toast.success("Příspěvek byl úspěšně publikován!");
+          toast.success(tCalendar.publishSuccess);
           handleCloseModal();
           router.refresh();
           return;
@@ -512,8 +516,10 @@ export function CalendarView({
 
       if (result.success) {
         toast.success(
-          (tCalendar.queuedSuccess ?? "Příspěvek byl zařazen do fronty na __DATE__")
-            .replace("__DATE__", formattedDate),
+          (tCalendar.queuedSuccess ?? "Příspěvek byl zařazen do fronty na {date}").replace(
+            "{date}",
+            formattedDate,
+          ),
         );
         handleCloseModal();
         router.refresh();

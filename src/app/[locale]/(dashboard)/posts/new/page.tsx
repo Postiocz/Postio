@@ -717,7 +717,7 @@ export default function NewPostPage() {
     }
 
     if (selectedAccountIds.length === 0) {
-      toast.error("Pro publikování vyber alespoň jednu platformu.");
+      toast.error(t("selectPlatformToPublish"));
       return;
     }
 
@@ -764,7 +764,7 @@ export default function NewPostPage() {
       if (publishResult.success) {
         // Hybridní X režim (Prompt 031-X-COMBO, Krok 4): u manuálního X
         // příspěvek nebyl zveřejněn, jen připraven k ručnímu vyřízení.
-        toast.success(hasManualTwitter ? td("markPublishedToast") : "Příspěvek byl úspěšně publikován!");
+        toast.success(hasManualTwitter ? td("markPublishedToast") : t("publishSuccess"));
         router.push(`/${locale}/posts`);
         return;
       }
@@ -778,8 +778,8 @@ export default function NewPostPage() {
       setError(msg);
       toast.error(msg);
     } catch {
-      setError("Publikování selhalo.");
-      toast.error("Publikování selhalo.");
+      setError(t("publishFailed"));
+      toast.error(t("publishFailed"));
     } finally {
       setPublishing(false);
     }
@@ -817,7 +817,7 @@ export default function NewPostPage() {
       // Format the queued date/time for the success toast
       const queuedDate = new Date(slotResult.scheduledAt);
       const formattedDate = queuedDate.toLocaleString(
-        typeof locale === "string" && locale !== "en" ? `${locale}-${locale.toUpperCase()}` : "en-US",
+        locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "cs-CZ",
         {
           dateStyle: "medium",
           timeStyle: "short",
@@ -852,7 +852,7 @@ export default function NewPostPage() {
       });
 
       if (result.success) {
-        toast.success(`Příspěvek byl zařazen do fronty na ${formattedDate}`);
+        toast.success(t("queuedSuccess", { date: formattedDate }));
         router.push(`/${locale}/posts`);
       } else {
         setError(result.error ?? t("errorSaving"));

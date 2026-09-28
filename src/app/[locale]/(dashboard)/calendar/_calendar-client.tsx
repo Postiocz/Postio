@@ -96,6 +96,10 @@ export function CalendarClient({
     addToQueue?: string;
     queueLoading?: string;
     queuedSuccess?: string;
+    // Publish toasts
+    publishSuccess?: string;
+    publishFailed?: string;
+    selectPlatformToPublish?: string;
   };
 }) {
   const [platformFilter, setPlatformFilter] = React.useState(initialPlatform);

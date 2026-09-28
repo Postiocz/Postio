@@ -1322,7 +1322,7 @@ export function EditPostDialog({
 
       if (publishResult.success) {
         logger.debug("handlePublishNow: úspěšně publikováno, publishResult:", publishResult);
-        toast.success("Příspěvek byl úspěšně publikován!");
+        toast.success(t("publishSuccess"));
         if (publishResult.data?.warningCode === "tiktok_private_only") {
           toast.info(t("tiktokPrivateOnlyNotice"));
         }
@@ -1339,8 +1339,8 @@ export function EditPostDialog({
       setError(msg);
       toast.error(msg);
     } catch {
-      setError("Publikování selhalo.");
-      toast.error("Publikování selhalo.");
+      setError(t("publishFailed"));
+      toast.error(t("publishFailed"));
     } finally {
       setPublishing(false);
     }

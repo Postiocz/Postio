@@ -335,7 +335,7 @@ export default function EditPostPage() {
       const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
       if (status === "published") {
         if (selectedPlatforms.length === 0) {
-          toast.error("Pro publikování vyber alespoň jednu platformu.");
+          toast.error(t("selectPlatformToPublish"));
           return;
         }
 
@@ -380,7 +380,7 @@ export default function EditPostPage() {
         const publishResult = await publishPost({ postId: id });
 
         if (publishResult.success) {
-          toast.success("Příspěvek byl úspěšně publikován!");
+          toast.success(t("publishSuccess"));
           router.push(`/${locale}/posts`);
           return;
         }

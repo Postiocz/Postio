@@ -202,6 +202,9 @@
     "contentChangedUpdatePrompt": "The text has changed. Update it on the selected networks:",
     "remoteUpdateSuccess": "The text on {platform} has been updated.",
     "additionalPublishSuccess": "Post has been published",
+    "publishSuccess": "Your post was published successfully",
+    "publishFailed": "Publishing failed.",
+    "selectPlatformToPublish": "Select at least one platform to publish.",
     "saveMetadata": "Save internal metadata",
     "metadataSaved": "Internal metadata saved.",
     "saveMetadataTooltip": "Saves only internal metadata (internal tags, inline hashtags, location). The text and media on social networks stay unchanged.",
@@ -277,7 +280,7 @@
     "select": "Select",
     "deselect": "Deselect",
     "addToQueue": "Add to Queue",
-    "queuedSuccess": "Post has been queued for __DATE__",
+    "queuedSuccess": "Post has been queued for {date}",
     "queueLoading": "Calculating time..."
   },
   "dashboard": {
@@ -467,6 +470,9 @@
     "contentChangedUpdatePrompt": "The text has changed. Update it on the selected networks:",
     "remoteUpdateSuccess": "The text on {platform} has been updated.",
     "additionalPublishSuccess": "Post has been published",
+    "publishSuccess": "Your post was published successfully",
+    "publishFailed": "Publishing failed.",
+    "selectPlatformToPublish": "Select at least one platform to publish.",
     "saveMetadata": "Save internal metadata",
     "metadataSaved": "Internal metadata saved.",
     "saveMetadataTooltip": "Saves only internal metadata (internal tags, inline hashtags, location). The text and media on social networks stay unchanged.",

@@ -175,17 +175,17 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
   // platform via API" UX.
   const descriptionText = (() => {
     if (publishedAccounts.length === 0) {
-      return "Opravdu chcete tento příspěvek smazat? Tato akce je nevratná.";
+      return t("deleteDialogDescNoPlatform");
     }
     const linkedInAccounts = publishedAccounts.filter(a => a.platform === "linkedin");
     const otherAccounts = publishedAccounts.filter(a => a.platform !== "linkedin");
     if (linkedInAccounts.length > 0 && otherAccounts.length === 0) {
-      return "Tento příspěběk je publikován pouze na LinkedInu. Postio ho neumí smazat z LinkedInu automaticky – zaškrtni „Smazat z LinkedIn“ jen pro potvrzení, že příspěběk smažeš ručně na LinkedInu. Pokud zároveň zaškrtneš „Trvale smazat z aplikace“, příspěběk zmizí i z Postia. Jinak zůstane v Postiu jako publikovaný (dokud LinkedIn nepotvrdí smazání).";
+      return t("deleteDialogDescLinkedinOnly");
     }
     if (linkedInAccounts.length > 0 && otherAccounts.length > 0) {
-      return "Tento příspěběk je publikován na více sítích a účtů. U Facebooku, Instagramu a YouTube Postio smaže příspěběk z platformy automaticky. LinkedIn je nutné smazat ručně – zaškrtnutí „Smazat z LinkedIn“ ti připomene, že tam musíš příspěběk odstranit sám/sama. Ostatní platformy příspěvku zůstanou publikované a budou se dál synchronizovat.";
+      return t("deleteDialogDescMixed");
     }
-    return "Tento příspěběk je publikován na sociálních sítích a konkrétních účtů. Vyberte, odkud jej chcete odstranit:";
+    return t("deleteDialogDescSelective");
   })();
 
   return (
@@ -196,7 +196,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400">
               <Trash2 className="h-5 w-5" />
             </div>
-            Smazat příspěvek
+            {t("deletePost")}
           </DialogTitle>
           <DialogDescription className="text-base pt-2 text-foreground/80">
             {descriptionText}
@@ -208,7 +208,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
             {refreshing ? (
               <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Načítám aktuální stav…
+                {t("deleteDialogLoading")}
               </div>
             ) : (
               <>
@@ -239,7 +239,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                         <Icon className="h-5 w-5 shrink-0 text-foreground/60" />
                       )}
                       <span className="font-medium text-foreground flex-1">
-                        Smazat z {acc.name}
+                        {t("deleteFromAccount", { account: acc.name })}
                       </span>
                       <div className={cn(
                         "flex h-5 w-5 items-center justify-center rounded border shrink-0",
@@ -252,7 +252,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                       {noApiPlatforms.includes(acc.platform as typeof noApiPlatforms[number]) && selected && (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full shrink-0">
                           <AlertTriangle className="h-3 w-3" />
-                          Ruční smazání
+                          {t("manualDeletion")}
                         </span>
                       )}
                     </div>
@@ -275,13 +275,13 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                     {deleteFromApp && <Check className="h-3.5 w-3.5 text-white" />}
                   </div>
                   <span className="font-semibold text-red-600 dark:text-red-400">
-                    Trvale smazat z aplikace Postio
+                    {t("deleteFromApp")}
                   </span>
                 </div>
 
                 {!deleteFromApp && (
                   <p className="text-xs text-muted-foreground/70 pt-1">
-                    Příspěvek zůstane v kalendáři Postio a bude nadále zobrazen jako publikovaný. Z vybraných platforem bude odstraněn (kde to Postio umí přes API) a u ostatních platforem dostaneš připomínku, že je třeba je smazat ručně.
+                    {t("deleteKeepNote")}
                   </p>
                 )}
               </>
@@ -329,7 +329,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
                   onClick={handleWarningConfirm}
                   disabled={isDeleting}
                 >
-                  {isDeleting ? "Mažu…" : t("toastUnderstood") || "Rozumím, pokračovat"}
+                  {isDeleting ? t("deleting") : t("toastUnderstood") || "Rozumím, pokračovat"}
                 </Button>
               </div>
             </div>
@@ -344,7 +344,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
             onClick={() => onOpenChange(false)}
             disabled={isDeleting || refreshing}
           >
-            Zrušit
+            {t("cancel")}
           </Button>
           <Button
             type="button"
@@ -353,7 +353,7 @@ export function DeletePostDialog({ open, onOpenChange, post, onConfirm, isDeleti
             onClick={handleConfirm}
             disabled={isDeleting || refreshing || (showSelectiveDelete && selectedPlatforms.length === 0 && !deleteFromApp)}
           >
-            {isDeleting ? "Mažu…" : "Potvrdit smazání"}
+            {isDeleting ? t("deleting") : t("confirmDeleteButton")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2708,7 +2708,10 @@ export function EditPostDialog({
           {/* Media-policy warning/error banner (KROK 3).
               Single source of truth – shown for BOTH new posts and existing
               (already published) posts, so the user always sees the same
-              messages in the same place. */}
+              messages in the same place.
+              Wrapped in a reserved slot so the action row below does not jump
+              when the banner appears/disappears (Bug #1 KROK 1). */}
+          <div className={cn("min-h-[44px]", selectedPlatforms.length === 0 && "min-h-0")}>
           {(() => {
             const affected = Object.entries(platformMediaIssues)
               .filter(([, issues]) => issues.length > 0);
@@ -2743,6 +2746,7 @@ export function EditPostDialog({
               </div>
             );
           })()}
+          </div>
           {isEdit && isAnyPublished ? (
             <>
               {/* Additional publish buttons – publish to platforms not yet published */}

@@ -3,13 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-### 🌐 Delete modály (koš) – i18n klíče pro EN/UK (Bug #2, KROK 1) ⏳
+### 🌐 Delete modály (koš) – i18n klíče + DeletePostDialog → t() (Bug #2, KROK 1+2) ⏳
 
-- **Kontext**: Bug #2 z ukol.md – delete modály (`DeletePostDialog` + `SmartDeleteDialog`) měly natvrdo česky texty, EN/UK chyběly. KROK 1: i18n klíče do `posts` namespace v cs/en/uk.
+- **Kontext**: Bug #2 z ukol.md – delete modály (`DeletePostDialog` + `SmartDeleteDialog`) měly natvrdo česky texty, EN/UK chyběly.
 - **Změny (KROK 1)**:
   - ✅ 30 nových klíčů v `posts` namespace (cs/en/uk): `deleteDialogDescNoPlatform`/`LinkedinOnly`/`Mixed`/`Selective`, `deleteDialogLoading`, `deleteFromAccount` ({account}), `manualDeletion`, `deleteFromApp`, `deleteKeepNote`, `deleting`, `confirmDeleteButton`, `smartDeleteDialogTitle`/`Desc`, `smartDeleteKeepDraft`/`Hint`, `smartDeleteDeleteApp`/`Hint`, `smartDeletePermanently`, `smartDeleteAuto`/`Hint`, `smartDeleteAutoOptionNever|3d|7d|30d|365d`, `smartDeleteInProgress`.
   - 🛠️ Odchylka od plánu: klíč `confirmDelete` kolizoval s existujícím („Opravdu chcete smazat tento příspěvek?") → tlačítko „Potvrdit smazání" dostalo vlastní `confirmDeleteButton`.
-- **Ověření**: JSON validní ve 3 localech (node parse, 255 klíčů shodně). KROK 2 (DeletePostDialog → t()) + KROK 3 (SmartDeleteDialog → t()) čekají na schválení.
+- **Změny (KROK 2)**:
+  - ✅ `DeletePostDialog` – hardcoded čeština → `t("...")`: titulek `deletePost`, 4 větve `descriptionText`, `deleteDialogLoading`, `deleteFromAccount` ({account}), `manualDeletion`, `deleteFromApp`, `deleteKeepNote`, `cancel`, `deleting`, `confirmDeleteButton`. Zároveň opraveny překlepy „příspěběk" → „příspěvek" (texty teď žijí v cs.json).
+- **Ověření**: JSON validní ve 3 localech (255 klíčů shodně) + `npx tsc --noEmit` ✅ (exit 0). KROK 3 (SmartDeleteDialog → t()) čeká na schválení.
 
 ### 🐛 HOTFIX: Publish tlačítko – stabilizace pozice (KROK 1) ⏳
 

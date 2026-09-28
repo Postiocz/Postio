@@ -3,6 +3,14 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 HOTFIX: Publish tlačítko – stabilizace pozice (KROK 1) ⏳
+
+- **Kontext**: Bug #1 z ukol.md (branch `fix/publish-button-layout-and-delete-i18n`): publish tlačítko „cukne a posune se dolů", první klik neproběhne. Analýza: nad řadou tlačítek se vykresluje media-policy banner, který při objevení/skrytí posouvá řadu tlačítek dolů (layout shift → klik se spolkne).
+- **Změny (KROK 1)**:
+  - ✅ `posts/new/page.tsx` – media-policy banner obalen rezervovaným slotem `min-h-[44px]` (aktivní jen když `selectedPlatforms.length > 0`), aby se řada tlačítek nepohla při objevení banneru.
+  - ✅ `edit-post-dialog.tsx` – stejný rezervovaný slot kolem banneru (2714/2749).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test v prohlížeči (1. klik musí publikovat bez posunu) – čeká na uživatele. Další kroky dle plánu: KROK 2 (stabilizace šířky tlačítka), KROK 3 (press animace).
+
 ### 🧹 ESLint: oprava `react-hooks/set-state-in-effect` v edit-post-dialog (2 errori) ✅
 
 - **Kontext**: `npx eslint src/components/edit-post-dialog.tsx` hlásil 2 errori `react-hooks/set-state-in-effect` (synchronní `setState` v těle efektu) – na ř. 793 (X gating filtr) a ř. 855 (TikTok username seed). Oba ležaly mimo i18n diffu (commit `49c7141`), proto zapsané jako oddělený TODO úkol.
@@ -87,11 +95,6 @@
   - ✅ **KROK 3–4** Posts: select join `social_accounts(account_name, avatar_url)`; `normalize-post` flatten; `_post-card` hover-přepínač (jen `length > 1`) — indigo ring + pilulky se jmény/avatary (mobile vždy, desktop group-hover).
 - **Ověření**: `npx tsc --noEmit` ✅. Manuál UI test přepínače na `/posts` (2026-09-15). Analytics page + Kalendář = budoucí krok.
 
-### 🐛 Preview: media přetékala přes zooblené rohy na FB/LinkedIn karte ✅
-
-- **Kontext:** `MediaArea` v `post-preview.tsx` má `overflow-hidden` ale bez `border-radius`; FB/LinkedIn article mají `rounded-lg` ale bez klipovania enfants → ostré rohy obrázku přetékaly mimo zaoblené rohy karty. IG bola v pořádku (media flush k vnější viewportu `rounded-[20px] overflow-hidden`).
-- **Změny** (`post-preview.tsx`): FB media zamykana v `overflow-hidden rounded-lg` (r. 891), LinkedIn media dostala `rounded-lg` na wrapper (r. 1153). Vzor ze X preview (`overflow-hidden rounded-2xl`).
-- **Ověření:** `npx tsc --noEmit` ✅. Manuál vizuální test uživatelem (přetékání opravené).
 
 
 

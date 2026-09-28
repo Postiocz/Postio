@@ -1524,7 +1524,10 @@ export default function NewPostPage() {
 
           {/* Action buttons */}
           <div className="flex flex-col gap-3 pt-3">
-            {/* Media-policy warning/error banner (any selected platform). */}
+            {/* Media-policy warning/error banner (any selected platform).
+                Wrapped in a reserved slot so the action row below does not jump
+                when the banner appears/disappears (Bug #1 KROK 1). */}
+            <div className={cn("min-h-[44px]", selectedPlatforms.length === 0 && "min-h-0")}>
             {
               selectedPlatforms.some((p) => (platformMediaIssues[p] ?? []).length > 0) && (
                 <div className="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm" role="alert">
@@ -1559,6 +1562,7 @@ export default function NewPostPage() {
                 </div>
               )
             }
+            </div>
             <div className="flex flex-wrap gap-3 justify-end">
               <Button
                 onClick={() => handleSubmit("draft")}

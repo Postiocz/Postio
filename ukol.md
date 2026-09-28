@@ -49,10 +49,53 @@
 
 ## 11. AKTUÁLNÍ ÚKOLY
 
+### 🐛 HOTFIX: Publish tlačítko „cukne a scrolluje" (1. klik selže) + Delete modály jen v češtině
+
+**Kontext (2026-09-28):** Uživatel nahlásil 2 chyby na branch `fix/publish-button-layout-and-delete-i18n`:
+1. **Publish tlačítko** – první klik „cukne a posune se dolů", publish neproběhne; teprve druhý klik publikuje správně.
+2. **Delete modál u příspěvku** – po kliknutí na ikonu koše se otevře modál, který je pouze v češtině; chybí EN/UK překlady.
 
 ---
 
-## 📊 FÁZE 1B: Kalendář – per-target analytika na kartách (badge interakcí)
+#### Analýza BUG #1 – publish tlačítko (neproběhne na 1. klik)
+
+**Postižená místa (stejný vzor):**
+- `src/app/[locale]/(dashboard)/posts/new/page.tsx:1591-1599` – publish button `handlePublishNow`
+- `src/components/edit-post-dialog.tsx:2897-2912` – publish button `handlePublishNow`
+- (analogicky kalendář `_calendar-view.tsx:1193-1201` + `new-post-modal.tsx:305-313`)
+
+**Zjištěné mechanismy (kumulovaně způsobují „cuknutí + posun dolů + spolknutí kliku"):**
+1. **Layout shift v akčním footru** – nad tlačítky se vykresluje media-policy banner (`posts/new`:1528-1561, `edit-post-dialog`:2712-2744), který se objeví/změní a **posune řadu tlačítek dolů**. Po kliku navíc `setPublishing(true)` změní label („Publikovat nyní" → „Ukládání…") a vloží spinner ikonu → **mění se šířka tlačítka** (flex-wrap row se může přelomit do nové řádky).
+2. **Press animace** – `active:scale-[0.98]` (a base `active:translate-y-px`) = viditelné „cuknutí" při stisku.
+3. **Výsledek:** Pokud se tlačítko mezi mousedown a mouseup posune (banner se objeví / šířka se změní / wrap), browser click event **nespalí na původním elementu** → `handlePublishNow` se vůbec nespustí → uživatel musí kliknout podruhé na nové pozici → ihned funguje.
+
+**Plán oprav (pořadí):**
+- [x] **KROK 1 – Stabilizovat pozici tlačítek:** akční footer dostane pevnou výšku pro banner (možnost „rezervovaný slot" / min-height) NEBO se media-policy banner přesune mimo footr, aby řada tlačítek při objevení banneru NEskákala. Aplikovat na `posts/new` + `edit-post-dialog` (a případně kalendář). ✅ (2026-09-28: rezervovaný slot `min-h-[44px]` kolem banneru v `posts/new` + `edit-post-dialog`; `tsc` 0 chyb; uživatel potvrdil, že klik už funguje)
+- [ ] **KROK 2 – Stabilizovat šířku publish tlačítka:** minimální šířka / rezervované místo pro spinner, aby swap label → spinner nerozhazoval wrap. `type="button"` explicitně (již je).
+- [ ] **KROK 3 – Zpřesnit klik (belt-and-suspenders):** zvážit odstranění `active:scale-[0.98]` z publish tlačítka (cuknutí) nebo posun handleru z `onClick` na robustnější střelbu – rozhodnutí po manuálním testu; primárně KROK 1+2.
+- **Ověření:** `npx tsc --noEmit` + manuál test v prohlížeči (1. klik musí publikovat, žádný posun).
+
+---
+
+#### Analýza BUG #2 – delete modál pouze v češtině
+
+**Postižené soubory:**
+- `src/components/dashboard/delete-post-dialog.tsx` – natvrdo česky: „Smazat příspěvek" (ř. 199), `descriptionText` 4 větve (ř. 176-189), „Načítám aktuální stav…" (211), „Smazat z {name}" (242), „Ruční smazání" (255), „Trvale smazat z aplikace Postio" (278), poznámka (284), „Zrušit" (347), „Potvrdit smazání" (356), „Mažu…" (332/356). Část má fallbacky `t("...") || "cz"` (apiDeletionWarningTitle, deleteDialogBack, toastUnderstood) již v `posts` namespace.
+- `src/components/dashboard/smart-delete-dialog.tsx` – CELÝ modál natvrdo česky (Chytré mazání, 2 varianty, auto-delete štítky `AUTO_DELETE_LABELS`, tlačítka „Probíhá…", „Ponechat jako koncept", „Smazat trvale").
+
+**Který modál se otevře při ikoně koše (`_post-card.tsx`):**
+- status `removed_externally` → `SmartDeleteDialog` (ř. 425-434)
+- ostatní statusy → `DeletePostDialog` (ř. 449-459)
+
+**Plán oprav (pořadí):**
+- [ ] **KROK 1 – i18n klíče do `posts` namespace** v cs/en/uk (`/messages/*.json`), terminologie dle existujících klíčů (deleteDeleteDialogBack, toastUnderstood…):
+  - DeletePostDialog: `deleteDialogTitle` (reuse `deletePost`), `deleteDialogDescNoPlatform`, `deleteDialogDescLinkedinOnly`, `deleteDialogDescMixed`, `deleteDialogDescSelective`, `deleteDialogLoading`, `deleteFromAccount` ({account}), `manualDeletion`, `deleteFromApp` = „Trvale smazat z aplikace Postio", `deleteKeepNote`, `deleting` = „Mažu…", `confirmDelete` = „Potvrdit smazání".
+  - SmartDeleteDialog: `smartDeleteDialogTitle`, `smartDeleteDialogDesc`, `smartDeleteKeepDraft`, `smartDeleteKeepDraftHint`, `smartDeleteDeleteApp`, `smartDeleteDeleteAppHint`, `smartDeleteAuto` = „Automatické mazání", `smartDeleteAutoHint`, `smartDeleteAutoOptionNever/3d/7d/30d/365d`, `smartDeleteInProgress` = „Probíhá…".
+- [ ] **KROK 2 – DeletePostDialog:** nahradit hardcoded stringy `t("...")` voláními; `useTranslations("posts")` už importováno. Zachovat podmínkovou logiku descriptionText.
+- [ ] **KROK 3 – SmartDeleteDialog:** přidat `useTranslations("posts")`, nahradit všechny stringy vč. `AUTO_DELETE_LABELS` (mapovaný přes i18n).
+- **Ověření:** `npx tsc --noEmit` + JSON validita ve 3 localech + manuál test (koš u draftu i `removed_externally`, přepnutí cs/en/uk).
+
+---
 
 **Kontext (2026-09-19):** FÁZE 1 (per-target analytics model) je hotová pro DB, backend, Posts stránku i Analytics stránku (vč. drill-downu). Kalendář `/kalendar` je poslední zbývající díl – dle původního zadání byl záměrně vynechán. Úkol: zobrazit analytiku (počet interakcí) na kartách příspěvků v kalendáři konzistentně s per-target modelem.
 

@@ -5,15 +5,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Trash2, FileText, Loader2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 export type AutoDeleteOption = "never" | "3d" | "7d" | "30d" | "365d";
 
-const AUTO_DELETE_LABELS: Record<AutoDeleteOption, string> = {
-  never: "Nikdy (uchovat pro archivaci)",
-  "3d": "Za 3 dny",
-  "7d": "Za 7 dní",
-  "30d": "Za 30 dní",
-  "365d": "Za 1 rok",
+const AUTO_DELETE_KEYS: Record<AutoDeleteOption, string> = {
+  never: "smartDeleteAutoOptionNever",
+  "3d": "smartDeleteAutoOption3d",
+  "7d": "smartDeleteAutoOption7d",
+  "30d": "smartDeleteAutoOption30d",
+  "365d": "smartDeleteAutoOption365d",
 };
 
 interface SmartDeleteDialogProps {
@@ -24,6 +25,7 @@ interface SmartDeleteDialogProps {
 }
 
 export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }: SmartDeleteDialogProps) {
+  const t = useTranslations("posts");
   const [mode, setMode] = useState<"keep_as_draft" | "delete_from_app" | null>(null);
   const [autoDelete, setAutoDelete] = useState<AutoDeleteOption>("never");
 
@@ -54,10 +56,10 @@ export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }:
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400">
               <Trash2 className="h-5 w-5" />
             </div>
-            Chytré mazání
+            {t("smartDeleteDialogTitle")}
           </DialogTitle>
           <DialogDescription className="text-base pt-2 text-foreground/80">
-            Tento příspěvek byl odstraněn z platformy. Vyberte co chcete udělat:
+            {t("smartDeleteDialogDesc")}
           </DialogDescription>
         </DialogHeader>
 
@@ -83,10 +85,10 @@ export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }:
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-indigo-500" />
-                <span className="font-medium text-foreground">Ponechat jako koncept</span>
+                <span className="font-medium text-foreground">{t("smartDeleteKeepDraft")}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Příspěvek zůstane v aplikaci jako koncept. Můžete jej upravit a publikovat znovu.
+                {t("smartDeleteKeepDraftHint")}
               </p>
             </div>
           </div>
@@ -112,10 +114,10 @@ export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }:
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <Trash2 className="h-4 w-4 text-red-500" />
-                <span className="font-medium text-red-600 dark:text-red-400">Smazat z aplikace Postio</span>
+                <span className="font-medium text-red-600 dark:text-red-400">{t("smartDeleteDeleteApp")}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Příspěvek bude trvale odstraněn z aplikace. Tato akce je nevratná.
+                {t("smartDeleteDeleteAppHint")}
               </p>
             </div>
           </div>
@@ -128,12 +130,12 @@ export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }:
               <div className="flex items-start gap-3 p-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]">
                 <Clock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <span className="font-medium text-sm text-foreground">Automatické mazání</span>
+                  <span className="font-medium text-sm text-foreground">{t("smartDeleteAuto")}</span>
                   <p className="text-xs text-muted-foreground mt-1 mb-2">
-                    Pokud tento příspěvek neodstraníte ručně, bude smazán automaticky:
+                    {t("smartDeleteAutoHint")}
                   </p>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {(Object.keys(AUTO_DELETE_LABELS) as AutoDeleteOption[]).map((option) => (
+                    {(Object.keys(AUTO_DELETE_KEYS) as AutoDeleteOption[]).map((option) => (
                       <button
                         key={option}
                         type="button"
@@ -148,7 +150,7 @@ export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }:
                           setAutoDelete(option);
                         }}
                       >
-                        {AUTO_DELETE_LABELS[option]}
+                        {t(AUTO_DELETE_KEYS[option])}
                       </button>
                     ))}
                   </div>
@@ -166,7 +168,7 @@ export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }:
             onClick={() => handleOpenChange(false)}
             disabled={isDeleting}
           >
-            Zrušit
+            {t("cancel")}
           </Button>
           <Button
             type="button"
@@ -181,10 +183,10 @@ export function SmartDeleteDialog({ open, onOpenChange, onConfirm, isDeleting }:
             {isDeleting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                Probíhá…
+                {t("smartDeleteInProgress")}
               </>
             ) : (
-              mode === "keep_as_draft" ? "Ponechat jako koncept" : "Smazat trvale"
+              mode === "keep_as_draft" ? t("smartDeleteKeepDraft") : t("smartDeletePermanently")
             )}
           </Button>
         </DialogFooter>

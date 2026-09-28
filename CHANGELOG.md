@@ -3,7 +3,7 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
-### 🌐 Delete modály (koš) – i18n klíče + DeletePostDialog → t() (Bug #2, KROK 1+2) ⏳
+### 🌐 Delete modály (koš) – plný i18n převod obou dialogů (Bug #2, KROK 1+2+3) ✅
 
 - **Kontext**: Bug #2 z ukol.md – delete modály (`DeletePostDialog` + `SmartDeleteDialog`) měly natvrdo česky texty, EN/UK chyběly.
 - **Změny (KROK 1)**:
@@ -11,7 +11,9 @@
   - 🛠️ Odchylka od plánu: klíč `confirmDelete` kolizoval s existujícím („Opravdu chcete smazat tento příspěvek?") → tlačítko „Potvrdit smazání" dostalo vlastní `confirmDeleteButton`.
 - **Změny (KROK 2)**:
   - ✅ `DeletePostDialog` – hardcoded čeština → `t("...")`: titulek `deletePost`, 4 větve `descriptionText`, `deleteDialogLoading`, `deleteFromAccount` ({account}), `manualDeletion`, `deleteFromApp`, `deleteKeepNote`, `cancel`, `deleting`, `confirmDeleteButton`. Zároveň opraveny překlepy „příspěběk" → „příspěvek" (texty teď žijí v cs.json).
-- **Ověření**: JSON validní ve 3 localech (255 klíčů shodně) + `npx tsc --noEmit` ✅ (exit 0). KROK 3 (SmartDeleteDialog → t()) čeká na schválení.
+- **Změny (KROK 3)**:
+  - ✅ `SmartDeleteDialog` – `useTranslations("posts")` + hardcoded čeština → `t(...)`: `smartDeleteDialogTitle`/`Desc`, `smartDeleteKeepDraft`/`Hint`, `smartDeleteDeleteApp`/`Hint`, `smartDeleteAuto`/`Hint`, `smartDeleteAutoOptionNever|3d|7d|30d|365d`, `smartDeletePermanently`, `smartDeleteInProgress`, `cancel`. `AUTO_DELETE_LABELS` (natvrdo české) nahrazeno mapováním `AUTO_DELETE_KEYS` → `t(AUTO_DELETE_KEYS[option])`.
+- **Ověření**: JSON validní ve 3 localech (255 klíčů shodně) + `npx tsc --noEmit` ✅ (exit 0) po KROKU 2 i KROKU 3. Celý Bug #2 hotový, čeká na schválení + commit.
 
 ### 🐛 HOTFIX: Publish tlačítko – stabilizace pozice (KROK 1) ⏳
 

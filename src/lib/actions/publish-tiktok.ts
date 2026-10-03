@@ -6,6 +6,10 @@ import {
   isTikTokSandboxPrivateOnlyError,
   TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
 } from "@/lib/tiktok-publish-errors";
+import {
+  resolveTikTokDisableFlag,
+  resolveTikTokEffectiveBrandFlags,
+} from "@/lib/tiktok-direct-post";
 
 const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
 const TIKTOK_CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/";
@@ -86,7 +90,17 @@ type TikTokCreatorInfoResponse = {
 };
 
 type TikTokPostSettings = {
-  privacyLevel?: TikTokPrivacyLevel;
+  /** Required – the user must explicitly pick a visibility; never a default. */
+  privacyLevel?: TikTokPrivacyLevel | null;
+  disableDuet?: boolean;
+  disableComment?: boolean;
+  disableStitch?: boolean;
+  /** True when the commercial-disclosure toggle is on. */
+  commercialEnabled?: boolean;
+  /** Branded content ("Promoting another brand") sub-option. */
+  brandContentToggle?: boolean;
+  /** Brand organic ("Promoting myself/my business") sub-option. */
+  brandOrganicToggle?: boolean;
 };
 
 type TikTokPublishActionResult =
@@ -140,16 +154,37 @@ function readTikTokPostSettings(
   }
 
   const privacyLevel = metadata.privacy_level;
+  const settings: TikTokPostSettings = {
+    disableDuet:
+      typeof metadata.disable_duet === "boolean" ? metadata.disable_duet : undefined,
+    disableComment:
+      typeof metadata.disable_comment === "boolean" ? metadata.disable_comment : undefined,
+    disableStitch:
+      typeof metadata.disable_stitch === "boolean" ? metadata.disable_stitch : undefined,
+    commercialEnabled:
+      typeof metadata.commercial_enabled === "boolean"
+        ? metadata.commercial_enabled
+        : undefined,
+    brandContentToggle:
+      typeof metadata.brand_content_toggle === "boolean"
+        ? metadata.brand_content_toggle
+        : undefined,
+    brandOrganicToggle:
+      typeof metadata.brand_organic_toggle === "boolean"
+        ? metadata.brand_organic_toggle
+        : undefined,
+  };
+
   if (
     privacyLevel === "PUBLIC_TO_EVERYONE" ||
     privacyLevel === "MUTUAL_FOLLOW_FRIENDS" ||
     privacyLevel === "SELF_ONLY" ||
     privacyLevel === "FOLLOWER_OF_CREATOR"
   ) {
-    return { privacyLevel };
+    settings.privacyLevel = privacyLevel;
   }
 
-  return {};
+  return settings;
 }
 
 function normalizeTikTokCreatorInfo(payload: TikTokCreatorInfoResponse): TikTokCreatorInfo {
@@ -496,11 +531,27 @@ async function publishToTikTok(params: {
   content: string;
   privacyLevel: TikTokPrivacyLevel;
   creatorInfo: TikTokCreatorInfo;
+  disableDuet?: boolean;
+  disableComment?: boolean;
+  disableStitch?: boolean;
+  brandContentToggle?: boolean;
+  brandOrganicToggle?: boolean;
 }): Promise<
   | { success: true; externalId: string | null }
   | { success: false; error: string; errorCode?: string }
 > {
-  const { accessToken, videoUrl, content, privacyLevel, creatorInfo } = params;
+  const {
+    accessToken,
+    videoUrl,
+    content,
+    privacyLevel,
+    creatorInfo,
+    disableDuet,
+    disableComment,
+    disableStitch,
+    brandContentToggle,
+    brandOrganicToggle,
+  } = params;
 
   let videoBuffer: ArrayBuffer;
   try {
@@ -532,9 +583,16 @@ async function publishToTikTok(params: {
     post_info: {
       title: content.slice(0, 2200),
       privacy_level: privacyLevel,
-      disable_duet: creatorInfo.duetDisabled,
-      disable_comment: creatorInfo.commentDisabled,
-      disable_stitch: creatorInfo.stitchDisabled,
+      // A user-selected toggle wins; the creator_info "disabled" flag is
+      // always enforced (an interaction the creator turned off can never be
+      // re-enabled by a posting app).
+      disable_duet: resolveTikTokDisableFlag(disableDuet, creatorInfo.duetDisabled),
+      disable_comment: resolveTikTokDisableFlag(disableComment, creatorInfo.commentDisabled),
+      disable_stitch: resolveTikTokDisableFlag(disableStitch, creatorInfo.stitchDisabled),
+      // Both disclosure flags are strictly false unless the caller enabled
+      // the disclosure toggle AND the specific option (see action-level gate).
+      brand_content_toggle: brandContentToggle === true,
+      brand_organic_toggle: brandOrganicToggle === true,
     },
     source_info: {
       source: "FILE_UPLOAD",
@@ -721,7 +779,23 @@ export async function publishToTikTokAction(params: {
     creatorInfo: creatorInfoResult.data,
   });
 
-  const requestedPrivacyLevel = readTikTokPostSettings(platformMetadata).privacyLevel;
+  const tiktokSettings = readTikTokPostSettings(platformMetadata);
+  // Server-side gate: disclosure sub-options only apply while the toggle is
+  // ON. This protects against stale sub-option metadata (e.g. the user ticked
+  // Brand Organic, then disabled the disclosure toggle before publishing).
+  const { brand_content_toggle, brand_organic_toggle } = resolveTikTokEffectiveBrandFlags(
+    tiktokSettings.commercialEnabled === true,
+    tiktokSettings.brandContentToggle,
+    tiktokSettings.brandOrganicToggle,
+  );
+  const requestedPrivacyLevel = tiktokSettings.privacyLevel;
+  if (!requestedPrivacyLevel) {
+    return {
+      success: false,
+      error: "TikTok vyžaduje výběr viditelnosti videa před publikací.",
+    };
+  }
+
   const resolvedPrivacyLevel = resolveRequestedPrivacyLevel({
     requestedPrivacyLevel,
     creatorInfo: creatorInfoResult.data,
@@ -736,6 +810,11 @@ export async function publishToTikTokAction(params: {
     content,
     privacyLevel: resolvedPrivacyLevel,
     creatorInfo: creatorInfoResult.data,
+    disableDuet: tiktokSettings.disableDuet,
+    disableComment: tiktokSettings.disableComment,
+    disableStitch: tiktokSettings.disableStitch,
+    brandContentToggle: brand_content_toggle,
+    brandOrganicToggle: brand_organic_toggle,
   });
 
   if (initialResult.success) {
@@ -758,6 +837,11 @@ export async function publishToTikTokAction(params: {
       content,
       privacyLevel: "SELF_ONLY",
       creatorInfo: creatorInfoResult.data,
+      disableDuet: tiktokSettings.disableDuet,
+      disableComment: tiktokSettings.disableComment,
+      disableStitch: tiktokSettings.disableStitch,
+      brandContentToggle: brand_content_toggle,
+      brandOrganicToggle: brand_organic_toggle,
     });
 
     if (retryResult.success) {

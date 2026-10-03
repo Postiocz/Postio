@@ -1,0 +1,132 @@
+1
+00:00:00,000 --> 00:00:10,000
+Postio — schedule and publish videos to TikTok
+together with other networks.
+
+2
+00:00:10,000 --> 00:00:20,000
+Sign in to Postio with email or Google.
+
+3
+00:00:20,000 --> 00:00:40,000
+This account is pre-authorized for the TikTok
+sandbox (BETA reviewer access).
+
+4
+00:00:40,000 --> 00:00:50,000
+Open Accounts → find the TikTok card → Connect.
+
+5
+00:00:50,000 --> 00:01:05,000
+TikTok's consent screen requests: user.info.basic,
+video.upload, video.publish.
+
+6
+00:01:05,000 --> 00:01:10,000
+Grant access and return to the app.
+
+7
+00:01:10,000 --> 00:01:20,000
+The OAuth exchange (PKCE + code) is handled
+server-side; the token is kept server-side
+and refreshed automatically.
+
+8
+00:01:20,000 --> 00:01:30,000
+Posts → New Post. Add a title.
+
+9
+00:01:30,000 --> 00:01:45,000
+Append a short .mp4 video file.
+
+10
+00:01:45,000 --> 00:01:55,000
+Select the connected TikTok account.
+
+11
+00:01:55,000 --> 00:02:05,000
+Video is uploaded to Postio storage first;
+TikTok receives it via the Content Posting API
+at publish time.
+
+12
+00:02:05,000 --> 00:02:13,000
+The visibility dropdown follows the creator's
+privacy_level_options; nothing is pre-selected.
+
+13
+00:02:13,000 --> 00:02:19,000
+The user picks Only me
+(Followers, Friends, Only me are offered).
+
+14
+00:02:19,000 --> 00:02:26,000
+Interactions: Allow comments unticked; Duet and
+Stitch are unavailable for this account.
+
+15
+00:02:26,000 --> 00:02:31,000
+Commercial content disclosure is off by default.
+
+16
+00:02:31,000 --> 00:02:41,000
+The user turns it on and selects "Promoting
+myself/my business" (Brand Organic).
+
+17
+00:02:41,000 --> 00:02:45,000
+Music Usage Confirmation is ticked
+before publishing.
+
+18
+00:02:45,000 --> 00:02:55,000
+Click Publish Now (Time and publish section).
+
+19
+00:02:55,000 --> 00:03:15,000
+The server runs the Content Posting sequence:
+creator_info/query → video/init → upload → status/fetch.
+
+20
+00:03:15,000 --> 00:03:30,000
+Redirect to Posts → toast "Your post was published
+successfully".
+
+21
+00:03:30,000 --> 00:03:35,000
+The post card shows the Published badge — only
+after TikTok reports PUBLISH_COMPLETE.
+
+22
+00:03:35,000 --> 00:03:45,000
+Open the published post → edit dialog → TikTok tab.
+
+23
+00:03:45,000 --> 00:03:55,000
+Postio blocks editing of the published TikTok
+post; removal is handled separately.
+
+24
+00:03:55,000 --> 00:04:15,000
+On tiktok.com: Profile → Videos. The video
+shows a lock icon, the "Private" label and
+"Promotional content" (Brand Organic).
+
+25
+00:04:15,000 --> 00:04:25,000
+Delete: TikTok's documentation provides no
+video-deletion endpoint.
+
+26
+00:04:25,000 --> 00:04:35,000
+Postio asks the user to remove the video manually
+on TikTok and archives the TikTok row.
+
+27
+00:04:35,000 --> 00:04:40,000
+The post card keeps a greyed-out TikTok icon.
+
+28
+00:04:40,000 --> 00:04:50,000
+Thank you for reviewing Postio.
+Questions: hello@postio-app.cz

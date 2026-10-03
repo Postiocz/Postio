@@ -35,6 +35,13 @@ type MediaUploadItem = {
    * we couldn't decode the file.
    */
   dimensions?: { width: number; height: number };
+  /**
+   * Duration of a video in seconds (filled in together with `dimensions` via
+   * a temporary `<video>` element). Used by the TikTok max-duration
+   * validation against `max_video_post_duration_sec`. `null` means we
+   * couldn't decode the file; `undefined` means we don't know yet.
+   */
+  duration?: number | null;
 };
 
 /**
@@ -76,14 +83,16 @@ function isValidMediaFile(file: File): boolean {
 }
 
 /**
- * Returns the dimensions of a video file (width, height in pixels).
+ * Returns the dimensions and duration of a video file (width, height in
+ * pixels, duration in seconds).
  *
  * Resolves to `null` if the browser cannot decode the file (e.g. unsupported
- * codec, broken file). Used for the "low resolution" warning.
+ * codec, broken file). Used for the "low resolution" warning and the TikTok
+ * max-duration validation.
  */
-function getVideoDimensions(
+function getVideoMetadata(
   file: File,
-): Promise<{ width: number; height: number } | null> {
+): Promise<{ width: number; height: number; duration: number } | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const video = document.createElement("video");
@@ -105,32 +114,34 @@ function getVideoDimensions(
     video.onloadedmetadata = () => {
       const w = video.videoWidth;
       const h = video.videoHeight;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
       cleanup();
       if (!w || !h) {
         resolve(null);
         return;
       }
-      resolve({ width: w, height: h });
+      resolve({ width: w, height: h, duration });
     };
     video.src = url;
   });
 }
 
 /**
- * Same as {@link getVideoDimensions} but operates on a remote URL
+ * Same as {@link getVideoMetadata} but operates on a remote URL
  * (e.g. an already-uploaded Supabase Storage public URL).
  *
- * Used to back-fill `dimensions` for videos that were attached to a post
- * before this hook was instrumented, or after a page reload that re-hydrates
- * `items` from `loadExistingUrls()`. Without this, the Instagram
- * "low resolution" hard-block would silently no-op on existing posts.
+ * Used to back-fill `dimensions`/`duration` for videos that were attached to
+ * a post before this hook was instrumented, or after a page reload that
+ * re-hydrates `items` from `loadExistingUrls()`. Without this, the Instagram
+ * "low resolution" hard-block and the TikTok max-duration check would
+ * silently no-op on existing posts.
  *
  * The browser only fetches the file header (`preload="metadata"`), so this
  * is cheap even for large videos.
  */
-function getVideoDimensionsFromUrl(
+function getVideoMetadataFromUrl(
   url: string,
-): Promise<{ width: number; height: number } | null> {
+): Promise<{ width: number; height: number; duration: number } | null> {
   return new Promise((resolve) => {
     const video = document.createElement("video");
     video.preload = "metadata";
@@ -142,11 +153,12 @@ function getVideoDimensionsFromUrl(
     video.onloadedmetadata = () => {
       const w = video.videoWidth;
       const h = video.videoHeight;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
       if (!w || !h) {
         resolve(null);
         return;
       }
-      resolve({ width: w, height: h });
+      resolve({ width: w, height: h, duration });
     };
     video.src = url;
   });
@@ -243,11 +255,15 @@ export function useMediaUpload(
     );
     if (missing.length === 0) return;
     for (const item of missing) {
-      getVideoDimensionsFromUrl(item.url)
-        .then((dims) => {
-          if (!dims) return; // browser could not decode – give up silently
+      getVideoMetadataFromUrl(item.url)
+        .then((meta) => {
+          if (!meta) return; // browser could not decode – give up silently
           setItems((current) =>
-            current.map((c) => (c.id === item.id ? { ...c, dimensions: dims } : c)),
+            current.map((c) =>
+              c.id === item.id
+                ? { ...c, dimensions: { width: meta.width, height: meta.height }, duration: meta.duration }
+                : c,
+            ),
           );
         })
         .catch(() => {
@@ -437,17 +453,23 @@ export function useMediaUpload(
               // -----------------------------------------------------------------
               if (item.kind === "video") {
                 try {
-                  const dims = await getVideoDimensions(fileToUpload);
-                  if (dims) {
-                    const minSide = Math.min(dims.width, dims.height);
+                  const meta = await getVideoMetadata(fileToUpload);
+                  if (meta) {
+                    const minSide = Math.min(meta.width, meta.height);
                     if (minSide > 0 && minSide < MIN_VIDEO_DIMENSION) {
                       toast.warning(t.videoLowResolution, { duration: 5000 });
                     }
-                    // Persist dimensions on the item so the form UI can
-                    // decide later whether to block the publish flow.
+                    // Persist dimensions + duration on the item so the form UI
+                    // can decide later whether to block the publish flow.
                     setItems((current) =>
                       current.map((c) =>
-                        c.id === item.id ? { ...c, dimensions: dims } : c,
+                        c.id === item.id
+                          ? {
+                              ...c,
+                              dimensions: { width: meta.width, height: meta.height },
+                              duration: meta.duration,
+                            }
+                          : c,
                       ),
                     );
                   }

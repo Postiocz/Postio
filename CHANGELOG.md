@@ -3,6 +3,12 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Fix: Vercel build ERESOLVE – @types/node ^20 → ^22 ✅
+
+- **Kontext**: `vercel build` na větvi `feature/tiktok-direct-post-ux` selhal při `npm install` chybou ERESOLVE – `vitest@5.0.3` (přidaný pro testy) deklaruje peerOptional `@types/node@"^22.0.0 || >=24.0.0"`, projekt měl `"@types/node": "^20"`.
+- **Změny**: `package.json` – `"@types/node": "^20"` → `"^22"`; `package-lock.json` regenerován (`@types/node@22.20.5`).
+- **Ověření**: `npm install` čistý (žádný ERESOLVE), `npm run test` → vitest 5.0.3, 25/25 ✅, `npx tsc --noEmit` ✅ (0 chyb).
+
 ### 🌐 Publish toasty: plný i18n převod (publish/schedule) ✅
 
 - **Kontext**: Po úspěšném publikování se zobrazil toast „Příspěvek byl úspěšně publikován!" natvrdo česky ve všech jazycích. Průzkum celého publish flow (publish akce, edit dialog, schedule, delete, update on networks) odkryl 9 natvrdo napsaných uživatelských hlášek bez `t()` v cs.json mimo namespace.
@@ -88,15 +94,6 @@
   - ✅ **KROK B (data flow):** `src/app/api/accounts/route.ts` – `scope_list` doplněn do `.select()` GET + typ `SocialAccountRow` + `sanitizeSocialAccount` (scope list je nesenzitivní, na rozdíl od `metadata`); typ `SocialAccount` v page.tsx + `scope_list?: string[] | null`. i18n klíč `scopeReconnectPrompt` v cs/en/uk (key-tree identický).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). JSON i18n validní ve všech 3 localech. **Banner se dnes NIKDE nezobrazí** (scope_list u všech účtů NULL → podmínka false) – správně, ověřeno staticky.
 - **Následující kroky (čekají)**: KROK B (UI banner na `/accounts` pro účty bez scope), KROK C (ukládání `scope_list` v `linkedin/route.ts`), KROK D (přidání scope do OAuth stringu – až po LinkedIn schválení).
-
-### 📊 Analytics: per-target drill-down v "Výkon příspěvků" (KROK C) ✅
-
-- **Kontext**: Po migraci per-target (1 řádek analytiky na `post_platform_id`) zůstávala Analytics stránka agregovaná – post s FB+IG se zobrazoval jak jeden řádek, nešlo vidět, kolik přinesla konkrétní síť/účet. KROK C přidává per-post rozpad podle cílených sítí.
-- **Změny**:
-  - ✅ **C1** (`analytics/page.tsx` + `analytics-dashboard.tsx`): nový server-side fetch `post_platforms` (id, post_id, platform, account_id + join `social_accounts(account_name, avatar_url)`) pro `postIds`; nová typ `PostTarget`; prop `postPlatforms`; `AnalyticsRecord` rozšířen o `post_platform_id`. Žádná UI změna v C1.
-  - ✅ **C2** Drill-down akordeon v Top Performing Posts: chevron ikona (jen u multi-target postů, `aria-expanded`) → rozpad per platforma/účet s avatarem/ikonou **znovupoužitým z Posts přepínače** (sdílená `platformIconFor` v `social-icons.tsx`, `_post-card` přepnut na ňu), metrika Dosah/Interakce + podíl %. **Podíl % se počítá z interakcí (stejná metrika co hlavní číslo karty), ne z dosahu** – guard `total > 0` jinak `0 %` (bez NaN); platformy bez analytics řádku → 0 (Varianta B). Mapy `targetById`/`targetsByPost`/`analyticsByTarget`.
-  - ✅ **C3** i18n: **žádné nové klíče** – rozpad reusuje existující `platformBreakdown` (cs/en/uk); CHANGELOG.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test: post s interakcemi 2/2 → postio.cz 100 % / druhá 0 % (bugfix % z interakcí potvrzený).
 
 
 

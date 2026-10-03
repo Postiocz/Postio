@@ -4,10 +4,22 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
+import {
+  computeTikTokPublishBlocked,
+  isTikTokPrivateOnlyAccount,
+  resolveEffectiveTikTokPrivacyLevel,
+} from "@/lib/tiktok-direct-post";
 import { publishPost } from "@/lib/actions/publish";
 import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
 import { ArrowLeft, Calendar, CheckCircle2, Film, AlertTriangle, Image as ImageIcon, Loader2, ListOrdered, MapPin, X, Info, FileText, Users, Tags, Settings } from "lucide-react";
@@ -64,11 +76,13 @@ const PLATFORMS = [
 ];
 
 const MAX_MEDIA_FILES = 10;
-const DEFAULT_TIKTOK_PRIVACY_LEVEL: TikTokPrivacyLevel = "PUBLIC_TO_EVERYONE";
+// Direct Post UX: privacy must be explicitly selected by the user – no
+// default value. The options shown come exclusively from creator_info.
 const TIKTOK_SUPPORTED_PRIVACY_LEVELS: TikTokPrivacyLevel[] = [
   "PUBLIC_TO_EVERYONE",
   "MUTUAL_FOLLOW_FRIENDS",
   "SELF_ONLY",
+  "FOLLOWER_OF_CREATOR",
 ];
 
 function resolvePublishErrorMessage(params: {
@@ -149,22 +163,32 @@ export default function NewPostPage() {
     return acc?.platform?.toLowerCase() === "twitter" && acc?.publishing_type === "manual";
   });
 
-  // TikTok privacy/video settings (mirrors EditPostDialog). A video post
-  // destined for TikTok surfaces privacy toggles plus creator capability info.
+  // TikTok Direct Post settings (mirrors EditPostDialog). Privacy has NO
+  // default (the user must pick); Comments/Duet/Stitch toggles start off and
+  // only exist as user choice; commercial disclosure is off by default.
   const [tiktokCreatorInfo, setTikTokCreatorInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokCreatorInfoLoading, setTikTokCreatorInfoLoading] = useState(false);
   const [tiktokPrivacyLevel, setTikTokPrivacyLevel] =
-    useState<TikTokPrivacyLevel>(DEFAULT_TIKTOK_PRIVACY_LEVEL);
+    useState<TikTokPrivacyLevel | null>(null);
+  const [tiktokAllowDuet, setTikTokAllowDuet] = useState(false);
+  const [tiktokAllowComment, setTikTokAllowComment] = useState(false);
+  const [tiktokAllowStitch, setTikTokAllowStitch] = useState(false);
+  const [tiktokBrandContent, setTikTokBrandContent] = useState(false);
+  const [tiktokBrandOrganic, setTikTokBrandOrganic] = useState(false);
+  const [tiktokCommercialEnabled, setTikTokCommercialEnabled] = useState(false);
+  const [tiktokMusicConsent, setTikTokMusicConsent] = useState(false);
 
   const hasTikTokIntent = useMemo(() => {
     return selectedPlatforms.includes("tiktok");
   }, [selectedPlatforms]);
 
+  // Privacy options come EXCLUSIVELY from creator_info.privacy_level_options
+  // (Direct Post UX requirement). Empty while creator info is not loaded.
   const allowedTikTokPrivacyLevels = useMemo(() => {
     const options = tiktokCreatorInfo?.privacyLevelOptions?.filter((level) =>
       TIKTOK_SUPPORTED_PRIVACY_LEVELS.includes(level),
     );
-    return options && options.length > 0 ? options : TIKTOK_SUPPORTED_PRIVACY_LEVELS;
+    return options ?? [];
   }, [tiktokCreatorInfo]);
 
   const isTikTokPrivateOnly = useMemo(() => {
@@ -173,16 +197,6 @@ export default function NewPostPage() {
       allowedTikTokPrivacyLevels[0] === "SELF_ONLY"
     );
   }, [allowedTikTokPrivacyLevels]);
-
-  // Only send TikTok-specific metadata when a TikTok account is selected.
-  const platformMetadata = useMemo<Record<string, Record<string, unknown>> | undefined>(() => {
-    if (!hasTikTokIntent) return undefined;
-    return {
-      tiktok: {
-        privacy_level: tiktokPrivacyLevel,
-      },
-    };
-  }, [hasTikTokIntent, tiktokPrivacyLevel]);
 
   const [scheduledAt, setScheduledAt] = useState("");
   const [location, setLocation] = useState("");
@@ -326,16 +340,14 @@ export default function NewPostPage() {
           return;
         }
         setTikTokCreatorInfo(result.data);
-        setTikTokPrivacyLevel((current) => {
-          if (result.data.privacyLevelOptions.includes(current)) {
-            return current;
-          }
-          return (
-            TIKTOK_SUPPORTED_PRIVACY_LEVELS.find((level) =>
-              result.data.privacyLevelOptions.includes(level),
-            ) ?? DEFAULT_TIKTOK_PRIVACY_LEVEL
-          );
-        });
+        // Privacy is never pre-selected (Direct Post UX requires an explicit
+        // user choice). We only validate that a previously chosen value is
+        // still allowed; otherwise it is cleared so the user must re-pick.
+        setTikTokPrivacyLevel((current) =>
+          current && result.data.privacyLevelOptions.includes(current)
+            ? current
+            : null,
+        );
       } catch {
         if (!cancelled) {
           setTikTokCreatorInfo(null);
@@ -436,6 +448,105 @@ export default function NewPostPage() {
     compressionError: t("compressionError"),
   };
   const { items: mediaItems, addFiles: addMediaFiles, removeItem: removeMediaItem, getMediaUrls, hasUploading, addImageUrl } = useMediaUpload(userId, MAX_MEDIA_FILES, uploadLabels);
+
+  // Longest ready video's duration in seconds (used for the TikTok
+  // max-duration check). `null` when unknown.
+  const tiktokVideoDurationSec = useMemo(() => {
+    const durations = mediaItems
+      .filter((i) => i.kind === "video" && i.status === "ready")
+      .map((i) => (typeof i.duration === "number" ? i.duration : 0));
+    return durations.length > 0 ? Math.max(...durations) : null;
+  }, [mediaItems]);
+
+  const tiktokMaxDurationSec = tiktokCreatorInfo?.maxVideoPostDurationSec ?? null;
+  // A missing/zero max duration means "no limit" – the check is skipped.
+  const tiktokDurationExceeded =
+    tiktokMaxDurationSec != null &&
+    tiktokMaxDurationSec > 0 &&
+    tiktokVideoDurationSec != null &&
+    tiktokVideoDurationSec > tiktokMaxDurationSec;
+
+  // Direct Post UX: with the commercial disclosure toggle ON the user must
+  // pick at least one option ("Your Brand" and/or "Branded Content").
+  const tiktokCommercialMissing =
+    tiktokCommercialEnabled && !tiktokBrandContent && !tiktokBrandOrganic;
+  // Branded content can never be private (Direct Post UX requirement).
+  const tiktokBrandedBlocksPrivate = tiktokBrandContent;
+  // When Branded Content is enabled and "Only me" was chosen earlier, the
+  // selection is cleared so the user must re-pick (never a silent deadlock).
+  const effectiveTikTokPrivacyLevel = resolveEffectiveTikTokPrivacyLevel(
+    tiktokBrandedBlocksPrivate,
+    tiktokPrivacyLevel,
+  );
+  // On a private-only account (sandbox) Branded Content is impossible:
+  // it requires public/friends visibility, so the option is disabled.
+  const tiktokBrandedUnavailable = isTikTokPrivateOnlyAccount(
+    tiktokCreatorInfo?.privacyLevelOptions,
+  );
+
+  // Blocks any publish/schedule/queue while a TikTok Direct Post requirement
+  // is unmet: privacy not picked, disclosure on but no option chosen, the
+  // video exceeds the creator's max duration, or consent not given.
+  const tiktokPublishBlock = useMemo(
+    () =>
+      computeTikTokPublishBlocked({
+        hasTikTokIntent,
+        privacyLevel: effectiveTikTokPrivacyLevel,
+        musicConsent: tiktokMusicConsent,
+        commercialEnabled: tiktokCommercialEnabled,
+        brandContent: tiktokBrandContent,
+        brandOrganic: tiktokBrandOrganic,
+        maxDurationSec: tiktokMaxDurationSec,
+        videoDurationSec: tiktokVideoDurationSec,
+      }),
+    [
+      hasTikTokIntent,
+      effectiveTikTokPrivacyLevel,
+      tiktokMusicConsent,
+      tiktokCommercialEnabled,
+      tiktokBrandContent,
+      tiktokBrandOrganic,
+      tiktokMaxDurationSec,
+      tiktokVideoDurationSec,
+    ],
+  );
+  const tiktokPublishBlocked = tiktokPublishBlock.blocked;
+  const tiktokBlockReason = useMemo(() => {
+    if (!tiktokPublishBlock.reason) return null;
+    const key =
+      tiktokPublishBlock.reason === "privacy"
+        ? "tiktokPrivacyRequired"
+        : tiktokPublishBlock.reason === "duration"
+          ? "tiktokVideoTooLong"
+          : tiktokPublishBlock.reason === "disclosure"
+            ? "tiktokDisclosureRequired"
+            : "tiktokMusicConsentRequired";
+    return t(key);
+  }, [tiktokPublishBlock.reason, t]);
+
+  // Only send TikTok-specific metadata when a TikTok account is selected.
+  const platformMetadata = useMemo<Record<string, Record<string, unknown>> | undefined>(() => {
+    if (!hasTikTokIntent) return undefined;
+    return {
+      tiktok: {
+        privacy_level: effectiveTikTokPrivacyLevel,
+        disable_duet: !tiktokAllowDuet,
+        disable_comment: !tiktokAllowComment,
+        disable_stitch: !tiktokAllowStitch,
+        commercial_enabled: tiktokCommercialEnabled,
+        brand_content_toggle: tiktokCommercialEnabled && tiktokBrandContent,
+        brand_organic_toggle: tiktokCommercialEnabled && tiktokBrandOrganic,
+      },
+    };
+  }, [
+    hasTikTokIntent,
+    effectiveTikTokPrivacyLevel,
+    tiktokAllowDuet,
+    tiktokAllowComment,
+    tiktokAllowStitch,
+    tiktokBrandContent,
+    tiktokBrandOrganic,
+  ]);
 
   // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
   const firstImageUrl = useMemo(() => {
@@ -1301,51 +1412,8 @@ export default function NewPostPage() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {[
-                  {
-                    value: "PUBLIC_TO_EVERYONE" as const,
-                    label: t("tiktokPrivacyPublic"),
-                  },
-                  {
-                    value: "MUTUAL_FOLLOW_FRIENDS" as const,
-                    label: t("tiktokPrivacyFriends"),
-                  },
-                  {
-                    value: "SELF_ONLY" as const,
-                    label: t("tiktokPrivacyPrivate"),
-                  },
-                ].map((option) => {
-                  const isSelected = tiktokPrivacyLevel === option.value;
-                  const isAllowed = allowedTikTokPrivacyLevels.includes(option.value);
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      disabled={!isAllowed}
-                      onClick={() => setTikTokPrivacyLevel(option.value)}
-                      className={cn(
-                        "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                        isSelected
-                          ? "border-indigo-500/30 dark:border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300"
-                          : "border-black/5 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] text-slate-700 dark:text-muted-foreground",
-                        !isAllowed && "cursor-not-allowed opacity-40",
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {isTikTokPrivateOnly && (
-                <div className="flex items-start gap-3 rounded-[20px] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                  <span>{t("tiktokPrivateOnlyNotice")}</span>
-                </div>
-              )}
-
+              {/* Creator account (Direct Post UX: the account receiving the
+                  video must be identified before publishing). */}
               <div className="rounded-[20px] border border-black/5 bg-black/[0.02] p-3 text-xs text-muted-foreground/70 dark:border-white/10 dark:bg-black/20">
                 <p>
                   {tiktokCreatorInfoLoading
@@ -1360,25 +1428,228 @@ export default function NewPostPage() {
                         },
                       )}
                 </p>
-                {tiktokCreatorInfo && (
-                  <p className="mt-1">
-                    {t(
-                      "tiktokCreatorInfoCapabilities",
-                      {
-                        comments: tiktokCreatorInfo.commentDisabled
-                          ? t("tiktokCapabilityDisabled")
-                          : t("tiktokCapabilityEnabled"),
-                        duet: tiktokCreatorInfo.duetDisabled
-                          ? t("tiktokCapabilityDisabled")
-                          : t("tiktokCapabilityEnabled"),
-                        stitch: tiktokCreatorInfo.stitchDisabled
-                          ? t("tiktokCapabilityDisabled")
-                          : t("tiktokCapabilityEnabled"),
-                      },
+              </div>
+
+              {/* Privacy – no default value, options from creator_info only */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  {t("tiktokPrivacySelectLabel")}
+                </Label>
+                <Select
+                  value={effectiveTikTokPrivacyLevel ?? undefined}
+                  onValueChange={(value) =>
+                    setTikTokPrivacyLevel(value as TikTokPrivacyLevel)
+                  }
+                >
+                  <SelectTrigger className="w-full rounded-[14px]">
+                    <SelectValue placeholder={t("tiktokPrivacyPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedTikTokPrivacyLevels.map((option) => {
+                      const label =
+                        option === "PUBLIC_TO_EVERYONE"
+                          ? t("tiktokPrivacyPublic")
+                          : option === "MUTUAL_FOLLOW_FRIENDS"
+                            ? t("tiktokPrivacyFriends")
+                            : option === "FOLLOWER_OF_CREATOR"
+                              ? t("tiktokPrivacyFollowers")
+                              : t("tiktokPrivacyPrivate");
+                      const disabled =
+                        option === "SELF_ONLY" && tiktokBrandedBlocksPrivate;
+                      return (
+                        <SelectItem
+                          key={option}
+                          value={option}
+                          disabled={disabled}
+                        >
+                          {label}
+                          {disabled && (
+                            <span className="ml-2 text-xs opacity-70">
+                              {t("tiktokBrandedPrivateHint")}
+                            </span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
+                    {allowedTikTokPrivacyLevels.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground/60">
+                        {t("tiktokCreatorInfoLoading")}
+                      </div>
                     )}
+                  </SelectContent>
+                </Select>
+                {tiktokBrandedBlocksPrivate && effectiveTikTokPrivacyLevel === null && (
+                  <p className="text-xs text-amber-500">
+                    {t("tiktokBrandedPrivateHint")}
                   </p>
                 )}
               </div>
+
+              {isTikTokPrivateOnly && (
+                <div className="flex items-start gap-3 rounded-[20px] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <span>{t("tiktokPrivateOnlyNotice")}</span>
+                </div>
+              )}
+
+              {/* Max video duration (creator_info.max_video_post_duration_sec) */}
+              {tiktokMaxDurationSec != null && (
+                <p className="text-xs text-muted-foreground/70">
+                  {t("tiktokMaxDuration", { max: String(tiktokMaxDurationSec) })}
+                </p>
+              )}
+              {tiktokDurationExceeded && (
+                <p className="text-xs text-red-500">
+                  {t("tiktokVideoTooLong", { max: String(tiktokMaxDurationSec) })}
+                </p>
+              )}
+
+              {/* Interaction toggles – none checked by default; disabled +
+                  greyed when creator_info reports the interaction is off. */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  {t("tiktokInteractionTitle")}
+                </Label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded accent-indigo-500"
+                    checked={tiktokAllowComment}
+                    disabled={!!tiktokCreatorInfo?.commentDisabled}
+                    onChange={(e) => setTikTokAllowComment(e.target.checked)}
+                  />
+                  {t("tiktokToggleComments")}
+                  {tiktokCreatorInfo?.commentDisabled && (
+                    <span className="text-xs text-muted-foreground/50">
+                      {t("tiktokInteractionUnavailable")}
+                    </span>
+                  )}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded accent-indigo-500"
+                    checked={tiktokAllowDuet}
+                    disabled={!!tiktokCreatorInfo?.duetDisabled}
+                    onChange={(e) => setTikTokAllowDuet(e.target.checked)}
+                  />
+                  {t("tiktokToggleDuet")}
+                  {tiktokCreatorInfo?.duetDisabled && (
+                    <span className="text-xs text-muted-foreground/50">
+                      {t("tiktokInteractionUnavailable")}
+                    </span>
+                  )}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded accent-indigo-500"
+                    checked={tiktokAllowStitch}
+                    disabled={!!tiktokCreatorInfo?.stitchDisabled}
+                    onChange={(e) => setTikTokAllowStitch(e.target.checked)}
+                  />
+                  {t("tiktokToggleStitch")}
+                  {tiktokCreatorInfo?.stitchDisabled && (
+                    <span className="text-xs text-muted-foreground/50">
+                      {t("tiktokInteractionUnavailable")}
+                    </span>
+                  )}
+                </label>
+              </div>
+
+              {/* Commercial content disclosure – off by default */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded accent-indigo-500"
+                    checked={tiktokCommercialEnabled}
+                    onChange={(e) => {
+                      setTikTokCommercialEnabled(e.target.checked);
+                      if (!e.target.checked) {
+                        setTikTokBrandContent(false);
+                        setTikTokBrandOrganic(false);
+                      }
+                    }}
+                  />
+                  <span className="font-medium">{t("tiktokCommercialTitle")}</span>
+                </label>
+                {tiktokCommercialEnabled && (
+                  <div className="space-y-1.5 pl-6">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded accent-indigo-500"
+                        checked={tiktokBrandOrganic}
+                        onChange={(e) => setTikTokBrandOrganic(e.target.checked)}
+                      />
+                      {t("tiktokCommercialYourBrand")}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded accent-indigo-500"
+                        checked={tiktokBrandContent}
+                        disabled={tiktokBrandedUnavailable}
+                        onChange={(e) => setTikTokBrandContent(e.target.checked)}
+                      />
+                      {t("tiktokCommercialBrandedContent")}
+                      {tiktokBrandedUnavailable && (
+                        <span className="text-xs text-muted-foreground/60">
+                          {t("tiktokBrandedUnavailableHint")}
+                        </span>
+                      )}
+                    </label>
+                    {tiktokCommercialMissing && (
+                      <p className="text-xs text-red-500">
+                        {t("tiktokDisclosureRequired")}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Music Usage Confirmation / terms declaration */}
+              <div className="space-y-1.5">
+                <label className="flex items-start gap-2 text-xs text-muted-foreground/70">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded accent-indigo-500"
+                    checked={tiktokMusicConsent}
+                    onChange={(e) => setTikTokMusicConsent(e.target.checked)}
+                  />
+                  <span>
+                    {t("tiktokMusicUsageIntro")}{" "}
+                    {tiktokBrandContent && (
+                      <>
+                        <a
+                          href="https://www.tiktok.com/legal/page/global/bc-policy/en"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          {t("tiktokBrandedPolicyLinkLabel")}
+                        </a>
+                        {" "}{t("tiktokMusicUsageAnd")}{" "}
+                      </>
+                    )}
+                    <a
+                      href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      {t("tiktokMusicUsageLinkLabel")}
+                    </a>
+                    {"."}
+                  </span>
+                </label>
+              </div>
+
+              {/* Processing note after submission */}
+              <p className="text-xs text-muted-foreground/60">
+                {t("tiktokProcessingNote")}
+              </p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1575,8 +1846,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={handleQueueToSchedule}
-                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || queuing || hasUploading() || hasBlockingMediaErrors}
-                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
+                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || queuing || hasUploading() || hasBlockingMediaErrors || tiktokPublishBlocked}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : tiktokBlockReason ?? undefined}
                 variant="outline"
                 className="rounded-xl border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all active:scale-[0.98]"
               >
@@ -1585,8 +1856,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={() => handleSubmit("scheduled")}
-                disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading() || hasBlockingMediaErrors}
-                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
+                disabled={!content.trim() || !scheduledAt || loading || publishing || hasUploading() || hasBlockingMediaErrors || tiktokPublishBlocked}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : tiktokBlockReason ?? undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(loading || hasUploading()) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
@@ -1594,8 +1865,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 onClick={handlePublishNow}
-                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || hasUploading() || hasBlockingMediaErrors}
-                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : undefined}
+                disabled={!content.trim() || selectedAccountIds.length === 0 || loading || publishing || hasUploading() || hasBlockingMediaErrors || tiktokPublishBlocked}
+                title={hasBlockingMediaErrors ? t("mediaPolicyBlockTitle") : tiktokBlockReason ?? undefined}
                 className="rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
               >
                 {(publishing || loading || hasUploading()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

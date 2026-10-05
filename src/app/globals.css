@@ -88,6 +88,11 @@
   --sidebar-ring: oklch(0.56 0.22 275);
   --gradient-hero: linear-gradient(135deg, oklch(0.56 0.22 275) 0%, oklch(0.62 0.25 290) 50%, oklch(0.68 0.22 310) 100%);
   --gradient-subtle: linear-gradient(180deg, oklch(0.985 0 0) 0%, oklch(0.96 0.01 275) 100%);
+
+  /* Atmospheric mesh glow tokens (light mode). Neutralized to transparent in dark. */
+  --glow-a: rgba(139, 92, 246, 0.22);   /* purple */
+  --glow-b: rgba(91, 75, 245, 0.18);    /* violet */
+  --glow-c: rgba(165, 180, 252, 0.32);  /* periwinkle */
 }
 
 .dark {
@@ -124,6 +129,11 @@
   --sidebar-ring: oklch(0.66 0.22 275);
   --gradient-hero: linear-gradient(135deg, oklch(0.45 0.20 275) 0%, oklch(0.52 0.22 290) 50%, oklch(0.58 0.20 310) 100%);
   --gradient-subtle: linear-gradient(180deg, oklch(0.15 0 0) 0%, oklch(0.18 0.01 275) 100%);
+
+  /* Dark: neutralize the light-only mesh glow so dark stays pixel-identical. */
+  --glow-a: transparent;
+  --glow-b: transparent;
+  --glow-c: transparent;
 }
 
 @layer base {
@@ -186,6 +196,17 @@
   .dark .grid-bg {
     background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 24 0 L 0 0 0 24' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3C/svg%3E");
     opacity: 0.04;
+  }
+
+  /* Chart bar – highlighted: vertical violet gradient in light (#A78BFA -> #5B4BF5);
+     inactive bars stay light gray-lavender (#E1E3F2). Dark clears the gradient so the
+     plain white/25 background stays identical to before. */
+  .bar-highlight {
+    background-image: linear-gradient(to bottom, #A78BFA 0%, #5B4BF5 100%);
+  }
+  .dark .bar-highlight {
+    background-image: none;
+    background-color: rgba(255, 255, 255, 0.25);
   }
 
   /* Calendar grid borders – light: visible gray, dark: subtle white */

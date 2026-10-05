@@ -20,10 +20,25 @@ export default async function LoginPage({
 
   return (
     <div className="relative flex w-full min-h-screen bg-slate-50 dark:bg-black overflow-hidden">
-      {/* Theme-adaptive background: 24x24 grid + indigo glow (subtler in light, stronger in dark) */}
+      {/* Theme-adaptive background: 24x24 grid (original contrast) + atmospheric violet mesh. */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.05)_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)]" />
-        <div className="absolute left-1/2 top-[-12%] h-[440px] w-[860px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-[160px] dark:bg-indigo-500/35" />
+        {/* Violet mesh: soft glows behind the login card (left), dashboard mockup (right)
+            and a subtle one under the navbar (top center). Dark tokens are transparent,
+            so dark mode keeps only its own glow below. */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(42% 40% at 25% 55%, var(--glow-a), transparent 70%),
+              radial-gradient(42% 40% at 75% 50%, var(--glow-b), transparent 70%),
+              radial-gradient(55% 32% at 50% 5%, var(--glow-c), transparent 70%)`,
+            WebkitMaskImage: "radial-gradient(120% 110% at 50% 45%, black 45%, transparent 85%)",
+            maskImage: "radial-gradient(120% 110% at 50% 45%, black 45%, transparent 85%)",
+          }}
+        />
+        {/* Dark-mode navbar glow – preserved exactly (light mesh above covers light) */}
+        <div className="absolute left-1/2 top-[-12%] h-[440px] w-[860px] -translate-x-1/2 rounded-full blur-[160px] dark:bg-indigo-500/35" />
       </div>
 
       {/* Floating glass nav */}

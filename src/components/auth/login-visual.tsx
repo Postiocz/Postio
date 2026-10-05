@@ -77,8 +77,8 @@ export function LoginVisual({ labels }: LoginVisualProps) {
                     transition={{ duration: 0.6, delay: i * 0.08, ease: "easeOut" as const }}
                     className={`flex-1 rounded-t-md ${
                       i % 2 === 0
-                        ? "bg-slate-200/80 dark:bg-white/25"
-                        : "bg-indigo-400/60 dark:bg-white/25"
+                        ? "bg-[#E1E3F2] dark:bg-white/25"
+                        : "bar-highlight"
                     }`}
                   />
                 ))}

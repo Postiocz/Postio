@@ -3,6 +3,23 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🐛 Marketing page: hydration mismatch (Reveal / framer-motion) ✅
+
+- **Kontext**: Console „A tree hydrated but some attributes of the server rendered HTML didn't match" na marketing stránce. `Reveal` (`src/components/marketing/reveal.tsx`) má `initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}` + `whileInView`; framer-motion 12 v SSR vykreslí inline initial styly a v React 19 / Next 16.2.4 hydration pas loguje mismatch (vizuálně nenáviděné – animace funguje, jen hlučí).
+- **Změny**: `motion.div` v `Reveal` dostal `suppressHydrationWarning` – standardní náprava tohoto framer-motion SSR warningu; SSR HTML i animace beze změny.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Dev server: marketing stránka renderuje OK, žádné jiné console chyby. (Preview prohlížeč má reduced-motion → tento warning se u něj nereprodukuje; finální potvrzení čisté konzole v uživatelově prohlížeči formou hard reload).
+- **Poznámka (bez kódu)**: separátní console error „AuthApiError Invalid Refresh Token" je zastaralá session cookie prohlížeče (benigní, vyřeší se přihlášením/odhlášením) – nesouvisí s tímto fixem, není to bug v kódu.
+
+### 🌐 Detekce jazyka z prohlížeče (Accept-Language) – root "/" redirect ✅
+
+- **Kontext**: Při zadání web adresy (root `/`) se aplikace vždy otevřela v `/cs`, i pro uživatele s EN/UK browser jazykem. Hlubší šetření odhalilo **skutečnou příčinu**: `src/app/page.tsx` (RootPage fallback) mělo natvrdo `redirect("/cs")` – a protože v dev serveru (Next 16.2.4 `--webpack`) se middleware vůbec nedetekuje (`middleware-manifest.json` = `{}`; build/prod middleware kompiluje a spouští, dev ne), přesně tato stránka root redirect fakticky obstarávala. Zároveň auth redirect na dashboard používal `locale` z URL, takže nelokalizovaný vstup hodil přihlášeného uživatele vždy do `/cs/dashboard`.
+- **Změny**:
+  - ✅ `src/app/page.tsx` – hardcoded `redirect("/cs")` nahrazen async detekcí jazyka ze requestu (RSC `cookies()` + `headers()`): **cookie `NEXT_LOCALE`** (poslední explicitní volba switcherem) → **hlavička `Accept-Language`** (jazyk prohlížeče, q-value parsing) → fallback `cs`. Kryje localhost/dev, kde middleware neběží.
+  - ✅ `middleware.ts` – nový helper `detectLocale(request)` se stejným pořadím (cesta → cookie → Accept-Language → `cs`); root `/` redirect → `/{detectLocale(request)}`; auth redirect `restPath === "/"` → `/{detectLocale(request)}/dashboard`. Toto běží na produkci (Vercel) a kryje i nelokalizované cesty jako `/login`.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb) + `npm run build` ✅ (EXIT=0, „ƒ Proxy (Middleware)") + runtime matice:
+  - **Dev** (RootPage): bez hlaviček → `/cs`; `Accept-Language: en` → `/en`; `uk` → `/uk`; cookie `NEXT_LOCALE=en` přebije `cs` Accept-Language → `/en`.
+  - **Prod** (`next start`, debug hlavičky `x-debug-locale`/`x-debug-cookie` prokázaly vykonání middleware): `en` → `/en`; `uk` → `/uk`; cookie → `/en`; `/login` s `en` → `/en/login`.
+
 ### 🌐 Dashboard loading text: i18n převod (bugfix) ✅
 
 - **Kontext**: Po přihlášení se v loading stavu dashboardu zobrazoval natvrdo český text „Načítám dashboard..." i v EN/UK locale – `src/app/[locale]/(dashboard)/dashboard/page.tsx` (loading branch, komponenta `DashboardPage` neměla žádné `useTranslations`).
@@ -72,25 +89,6 @@
   - ✅ Tab bar – `border-white/10 bg-white/[0.03]` → `border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.03]`.
   - ✅ View Live tlačítko – `text-indigo-300` → `text-indigo-600 dark:text-indigo-300` (kontrast ve světlém).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test v light + dark režimu (uživatel potvrdil).
-
-### 📊 Kalendář: per-target analytics (KROK 2+3, FÁZE 1B) + rozšíření Posts ✅
-
-- **Kontext**: FÁZE 1 per-target analytiky hotová pro DB/backend/Posts/Analytics; Kalendář byl poslední vynechaný dílek. Přidána server-side agregace + UI badge na kalendáři, stejný vzor přenesen na Posts stránku.
-- **Změny**:
-  - ✅ **KROK 2 (fetch + agregace)** – `calendar/page.tsx`: `postIds` + fetch `analytics` `.in("post_id")` (bez period filtru, aktuální stav snapshotu), agregace `Map<post_id,{impressions,engagements}>` reduce **SUM přes řádky**. Klíčové: tabulka není time-series (migrace 060/061 = `UNIQUE(post_platform_id)`, 1 řádek = 1 platforma) → FB+IG post = součet obou řádků, žádné dvojnásobení. `src/types/calendar.ts` – `Post.analytics?`.
-  - ✅ **KROK 3 (UI)** – `post-calendar-chip.tsx`: pro published se `engagements > 0` badge `Heart` + krácené číslo (`ml-auto`, jemné); `hover-preview.tsx`: published se `analytics` → řádek `Eye` (dosah) + `Heart` (interakce). Bez nových i18n klíčů.
-  - ✅ **Rozšíření Posts** – sdílený helper `src/lib/analytics-summary.ts` (`fetchAnalyticsByPost`, single source of truth, použit i Kalendářem – žádná duplicitní fetch logika); `formatCompactNumber` přesunut do `src/lib/format.ts` (re-export z calendar chip); analytics připojen ve 3 entry pointech Posts (`page.tsx`, `fetchMorePosts`, `fetchFilteredPosts`); `_post-card.tsx`: jemná pilulka `Eye`+`Heart` **v patičce karty** (datum vlevo, metriky vpravo `ml-auto`; hlavička kolidovala s hover ikonami → přesunuto).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb) + `npm run build` ✅ (celý projekt kompiluje). Viz open retest Kalendáře (refaktor 1:1 na helper, chování identické) a manuál test Posts (published badge, Load more/filtr).
-
-### 🔶 FÁZE 2 (příprava): LinkedIn Analytics – ukládání scope_list (KROK C) ⏳
-
-- **Kontext**: Pokračování FÁZE 2. Migrace 062 (`scope_list` TEXT[] nullable) aplikovaná na produkci 2026-09-17; KROK B (banner + data flow) commitnutý (`9da23e9`). KROK C připravuje ukládání `scope_list` při OAuth reconnectu, akivace proběhne s KROKEM D (přidání `r_member_postAnalytics` do scope, až LinkedIn schválí CM API).
-- **Změny**:
-  - ✅ `src/app/api/accounts/linkedin/route.ts` – konstanta `TARGET_SCOPES` (single source of truth pro authorize URL i `scope_list`); hardcoded scope string nahrazen `TARGET_SCOPES.join(" ")` (identické chování, žádný scope navíc); upsert doplněn o `scope_list` s KROK D gate – uloží se jen když `TARGET_SCOPES` obsahuje `r_member_postAnalytics` (dnes NULL).
-  - ✅ `src/lib/scope-utils.ts` (nový) – dva helpery: `hasScope(scopeList, scope)` (NULL/undefined → `false`, použit v gate v route) a `needsReconnect(scopeList, scope)` (banner).
-  - ✅ `page.tsx` – banner přepnut na `needsReconnect(...)`. 🐛 **Bugfix:** `!hasScope()` sloučil „scope neznámo" (NULL) s „víme, že nemá" a banner se chybně zobrazil u legacy účtu (Kateřina Nyklová); `needsReconnect` vrací `true` jen pro ne-null pole bez scope → NULL účty se neobtěžují.
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Banner se dnes nikde nezobrazuje (`scope_list = NULL` u všech účtů → `needsReconnect` = `false`).
-- **Následující kroky (čekají na LinkedIn schválení)**: KROK D (přidání `r_member_postAnalytics` do `TARGET_SCOPES` – zapne ukládání i banner), KROK E (analytics stránka).
 
 
 

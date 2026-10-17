@@ -1177,8 +1177,14 @@ export default function AccountsPage() {
           }}
           t={{
             title: t("connectModal.title"),
-            autoPublishing: t("connectModal.autoPublishing"),
-            analytics: t("connectModal.analytics"),
+            autoPublishing:
+              connectModalPlatform.id === "tiktok"
+                ? t("connectModal.autoPublishingTikTok")
+                : t("connectModal.autoPublishing"),
+            analytics:
+              connectModalPlatform.id === "tiktok"
+                ? t("connectModal.analyticsTikTok")
+                : t("connectModal.analytics"),
             aiAssistant: t("connectModal.aiAssistant"),
             warningTitle: t("connectModal.warningTitle"),
             warningDesc:
@@ -1193,7 +1199,10 @@ export default function AccountsPage() {
                       : connectModalPlatform.id === "tiktok"
                         ? t("connectModal.warningDescTikTok")
                         : t("connectModal.warningDesc"),
-            connectButton: t("connectModal.connectButton"),
+            connectButton:
+              connectModalPlatform.id === "tiktok"
+                ? t("connectModal.connectButtonTikTok")
+                : t("connectModal.connectButton"),
             learnMore: t("connectModal.learnMore"),
             errorTitle: t("connectModal.errorTitle"),
             alreadyConnected: t("connectModal.alreadyConnected"),
@@ -1208,7 +1217,7 @@ export default function AccountsPage() {
                     : connectModalPlatform.id === "twitter"
                       ? "https://developer.twitter.com/en/docs/twitter-api"
                       : connectModalPlatform.id === "tiktok"
-                        ? "https://developers.tiktok.com/doc/"
+                        ? undefined
                         : "https://www.facebook.com/business/help/193027849380904",
           }}
         />

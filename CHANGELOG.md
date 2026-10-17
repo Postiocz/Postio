@@ -3,6 +3,12 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### ✏️ Connect TikTok modal – TikTok-specific texty (text-only, i18n) ✅
+
+- **Kontext**: Modal „Connect TikTok" sdílel s ostatními platformami texty (`autoPublishing`, `analytics`, `connectButton`), obsahoval nedoložitelné „Tokens expire in 15 days" a „securely" a odkaz „Have a personal account? Learn how to switch". Ověřeno: kód i TikTok docs znají access token 24h / refresh 365 dní, číslo 15 dní nelze doložit.
+- **Změny**: Nové TikTok klíče `autoPublishingTikTok`/`analyticsTikTok`/`connectButtonTikTok` + úprava `warningDescTikTok` ve cs/en/uk (bez počtu dní, bez „securely" – jen věta o uložení na serveru); pro TikTok odebrán `learnMoreUrl` (= `undefined`), takže odkaz zmizí. Žádná změna logiky, OAuth, scopes ani publikování.
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), JSON validní a klíče shodné ve 3 localech.
+
 ### 🐛 Marketing page: hydration mismatch (Reveal / framer-motion) ✅
 
 - **Kontext**: Console „A tree hydrated but some attributes of the server rendered HTML didn't match" na marketing stránce. `Reveal` (`src/components/marketing/reveal.tsx`) má `initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}` + `whileInView`; framer-motion 12 v SSR vykreslí inline initial styly a v React 19 / Next 16.2.4 hydration pas loguje mismatch (vizuálně nenáviděné – animace funguje, jen hlučí).
@@ -81,14 +87,6 @@
   - ✅ Hardcoded stringy nahrazené voláním `t("...", { platform: platformLabel })` – překlad se nyní řídí vybranou lokálí (cs/en/uk).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXITCODE=0), ICU formátování ověřeno přes `next-intl` translator (vše 3 locale: „Update on Facebook", „Оновити на Facebook"…). ESLint: 2 errory na ř. 793/855 jsou **předexistující** (mimo diff hunky, `react-hooks/set-state-in-effect`), zatím netknuto.
 
-### 🐛 Preview modal: light mode – oprava natvrdo tmavého chrome ✅
-
-- **Kontext**: Modal "Zobrazit náhled" (`preview-dialog.tsx`, používán na Kalendáři i Posts) zůstával v light mode natvrdo tmavý – neladil s okolím. Samotná high-fidelity simulace feedů (FB/X/IG/TikTok) zůstává tmavá záměrně (věrná reálným sítím); opraveno okolní chrome modalu.
-- **Změny**:
-  - ✅ `DialogContent` – `bg-black/95 border-white/10` → `bg-background/95 border-black/5 dark:border-white/10` (theme-aware pomocí CSS proměnných).
-  - ✅ Tab bar – `border-white/10 bg-white/[0.03]` → `border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.03]`.
-  - ✅ View Live tlačítko – `text-indigo-300` → `text-indigo-600 dark:text-indigo-300` (kontrast ve světlém).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test v light + dark režimu (uživatel potvrdil).
 
 
 

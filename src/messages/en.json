@@ -285,6 +285,7 @@
   },
   "dashboard": {
     "title": "Welcome to Postio",
+    "loading": "Loading dashboard...",
     "todoTitle": "To do",
     "copyText": "Copy text",
     "copied": "Copied",

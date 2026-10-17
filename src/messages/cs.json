@@ -285,6 +285,7 @@
   },
   "dashboard": {
     "title": "Vítejte v Postio",
+    "loading": "Načítám dashboard...",
     "todoTitle": "K vyřízení",
     "copyText": "Kopírovat text",
     "copied": "Zkopírováno",

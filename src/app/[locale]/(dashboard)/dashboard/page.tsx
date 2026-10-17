@@ -185,6 +185,7 @@ export default function DashboardPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  const t = useTranslations("dashboard");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({
     totalPosts: 0,
@@ -489,7 +490,7 @@ export default function DashboardPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-muted-foreground">Načítám dashboard...</div>
+        <div className="animate-pulse text-muted-foreground">{t("loading")}</div>
       </div>
     );
   }

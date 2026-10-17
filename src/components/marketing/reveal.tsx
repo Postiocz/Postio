@@ -21,6 +21,7 @@ export function Reveal({
 
   return (
     <motion.div
+      suppressHydrationWarning
       className={className}
       initial={reduce ? false : { opacity: 0, y: 24, filter: "blur(8px)" }}
       whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}

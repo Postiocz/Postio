@@ -263,6 +263,9 @@ export function PostsContainer({
           statusFailedLabel={tStatusFailed}
           statusRemovedExternallyLabel={tStatusRemovedExternally}
           statusArchivedLabel={tStatusArchived}
+          platformLabel={t("platform")}
+          statusLabel={t("status")}
+          sortLabel={t("sortBy")}
           tagValue={activeTag}
           tagOptions={tags}
           tagLabel={tFilterByTag}

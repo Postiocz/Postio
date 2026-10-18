@@ -94,12 +94,14 @@ Tato pravidla mají striktní prioritu při implementaci features spojených s p
 
 | Platforma | Editace textu | Smazání | UI Chování |
 |---|---|---|---|
-| **Facebook** | ✅ Ano | ✅ Ano | Zdůrazni tlačítko "Aktualizovat na sítích" |
-| **Instagram** | ❌ Ne | ✅ Ano | Info banner: "Editace není platformou podporována" |
-| **LinkedIn** | ❌ Ne | ✅ Ano | Info banner: "Editace není platformou podporována" |
-| **TikTok** | ❌ Ne | ❌ Ne | Ikona zámku 🔒 – úplné uzamření po publikování |
-| **YouTube** | ✅ Ano | ✅ Ano | Plná podpora editace i smazání |
-| **X (Twitter)** | ❌ Ne | ✅ Ano | Smazání funguje, editace není podporována API |
+| **Facebook** | ✅ Ano | ✅ Ano (API DELETE přes Graph) | Zdůrazni tlačítko "Aktualizovat na sítích" |
+| **Instagram** | ❌ Ne | ⚠️ Ano (API DELETE se pokouší, v praxi ji API odmítá → archivace + ruční smazání) | Info banner: "Editace není platformou podporována" |
+| **LinkedIn** | ❌ Ne | ✅ Ano (archivace v Postio + ruční smazání, ŽÁDNÉ API volání) | Info banner: "Editace není platformou podporována" |
+| **TikTok** | ❌ Ne | ❌ Ne (archivace v Postio + ruční smazání, ŽÁDNÉ API volání) | Ikona zámku 🔒 – úplné uzamření po publikování |
+| **YouTube** | ✅ Ano | ✅ Ano (API DELETE) | Plná podpora editace i smazání |
+| **X (Twitter)** | ❌ Ne | ✅ Ano (API DELETE) | Smazání funguje, editace není podporována API |
+
+**Single source of truth pro API mazání:** schopnost smazat publikovaný post přes API pro VŠECH 6 sítí řídí registr `DELETE_CAPABILITIES` ve `src/lib/delete-capabilities.ts` (+ čistá funkce `buildDeleteTargets`). Modal (`delete-post-dialog.tsx`) i backend (`deleteFromMeta` v `publish.ts`, `deletePost` v `posts.ts`) čtou tentýž přepínač – změna na JEDEN řádek přeladí chování všude. Platforma BEZ API mazání (TikTok, LinkedIn) dostane vždy informační box „smaž ručně" (nikdy checkbox) a backend nevolá žádné API; publikovaná síť s `apiDelete=true`, ale bez `external_id`, se zachová stejně (info box + archivace). Při neúspěchu smazání jedné sítě se příspěvek v Postio NEztratí (řádek zůstává published / archivuje se) a uživatel je na to upozorněn toastem.
 
 ### 2. Validace médií (před odesláním)
 

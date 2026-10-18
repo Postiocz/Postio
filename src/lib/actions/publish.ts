@@ -3,6 +3,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { buildFinalCaption } from "@/lib/caption";
+import { canDeleteViaApi } from "@/lib/delete-capabilities";
 import { sanitizeMediaUrl } from "@/lib/utils";
 import { publishToYouTubeAction } from "@/lib/actions/publish-youtube";
 import { publishToLinkedInAction } from "@/lib/actions/publish-linkedin";
@@ -1773,31 +1774,34 @@ export async function deleteFromMeta(input: {
     ? postPlatforms.find((r) => r.account_id === input.accountId && r.status === "published")
     : postPlatforms.find((r) => r.platform === input.platform && r.status === "published");
   const platform = targetRow?.platform ?? input.platform ?? "";
+  const externalId = targetRow?.external_id ?? null;
 
-  // LinkedIn soft-archive: Postio does not call the LinkedIn UGC API
-  // DELETE (it has no working sync, so we cannot reliably confirm
-  // that an API DELETE actually took effect). Instead, the user is
-  // told via toast to remove the post manually on LinkedIn, and
-  // Postio updates the LinkedIn row to `status="archived"` so the
-  // PostCard keeps showing the post with a greyed-out LinkedIn
-  // icon – a visible reminder that the post was once published on
-  // LinkedIn. We also clear `external_id` because (per the user's
-  // manual test) the API still returns the same value even after
-  // the post is gone on the platform, so keeping it would just be
-  // misleading metadata.
+  if (!externalId) {
+    logger.debug(`deleteFromMeta: Na platformě ${platform} není ID (externalId chybí). Přeskakujeme API volání.`);
+  }
+
+  // Can't remove the post through the platform API when (a) the platform has
+  // no working API delete (LinkedIn, TikTok, … per DELETE_CAPABILITIES) or
+  // (b) the row carries no reference id (`external_id`) to call it with.
+  // Both cases behave the same: Postio NEVER calls a platform API, the row is
+  // soft-archived (`status="archived"`, grey icon, `external_id` cleared,
+  // `published_at` kept) and the user removes the post manually on the
+  // platform (a reminder toast is shown by the dialog).
   //
-  // Returns `success: true, cannotDeleteViaApi: true` so the
-  // calling dialog:
-  // - treats it as "succeeded in Postio" (increments deletedCount,
-  //   so the user gets a confirmation toast);
-  // - knows the API was NOT called (so the "smazat ručně" toast
-  //   is still shown).
-  if (platform === "linkedin") {
+  // `canDeleteViaApi()` is the single source of truth shared with the
+  // DeletePostDialog, so flipping the registry flag flips the behaviour in
+  // both the UI and the backend at once. (This branch was previously split
+  // into a dedicated LinkedIn and TikTok block – both identical.)
+  //
+  // Returns `success: true, cannotDeleteViaApi: true` so the calling dialog:
+  // - treats it as "succeeded in Postio" (increments the deleted count);
+  // - knows the API was NOT called (so the "smazat ručně" toast is shown).
+  if (!canDeleteViaApi(platform) || !externalId) {
     if (!targetRow) {
       return {
         success: false,
         cannotDeleteViaApi: true,
-        error: "LinkedIn řádek nenalezen nebo již není publikovaný.",
+        error: `${platform} řádek nenalezen nebo již není publikovaný.`,
       };
     }
 
@@ -1810,67 +1814,21 @@ export async function deleteFromMeta(input: {
         archive_reason: "user_removed_manually",
         external_id: null,
         // Keep `published_at` so the user can see when the post was
-        // originally published (used by some analytics / PostCard
-        // date displays).
+        // originally published (used by analytics / PostCard display).
       })
       .eq("id", targetRow.id);
 
     if (archiveError) {
       logger.error(
-        `[deleteFromMeta] LinkedIn archive failed for post ${input.postId}:`,
+        `[deleteFromMeta] ${platform} archive failed for post ${input.postId}:`,
         archiveError,
       );
       return { success: false, cannotDeleteViaApi: true, error: archiveError.message };
     }
 
-
     logger.debug(
-      `[deleteFromMeta] LinkedIn row archived (no API DELETE) for post ${input.postId}`,
+      `[deleteFromMeta] ${platform} row archived (no API DELETE) for post ${input.postId}`,
     );
-
-    revalidateAllLocales("/calendar");
-    revalidateAllLocales("/posts");
-    revalidateAllLocales("/dashboard");
-
-    return {
-      success: true,
-      cannotDeleteViaApi: true,
-    };
-  }
-
-  // --- TikTok soft-archive ---
-  // Postio does not call the TikTok API DELETE (the API does not support
-  // deleting videos programmatically on the free tier). Instead, the user
-  // is told via toast to remove the post manually on TikTok, and Postio
-  // archives the TikTok row so the PostCard keeps showing the post with
-  // a greyed-out TikTok icon.
-  if (platform === "tiktok") {
-    if (!targetRow) {
-      return {
-        success: false,
-        cannotDeleteViaApi: true,
-        error: "TikTok řádek nenalezen nebo již není publikovaný.",
-      };
-    }
-
-    const now = new Date().toISOString();
-    const { error: archiveError } = await supabase
-      .from("post_platforms")
-      .update({
-        status: "archived",
-        archived_at: now,
-        archive_reason: "user_removed_manually",
-        external_id: null,
-        // Keep `published_at` so analytics still work
-      })
-      .eq("id", targetRow.id);
-
-    if (archiveError) {
-      logger.error(`[deleteFromMeta] TikTok archive failed for post ${input.postId}:`, archiveError);
-      return { success: false, cannotDeleteViaApi: true, error: archiveError.message };
-    }
-
-    logger.debug(`[deleteFromMeta] TikTok row archived (no API DELETE) for post ${input.postId}`);
 
     revalidateAllLocales("/calendar");
     revalidateAllLocales("/posts");
@@ -1885,12 +1843,6 @@ export async function deleteFromMeta(input: {
   const publishedPlatforms = postPlatforms.filter((platformRow) => platformRow.status === "published");
   if (publishedPlatforms.length === 0) {
     return { success: false, error: "Příspěvek není publikován." };
-  }
-
-  const externalId = targetRow?.external_id ?? null;
-
-  if (!externalId) {
-    logger.debug(`deleteFromMeta: Na platformě ${platform} není ID (externalId chybí). Přeskakujeme API volání na Meta.`);
   }
 
   // Verify the target platform is in published_platforms

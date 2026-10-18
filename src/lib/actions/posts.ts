@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { setPostTags } from "@/lib/actions/tag-actions";
+import { canDeleteViaApi } from "@/lib/delete-capabilities";
 import {
   checkYouTubeVideoExists,
   getValidYouTubeAccessToken,
@@ -440,7 +441,12 @@ export async function deletePost(id: string) {
   // Try to delete from Meta (Facebook / Instagram) if the post was published
   // Wrapped in try-catch: even if Meta API fails completely, we still delete from our DB
   try {
-    if (externalId && isPublished) {
+    // Only platforms with a working API delete (per DELETE_CAPABILITIES,
+    // shared with the DeletePostDialog) may hit the Graph API. TikTok /
+    // LinkedIn never get an API DELETE even if an external_id exists –
+    // the dialog already archived those rows and told the user to remove
+    // the post manually on the platform.
+    if (canDeleteViaApi(targetPlatform) && externalId && isPublished) {
 
 
       const { data: accounts, error: accountError } = await supabase

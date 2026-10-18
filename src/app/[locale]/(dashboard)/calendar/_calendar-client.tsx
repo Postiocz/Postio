@@ -43,6 +43,7 @@ export function CalendarClient({
     saving?: string;
     addMedia?: string;
     addTags?: string;
+    location?: string;
     locationPlaceholder?: string;
     postCreated?: string;
     errorSaving?: string;

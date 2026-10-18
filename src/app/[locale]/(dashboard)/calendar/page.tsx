@@ -131,6 +131,7 @@ export default async function CalendarPage({
           noInternalTags: t("noInternalTags"),
           selectColor: t("selectColor"),
           add: t("add"),
+          location: t("location"),
           locationPlaceholder: t("locationPlaceholder"),
           postCreated: t("postCreated"),
           errorSaving: t("errorSaving"),

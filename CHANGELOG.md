@@ -3,6 +3,17 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 i18n: české popisky v EN/UK UI + náhled bez čísel (text-only) ✅
+
+- **Kontext**: V EN/UK UI zůstávaly natvrdo české popisky – „Lokace" (New Post, Edit Post, kalendář, detail postu) a „Platforma"/„Stav"/„Seřadit" (české defaulty filtrů v `PostFiltersRow`). V TikTok náhledu (`preview-dialog.tsx`) se u akčních ikon zobrazovala smyšlená čísla (12.4K/134/456/12) a TikTok sandbox hint mluvil o „private section", zatímco video je v sekci Videos se zámkem.
+- **Změny**:
+  - ✅ Nové klíče `location` (namespace `posts` i `calendar`) a `platform` (posts) v cs/en/uk; existující `posts.status`/`posts.sortBy` napojeny do filtru Posts.
+  - ✅ `PostFiltersRow` na seznamu Posts dostává `platformLabel`/`statusLabel`/`sortLabel` (`_posts-container.tsx`).
+  - ✅ „Lokace" → `t("location")` v `edit-post-dialog`, `posts/new`, `posts/[id]` a přes `tCalendar.location` v `_calendar-view` (propojeno v `calendar/page.tsx` + typ v `_calendar-client`).
+  - ✅ `preview-dialog.tsx`: odstraněna čísla u TikTok ikon (ikony zůstávají vertikálně vystředěné) – zůstává video, nickname, avatar, caption.
+  - ✅ `tiktokSandboxProfileHint` přepsán ve všech jazycích: „Sandbox mode links to the profile – the video appears under Videos with a lock icon (private)."
+- **Ověření**: JSON validní a klíče shodné ve 3 localech (posts 280, calendar 134), `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXIT=0). Žádná změna logiky publikování.
+
 ### ✏️ Connect TikTok modal – TikTok-specific texty (text-only, i18n) ✅
 
 - **Kontext**: Modal „Connect TikTok" sdílel s ostatními platformami texty (`autoPublishing`, `analytics`, `connectButton`), obsahoval nedoložitelné „Tokens expire in 15 days" a „securely" a odkaz „Have a personal account? Learn how to switch". Ověřeno: kód i TikTok docs znají access token 24h / refresh 365 dní, číslo 15 dní nelze doložit.
@@ -79,13 +90,6 @@
   - ✅ **TikTok username** – state `tiktokUsername` nahrazen derivaciou `tiktokUsernameFromDb ?? tiktokCreatorInfo?.creatorUsername ?? null` (DB-resolved hodnota má prioriteto, jinak `creator_info` cache); efekt robí jen async fetch do `tiktokUsernameFromDb`, `tiktokCreatorInfo` vypadl z efekt deps. Žádný synchronní set v efektě.
 - **Ověření**: `npx eslint src/components/edit-post-dialog.tsx` ✅ **0 errors** (3 warningy předexistující – exhaustive-deps, media-has-caption, no-img-element), `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXITCODE=0). Manuál test X gating + TikTok live URL u uživatele ✅ (2026-09-28).
 
-### 🌐 Editace postu: tlačítko „Aktualizovat na {platform}" + info popisek – i18n oprava ✅
-
-- **Kontext**: Na stránce editace publikovaného postu se u sítí s podporou editace (napr. Facebook) zobrazuje tlačítko „Aktualizovat na {platform}" a nad ním info popisek „Text byl změněn…" – obojí mělo natvrdo zacompilované české stringy ve frontend kódu, takže v EN/UK (a částečně i češtině, hybrid „Publikovat na Facebook") zůstávalo špatně. Kritické řádky: `src/components/edit-post-dialog.tsx` 1166, 2761, 2794, 2810.
-- **Změny**:
-  - ✅ 4 nové ICU klíče s placeholderem `{platform}` v namespacech `posts` **i** `calendar` v cs/en/uk: `publishToPlatform` (nahradil hybrid `{t("publishToSelected")} na {platformLabel}`), `updateOnPlatform`, `contentChangedUpdatePrompt`, `remoteUpdateSuccess` (toast po aktualizaci).
-  - ✅ Hardcoded stringy nahrazené voláním `t("...", { platform: platformLabel })` – překlad se nyní řídí vybranou lokálí (cs/en/uk).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXITCODE=0), ICU formátování ověřeno přes `next-intl` translator (vše 3 locale: „Update on Facebook", „Оновити на Facebook"…). ESLint: 2 errory na ř. 793/855 jsou **předexistující** (mimo diff hunky, `react-hooks/set-state-in-effect`), zatím netknuto.
 
 
 

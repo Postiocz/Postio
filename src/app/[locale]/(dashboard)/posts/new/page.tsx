@@ -1669,7 +1669,7 @@ export default function NewPostPage() {
 
           {/* Location */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">Lokace</Label>
+            <Label className="text-sm font-medium text-muted-foreground">{t("location")}</Label>
             <div className="relative">
               <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
               <Input

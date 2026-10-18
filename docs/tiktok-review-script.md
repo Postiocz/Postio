@@ -82,7 +82,8 @@
 3. Below it:
    - **Interactions**: Allow comments unticked; **Allow duet and Allow stitch are
      greyed out** ("unavailable for this account" – disabled in `creator_info`).
-   - **Maximum video length: 600 s** (from `max_video_post_duration_sec`).
+   - **Maximum video length** (value from `max_video_post_duration_sec`, read it from
+     the screen; do not put the number in captions, it varies by account).
 4. The **Commercial content** toggle starts **off** (shown as is). On camera: turn the
    toggle **on** – two choices appear: **Brand Organic** ("Promoting myself/my business" –
    'Promotional content') and **Branded Content** ("Promoting another brand" –
@@ -141,45 +142,72 @@
 
 ## Scene 6 — Verification (40 s)
 
-1. The **second browser tab on `tiktok.com` is opened beforehand**, logged in on the
-   private test account.
-2. In Postio, open the published post from **Posts** → edit dialog → TikTok tab.
-   - It shows the embedded mobile-like TikTok preview (video + nickname + avatar + caption).
-   - A lock banner states: "Postio blocks editing of the published TikTok post; removal
-     is handled separately (Scene 6B)".
-3. **Live proof** on TikTok: switch to the `tiktok.com` tab → open **Profile** on the
-   left → the **Videos** tab (there is no separate "private" tab).
-   - Private videos show a **lock icon**; the account has a **lock next to its name**.
-   - Playing the video shows the **"Private"** label with a lock **and** the
-     **"Promotional content"** label (published as Brand Organic).
-   - **TODO – verify manually on the English TikTok UI**: **after how long** the video
-     appears on tiktok.com (the UI says processing may take a few minutes – wait and
-     refresh; don't invent a duration until verified).
-   On-screen text: "The video reached the connected TikTok account on tiktok.com."
+> Starts on the **Posts** list with the published post. The video must already be visible
+> on the TikTok profile (record after processing finished).
 
-> ⚠️ **Critical**: the TikTok account is **private** – the video will not be found in
-> the public feed. Do not record a scene implying public visibility. Wait for
-> processing (a few minutes) before looking for the video.
+1. On the post card click the **pencil** icon (Edit) → **Edit Post** opens.
+   On-screen text: "Open the published post in the edit dialog."
+2. A yellow banner with a lock is pinned at the bottom: "TikTok does not support editing
+   or deleting posts after publishing." Hold it ~4 s, then click **Cancel**. (Do not scroll
+   down in Edit Post: the "Lokace" label is still Czech.)
+   On-screen text: "The edit dialog states: TikTok does not support editing or deleting
+   posts after publishing."
+3. On the card click the **eye** icon (Preview) → a window with the TikTok preview (video +
+   nickname + avatar + caption). Click **View on network** → a new `tiktok.com` tab opens
+   on the account profile.
+   On-screen text: "Preview → View on network opens the connected account on tiktok.com."
+4. **Live proof** on TikTok (EN UI): profile → **Videos** tab (there is no separate
+   "private" tab).
+   - The private video shows a **lock icon** on its thumbnail; the account has a **lock next
+     to its name**.
+   - Opening the video shows **"Private"** with a lock, the **"Promotional content"** label
+     (published as Brand Organic) and **"Comments are turned off"** (comments were not
+     allowed). Hold for at least 5 s. Do not click anything: TikTok itself offers
+     "View Analytics" and sharing; Postio does not use them.
+   - **TODO – verify manually**: **after how long** the video appears on tiktok.com (the UI
+     says processing may take a few minutes; don't invent a duration until verified).
+   On-screen text: "On tiktok.com: Profile → Videos. The video shows a lock icon, the
+   "Private" label and "Promotional content" (Brand Organic)."
+
+> ⚠️ **Fix before recording:** the preview window (eye icon) currently shows made-up numbers
+> (12.4K, 134, 456, 12) and, under View on network, a text about a "private section".
+> Both must be fixed and deployed.
+
+> ⚠️ **Critical**: the TikTok account is **private** – the video will not be found in the
+> public feed. Do not record a scene implying public visibility.
 
 ---
 
-## Scene 6B — Delete after publishing (soft-archive) (25 s)
+## Scene 6B — Delete after publishing (archive) (25 s)
 
-> A dedicated scene because **TikTok's documentation provides no video-deletion
-> endpoint** (Content Posting API / Content Sharing Guidelines have no delete for
-> videos). Postio therefore does not call an API DELETE – it asks the user to remove
-> the video **manually** and archives the TikTok row (soft-archive).
+> A dedicated scene because **TikTok's documentation provides no video-deletion endpoint**
+> (Content Posting API / Content Sharing Guidelines have no delete for videos). Postio
+> therefore does not call an API DELETE: the delete dialog explains that the video must be
+> removed manually on TikTok after it is removed from Postio, and **archives** the post by
+> default (keeps the publish date and network data; the card stays in the Posts list with an
+> **Archived** badge, a "deleted <date>" note and a **greyed-out TikTok icon**).
 
-1. In the edit dialog (or the post card menu) click **Delete/Remove** and confirm.
-2. Postio shows a **toast/banner**: TikTok's API cannot delete a video → the user must
-   remove it **manually on TikTok**.
-3. The TikTok row is archived (`status: archived`, `archive_reason: user_removed_manually`);
-   the post card stays, but the TikTok icon is **greyed out**.
-   On-screen text: "TikTok's API does not support deleting videos programmatically. Postio
-   asks the user to remove the video manually and archives the TikTok row (greyed-out icon)."
+1. On the **Posts** list click the red **trash** icon on the post card.
+2. The **Delete Post** dialog opens: intro text (on platforms without API deletion, LinkedIn
+   and TikTok, the post must be removed manually), a yellow box "TikTok doesn't allow
+   deleting videos through its API. After you delete or archive this post in Postio, please
+   remove the video manually in the TikTok app.", the red **unticked** "Permanently delete
+   from the Postio app" and a note that the post is saved as archived. Keep the dialog
+   readable for ~6 s.
+   On-screen text: "The delete dialog notes that TikTok doesn't allow deleting videos through
+   its API, so the video must be removed manually."
+3. Click **Confirm deletion** (do **not** tick permanent deletion). The card stays in the
+   Posts list, now with the **Archived** badge and a "deleted <date>" note. A toast appears
+   (verified).
+   On-screen text: "Confirming archives the post in Postio; the user then removes the video
+   manually on TikTok."
+4. Show the card in the Posts list (**Status: All**) with the **Archived** badge, the
+   "deleted <date>" note and the **greyed-out TikTok icon**.
+   On-screen text: "The post stays in Postio history, marked Archived, with a greyed-out
+   TikTok icon."
 
-> ⚠️ **Critical**: this scene **must run without any error screen** – only the friendly
-> toast/banner about manual deletion; no error toast.
+> ⚠️ **Critical**: this scene **must run without any error screen** – only the dialog, the
+> friendly toast and the archived post. After recording, delete the video manually on TikTok.
 
 ---
 
@@ -197,7 +225,7 @@
 - [ ] Sandbox `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` set in Vercel
 - [ ] English locale (`/en/...`) selected; **Location and tags empty**
 - [ ] Test TikTok account **private**, **switched to English**, and logged in;
-      **tiktok.com tab opened beforehand**
+      (the `tiktok.com` tab opens via **View on network** in Scene 6)
 - [ ] TikTok consent screen visible ≥ 5 s with the scopes shown (Scene 2)
 - [ ] Commercial content: toggle on, tick only Brand Organic ("Promoting myself/my
       business"), never tick Branded Content, keep the toggle on until publish
@@ -205,6 +233,8 @@
       scene with a character**)
 - [ ] `@postio-app.cz` reviewer account used (Launch Guard unlock)
 - [ ] Scene 5 and 6B without any error screen
+- [ ] Preview window (eye icon) **without made-up numbers** and the delete dialog **restored**
+      (both fixed and deployed before recording)
 - [ ] **Hidden browser bookmark bar**; **taskbar cropped**; no secrets visible (no
       tokens, no console logs)
 - [ ] 1080p or higher, 16:9, stable mouse pointer, readable cursor, zoom at 100% default

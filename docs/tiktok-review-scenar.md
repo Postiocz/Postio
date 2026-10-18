@@ -23,14 +23,15 @@
 - [ ] **Sandbox klíče ve Vercelu**: ve Vercelu (produkční doména) musí být nastavené
       **sandbox `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET`**, pokud natáčíme před
       schválením appky.
-- [ ] **Testovací TikTok účet** nastavený jako **soukromý** a přihlášený (Scene 6).
+- [ ] **Testovací TikTok účet** nastavený jako **soukromý**, přepnutý na angličtinu a přihlášený
+      ve stejném prohlížeči (Scene 6; karta `tiktok.com` se otevře tlačítkem **View on network**).
 - [ ] **Postio testovací účet** (`@postio-app.cz` doména nebo admin) – Launch Guard odemyká
       TikTok/FB/IG jen pro admin a `@postio-app.cz` účty. Přihlas se **před** nahráváním,
       ať je Scene 1 rychlá.
 - [ ] **Krátký neutrální `.mp4` klip** (pár sekund, bez hudby/vodoznaku; formáty
       mp4 / mov / m4v / webm / mkv).
 - [ ] **EN locale** (`/en/...`) nastavena; **Lokace a tagy v editoru prázdné** (štítek
-      „Lokace" je v UI česky – ať není vidět v nahrávce).
+      „Lokace" je v UI zatím česky – odpadne po opravě překladu; do té doby ho nezobrazuj).
 - [ ] **Prohlížeč**: desktop, angličtina, stabilní kurzor, zoom 100 %, **oříznutý taskbar**.
 - [ ] **Bez tajemství na obrazovce**: žádné access tokeny, žádné konzolové logy.
 
@@ -105,7 +106,8 @@
 3. Pod ním se zobrazí:
    - **Interakce**: Allow comments (nezaškrtnutá), **Allow duet a Allow stitch jsou
      šedé** („unavailable for this account" – tvůrce je zakázal v `creator_info`).
-   - **Maximální délka videa: 600 s** (z `max_video_post_duration_sec`).
+   - **Maximální délka videa** (číslo z `max_video_post_duration_sec`, čti ho z obrazovky;
+     do titulků ho nepiš, mění se podle účtu).
 4. **Commercial content** toggle je ve výchozím stavu **vypnutý** (ukázat tak, jak je).
    Na kameře toggle **zapni** – objeví se dvě volby: **Brand Organic** („Promoting
    myself/my business" – „Promotional content") a **Branded Content** („Promoting
@@ -164,46 +166,68 @@
 
 ## Scene 6 — Verification (40 s)
 
-1. **Druhá záložka prohlížeče na `tiktok.com` je otevřená předem** a přihlášená na
-   soukromý testovací účet.
-2. V Postio otevři publikovaný post z **Posts** → edit dialog → TikTok tab.
-   - Zobrazuje vložený mobile-like TikTok náhled (video + nickname + avatar + caption).
-   - Lock banner: „Postio blocks editing of the published TikTok post; removal is
-     handled separately (Scene 6B)".
-3. **Živý důkaz** na TikToku: přepni se do záložky `tiktok.com` → otevři **Profil**
-   vlevo → záložka **Videa** (samostatná „soukromá záložka" neexistuje).
-   - Soukromá videa mají **ikonu zámku**; účet má **zámek vedle jména**.
-   - Po otevření videa je štítek **„Private"** se zámkem **a štítek „Promotional
-     content"** (video bylo publikované jako Brand Organic).
-   - **TODO – ověřit ručně na EN TikToku**: **po jaké době** se video objeví na
-     tiktok.com (text v UI říká, že zpracování může trvat **pár minut** – počkej
-     a aktualizuj. **Nic nevymýšlej**, dokud není ověřeno).
-   Titulek: „The video reached the connected TikTok account on tiktok.com."
+> Začíná na seznamu **Posts** s publikovaným postem. Video už musí být na TikToku vidět na
+> profilu (natáčej až po zpracování).
+
+1. Na kartě postu klikni na ikonu **tužky** (Edit) → otevře se **Edit Post**.
+   Titulek: „Open the published post in the edit dialog."
+2. Dole je připnutý žlutý banner se zámkem: „TikTok does not support editing or deleting
+   posts after publishing." Nech ho ~4 s a klikni **Cancel**. (V Edit Post nescrolluj dolů:
+   popisek „Lokace" je zatím česky.)
+   Titulek: „The edit dialog states: TikTok does not support editing or deleting posts
+   after publishing."
+3. Na kartě klikni na ikonu **oka** (Preview) → okno s TikTok náhledem (video + nickname +
+   avatar + caption). Klikni **View on network** → otevře se nová karta `tiktok.com`
+   s profilem účtu.
+   Titulek: „Preview → View on network opens the connected account on tiktok.com."
+4. **Živý důkaz** na TikToku (EN UI): profil → záložka **Videos** (samostatná „soukromá
+   záložka" neexistuje).
+   - Soukromé video má **ikonu zámku** na náhledu; účet má **zámek vedle jména**.
+   - Po otevření videa je vidět **„Private"** se zámkem, štítek **„Promotional content"**
+     (publikováno jako Brand Organic) a **„Comments are turned off"** (komentáře nebyly
+     povoleny). Drž aspoň 5 s. Na nic neklikej: TikTok sám nabízí „View Analytics"
+     a sdílení, Postio je nepoužívá.
+   - **TODO – ověřit ručně**: **po jaké době** se video objeví na tiktok.com (text v UI
+     říká, že zpracování může trvat **pár minut**; nic nevymýšlej, dokud není ověřeno).
+   Titulek: „On tiktok.com: Profile → Videos. The video shows a lock icon, the "Private"
+   label and "Promotional content" (Brand Organic)."
+
+> ⚠️ **Opravit před natáčením:** okno s náhledem (ikona oka) dnes ukazuje vymyšlená čísla
+> (12.4K, 134, 456, 12) a pod tlačítkem View on network text o „private section". Obojí musí
+> být opraveno a nasazeno.
 
 > ⚠️ **KRITICKÉ MÍSTO**: TikTok účet je **soukromý** – video se nenajde ve veřejném feedu.
-> Nenatáčej scénu, která by naznačovala veřejné zobrazení. Počkej na zpracování (pár minut),
-> než hledáš video.
+> Nenatáčej scénu, která by naznačovala veřejné zobrazení.
 
 ---
 
-## Scene 6B — Delete after publishing (soft-archive) (25 s)
+## Scene 6B — Delete after publishing (archive) (25 s)
 
 > Samostatná scéna, protože **TikTok dokumentace neuvádí endpoint pro programové smazání
 > videa** (Content Posting API / Content Sharing Guidelines nemají delete pro videa).
-> Appka proto nevolá API DELETE – místo toho uživatele vyzve k ručnímu smazání
-> a TikTok řádek archivuje (soft-archive).
+> Appka proto nevolá API DELETE: dialog smazání vysvětlí, že video se musí po odebrání
+> z Postia smazat ručně na TikToku, a příspěvek ve výchozím stavu **archivuje** (zachová
+> datum publikace i data sítě; karta zůstává v seznamu Posts se štítkem **Archived**,
+> textem „deleted <datum>" a **šedou ikonou TikToku**).
 
-1. V edit dialogu (nebo v menu karty postu) klikni **Delete/Remove** a potvrď.
-2. Appka zobrazí **toast/banner**: TikTok API nepodporuje smazání → uživatel musí video
-   smazat **manuálně na TikToku**.
-3. TikTok řádek se archivuje (`status: archived`, `archive_reason: user_removed_manually`),
-   karta postu zůstává, ale TikTok ikona je **šedá**.
-   Titulek: „TikTok's API does not support deleting videos programmatically. Postio asks
-   the user to remove the video manually and archives the TikTok row (greyed-out icon)."
+1. Na seznamu **Posts** klikni na kartě postu na červenou ikonu **koše**.
+2. Otevře se dialog **Delete Post**: úvodní text (u sítí bez API smazání, LinkedIn a TikTok,
+   se příspěvek maže ručně), žlutý rámeček „TikTok doesn't allow deleting videos through its
+   API. After you delete or archive this post in Postio, please remove the video manually in
+   the TikTok app.", **nezaškrtnuté** červené „Permanently delete from the Postio app" a text,
+   že se příspěvek uloží jako archivovaný. Nech dialog ~6 s čitelný.
+   Titulek: „The delete dialog notes that TikTok doesn't allow deleting videos through its
+   API, so the video must be removed manually."
+3. Klikni **Confirm deletion** (trvalé smazání **nezaškrtávej**). Karta zůstává v seznamu
+   Posts, nyní se štítkem **Archived** a textem „deleted <datum>". Zobrazí se toast (ověřeno).
+   Titulek: „Confirming archives the post in Postio; the user then removes the video manually
+   on TikTok."
+4. Na seznamu Posts (**Status: All**) ukaž kartu se štítkem **Archived**, textem
+   „deleted <datum>" a **šedou ikonou TikToku**.
+   Titulek: „The post stays in Postio history, marked Archived, with a greyed-out TikTok icon."
 
-> ⚠️ **KRITICKÉ MÍSTO**: tato scéna **musí proběhnout bez chybové obrazovky** – musí se
-> zobrazit přátelský toast/banner o ručním smazání, ne tvrdá chyba. Žádný error toast
-> neplatní nahrávku.
+> ⚠️ **KRITICKÉ MÍSTO**: tato scéna **musí proběhnout bez chybové obrazovky** – jen dialog,
+> přátelský toast a archivovaný příspěvek. Po natáčení smaž video ručně na TikToku (úklid).
 
 ---
 
@@ -220,13 +244,15 @@
 - [ ] Ve Vercelu nastavené **sandbox `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET`**
 - [ ] Anglická locale (`/en/...`) vybraná; **Lokace a tagy prázdné**
 - [ ] Testovací TikTok účet **soukromý**, **přepnutý na angličtinu**, a přihlášený;
-      **tiktok.com záložka otevřená předem**
+      (karta `tiktok.com` se otevře tlačítkem **View on network** ve Scene 6)
 - [ ] TikTok consent obrazovka viditelná ≥ 5 s **se zatrženými scopes** (Scene 2)
 - [ ] **Commercial content**: zapnout, vybrat jen Brand Organic, Branded Content
       nezaškrtávat, toggle před publikací nevypínat
 - [ ] Krátký **neutrální** `.mp4` klip (bez hudby/vodoznaku, **ne AI scéna s postavou**)
 - [ ] `@postio-app.cz` reviewer účet použitý (Launch Guard unlock)
 - [ ] Scene 5 a 6B bez chybové obrazovky
+- [ ] Okno s náhledem (ikona oka) **bez vymyšlených čísel** a dialog smazání **obnovený**
+      (obojí opravené a nasazené před natáčením)
 - [ ] **Skrytá lišta záložek** prohlížeče; **oříznutý taskbar**; žádné tajemství na
       obrazovce (žádné tokeny, žádné konzolové logy)
 - [ ] 1080p nebo vyšší, 16:9, stabilní kurzor, 100% zoom
@@ -241,4 +267,4 @@
 | `user.info.basic` | Scene 2 – Connect (consent + profil) | `[MM:SS]` |
 | `video.upload` | Scene 5 – Publish (upload leg) | `[MM:SS]` |
 | `video.publish` | Scene 5 – Publish (status/fetch → PUBLISH_COMPLETE) | `[MM:SS]` |
-| (bez scope – delete) | Scene 6B – soft-archive + ruční smazání | `[MM:SS]` |
+| (bez scope – delete) | Scene 6B – dialog smazání (archivace + ruční smazání) | `[MM:SS]` |

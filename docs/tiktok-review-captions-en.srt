@@ -120,18 +120,20 @@ shows a lock icon, the "Private" label and
 "Promotional content" (Brand Organic).
 
 26
-00:04:15,000 --> 00:04:25,000
-Delete: TikTok's documentation provides no
-video-deletion endpoint.
+00:04:15,000 --> 00:04:23,000
+The delete dialog notes that TikTok doesn't
+allow deleting videos through its API, so the
+video must be removed manually.
 
 27
-00:04:25,000 --> 00:04:35,000
-Postio asks the user to remove the video manually
-on TikTok and archives the TikTok row.
+00:04:23,000 --> 00:04:30,000
+Confirming archives the post in Postio; the
+user then removes the video manually on TikTok.
 
 28
-00:04:35,000 --> 00:04:40,000
-The post card keeps a greyed-out TikTok icon.
+00:04:30,000 --> 00:04:40,000
+The post stays in Postio history, marked
+Archived, with a greyed-out TikTok icon.
 
 29
 00:04:40,000 --> 00:04:50,000

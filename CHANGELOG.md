@@ -3,6 +3,20 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🗑️ Chytré mazání příspěvků (+ TikTok/LinkedIn) – obnovení modalu ✅
+
+- **Kontext**: Regrese – ikona koše u příspěvku zobrazovala jen obecné „Are you sure you want to delete this post?" místo chytrého modalu. Příčina: per-account refaktor (742dc20/f1576be) zavedl filtr published řádků na `external_id`, takže publikovaný TikTok (bez publish ID) spadl na generický text (regrese z 79bfb54 #15).
+- **Změny**:
+  - ✅ Nový `src/lib/delete-capabilities.ts` – **jediný zdroj pravdy** `DELETE_CAPABILITIES` (facebook/twitter/youtube/instagram = ✅, linkedin/tiktok = ❌) + čistá funkce `buildDeleteTargets` (co modal nabídne) + `platformDisplayName`.
+  - ✅ `delete-post-dialog.tsx` – chytrý modal: per-síť checkboxy „Smazat z <účet>" (default zaškrtnuté, jen apiDelete + external_id), informační boxy pro sítě bez API mazání či bez referenčního ID (TikTok/LinkedIn i síť bez `external_id`), červený checkbox „Trvale smazat z aplikace Postio" **default NEzaškrtnutý** (= archivace, zachová publikování + data sítí).
+  - ✅ Backend: `deleteFromMeta` (publish.ts) – LinkedIn/TikTok větve sloučeny do jedné `if (!canDeleteViaApi(platform) || !externalId)` (archivace, ŽÁDNÉ API volání, token se nesáhne); `deletePost` (posts.ts) – guard `canDeleteViaApi(targetPlatform)` před Meta API DELETE.
+  - ✅ Krok 2 handleru `_post-card.tsx` – neúspěch archivace se hlásí jako failed (příspěvek se neztratí); toast ≥8 s „smaž ručně".
+  - ✅ Instagram zůstává `true` (pokus o API DELETE), při selhání (v praxi vždy) → archivace + informační box; přepnutí na `false` = jeden řádek.
+  - ✅ i18n klíče v cs/en/uk (286 posts klíčů shodně): `deleteDialogDescSelective`, `deleteKeepNote`, `deleteInfoNoApi*`, `deleteInfoNoExternalId`, `toastArchived*`, `toastPermanentDeleteReminder`, `toastDeleteFailedPlatforms`.
+  - ✅ CLAUDE.md tabulka sítí aktualizována (apiDelete per platforma + poznámka o single source of truth).
+- **Testy**: nový `src/lib/delete-capabilities.test.ts` – 15 testů (TikTok-only bez external_id → info box bez checkboxu, TikTok+Facebook, TikTok+LinkedIn, draft → žádné cíle, apiDelete bez external_id → info no_reference, negativní-API sítě nikdy neprodukují checkbox…). **Vitest 40/40 ✅, `tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXIT=0).**
+- **Ruční test**: TikTok-only post → koš → info box + „Trvale smazat" nezaškrtnuté → Potvrdit → archivace (karta zůstává ve filtru All i Archived, šedá ikona bez zelené fajfky).
+
 ### 🌐 i18n: české popisky v EN/UK UI + náhled bez čísel (text-only) ✅
 
 - **Kontext**: V EN/UK UI zůstávaly natvrdo české popisky – „Lokace" (New Post, Edit Post, kalendář, detail postu) a „Platforma"/„Stav"/„Seřadit" (české defaulty filtrů v `PostFiltersRow`). V TikTok náhledu (`preview-dialog.tsx`) se u akčních ikon zobrazovala smyšlená čísla (12.4K/134/456/12) a TikTok sandbox hint mluvil o „private section", zatímco video je v sekci Videos se zámkem.
@@ -81,14 +95,6 @@
   - ✅ `posts/new/page.tsx` – media-policy banner obalen rezervovaným slotem `min-h-[44px]` (aktivní jen když `selectedPlatforms.length > 0`), aby se řada tlačítek nepohla při objevení banneru.
   - ✅ `edit-post-dialog.tsx` – stejný rezervovaný slot kolem banneru (2714/2749).
 - **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test v prohlížeči (1. klik musí publikovat bez posunu) – čeká na uživatele. Další kroky dle plánu: KROK 2 (stabilizace šířky tlačítka), KROK 3 (press animace).
-
-### 🧹 ESLint: oprava `react-hooks/set-state-in-effect` v edit-post-dialog (2 errori) ✅
-
-- **Kontext**: `npx eslint src/components/edit-post-dialog.tsx` hlásil 2 errori `react-hooks/set-state-in-effect` (synchronní `setState` v těle efektu) – na ř. 793 (X gating filtr) a ř. 855 (TikTok username seed). Oba ležaly mimo i18n diffu (commit `49c7141`), proto zapsané jako oddělený TODO úkol.
-- **Změny** (`src/components/edit-post-dialog.tsx`):
-  - ✅ **X gating** – filtr direct X účtů (při `twitterAutoCredits <= 0`) přesunut z `useEffect` do async fetch callbacku `loadAccounts` (data-load event → legitimní `setState` po `await`; chování identické, žádná regrese).
-  - ✅ **TikTok username** – state `tiktokUsername` nahrazen derivaciou `tiktokUsernameFromDb ?? tiktokCreatorInfo?.creatorUsername ?? null` (DB-resolved hodnota má prioriteto, jinak `creator_info` cache); efekt robí jen async fetch do `tiktokUsernameFromDb`, `tiktokCreatorInfo` vypadl z efekt deps. Žádný synchronní set v efektě.
-- **Ověření**: `npx eslint src/components/edit-post-dialog.tsx` ✅ **0 errors** (3 warningy předexistující – exhaustive-deps, media-has-caption, no-img-element), `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXITCODE=0). Manuál test X gating + TikTok live URL u uživatele ✅ (2026-09-28).
 
 
 

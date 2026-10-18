@@ -16,7 +16,8 @@ import Link from "next/link";
 import { deletePost, resetPostStatus, smartDeletePost } from "@/lib/actions/posts";
 import { deleteFromMeta, markAsPublishedManual } from "@/lib/actions/publish";
 import { EditPostDialog } from "@/components/edit-post-dialog";
-import { DeletePostDialog } from "@/components/dashboard/delete-post-dialog";
+import { DeletePostDialog, type DeleteDialogResult } from "@/components/dashboard/delete-post-dialog";
+import { platformDisplayName } from "@/lib/delete-capabilities";
 import { SmartDeleteDialog, type AutoDeleteOption } from "@/components/dashboard/smart-delete-dialog";
 import { PreviewDialog } from "@/components/preview-dialog";
 import { MediaPreviewDialog } from "@/components/media-preview-dialog";
@@ -171,107 +172,99 @@ export function PostCard({
     (p) => p.status === "ready" && p.platform.toLowerCase() === "twitter",
   );
 
-  const handleDeleteConfirm = async (selectedAccountIds: string[], deleteFromApp: boolean) => {
+  const handleDeleteConfirm = async ({ deleteAccountIds, manualPlatforms, deleteFromApp }: DeleteDialogResult) => {
     setIsDeleting(true);
     try {
       const isPublished = (post.post_platforms || []).some(p => p.status === 'published');
 
       if (isPublished) {
         let deletedCount = 0;
-        let cannotDeletePlatforms: string[] = [];
+        // Platforms that stay in Postio as archived because the API delete is
+        // not possible — either resolved up-front in the dialog (`manualPlatforms`,
+        // e.g. LinkedIn / TikTok) or discovered at runtime when an API call is
+        // rejected (Instagram). Shown as reminder toasts afterwards.
+        const manualPlatformsSet = new Set<string>(manualPlatforms.map(platformDisplayName));
+        const failed: string[] = [];
 
-        // Delete from each selected account. Per-platform behaviour:
-        // - Facebook / YouTube – real API DELETE (or "object not found"
-        //   treated as success) + reset the row to `status="draft"` in Postio.
-        // - Instagram – NO API DELETE (Graph API doesn't support it).
-        //   `deleteFromMeta` archives the Instagram row to `status="archived"`
-        //   and returns `success: true, cannotDeleteViaApi: true`. The user
-        //   gets a "smazat ručně" reminder toast.
-        // - LinkedIn – NO API call. `deleteFromMeta` archives the LinkedIn row
-        //   to `status="archived"` (with `external_id` cleared) and returns
-        //   `success: true, cannotDeleteViaApi: true`.
-        // Targeting uses `accountId` so two accounts of the same platform
-        // (e.g. 2× Facebook Page) are resolved to the correct row.
-        for (const accountId of selectedAccountIds) {
+        // 1) Delete from each selected API-deletable account.
+        //    - Facebook / YouTube / X – real API DELETE (or "object not found"
+        //      treated as success); the row resets to `status="draft"`.
+        //    - Instagram – an API DELETE is attempted; when the API rejects it
+        //      the row is soft-archived (grey icon) and counted as manual.
+        //    Targeting uses `accountId` so two accounts of the same platform
+        //    (e.g. 2× Facebook Page) are resolved to the correct row.
+        for (const accountId of deleteAccountIds) {
           const platform = (post.post_platforms || []).find(p => p.account_id === accountId)?.platform ?? "";
           const result = await deleteFromMeta({ postId: post.id, accountId });
-          if (result.success && result.cannotDeleteViaApi) {
-            // Platform was archived in Postio but NOT deleted via API
-            // (Instagram / LinkedIn flow). Count it AND show reminder toast.
+          if (result.success) {
             deletedCount++;
-            cannotDeletePlatforms.push(platform);
-          } else if (result.success) {
-            // Platform was successfully deleted via API (Facebook / YouTube).
-            deletedCount++;
+            if (result.cannotDeleteViaApi) manualPlatformsSet.add(platformDisplayName(platform));
           } else if (result.cannotDeleteViaApi) {
-            // Unexpected: API not supported but also not archived.
-            // Still show the info toast so the user knows.
-            cannotDeletePlatforms.push(platform);
+            manualPlatformsSet.add(platformDisplayName(platform));
           } else {
-            // Unexpected error
-            toast.error(result.error || tv("toastDeleteFailedPlatform", { platform: platform.charAt(0).toUpperCase() + platform.slice(1) }, `Deletion from ${platform} failed.`));
+            failed.push(platformDisplayName(platform));
           }
         }
 
-        // The user already saw the API-warning overlay in DeletePostDialog
-        // before confirming, so we don't repeat the info toast here.
-        // Just proceed to post-action toasts below.
+        // 2) Platforms without working API deletion (LinkedIn, TikTok, or an
+        //    API-capable platform that has no reference id): `deleteFromMeta`
+        //    archives the row in Postio and NEVER calls a platform API. The
+        //    user removes the post manually on the platform. A non-success is
+        //    reported as failed – the post is NOT lost (the row stays
+        //    published), but the user should know nothing was archived.
+        for (const rawPlatform of manualPlatforms) {
+          const result = await deleteFromMeta({ postId: post.id, platform: rawPlatform });
+          if (result.success) {
+            manualPlatformsSet.add(platformDisplayName(rawPlatform));
+          } else {
+            failed.push(platformDisplayName(rawPlatform));
+          }
+        }
 
-        // Delete from Postio app if requested.
-        //
-        // Special case: if LinkedIn or Instagram is among the selected
-        // accounts, the post must NOT be hard-deleted from Postio. The whole
-        // point of this flow is to keep the PostCard visible with a greyed-out
-        // icon – a permanent reminder that the post was once published on that
-        // platform. `deleteFromMeta` has already flipped those rows to
-        // `status="archived"` and cleared `external_id`, so the icons will
-        // render grey (no green check, no orange triangle, no red X).
-        const selectedPlatforms = selectedAccountIds
-          .map(id => (post.post_platforms || []).find(p => p.account_id === id)?.platform)
-          .filter((p): p is string => Boolean(p));
-        const hasArchivedPlatform = selectedPlatforms.includes("linkedin") || selectedPlatforms.includes("instagram");
-        if (deleteFromApp && hasArchivedPlatform) {
+        if (failed.length > 0) {
+          // One or more networks failed – surface which ones, do NOT silently
+          // drop the post from Postio.
+          toast.error(
+            tv("toastDeleteFailedPlatforms", { platforms: failed.join(", ") }, `Deletion failed for: ${failed.join(", ")}`),
+            { duration: 8000 },
+          );
+        }
+
+        const manualList = [...manualPlatformsSet];
+
+        if (!deleteFromApp) {
+          // Archive mode (default). The rows were archived above (and API-deleted
+          // where possible); the POST itself stays in Postio – it moves to the
+          // "Archived" state/filter instead of disappearing, keeping its publish
+          // date and network data. Never call onDeleted here.
           setDeleteOpen(false);
           router.refresh();
-          if (cannotDeletePlatforms.length > 0) {
-            const platformsList = cannotDeletePlatforms
-              .map(p => p.charAt(0).toUpperCase() + p.slice(1))
-              .join(", ");
+          if (manualList.length > 0) {
             toast.success(
-              tv("toastArchivedReminder", { platforms: platformsList }, `Post stays in Postio with greyed-out icons for {platforms} – delete manually on those platforms.`),
-              { duration: 10000 },
+              tv("toastArchivedReminder", { platforms: manualList.join(", ") }, `Post stays in Postio with greyed-out icons for ${manualList.join(", ")} – delete manually on those platforms.`),
+              { duration: 8000 },
             );
           } else if (deletedCount > 0) {
-            toast.success(
-              tv("toastDeletedFromPlatforms", { count: deletedCount }, `Post was removed from ${deletedCount} platform(s).`),
-              { duration: 10000 },
-            );
+            toast.success(t("toastArchivedPost"), { duration: 8000 });
           }
           return;
         }
 
-        if (deleteFromApp) {
-          const result = await deletePost(post.id);
-          if (result.success) {
-            setDeleteOpen(false);
-            onDeleted?.(post.id);
-            if (cannotDeletePlatforms.length === 0) {
-              toast.success(t("toastDeleteSuccess"));
-            } else {
-              toast.success(t("toastDeleteFromAppSuccess"));
-            }
-            return;
+        // Permanent removal from Postio (red checkbox checked).
+        const result = await deletePost(post.id);
+        if (result.success) {
+          setDeleteOpen(false);
+          onDeleted?.(post.id);
+          if (manualList.length > 0) {
+            toast.success(
+              tv("toastPermanentDeleteReminder", { platforms: manualList.join(", ") }, `Post deleted from Postio. Remember to remove it manually from: ${manualList.join(", ")}.`),
+              { duration: 8000 },
+            );
           } else {
-            toast.error(tv("toastDeleteFailed", { error: String(result.error ?? "Unknown error") }, `Deletion failed: ${result.error}`));
+            toast.success(t("toastDeleteSuccess"));
           }
-        } else if (deletedCount > 0) {
-          toast.success(tv("toastDeletedFromPlatforms", { count: deletedCount }, `Post was removed from ${deletedCount} platform(s).`));
-          router.refresh();
-          setDeleteOpen(false);
-        } else if (cannotDeletePlatforms.length > 0) {
-          // All platforms don't support API deletion – just close dialog.
-          // Posts still exist on platforms. Info toasts already shown above.
-          setDeleteOpen(false);
+        } else {
+          toast.error(tv("toastDeleteFailed", { error: String(result.error ?? "Unknown error") }, `Deletion failed: ${result.error}`));
         }
       } else {
         // Klasické smazání (draft, scheduled, failed, removed_externally)

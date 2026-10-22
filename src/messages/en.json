@@ -1,4 +1,8 @@
 {
+  "Metadata": {
+    "title": "Postio – Your smart AI scheduler",
+    "description": "Plan, publish, and analyze posts on Facebook, Instagram, LinkedIn, and TikTok from one place with AI Vision."
+  },
   "common": {
     "appName": "Postio",
     "currencyLabel": "Currency",

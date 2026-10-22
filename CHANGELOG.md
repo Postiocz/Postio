@@ -3,6 +3,15 @@
 > Všechny podstatné změny v projektu Postio jsou zapisovány do tohoto souboru.
 > Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
 
+### 🌐 i18n titulek karty (metadata) podle locale – title/description + `<html lang>` ✅
+
+- **Kontext**: Na `/en` zůstal titulek karty prohlížeče česky ("Postio – Tvůj chytrý AI plánovač sociálních sítí"). Kořenový `layout.tsx` měl staticky česky `title`/`description`, `[locale]/layout.tsx` nastavoval jen OpenGraph/Twitter a `<html lang="cs">` bylo natvrdo.
+- **Změny**:
+  - ✅ Nový `Metadata` namespace v `messages/{cs,en,uk}.json` – `title` (cs: "Postio – Tvůj chytrý AI plánovač", en: "Postio – Your smart AI scheduler", uk: "Postio – Твій розумний AI-планувальник") + `description` (překlady existujícího českého textu).
+  - ✅ `[locale]/layout.tsx` – `generateMetadata` čte `getTranslations({ locale, namespace: "Metadata" })`; nastavuje top-level `title: { default, template: "%s | Postio" }` + `description`; OpenGraph/Twitter berou tytéž hodnoty. Hardcoded `localeMeta` záznam smazán.
+  - ✅ Kořenový `layout.tsx` – statická čeština nahrazena neutrálním fallbackem (`title: "Postio"`); `<html lang>` se řeší dynamicky (`X-NEXT-INTL-LOCALE` hlavička z middleware → cookie `NEXT_LOCALE` → `Accept-Language` → `cs`; fallback kryje dev, kde middleware neběží).
+- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb), `npm run build` ✅ (EXIT=0). Runtime (`next start` + curl): `/en` a `/en/login` → 200 s EN titulkem a `lang="en"`; `/cs`, `/uk`, `/uk/login` → vlastní jazykové titulky i `lang`; chráněné trasy (dashboard/accounts/posts/posts/new) → 307 na `/en/login` a dědí stejný layout titulek (žádná stránka nemá vlastní metadata).
+
 ### 🗑️ Chytré mazání příspěvků (+ TikTok/LinkedIn) – obnovení modalu ✅
 
 - **Kontext**: Regrese – ikona koše u příspěvku zobrazovala jen obecné „Are you sure you want to delete this post?" místo chytrého modalu. Příčina: per-account refaktor (742dc20/f1576be) zavedl filtr published řádků na `external_id`, takže publikovaný TikTok (bez publish ID) spadl na generický text (regrese z 79bfb54 #15).
@@ -87,21 +96,3 @@
 - **Změny (KROK 3)**:
   - ✅ `SmartDeleteDialog` – `useTranslations("posts")` + hardcoded čeština → `t(...)`: `smartDeleteDialogTitle`/`Desc`, `smartDeleteKeepDraft`/`Hint`, `smartDeleteDeleteApp`/`Hint`, `smartDeleteAuto`/`Hint`, `smartDeleteAutoOptionNever|3d|7d|30d|365d`, `smartDeletePermanently`, `smartDeleteInProgress`, `cancel`. `AUTO_DELETE_LABELS` (natvrdo české) nahrazeno mapováním `AUTO_DELETE_KEYS` → `t(AUTO_DELETE_KEYS[option])`.
 - **Ověření**: JSON validní ve 3 localech (255 klíčů shodně) + `npx tsc --noEmit` ✅ (exit 0) po KROKU 2 i KROKU 3. Celý Bug #2 hotový, čeká na schválení + commit.
-
-### 🐛 HOTFIX: Publish tlačítko – stabilizace pozice (KROK 1) ⏳
-
-- **Kontext**: Bug #1 z ukol.md (branch `fix/publish-button-layout-and-delete-i18n`): publish tlačítko „cukne a posune se dolů", první klik neproběhne. Analýza: nad řadou tlačítek se vykresluje media-policy banner, který při objevení/skrytí posouvá řadu tlačítek dolů (layout shift → klik se spolkne).
-- **Změny (KROK 1)**:
-  - ✅ `posts/new/page.tsx` – media-policy banner obalen rezervovaným slotem `min-h-[44px]` (aktivní jen když `selectedPlatforms.length > 0`), aby se řada tlačítek nepohla při objevení banneru.
-  - ✅ `edit-post-dialog.tsx` – stejný rezervovaný slot kolem banneru (2714/2749).
-- **Ověření**: `npx tsc --noEmit` ✅ (0 chyb). Manuál test v prohlížeči (1. klik musí publikovat bez posunu) – čeká na uživatele. Další kroky dle plánu: KROK 2 (stabilizace šířky tlačítka), KROK 3 (press animace).
-
-
-
-
-
-
-
-
-
-

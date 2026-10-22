@@ -1,4 +1,8 @@
 {
+  "Metadata": {
+    "title": "Postio – Твій розумний AI-планувальник",
+    "description": "Плануй, публікуй та аналізуй дописи на Facebook, Instagram, LinkedIn і TikTok в одному місці з AI Vision."
+  },
   "common": {
     "appName": "Postio",
     "currencyLabel": "Валюта",

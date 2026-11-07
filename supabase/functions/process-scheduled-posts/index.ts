@@ -1,5 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.6.3";
+// Direct Post rules shared with the immediate path – pure module, unit-tested
+// with `deno test tiktok-logic_test.ts` (no Deno/Supabase APIs inside).
+import {
+  TIKTOK_PRIVATE_ONLY_ERROR,
+  buildScheduledTikTokPlan,
+  canRetryTikTokAsPrivateOnly,
+  type ScheduledTikTokPlan,
+} from "./tiktok-logic";
 
 /**
  * Reads and caches the CRON_SECRET env var.
@@ -609,26 +617,6 @@ function isTikTokDevelopmentMode(): boolean {
   return false;
 }
 
-function readTikTokPostSettings(
-  metadata: Record<string, unknown> | null | undefined,
-): { privacyLevel?: TikTokPrivacyLevel } {
-  if (!metadata || typeof metadata !== "object") {
-    return {};
-  }
-
-  const privacyLevel = metadata.privacy_level;
-  if (
-    privacyLevel === "PUBLIC_TO_EVERYONE" ||
-    privacyLevel === "MUTUAL_FOLLOW_FRIENDS" ||
-    privacyLevel === "SELF_ONLY" ||
-    privacyLevel === "FOLLOWER_OF_CREATOR"
-  ) {
-    return { privacyLevel };
-  }
-
-  return {};
-}
-
 function normalizeTikTokCreatorInfo(payload: TikTokCreatorInfoResponse): TikTokCreatorInfo {
   const data = payload.data ?? {};
   const privacyLevelOptions = Array.isArray(data.privacy_level_options)
@@ -655,13 +643,6 @@ function normalizeTikTokCreatorInfo(payload: TikTokCreatorInfoResponse): TikTokC
         : null,
     fetchedAt: new Date().toISOString(),
   };
-}
-
-function isTikTokPrivateOnlyCreatorInfo(creatorInfo: TikTokCreatorInfo): boolean {
-  return (
-    creatorInfo.privacyLevelOptions.length === 1 &&
-    creatorInfo.privacyLevelOptions[0] === "SELF_ONLY"
-  );
 }
 
 function isTikTokPrivateOnlyError(error: string): boolean {
@@ -737,39 +718,6 @@ function inferVideoMimeType(url: string): string {
   if (cleanUrl.endsWith(".webm")) return "video/webm";
   if (cleanUrl.endsWith(".mkv")) return "video/x-matroska";
   return "video/mp4";
-}
-
-function resolveRequestedPrivacyLevel(params: {
-  requestedPrivacyLevel?: TikTokPrivacyLevel;
-  creatorInfo: TikTokCreatorInfo;
-}): TikTokPrivacyLevel {
-  const { requestedPrivacyLevel, creatorInfo } = params;
-
-  if (isTikTokDevelopmentMode() || isTikTokPrivateOnlyCreatorInfo(creatorInfo)) {
-    return "SELF_ONLY";
-  }
-
-  if (
-    requestedPrivacyLevel &&
-    creatorInfo.privacyLevelOptions.includes(requestedPrivacyLevel)
-  ) {
-    return requestedPrivacyLevel;
-  }
-
-  const preferredFallbackOrder: TikTokPrivacyLevel[] = [
-    "PUBLIC_TO_EVERYONE",
-    "MUTUAL_FOLLOW_FRIENDS",
-    "SELF_ONLY",
-    "FOLLOWER_OF_CREATOR",
-  ];
-
-  return (
-    preferredFallbackOrder.find((level) =>
-      creatorInfo.privacyLevelOptions.includes(level),
-    ) ??
-    creatorInfo.privacyLevelOptions[0] ??
-    "SELF_ONLY"
-  );
 }
 
 async function waitForTikTokPublishComplete(params: {
@@ -961,10 +909,10 @@ async function publishToTikTok(params: {
   accessToken: string;
   videoUrl: string;
   content: string;
-  privacyLevel: TikTokPrivacyLevel;
-  creatorInfo: TikTokCreatorInfo;
+  /** Pre-flight result from `buildScheduledTikTokPlan` (visibility, disclosure, interactions). */
+  plan: ScheduledTikTokPlan;
 }): Promise<{ success: true; externalId: string } | { success: false; error: string }> {
-  const { accessToken, videoUrl, content, privacyLevel, creatorInfo } = params;
+  const { accessToken, videoUrl, content, plan } = params;
 
   let videoBuffer: ArrayBuffer;
   try {
@@ -996,10 +944,17 @@ async function publishToTikTok(params: {
     body: JSON.stringify({
       post_info: {
         title: content.slice(0, 2200),
-        privacy_level: privacyLevel,
-        disable_duet: creatorInfo.duetDisabled,
-        disable_comment: creatorInfo.commentDisabled,
-        disable_stitch: creatorInfo.stitchDisabled,
+        privacy_level: plan.privacyLevel,
+        // Already merged with the creator's restrictions in the plan
+        // (user choice OR creator_info limit).
+        disable_duet: plan.disableDuet,
+        disable_comment: plan.disableComment,
+        disable_stitch: plan.disableStitch,
+        // Same disclosure flags as the immediate path – always sent, strictly
+        // false unless the user turned the commercial toggle on and picked an
+        // option.
+        brand_content_toggle: plan.brandContentToggle,
+        brand_organic_toggle: plan.brandOrganicToggle,
       },
       source_info: {
         source: "FILE_UPLOAD",
@@ -2228,43 +2183,62 @@ Deno.serve(async (request: Request) => {
                 creatorInfo: creatorInfoResult.data,
               });
 
-              const requestedPrivacyLevel = readTikTokPostSettings(
-                (pp as { metadata?: Record<string, unknown> | null }).metadata ?? null,
-              ).privacyLevel;
-              const resolvedPrivacyLevel = resolveRequestedPrivacyLevel({
-                requestedPrivacyLevel,
-                creatorInfo: creatorInfoResult.data,
-              });
-
-              let result = await publishToTikTok({
-                accessToken: ttToken.accessToken,
+              // Same Direct Post pre-flight as the immediate path (video
+              // format → duration → visibility → disclosure). Nothing is sent
+              // to TikTok when it fails.
+              const planResult = buildScheduledTikTokPlan({
                 videoUrl: firstTikTokMedia,
-                content: rawContent,
-                privacyLevel: resolvedPrivacyLevel,
-                creatorInfo: creatorInfoResult.data,
+                metadata:
+                  (pp as { metadata?: Record<string, unknown> | null }).metadata ??
+                  null,
+                creator: creatorInfoResult.data,
+                isDevelopmentMode: isTikTokDevelopmentMode(),
               });
 
-              if (
-                !result.success &&
-                resolvedPrivacyLevel !== "SELF_ONLY" &&
-                isTikTokPrivateOnlyError(result.error ?? "")
-              ) {
-                console.log(`>>> TikTok private-only fallback for post_platforms ${pp.id}`);
-                result = await publishToTikTok({
+              if (!planResult.ok) {
+                publishError = planResult.error;
+                console.log(`>>> TikTok pre-flight failed for post_platforms ${pp.id}`, {
+                  error: publishError,
+                });
+              } else {
+                const plan = planResult.plan;
+
+                let result = await publishToTikTok({
                   accessToken: ttToken.accessToken,
                   videoUrl: firstTikTokMedia,
                   content: rawContent,
-                  privacyLevel: "SELF_ONLY",
-                  creatorInfo: creatorInfoResult.data,
+                  plan,
                 });
-              }
 
-              if (!result.success) {
-                publishError = result.error ?? "TikTok publish failed";
-                console.log(`>>> TikTok publish failed for post_platforms ${pp.id}`, { error: publishError });
-              } else {
-                externalId = result.externalId ?? null;
-                console.log(`>>> TikTok publish success for post_platforms ${pp.id}`, { externalId });
+                if (
+                  !result.success &&
+                  isTikTokPrivateOnlyError(result.error ?? "") &&
+                  canRetryTikTokAsPrivateOnly({
+                    privacyLevel: plan.privacyLevel,
+                    brandContentToggle: plan.brandContentToggle,
+                  })
+                ) {
+                  console.log(`>>> TikTok private-only fallback for post_platforms ${pp.id}`);
+                  result = await publishToTikTok({
+                    accessToken: ttToken.accessToken,
+                    videoUrl: firstTikTokMedia,
+                    content: rawContent,
+                    plan: { ...plan, privacyLevel: "SELF_ONLY" },
+                  });
+                }
+
+                if (!result.success) {
+                  // Store a user-facing message instead of TikTok's raw
+                  // "code: message" for the private-only (unaudited app) case.
+                  const rawError = result.error ?? "";
+                  publishError = isTikTokPrivateOnlyError(rawError)
+                    ? TIKTOK_PRIVATE_ONLY_ERROR
+                    : rawError || "TikTok publish failed";
+                  console.log(`>>> TikTok publish failed for post_platforms ${pp.id}`, { error: publishError });
+                } else {
+                  externalId = result.externalId ?? null;
+                  console.log(`>>> TikTok publish success for post_platforms ${pp.id}`, { externalId });
+                }
               }
             }
           }

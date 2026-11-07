@@ -33,6 +33,7 @@ import {
   type TikTokCreatorInfo,
   type TikTokPrivacyLevel,
 } from "@/lib/actions/publish-tiktok";
+import { getTikTokUsernameAction } from "@/lib/actions/social-account-preview-actions";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -1019,31 +1020,17 @@ export function EditPostDialog({
   // Resolve the authentic TikTok handle for building the "Open on network"
   // URL. Prefers `creator_info_cache.creator_username` (persisted by
   // creator_info/query), falls back to a sanitized `account_name`.
+  // The lookup runs in a server action so the browser never receives
+  // `social_accounts.metadata` — it also carries the TikTok refresh token.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
 
     const loadTikTokUsername = async () => {
       try {
-        const { data, error } = await supabase
-          .from("social_accounts")
-          .select("account_name, metadata")
-          .eq("platform", "tiktok")
-          .eq("is_active", true)
-          .limit(1)
-          .maybeSingle();
-
-        if (cancelled || error || !data) return;
-
-        const metadata = data.metadata as Record<string, unknown> | null | undefined;
-        const cache = metadata?.creator_info_cache as
-          | { creator_username?: string | null }
-          | undefined;
-        const cachedHandle = cache?.creator_username?.trim();
-        const handle = (cachedHandle ?? data.account_name ?? "")
-          .trim()
-          .replace(/^@/, "");
-        if (handle) setTikTokUsernameFromDb(handle.replace(/\s+/g, "").toLowerCase());
+        const username = await getTikTokUsernameAction();
+        if (cancelled || !username) return;
+        setTikTokUsernameFromDb(username);
       } catch {
         // non-fatal – live URL simply stays hidden until a handle is known
       }
@@ -1054,7 +1041,7 @@ export function EditPostDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, supabase]);
+  }, [open]);
 
   const toggleAccount = useCallback((id: string) => {
     setSelectedAccountIds((prev) =>

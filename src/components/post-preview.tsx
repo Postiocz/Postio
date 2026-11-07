@@ -245,9 +245,18 @@ export function PostPreview({
         <AnimatePresence mode="popLayout">
           <motion.div
             key={effectivePlatform}
-            initial={reduce ? false : { opacity: 0, y: 8 }}
+            // `initial` must not branch on `reduce`: the server cannot evaluate
+            // the prefers-reduced-motion media query, so a client with reduced
+            // motion enabled rendered without the initial styles and React
+            // reported a hydration mismatch (SSR "opacity: 0" vs client
+            // "opacity: 1"). Reduced motion now only shortens the transition.
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+            transition={
+              reduce
+                ? { duration: 0 }
+                : { duration: 0.35, ease: [0.32, 0.72, 0, 1] }
+            }
             className="h-full w-full"
           >
             {effectivePlatform === "facebook" ? (

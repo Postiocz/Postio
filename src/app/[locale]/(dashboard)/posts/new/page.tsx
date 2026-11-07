@@ -16,9 +16,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createPostAction } from "@/lib/actions/posts";
 import {
+  buildTikTokCreatorInfoKey,
   computeTikTokPublishBlocked,
   isTikTokPrivateOnlyAccount,
   resolveEffectiveTikTokPrivacyLevel,
+  resolveTikTokCreatorInfoView,
 } from "@/lib/tiktok-direct-post";
 import { publishPost } from "@/lib/actions/publish";
 import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
@@ -168,6 +170,10 @@ export default function NewPostPage() {
   // only exist as user choice; commercial disclosure is off by default.
   const [tiktokCreatorInfo, setTikTokCreatorInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokCreatorInfoLoading, setTikTokCreatorInfoLoading] = useState(false);
+  // Non-null once the creator_info request has settled without data – the
+  // panel then shows an error instead of an eternal "loading" text while
+  // publishing stays blocked.
+  const [tiktokCreatorInfoError, setTikTokCreatorInfoError] = useState<string | null>(null);
   const [tiktokPrivacyLevel, setTikTokPrivacyLevel] =
     useState<TikTokPrivacyLevel | null>(null);
   const [tiktokAllowDuet, setTikTokAllowDuet] = useState(false);
@@ -181,6 +187,22 @@ export default function NewPostPage() {
   const hasTikTokIntent = useMemo(() => {
     return selectedPlatforms.includes("tiktok");
   }, [selectedPlatforms]);
+
+  // Target TikTok account (the video is published to it, so its creator_info
+  // has to back the panel). Multiple TikTok accounts are possible on the paid
+  // plans – switching accounts must reload the creator data.
+  const selectedTikTokAccountId = useMemo(() => {
+    const account = allAccounts.find(
+      (a) => a.platform === "tiktok" && selectedAccountIds.includes(a.id),
+    );
+    return account?.id ?? null;
+  }, [allAccounts, selectedAccountIds]);
+
+  // Effect key: changes on account switch, so the effect below refetches.
+  const tiktokCreatorInfoKey = buildTikTokCreatorInfoKey(
+    hasTikTokIntent,
+    selectedTikTokAccountId,
+  );
 
   // Privacy options come EXCLUSIVELY from creator_info.privacy_level_options
   // (Direct Post UX requirement). Empty while creator info is not loaded.
@@ -197,6 +219,18 @@ export default function NewPostPage() {
       allowedTikTokPrivacyLevels[0] === "SELF_ONLY"
     );
   }, [allowedTikTokPrivacyLevels]);
+
+  // loading / error / ready – a settled request without data is an error, so
+  // the panel never stays on "Loading TikTok account options…" forever.
+  const tiktokCreatorInfoView = resolveTikTokCreatorInfoView({
+    // Before the first request starts there is neither data nor an error:
+    // that is still "loading", never an error flash on the first paint.
+    loading:
+      tiktokCreatorInfoLoading ||
+      (tiktokCreatorInfo === null && tiktokCreatorInfoError === null),
+    info: tiktokCreatorInfo,
+    error: tiktokCreatorInfoError,
+  });
 
   const [scheduledAt, setScheduledAt] = useState("");
   const [location, setLocation] = useState("");
@@ -323,23 +357,26 @@ export default function NewPostPage() {
     };
   }, [userId, previewPlaceholderName, supabase]);
 
-  // Best-effort load of TikTok creator capabilities (privacy options etc.).
-  // In the sandbox this may fail – the privacy toggles still render with all
-  // three options and the creator-info summary falls back to "loading/failed".
+  // Load of TikTok creator capabilities (privacy options etc.) for the
+  // selected account. Runs again whenever the target TikTok account changes.
+  // A failure is surfaced as an error state – never as an endless "loading".
   useEffect(() => {
-    if (!hasTikTokIntent) return;
+    if (!tiktokCreatorInfoKey) return;
 
     let cancelled = false;
     const loadTikTokCreatorInfo = async () => {
       setTikTokCreatorInfoLoading(true);
+      setTikTokCreatorInfoError(null);
       try {
-        const result = await getTikTokCreatorInfoAction();
+        const result = await getTikTokCreatorInfoAction(selectedTikTokAccountId);
         if (cancelled) return;
         if (!result.success) {
           setTikTokCreatorInfo(null);
+          setTikTokCreatorInfoError(result.error || "creator_info_failed");
           return;
         }
         setTikTokCreatorInfo(result.data);
+        setTikTokCreatorInfoError(null);
         // Privacy is never pre-selected (Direct Post UX requires an explicit
         // user choice). We only validate that a previously chosen value is
         // still allowed; otherwise it is cleared so the user must re-pick.
@@ -351,6 +388,7 @@ export default function NewPostPage() {
       } catch {
         if (!cancelled) {
           setTikTokCreatorInfo(null);
+          setTikTokCreatorInfoError("creator_info_failed");
         }
       } finally {
         if (!cancelled) {
@@ -363,7 +401,7 @@ export default function NewPostPage() {
     return () => {
       cancelled = true;
     };
-  }, [hasTikTokIntent]);
+  }, [tiktokCreatorInfoKey, selectedTikTokAccountId]);
 
   // KROK 2 (Prompt 057): Hybrid X gating. When the user has 0 X auto-credits,
   // force-deselect any direct (API auto-publish) X account so they have to
@@ -536,6 +574,9 @@ export default function NewPostPage() {
         commercial_enabled: tiktokCommercialEnabled,
         brand_content_toggle: tiktokCommercialEnabled && tiktokBrandContent,
         brand_organic_toggle: tiktokCommercialEnabled && tiktokBrandOrganic,
+        // Measured at upload; lets the server re-check the video against the
+        // creator's max_video_post_duration_sec before video/init.
+        video_duration_sec: tiktokVideoDurationSec,
       },
     };
   }, [
@@ -546,6 +587,7 @@ export default function NewPostPage() {
     tiktokAllowStitch,
     tiktokBrandContent,
     tiktokBrandOrganic,
+    tiktokVideoDurationSec,
   ]);
 
   // First uploaded image URL for AI Vision (only ready uploads have server-accessible URLs)
@@ -1415,18 +1457,25 @@ export default function NewPostPage() {
               {/* Creator account (Direct Post UX: the account receiving the
                   video must be identified before publishing). */}
               <div className="rounded-[20px] border border-black/5 bg-black/[0.02] p-3 text-xs text-muted-foreground/70 dark:border-white/10 dark:bg-black/20">
-                <p>
-                  {tiktokCreatorInfoLoading
+                <p
+                  className={cn(
+                    tiktokCreatorInfoView.status === "error" &&
+                      "text-amber-500",
+                  )}
+                >
+                  {tiktokCreatorInfoView.status === "loading"
                     ? t("tiktokCreatorInfoLoading")
-                    : t(
-                        "tiktokCreatorInfoSummary",
-                        {
-                          account:
-                            tiktokCreatorInfo?.creatorNickname ||
-                            tiktokCreatorInfo?.creatorUsername ||
-                            "TikTok",
-                        },
-                      )}
+                    : tiktokCreatorInfoView.status === "error"
+                      ? t("tiktokCreatorInfoError")
+                      : t(
+                          "tiktokCreatorInfoSummary",
+                          {
+                            account:
+                              tiktokCreatorInfo?.creatorNickname ||
+                              tiktokCreatorInfo?.creatorUsername ||
+                              "TikTok",
+                          },
+                        )}
                 </p>
               </div>
 
@@ -1472,8 +1521,16 @@ export default function NewPostPage() {
                       );
                     })}
                     {allowedTikTokPrivacyLevels.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground/60">
-                        {t("tiktokCreatorInfoLoading")}
+                      <div
+                        className={cn(
+                          "px-3 py-2 text-xs text-muted-foreground/60",
+                          tiktokCreatorInfoView.status === "error" &&
+                            "text-amber-500",
+                        )}
+                      >
+                        {tiktokCreatorInfoView.status === "error"
+                          ? t("tiktokCreatorInfoError")
+                          : t("tiktokCreatorInfoLoading")}
                       </div>
                     )}
                   </SelectContent>

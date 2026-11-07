@@ -22,6 +22,93 @@ export type TikTokPublishBlockInput = {
 };
 
 /**
+ * Duration check against `creator_info.max_video_post_duration_sec`.
+ * A missing/zero max duration means "no limit" and an unknown video duration
+ * means "cannot be checked here" – neither ever counts as exceeded.
+ *
+ * Shared by the editor (blocked action buttons + inline warning) and the
+ * server pre-flight in `publish-tiktok.ts`, so both use one rule.
+ */
+export function isTikTokDurationExceeded(
+  videoDurationSec: number | null | undefined,
+  maxDurationSec: number | null | undefined,
+): boolean {
+  if (maxDurationSec == null || maxDurationSec <= 0) return false;
+  if (videoDurationSec == null) return false;
+  return videoDurationSec > maxDurationSec;
+}
+
+/**
+ * Server-side pre-flight result for the video duration. On failure no bytes
+ * are ever sent to TikTok (checked before `publish/video/init`).
+ */
+export function validateTikTokVideoDuration(params: {
+  videoDurationSec: number | null | undefined;
+  maxDurationSec: number | null | undefined;
+}): { ok: true } | { ok: false; error: string } {
+  const { videoDurationSec, maxDurationSec } = params;
+  if (!isTikTokDurationExceeded(videoDurationSec, maxDurationSec)) {
+    return { ok: true };
+  }
+  return { ok: false, error: buildTikTokDurationError(maxDurationSec as number) };
+}
+
+/** Czech server-side message (all other TikTok action errors are Czech too). */
+export function buildTikTokDurationError(maxDurationSec: number): string {
+  return `Video přesahuje maximální délku ${maxDurationSec} s povolenou pro tento TikTok účet.`;
+}
+
+/**
+ * Reads the client-measured video duration out of a post's platform metadata.
+ * Anything that is not a finite number counts as "unknown" (null) – an unknown
+ * duration never blocks a publish on its own.
+ */
+export function readTikTokVideoDurationSec(
+  metadata: Record<string, unknown> | null | undefined,
+): number | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const raw = metadata.video_duration_sec;
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+}
+
+/** Settled state of the creator_info request backing the TikTok panel. */
+export type TikTokCreatorInfoView =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready" };
+
+/**
+ * Direct Post UX: the panel must never stay on "loading" once the request has
+ * settled. A settled request without data (creator_info failed, account
+ * missing, network error) is a failure and is shown as such – the publish
+ * actions stay blocked. Note the final `"error"` fallback: it is what turns a
+ * silent failure into a message instead of an eternal "loading" text.
+ */
+export function resolveTikTokCreatorInfoView(input: {
+  loading: boolean;
+  info: unknown | null;
+  error: string | null;
+}): TikTokCreatorInfoView {
+  if (input.loading) return { status: "loading" };
+  if (input.error) return { status: "error" };
+  return input.info ? { status: "ready" } : { status: "error" };
+}
+
+/**
+ * Effect key for the creator_info request – a changed key means "refetch".
+ * It carries the selected TikTok account id so switching the target account
+ * reloads that creator's nickname, privacy options and interaction flags.
+ * Returns `null` when TikTok is not a target platform (nothing to load).
+ */
+export function buildTikTokCreatorInfoKey(
+  hasTikTokIntent: boolean,
+  accountId: string | null | undefined,
+): string | null {
+  if (!hasTikTokIntent) return null;
+  return `tiktok:${accountId ?? "default"}`;
+}
+
+/**
  * Direct Post UX: publishing is blocked until the user has (1) explicitly
  * picked a privacy level (no default), (2) consented to TikTok's terms,
  * (3) chosen at least one commercial option when the disclosure toggle is on,
@@ -33,12 +120,9 @@ export function computeTikTokPublishBlocked(
   if (!input.hasTikTokIntent) return { blocked: false, reason: null };
   if (!input.privacyLevel) return { blocked: true, reason: "privacy" };
 
-  const durationExceeded =
-    input.maxDurationSec != null &&
-    input.maxDurationSec > 0 &&
-    input.videoDurationSec != null &&
-    input.videoDurationSec > input.maxDurationSec;
-  if (durationExceeded) return { blocked: true, reason: "duration" };
+  if (isTikTokDurationExceeded(input.videoDurationSec, input.maxDurationSec)) {
+    return { blocked: true, reason: "duration" };
+  }
 
   const commercialMissing =
     input.commercialEnabled && !input.brandContent && !input.brandOrganic;

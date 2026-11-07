@@ -7,8 +7,10 @@ import {
   TIKTOK_SANDBOX_PRIVATE_ONLY_ERROR_CODE,
 } from "@/lib/tiktok-publish-errors";
 import {
+  readTikTokVideoDurationSec,
   resolveTikTokDisableFlag,
   resolveTikTokEffectiveBrandFlags,
+  validateTikTokVideoDuration,
 } from "@/lib/tiktok-direct-post";
 
 const TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
@@ -101,6 +103,12 @@ type TikTokPostSettings = {
   brandContentToggle?: boolean;
   /** Brand organic ("Promoting myself/my business") sub-option. */
   brandOrganicToggle?: boolean;
+  /**
+   * Longest attached video's duration in seconds (measured client-side at
+   * upload). Used only for the server-side pre-flight against the creator's
+   * `max_video_post_duration_sec`; absent means "cannot be checked here".
+   */
+  videoDurationSec?: number | null;
 };
 
 type TikTokPublishActionResult =
@@ -173,6 +181,7 @@ function readTikTokPostSettings(
       typeof metadata.brand_organic_toggle === "boolean"
         ? metadata.brand_organic_toggle
         : undefined,
+    videoDurationSec: readTikTokVideoDurationSec(metadata),
   };
 
   if (
@@ -682,7 +691,16 @@ async function publishToTikTok(params: {
   };
 }
 
-export async function getTikTokCreatorInfoAction(): Promise<
+/**
+ * Loads the creator_info of the TikTok account the video will be posted to.
+ *
+ * `accountId` is the account currently selected in the editor, so switching
+ * between two connected TikTok accounts reloads that creator's nickname,
+ * privacy options and interaction flags instead of reusing another account's.
+ * Without an id we fall back to the newest active account (single-account
+ * case, and any caller that does not know the selection).
+ */
+export async function getTikTokCreatorInfoAction(accountId?: string | null): Promise<
   | { success: true; data: TikTokCreatorInfo }
   | { success: false; error: string }
 > {
@@ -697,14 +715,21 @@ export async function getTikTokCreatorInfoAction(): Promise<
   }
 
   const supabaseAdmin = createAdminClient();
-  const { data: accounts } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("social_accounts")
     .select("id, user_id, platform, access_token, token_expires_at, metadata")
     .eq("user_id", user.id)
     .ilike("platform", "tiktok")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .eq("is_active", true);
+
+  if (accountId) {
+    // Exact match on the user's own active account – never another user's.
+    query = query.eq("id", accountId);
+  } else {
+    query = query.order("created_at", { ascending: false }).limit(1);
+  }
+
+  const { data: accounts } = await query;
 
   const account = accounts?.[0] as SocialAccountRow | undefined;
   if (!account) {
@@ -780,6 +805,17 @@ export async function publishToTikTokAction(params: {
   });
 
   const tiktokSettings = readTikTokPostSettings(platformMetadata);
+  // Duration pre-flight against the creator's limit. Runs before any content is
+  // sent to TikTok (creator_info is an account-level call, no video bytes), so
+  // an over-long video is refused locally instead of failing inside the API.
+  const durationCheck = validateTikTokVideoDuration({
+    videoDurationSec: tiktokSettings.videoDurationSec ?? null,
+    maxDurationSec: creatorInfoResult.data.maxVideoPostDurationSec,
+  });
+  if (!durationCheck.ok) {
+    return { success: false, error: durationCheck.error };
+  }
+
   // Server-side gate: disclosure sub-options only apply while the toggle is
   // ON. This protects against stale sub-option metadata (e.g. the user ticked
   // Brand Organic, then disabled the disclosure toggle before publishing).

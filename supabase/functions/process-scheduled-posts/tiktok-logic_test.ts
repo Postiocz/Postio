@@ -1,12 +1,11 @@
 // Tests for the pure scheduled-TikTok rules.
 //
 // Run with (Deno is not vendored in this repo, so fetch it via npx):
-//   npx -y deno test --unstable-sloppy-imports \
-//     supabase/functions/process-scheduled-posts/tiktok-logic_test.ts
+//   npx -y deno test supabase/functions/process-scheduled-posts/tiktok-logic_test.ts
 //
-// The flag is needed because the repo's tsconfig forbids ".ts" extensions in
-// imports, so both index.ts and this file import the logic module extensionless
-// (tsc resolves it, Deno needs the flag / a bundler like the Supabase CLI).
+// The import carries an explicit ".ts" extension: Deno and the Supabase edge
+// bundler require it, and tsconfig enables `allowImportingTsExtensions` so
+// `tsc --noEmit` accepts the same specifier.
 
 // The repo has no Deno type package – `types.d.ts` types only the `Deno`
 // surface used by index.ts. Declare the test-runner surface module-locally so
@@ -30,8 +29,8 @@ import {
   resolveScheduledTikTokPrivacyLevel,
   resolveTikTokDisableFlag,
   resolveTikTokEffectiveBrandFlags,
-} from "./tiktok-logic";
-import type { TikTokCreatorLimits, TikTokPlatformSettings } from "./tiktok-logic";
+} from "./tiktok-logic.ts";
+import type { TikTokCreatorLimits, TikTokPlatformSettings } from "./tiktok-logic.ts";
 
 function assertEquals<T>(actual: T, expected: T, message?: string) {
   const a = JSON.stringify(actual);

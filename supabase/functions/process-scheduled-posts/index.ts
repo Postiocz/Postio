@@ -7,7 +7,7 @@ import {
   buildScheduledTikTokPlan,
   canRetryTikTokAsPrivateOnly,
   type ScheduledTikTokPlan,
-} from "./tiktok-logic";
+} from "./tiktok-logic.ts";
 
 /**
  * Reads and caches the CRON_SECRET env var.

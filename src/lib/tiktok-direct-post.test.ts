@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildTikTokCreatorInfoKey,
   computeTikTokPublishBlocked,
   isTikTokBrandedPrivateConflict,
+  isTikTokDurationExceeded,
   isTikTokPrivateOnlyAccount,
+  readTikTokVideoDurationSec,
   resolveEffectiveTikTokPrivacyLevel,
+  resolveTikTokCreatorInfoView,
   resolveTikTokDisableFlag,
   resolveTikTokEffectiveBrandFlags,
+  validateTikTokVideoDuration,
 } from "./tiktok-direct-post";
 
 const base = {
@@ -206,5 +211,148 @@ describe("resolveEffectiveTikTokPrivacyLevel", () => {
   it("passes through the privacy level when not Branded Content", () => {
     expect(resolveEffectiveTikTokPrivacyLevel(false, "SELF_ONLY")).toBe("SELF_ONLY");
     expect(resolveEffectiveTikTokPrivacyLevel(false, null)).toBeNull();
+  });
+});
+
+describe("resolveTikTokCreatorInfoView", () => {
+  it("reports loading only while the request is actually in flight", () => {
+    expect(
+      resolveTikTokCreatorInfoView({ loading: true, info: null, error: null }),
+    ).toEqual({ status: "loading" });
+  });
+
+  it("reports ready once creator_info arrived", () => {
+    expect(
+      resolveTikTokCreatorInfoView({
+        loading: false,
+        info: { creatorNickname: "Postio" },
+        error: null,
+      }),
+    ).toEqual({ status: "ready" });
+  });
+
+  it("reports an error – not loading – when the request failed", () => {
+    // The failure path previously left the panel on "Loading TikTok account
+    // options…" forever; a settled request without data must read as an error.
+    expect(
+      resolveTikTokCreatorInfoView({
+        loading: false,
+        info: null,
+        error: "Nepodařilo se načíst možnosti TikTok účtu.",
+      }),
+    ).toEqual({ status: "error" });
+  });
+
+  it("reports an error when the request settled without data and no message", () => {
+    // Belt and braces: a silent failure (network throw, missing account) still
+    // must not render as loading, so publishing stays blocked with a message.
+    expect(
+      resolveTikTokCreatorInfoView({ loading: false, info: null, error: null }),
+    ).toEqual({ status: "error" });
+  });
+
+  it("prefers a fresh error over stale creator info", () => {
+    // After switching to an account whose creator_info failed, the previous
+    // account's data must not keep the panel looking healthy.
+    expect(
+      resolveTikTokCreatorInfoView({
+        loading: false,
+        info: { creatorNickname: "Previous account" },
+        error: "creator_info_failed",
+      }),
+    ).toEqual({ status: "error" });
+  });
+});
+
+describe("buildTikTokCreatorInfoKey", () => {
+  it("produces a new key when the target TikTok account changes", () => {
+    // The editor's useEffect depends on this key, so a different account id
+    // means a refetch of that creator's privacy options and nickname.
+    expect(buildTikTokCreatorInfoKey(true, "account-a")).not.toBe(
+      buildTikTokCreatorInfoKey(true, "account-b"),
+    );
+  });
+
+  it("keeps the key stable for the same account", () => {
+    expect(buildTikTokCreatorInfoKey(true, "account-a")).toBe(
+      buildTikTokCreatorInfoKey(true, "account-a"),
+    );
+  });
+
+  it("is null when TikTok is not a target platform", () => {
+    expect(buildTikTokCreatorInfoKey(false, "account-a")).toBeNull();
+    expect(buildTikTokCreatorInfoKey(false, null)).toBeNull();
+  });
+
+  it("still loads (default account) when the selection is not resolved yet", () => {
+    expect(buildTikTokCreatorInfoKey(true, null)).toBe("tiktok:default");
+    expect(buildTikTokCreatorInfoKey(true, undefined)).toBe("tiktok:default");
+  });
+});
+
+describe("isTikTokDurationExceeded", () => {
+  it("is true only when the video is longer than the creator's limit", () => {
+    expect(isTikTokDurationExceeded(61, 60)).toBe(true);
+    expect(isTikTokDurationExceeded(60, 60)).toBe(false);
+    expect(isTikTokDurationExceeded(10, 60)).toBe(false);
+  });
+
+  it("is false when either side is unknown", () => {
+    expect(isTikTokDurationExceeded(null, 60)).toBe(false);
+    expect(isTikTokDurationExceeded(undefined, 60)).toBe(false);
+    expect(isTikTokDurationExceeded(9999, null)).toBe(false);
+    expect(isTikTokDurationExceeded(9999, 0)).toBe(false);
+  });
+});
+
+describe("readTikTokVideoDurationSec", () => {
+  it("reads the duration stored by the editor", () => {
+    expect(readTikTokVideoDurationSec({ video_duration_sec: 42.5 })).toBe(42.5);
+  });
+
+  it("treats missing, non-numeric and non-finite values as unknown", () => {
+    expect(readTikTokVideoDurationSec(null)).toBeNull();
+    expect(readTikTokVideoDurationSec(undefined)).toBeNull();
+    expect(readTikTokVideoDurationSec({})).toBeNull();
+    expect(readTikTokVideoDurationSec({ video_duration_sec: "61" })).toBeNull();
+    expect(readTikTokVideoDurationSec({ video_duration_sec: Number.NaN })).toBeNull();
+    expect(readTikTokVideoDurationSec({ video_duration_sec: Infinity })).toBeNull();
+  });
+});
+
+describe("validateTikTokVideoDuration (server pre-flight)", () => {
+  it("returns an error for a video longer than the creator's limit", () => {
+    // This is what publishToTikTokAction returns before video/init – no video
+    // bytes are sent to TikTok for an over-long video.
+    const videoDurationSec = readTikTokVideoDurationSec({
+      video_duration_sec: 61,
+    });
+    expect(
+      validateTikTokVideoDuration({ videoDurationSec, maxDurationSec: 60 }),
+    ).toEqual({
+      ok: false,
+      error: "Video přesahuje maximální délku 60 s povolenou pro tento TikTok účet.",
+    });
+  });
+
+  it("passes a video at or under the limit", () => {
+    expect(
+      validateTikTokVideoDuration({ videoDurationSec: 60, maxDurationSec: 60 }),
+    ).toEqual({ ok: true });
+    expect(
+      validateTikTokVideoDuration({ videoDurationSec: 8, maxDurationSec: 60 }),
+    ).toEqual({ ok: true });
+  });
+
+  it("passes when the duration or the creator's limit is unknown", () => {
+    expect(
+      validateTikTokVideoDuration({ videoDurationSec: null, maxDurationSec: 60 }),
+    ).toEqual({ ok: true });
+    expect(
+      validateTikTokVideoDuration({ videoDurationSec: 9999, maxDurationSec: null }),
+    ).toEqual({ ok: true });
+    expect(
+      validateTikTokVideoDuration({ videoDurationSec: 9999, maxDurationSec: 0 }),
+    ).toEqual({ ok: true });
   });
 });

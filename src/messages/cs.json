@@ -533,6 +533,7 @@
     "tiktokPrivateOnlyNotice": "TikTok v tomto režimu povoluje pouze soukromé příspěvky. Video bude publikováno jako „Pouze já“.",
     "tiktokUnauditedPrivateOnlyError": "TikTok u neauditované aplikace povolí publikování jen na soukromé účty. Nestačí nastavit příspěvek na 'Pouze já' - samotný TikTok účet musí být při publikování nastaven jako soukromý.",
     "tiktokCreatorInfoLoading": "Načítám možnosti TikTok účtu…",
+    "tiktokCreatorInfoError": "Možnosti TikTok účtu se nepodařilo načíst. Zkuste to prosím později.",
     "tiktokCreatorInfoSummary": "Aktuální možnosti publikace pro účet {account}.",
     "tiktokPrivacySelectLabel": "Viditelnost videa",
     "tiktokPrivacyPlaceholder": "Vyberte viditelnost…",

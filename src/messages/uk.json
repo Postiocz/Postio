@@ -533,6 +533,7 @@
     "tiktokPrivateOnlyNotice": "У цьому режимі TikTok дозволяє лише приватні публікації. Відео буде опубліковане як «Лише я».",
     "tiktokUnauditedPrivateOnlyError": "Для неаудитованої TikTok-аплікації публікація дозволена лише для приватних акаунтів. Недостатньо вибрати для допису «Лише я» — сам акаунт TikTok під час публікації теж має бути приватним.",
     "tiktokCreatorInfoLoading": "Завантажую можливості акаунта TikTok…",
+    "tiktokCreatorInfoError": "Не вдалося завантажити параметри акаунта TikTok. Спробуйте пізніше.",
     "tiktokCreatorInfoSummary": "Поточні параметри публікації для акаунта {account}.",
     "tiktokPrivacySelectLabel": "Видимість відео",
     "tiktokPrivacyPlaceholder": "Виберіть видимість…",

@@ -20,9 +20,11 @@ import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createPostAction, updatePost } from "@/lib/actions/posts";
 import {
+  buildTikTokCreatorInfoKey,
   computeTikTokPublishBlocked,
   isTikTokPrivateOnlyAccount,
   resolveEffectiveTikTokPrivacyLevel,
+  resolveTikTokCreatorInfoView,
 } from "@/lib/tiktok-direct-post";
 import { publishPost, updateRemotePostAction, publishAdditionalPlatforms, updateOnPlatformAction } from "@/lib/actions/publish";
 import { getNextAvailableQueueSlot } from "@/lib/actions/queue";
@@ -596,6 +598,10 @@ export function EditPostDialog({
   const [updatingPlatforms, setUpdatingPlatforms] = useState<Record<string, boolean>>({});
   const [tiktokCreatorInfo, setTikTokCreatorInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokCreatorInfoLoading, setTikTokCreatorInfoLoading] = useState(false);
+  // Non-null once the creator_info request has settled without data – the
+  // panel then shows an error instead of an eternal "loading" text while
+  // publishing stays blocked.
+  const [tiktokCreatorInfoError, setTikTokCreatorInfoError] = useState<string | null>(null);
   // Authentic TikTok handle (`creator_username`) used to build the
   // "Open on network" URL. Falls back to a sanitized account name.
   const [tiktokUsernameFromDb, setTikTokUsernameFromDb] = useState<string | null>(null);
@@ -640,6 +646,21 @@ export function EditPostDialog({
     return all.has("tiktok");
   }, [selectedPlatforms, post?.platforms, post?.post_platforms]);
 
+  // Target TikTok account. Switching it must reload the creator data (the
+  // panel describes the account the video is published to).
+  const selectedTikTokAccountId = useMemo(() => {
+    const account = allAccounts.find(
+      (a) => a.platform === "tiktok" && selectedAccountIds.includes(a.id),
+    );
+    return account?.id ?? null;
+  }, [allAccounts, selectedAccountIds]);
+
+  // Effect key: changes on account switch, so the effect below refetches.
+  const tiktokCreatorInfoKey = buildTikTokCreatorInfoKey(
+    hasTikTokIntent,
+    selectedTikTokAccountId,
+  );
+
   // Privacy options come EXCLUSIVELY from creator_info.privacy_level_options
   // (Direct Post UX requirement). Empty while creator info is not loaded.
   const allowedTikTokPrivacyLevels = useMemo(() => {
@@ -655,6 +676,18 @@ export function EditPostDialog({
       allowedTikTokPrivacyLevels[0] === "SELF_ONLY",
     [allowedTikTokPrivacyLevels],
   );
+
+  // loading / error / ready – a settled request without data is an error, so
+  // the panel never stays on "Loading TikTok account options…" forever.
+  const tiktokCreatorInfoView = resolveTikTokCreatorInfoView({
+    // Before the first request starts there is neither data nor an error:
+    // that is still "loading", never an error flash on the first paint.
+    loading:
+      tiktokCreatorInfoLoading ||
+      (tiktokCreatorInfo === null && tiktokCreatorInfoError === null),
+    info: tiktokCreatorInfo,
+    error: tiktokCreatorInfoError,
+  });
 
   // Longest ready video's duration in seconds (TikTok max-duration check).
   const tiktokVideoDurationSec = useMemo(() => {
@@ -735,6 +768,9 @@ export function EditPostDialog({
         commercial_enabled: tiktokCommercialEnabled,
         brand_content_toggle: tiktokCommercialEnabled && tiktokBrandContent,
         brand_organic_toggle: tiktokCommercialEnabled && tiktokBrandOrganic,
+        // Measured at upload; lets the server re-check the video against the
+        // creator's max_video_post_duration_sec before video/init.
+        video_duration_sec: tiktokVideoDurationSec,
       },
     };
   }, [
@@ -745,6 +781,7 @@ export function EditPostDialog({
     tiktokAllowStitch,
     tiktokBrandContent,
     tiktokBrandOrganic,
+    tiktokVideoDurationSec,
   ]);
 
   // Determine which selected platforms are not yet published
@@ -933,22 +970,25 @@ export function EditPostDialog({
   }, [getInitialTikTokSettings, isEdit, loadExistingUrls, open, post]);
 
   useEffect(() => {
-    if (!open || !hasTikTokIntent) return;
+    if (!open || !tiktokCreatorInfoKey) return;
 
     let cancelled = false;
     const loadTikTokCreatorInfo = async () => {
       setTikTokCreatorInfoLoading(true);
+      setTikTokCreatorInfoError(null);
 
       try {
-        const result = await getTikTokCreatorInfoAction();
+        const result = await getTikTokCreatorInfoAction(selectedTikTokAccountId);
         if (cancelled) return;
 
         if (!result.success) {
           setTikTokCreatorInfo(null);
+          setTikTokCreatorInfoError(result.error || "creator_info_failed");
           return;
         }
 
         setTikTokCreatorInfo(result.data);
+        setTikTokCreatorInfoError(null);
         // Privacy is never pre-selected (Direct Post UX requires an explicit
         // user choice). We only validate that a previously chosen value is
         // still allowed; otherwise it is cleared so the user must re-pick.
@@ -960,6 +1000,7 @@ export function EditPostDialog({
       } catch {
         if (!cancelled) {
           setTikTokCreatorInfo(null);
+          setTikTokCreatorInfoError("creator_info_failed");
         }
       } finally {
         if (!cancelled) {
@@ -973,7 +1014,7 @@ export function EditPostDialog({
     return () => {
       cancelled = true;
     };
-  }, [hasTikTokIntent, open]);
+  }, [tiktokCreatorInfoKey, selectedTikTokAccountId, open]);
 
   // Resolve the authentic TikTok handle for building the "Open on network"
   // URL. Prefers `creator_info_cache.creator_username` (persisted by
@@ -2611,18 +2652,25 @@ export function EditPostDialog({
               {/* Creator account (Direct Post UX: the account receiving the
                   video must be identified before publishing). */}
               <div className="rounded-[20px] border border-black/5 bg-black/[0.02] p-3 text-xs text-muted-foreground/70 dark:border-white/10 dark:bg-black/20">
-                <p>
-                  {tiktokCreatorInfoLoading
+                <p
+                  className={cn(
+                    tiktokCreatorInfoView.status === "error" &&
+                      "text-amber-500",
+                  )}
+                >
+                  {tiktokCreatorInfoView.status === "loading"
                     ? t("tiktokCreatorInfoLoading")
-                    : t(
-                        "tiktokCreatorInfoSummary",
-                        {
-                          account:
-                            tiktokCreatorInfo?.creatorNickname ||
-                            tiktokCreatorInfo?.creatorUsername ||
-                            "TikTok",
-                        },
-                      )}
+                    : tiktokCreatorInfoView.status === "error"
+                      ? t("tiktokCreatorInfoError")
+                      : t(
+                          "tiktokCreatorInfoSummary",
+                          {
+                            account:
+                              tiktokCreatorInfo?.creatorNickname ||
+                              tiktokCreatorInfo?.creatorUsername ||
+                              "TikTok",
+                          },
+                        )}
                 </p>
               </div>
 
@@ -2668,8 +2716,16 @@ export function EditPostDialog({
                       );
                     })}
                     {allowedTikTokPrivacyLevels.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground/60">
-                        {t("tiktokCreatorInfoLoading")}
+                      <div
+                        className={cn(
+                          "px-3 py-2 text-xs text-muted-foreground/60",
+                          tiktokCreatorInfoView.status === "error" &&
+                            "text-amber-500",
+                        )}
+                      >
+                        {tiktokCreatorInfoView.status === "error"
+                          ? t("tiktokCreatorInfoError")
+                          : t("tiktokCreatorInfoLoading")}
                       </div>
                     )}
                   </SelectContent>

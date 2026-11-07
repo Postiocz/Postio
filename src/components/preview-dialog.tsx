@@ -9,6 +9,11 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { proxyImageUrl } from "@/lib/image-proxy";
 import { buildLiveUrlInfo, type LiveUrlResult } from "@/lib/live-url";
+import { getPreviewAccountsAction } from "@/lib/actions/social-account-preview-actions";
+import {
+  PREVIEWABLE_PLATFORMS,
+  type PreviewPlatform,
+} from "@/lib/social-account-preview";
 import {
   Instagram,
   Facebook,
@@ -54,7 +59,8 @@ export interface PreviewProfile {
   username?: string | null;
 }
 
-type PreviewPlatform = "facebook" | "instagram" | "youtube" | "linkedin" | "tiktok" | "twitter";
+// `PreviewPlatform` + `PREVIEWABLE_PLATFORMS` are shared with the server
+// actions that resolve the TikTok handle (see @/lib/social-account-preview).
 
 // ---------------------------------------------------------------------
 // Platform icon map
@@ -71,14 +77,6 @@ const PlatformIconMap: Record<string, React.ElementType> = {
 };
 
 // Platforms that have a high-fidelity preview renderer
-const PREVIEWABLE_PLATFORMS: PreviewPlatform[] = [
-  "facebook",
-  "instagram",
-  "youtube",
-  "linkedin",
-  "tiktok",
-  "twitter",
-];
 
 // Per-platform brand accents
 const PLATFORM_ACCENTS: Record<PreviewPlatform, string> = {
@@ -155,29 +153,27 @@ export function PreviewDialog({
           effectiveUserId = user?.id;
         }
         if (!effectiveUserId || cancelled) return;
-        const [userRes, accountsRes] = await Promise.all([
+        const [userRes, accounts] = await Promise.all([
           supabase
             .from("users")
             .select("full_name, avatar_url")
             .eq("id", effectiveUserId)
             .maybeSingle(),
-          supabase
-            .from("social_accounts")
-            .select("platform, account_name, avatar_url, metadata")
-            .eq("user_id", effectiveUserId)
-            .eq("is_active", true)
-            .in("platform", PREVIEWABLE_PLATFORMS),
+          // Server action: returns only {platform, account_name, avatar_url,
+          // tiktokUsername}. `social_accounts.metadata` (which also holds the
+          // TikTok/Facebook/YouTube tokens) never reaches the browser.
+          getPreviewAccountsAction(),
         ]);
         if (cancelled) return;
         const fallbackName = userRes.data?.full_name ?? t("previewPlaceholderName");
         const fallbackAvatar = userRes.data?.avatar_url ?? null;
         const newProfiles: Record<string, PreviewProfile | null> = {};
         for (const p of PREVIEWABLE_PLATFORMS) {
-          const acc = accountsRes.data?.find((a) => a.platform === p);
+          const acc = accounts.find((a) => a.platform === p);
           newProfiles[p] = {
             displayName: acc?.account_name ?? fallbackName,
             avatarUrl: acc?.avatar_url ?? fallbackAvatar,
-            username: resolveTikTokUsername(acc),
+            username: acc?.tiktokUsername ?? null,
           };
         }
         setProfiles(newProfiles);
@@ -405,35 +401,11 @@ export function PreviewDialog({
 }
 
 // ---------------------------------------------------------------------
-// Resolve the authentic TikTok handle (without leading "@") from a
-// connected account row. TikTok OAuth only stores the display name in
-// `account_name`, so the real handle lives in `creator_info_cache` which is
-// persisted whenever `creator_info/query` runs (during publish / editing).
+// The TikTok handle is resolved server-side (see
+// `@/lib/actions/social-account-preview-actions`) so the browser never sees
+// `social_accounts.metadata`. The account row arrives here already sanitized
+// as `{ platform, account_name, avatar_url, tiktokUsername }`.
 // ---------------------------------------------------------------------
-
-function resolveTikTokUsername(
-  acc:
-    | {
-        platform?: string;
-        account_name?: string | null;
-        metadata?: unknown;
-      }
-    | null
-    | undefined,
-): string | null {
-  if (acc?.platform !== "tiktok") return null;
-
-  const cache =
-    (acc.metadata as Record<string, unknown> | null | undefined)
-      ?.creator_info_cache as { creator_username?: string | null } | undefined;
-  const cachedHandle = cache?.creator_username?.trim();
-  if (cachedHandle) return cachedHandle.replace(/^@/, "");
-
-  const name = acc.account_name?.trim();
-  if (name) return name.replace(/\s+/g, "").toLowerCase().replace(/^@/, "");
-
-  return null;
-}
 
 // ---------------------------------------------------------------------
 // Avatar helper
